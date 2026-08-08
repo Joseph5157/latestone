@@ -18,6 +18,8 @@ def layout(
     device_code: str = "",
     metric_key: str | None = None,
     period: str | None = None,
+    custom_start: str | None = None,
+    custom_end: str | None = None,
 ) -> html.Div:
     metric_options = [{"label": m.label, "value": m.key} for m in ordered_metrics()]
     initial_metric = metric_key or (metric_options[0]["value"] if metric_options else None)
@@ -74,6 +76,8 @@ def layout(
                             dcc.DatePickerRange(
                                 id="custom-date-range",
                                 display_format="YYYY-MM-DD",
+                                start_date=custom_start,
+                                end_date=custom_end,
                             ),
                         ],
                     ),

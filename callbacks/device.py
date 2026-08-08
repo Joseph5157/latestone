@@ -1,9 +1,10 @@
 """Device dashboard callback — single callback owns the whole dashboard body."""
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import datetime, time, timedelta
 
-from dash import Input, Output, State, callback, html, no_update
+from dash import Input, Output, State, no_update
 
 from components.freshness_badge import freshness_badge
 from components.kpi_card import kpi_row
@@ -11,8 +12,27 @@ from components.metric_chart import build_metric_figure
 from components.metric_snapshot_strip import metric_snapshot_strip
 from components.readings_table import build_table_rows
 from components.status_panels import error_panel
+from routes import device_href
 from services import monitoring_service as svc
 from services.monitoring_service import Period
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_picker_date(value: str | None, *, is_end: bool = False) -> datetime | None:
+    """Convert a `dcc.DatePickerRange` value into a query bound.
+
+    The picker yields a calendar date ("2026-08-06"), not an instant. Parsing
+    that literally gives midnight, which would exclude the whole of the chosen
+    end day — selecting Aug 3 to Aug 6 silently dropped 47 of 192 readings and
+    skewed every period KPI. An end date therefore means the *end* of that day.
+    """
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if is_end and parsed.time() == time.min:
+        parsed = parsed + timedelta(days=1) - timedelta(microseconds=1)
+    return parsed
 
 
 def register(app) -> None:
@@ -56,10 +76,8 @@ def register(app) -> None:
             start = None
             end = None
             if period is Period.CUSTOM:
-                if custom_start:
-                    start = datetime.fromisoformat(custom_start)
-                if custom_end:
-                    end = datetime.fromisoformat(custom_end)
+                start = _parse_picker_date(custom_start)
+                end = _parse_picker_date(custom_end, is_end=True)
 
             # 4. Get metric view
             view = svc.get_metric_view(device_id, metric_key, period, start, end)
@@ -68,7 +86,10 @@ def register(app) -> None:
                 return [no_update] * 7
 
             # 5. Build outputs
-            strip = metric_snapshot_strip(snapshots, metric_key, device_id)
+            strip = metric_snapshot_strip(
+                snapshots, metric_key, device_id,
+                period=period_value, custom_start=custom_start, custom_end=custom_end,
+            )
             kpis = kpi_row(view)
             fig = build_metric_figure(view.metric, view.series)
 
@@ -88,6 +109,12 @@ def register(app) -> None:
             return strip, kpis, fig, table_data, table_columns, freshness, last_data
 
         except Exception:
+            # Logged in full so programming errors are diagnosable; the UI panel
+            # stays generic and never exposes internals.
+            logger.exception(
+                "Device dashboard refresh failed for device_id=%r metric=%r period=%r",
+                device_id, metric_key, period_value,
+            )
             err = error_panel()
             return err, err, {}, [], [], err, "\u2014"
 
@@ -97,13 +124,25 @@ def register(app) -> None:
         Output("url", "search"),
         Input("metric-dropdown", "value"),
         Input("period-radio", "value"),
+        Input("custom-date-range", "start_date"),
+        Input("custom-date-range", "end_date"),
         State("page-context", "data"),
         prevent_initial_call=True,
     )
-    def sync_query_string(metric_key, period_value, context):
+    def sync_query_string(metric_key, period_value, custom_start, custom_end, context):
         if not context or context.get("route") != "device":
             return no_update
-        return f"?metric={metric_key}&period={period_value}"
+        # Custom bounds are carried in the URL too; without them a shared
+        # "period=custom" link opens on an empty dashboard.
+        href = device_href(
+            context.get("device_id", ""),
+            metric_key=metric_key,
+            period=period_value,
+            start=custom_start,
+            end=custom_end,
+        )
+        _, _, query = href.partition("?")
+        return f"?{query}" if query else ""
 
     # Note: dropdown/radio are initialized from page-context by device_dashboard.layout()
     # on each route render, so no separate url.search -> dropdown callback is needed

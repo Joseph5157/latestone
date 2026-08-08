@@ -8,11 +8,28 @@ connection details out of UI/service/repository code.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
+from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_identifier(value: str, name: str) -> str:
+    """Guard a value that will be interpolated into SQL as an identifier.
+
+    Schema names cannot be passed as bound parameters, so the repository
+    interpolates this one. It comes from application configuration and is not
+    reachable from browser input, but validating here means that stays true
+    even if the value is later sourced from somewhere less trusted.
+    """
+    if not _IDENTIFIER_RE.match(value):
+        raise ValueError(f"{name} must be a plain SQL identifier, got {value!r}")
+    return value
 
 
 def _get_bool(name: str, default: bool) -> bool:
@@ -42,8 +59,11 @@ class DatabaseSettings:
 
     @property
     def sqlalchemy_url(self) -> str:
+        # Credentials must be percent-encoded: an unescaped '@', ':' or '/' in a
+        # password otherwise corrupts the URL and surfaces as a baffling
+        # "invalid literal for int()" from the port parser.
         return (
-            f"postgresql+psycopg2://{self.user}:{self.password}"
+            f"postgresql+psycopg2://{quote_plus(self.user)}:{quote_plus(self.password)}"
             f"@{self.host}:{self.port}/{self.db}"
         )
 
@@ -73,7 +93,10 @@ class MonitoringSettings:
         development convenience; production polling should be aligned to
         actual ingestion behaviour.
     """
-    schema: str = os.getenv("PLANT_MONITORING_SCHEMA", "plant_monitoring")
+    schema: str = _validate_identifier(
+        os.getenv("PLANT_MONITORING_SCHEMA", "plant_monitoring"),
+        "PLANT_MONITORING_SCHEMA",
+    )
     expected_interval_minutes: int = _get_int("EXPECTED_INTERVAL_MINUTES", 30)
     stale_after_intervals: int = _get_int("STALE_AFTER_INTERVALS", 3)
     refresh_interval_seconds: int = _get_int("UI_REFRESH_INTERVAL_SECONDS", 60)

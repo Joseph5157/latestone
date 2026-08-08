@@ -3,7 +3,7 @@ Local/mock authentication service for the demo.
 
 Intentionally isolated so it can be swapped for the client's real
 authentication (API/session/SSO) without touching UI code - callbacks
-should only ever call `verify_credentials()` and `is_authenticated()`.
+should only ever call `verify_credentials()`.
 """
 from __future__ import annotations
 

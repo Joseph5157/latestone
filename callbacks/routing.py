@@ -1,85 +1,25 @@
-"""URL parsing, building, and route registration."""
+"""Route registration.
+
+URL parsing/building lives in the top-level `routes` module so components can
+share it; the names are re-exported here for existing callers.
+"""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from urllib.parse import parse_qs
+import logging
 
 from dash import Input, Output, html
 
-from config.metrics import DEFAULT_METRIC_KEY, METRIC_KEYS
 from components.status_panels import error_panel, not_found_panel
 from pages import plants_overview, plant_detail, transformer_detail, device_dashboard
+from routes import Route, device_href, parse_custom_range, parse_pathname, parse_query
 from services import hierarchy_service
 
+__all__ = [
+    "Route", "parse_pathname", "parse_query", "parse_custom_range",
+    "device_href", "register",
+]
 
-@dataclass(frozen=True)
-class Route:
-    name: str                       # "overview" | "plant" | "transformer" | "device" | "unknown"
-    plant_id: str | None = None
-    transformer_id: str | None = None
-    device_id: str | None = None
-
-
-def parse_pathname(pathname: str | None) -> Route:
-    if not pathname or pathname in ("/", "/plants", "/plants/"):
-        return Route(name="overview")
-
-    parts = [p for p in pathname.strip("/").split("/") if p]
-
-    if len(parts) == 1 and parts[0] == "plants":
-        return Route(name="overview")
-
-    if len(parts) == 2 and parts[0] == "plants":
-        return Route(name="plant", plant_id=parts[1])
-
-    if len(parts) == 3 and parts[0] == "plants":
-        return Route(
-            name="transformer",
-            plant_id=parts[1],
-            transformer_id=parts[2],
-        )
-
-    if len(parts) == 2 and parts[0] == "devices":
-        return Route(name="device", device_id=parts[1])
-
-    return Route(name="unknown")
-
-
-def parse_query(search: str | None) -> tuple[str, str]:
-    """Extract metric_key and period from query string, with defaults."""
-    if not search:
-        return DEFAULT_METRIC_KEY, "24h"
-
-    params = parse_qs(search.lstrip("?"))
-    metric = params.get("metric", [DEFAULT_METRIC_KEY])[0]
-    period = params.get("period", ["24h"])[0]
-
-    if metric not in METRIC_KEYS:
-        metric = DEFAULT_METRIC_KEY
-    if period not in ("24h", "7d", "30d", "custom"):
-        period = "24h"
-
-    return metric, period
-
-
-def device_href(
-    device_id: str,
-    metric_key: str | None = None,
-    period: str | None = None,
-) -> str:
-    """Build a device dashboard URL, omitting defaults."""
-    parts = [f"/devices/{device_id}"]
-    params = []
-
-    if metric_key and metric_key != DEFAULT_METRIC_KEY:
-        params.append(f"metric={metric_key}")
-    if period and period != "24h":
-        params.append(f"period={period}")
-
-    if params:
-        parts.append("?" + "&".join(params))
-
-    return "".join(parts)
+logger = logging.getLogger(__name__)
 
 
 def register(app) -> None:
@@ -100,6 +40,7 @@ def register(app) -> None:
         try:
             route = parse_pathname(pathname)
             metric_key, period_value = parse_query(search)
+            custom_start, custom_end = parse_custom_range(search)
 
             if route.name == "overview":
                 ctx = {"route": "overview", "metric_key": metric_key, "period": period_value}
@@ -165,7 +106,8 @@ def register(app) -> None:
                 }
                 return (
                     device_dashboard.layout(
-                        plant_name, transformer_code, device_code, metric_key, period_value
+                        plant_name, transformer_code, device_code,
+                        metric_key, period_value, custom_start, custom_end,
                     ),
                     ctx,
                 )
@@ -173,4 +115,7 @@ def register(app) -> None:
             return not_found_panel("page"), {"route": "unknown"}
 
         except Exception:
+            # Logged in full so programming errors are diagnosable; the UI panel
+            # stays generic and never exposes internals.
+            logger.exception("Routing failed for pathname=%r search=%r", pathname, search)
             return error_panel(), {"route": "unknown"}

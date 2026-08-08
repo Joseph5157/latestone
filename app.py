@@ -10,6 +10,9 @@ import dash
 from dash import dcc, html
 
 from callbacks import auth, routing, listings, device
+from config.logging_config import configure_logging
+
+configure_logging()
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True, title="Power Plant Monitoring")
 server = app.server

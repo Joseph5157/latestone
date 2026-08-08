@@ -1,9 +1,9 @@
 """Authentication callbacks — isolated so they can later be replaced."""
 from __future__ import annotations
 
-from dash import Input, Output, State, callback, no_update
+from dash import Input, Output, State, no_update
 
-from config.settings import demo_auth
+from services import auth_service
 
 
 def register(app) -> None:
@@ -21,11 +21,28 @@ def register(app) -> None:
         # Deliberately does not redirect: leaving `url.pathname`/`search` untouched
         # means a successful login re-triggers routing (auth-store is a routing
         # Input) on whatever URL the user actually requested, including deep links.
-        if n_clicks is None:
+        # `not n_clicks`, not `is None`: the router inserts the login form
+        # dynamically, so this fires on insertion with the layout's n_clicks=0.
+        # `prevent_initial_call` only suppresses the app's very first load, so an
+        # `is None` guard let that through and greeted every visitor with
+        # "Invalid username or password." before they had typed anything.
+        if not n_clicks:
             return no_update, no_update
-        if username == demo_auth.username and password == demo_auth.password:
+        # Credential checking stays behind auth_service so swapping in the
+        # client's real authentication needs no change to callback code.
+        if auth_service.verify_credentials(username, password):
             return "", {"authenticated": True}
         return "Invalid username or password.", no_update
+
+    @app.callback(
+        Output("login-password", "type"),
+        Output("toggle-password-btn", "children"),
+        Input("toggle-password-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def toggle_password_visibility(n_clicks):
+        showing = bool(n_clicks) and n_clicks % 2 == 1
+        return ("text", "Hide") if showing else ("password", "Show")
 
     # Logout is a plain `<a href="/logout">` (see components.app_header) rather
     # than a callback: a full page load resets the memory-backed auth-store,

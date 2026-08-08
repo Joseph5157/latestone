@@ -161,49 +161,8 @@ def register(app) -> None:
         row = rows[active_cell["row"]]
         return device_href(row["device_id"])
 
-    # Cascading hierarchy selector callbacks
-
-    @app.callback(
-        Output("hier-plant", "options"),
-        Input("page-context", "data"),
-        prevent_initial_call=True,
-    )
-    def populate_plant_dropdown(context):
-        plants = hierarchy_service.list_plants()
-        return [{"label": p.name, "value": p.plant_id} for p in plants]
-
-    @app.callback(
-        Output("hier-transformer", "options"),
-        Output("hier-transformer", "disabled"),
-        Input("hier-plant", "value"),
-        prevent_initial_call=True,
-    )
-    def populate_transformer_dropdown(plant_id):
-        if not plant_id:
-            return [], True
-        transformers = hierarchy_service.list_transformers(plant_id)
-        options = [{"label": t.transformer_code, "value": t.transformer_id} for t in transformers]
-        return options, False
-
-    @app.callback(
-        Output("hier-device", "options"),
-        Output("hier-device", "disabled"),
-        Input("hier-transformer", "value"),
-        prevent_initial_call=True,
-    )
-    def populate_device_dropdown(transformer_id):
-        if not transformer_id:
-            return [], True
-        devices = hierarchy_service.list_devices(transformer_id)
-        options = [{"label": d.device_code, "value": d.device_id} for d in devices]
-        return options, False
-
-    @app.callback(
-        Output("url", "pathname", allow_duplicate=True),
-        Input("hier-device", "value"),
-        prevent_initial_call=True,
-    )
-    def navigate_to_device(device_id):
-        if not device_id:
-            return no_update
-        return device_href(device_id)
+    # The cascading Plant -> Transformer -> Device selector previously had
+    # callbacks here, but the component was never rendered by any layout, so
+    # every page-context change raised a nonexistent-Output ReferenceError.
+    # Removed rather than half-wired; see docs/CODE_AUDIT.md finding 2 for the
+    # design decision the real feature still needs.
