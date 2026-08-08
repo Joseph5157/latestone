@@ -72,12 +72,35 @@ class DemoDeviceSettings:
 
 
 @dataclass(frozen=True)
+class MonitoringSettings:
+    """Freshness policy and refresh cadence.
+
+    expected_interval_minutes: current project/client-known requirement
+        (readings arrive roughly every 30 minutes).
+    stale_after_intervals: DEVELOPMENT APPLICATION POLICY. Requires client
+        confirmation before production use.
+    refresh_interval_seconds: UI polling cadence. Short by default for local
+        development convenience; production polling should be aligned to
+        actual ingestion behaviour.
+    """
+    schema: str = os.getenv("PLANT_MONITORING_SCHEMA", "plant_monitoring")
+    expected_interval_minutes: int = _get_int("EXPECTED_INTERVAL_MINUTES", 30)
+    stale_after_intervals: int = _get_int("STALE_AFTER_INTERVALS", 3)
+    refresh_interval_seconds: int = _get_int("UI_REFRESH_INTERVAL_SECONDS", 60)
+
+    @property
+    def stale_after_minutes(self) -> int:
+        return self.expected_interval_minutes * self.stale_after_intervals
+
+
+@dataclass(frozen=True)
 class WarningSettings:
     # Explicitly a demo configuration value, not a client-provided threshold.
     threshold_celsius: float = float(os.getenv("DEMO_WARNING_THRESHOLD_C", "45"))
 
 
 database = DatabaseSettings()
+monitoring = MonitoringSettings()
 demo_auth = DemoAuthSettings()
 dash_settings = DashSettings()
 demo_device = DemoDeviceSettings()
