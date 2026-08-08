@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from dash import Input, Output, State, callback, html, no_update, prevent_initial_call
+from dash import Input, Output, State, callback, html, no_update
 
 from components.freshness_badge import freshness_badge
 from components.kpi_card import kpi_row

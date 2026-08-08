@@ -1,7 +1,7 @@
 """Listing callbacks — populate drill-down tables and the cascading selector."""
 from __future__ import annotations
 
-from dash import Input, Output, State, callback, no_update, prevent_initial_call
+from dash import Input, Output, State, callback, no_update
 
 from callbacks.routing import device_href
 from services import hierarchy_service, monitoring_service
