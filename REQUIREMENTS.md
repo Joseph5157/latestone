@@ -1,7 +1,7 @@
-# Requirements — Powerplant Dashboard Demo
+# Requirements — Powerplant Dashboard
 
 ## 1. Demo Objective
-Create a locally runnable proof of concept that demonstrates how the client's PostgreSQL transformer/device temperature data can be presented through an interactive Python dashboard.
+Create a locally runnable proof of concept that demonstrates how the client's PostgreSQL power-plant monitoring data can be presented through an interactive Python dashboard with a 30-plant hierarchy and 8 metrics.
 
 ## 2. Functional Requirements
 
@@ -10,60 +10,61 @@ Create a locally runnable proof of concept that demonstrates how the client's Po
 - Use local/mock credentials for the demo only.
 - Do not implement production authentication.
 - Invalid credentials must show a clear error.
-- Successful login opens the dashboard.
+- Successful login opens the plants overview.
 - Credentials must not be embedded throughout UI code; keep demo authentication isolated for later replacement.
 
-### FR-02 Device Context
+### FR-02 Hierarchy Navigation
 The demo represents:
-- Transformer: `AA12`
-- Device: `29017`
-- Database table: `aa12_29017`
-- Metric: temperature
+- 30 plants, 71 transformers, 120 devices
+- Schema: `plant_monitoring`
+- Reserved identifier: `plant-01-t1-d1` = `aa12` / `29017`
 
-Show transformer and device identity clearly on the dashboard.
+Navigation flow: Plants overview → Plant detail → Transformer detail → Device dashboard.
 
-### FR-03 KPI Cards
-For the selected time range, show:
-1. Current/latest temperature
-2. Minimum temperature
-3. Maximum temperature
-4. Average temperature
+### FR-03 Metric Monitoring
+Eight metrics with appropriate aggregations:
+- Temperature (°C), Voltage (kV), Current (A), Active Power (MW), Reactive Power (MVAr), Power Factor, Frequency (Hz): statistics aggregation (current/min/max/average)
+- Energy (MWh): delta aggregation (period change)
 
-Values must be calculated from database data, not hard-coded.
+### FR-04 KPI Cards
+Aggregation-aware KPIs:
+- **Statistics metrics**: Current / Minimum / Maximum / Average for the selected time range
+- **Delta metric** (energy): Current / Period Change
 
-### FR-04 Temperature Trend
-- Display temperature over time using Plotly.
-- Hover must expose timestamp and temperature.
-- Chart must respond to selected time range.
+Values must be calculated from database data, not hard-coded. Current means latest available reading.
+
+### FR-05 Metric Trend
+- Display any metric over time using Plotly.
+- Hover must expose timestamp and value.
+- Chart must respond to selected time range and metric.
 - The chart should remain readable with hundreds/thousands of readings.
 
-### FR-05 Time Filtering
+### FR-06 Time Filtering
 Provide convenient filters for:
 - Last 24 hours
 - Last 7 days
 - Last 30 days
 - Custom date/time range
 
-### FR-06 Recent Readings
+### FR-07 Recent Readings
 Show a table containing recent readings, including at minimum:
 - Timestamp
-- Temperature
-- Derived demo status
+- Selected metric value
 
 Support sensible ordering with newest readings first.
 
-### FR-07 Demo Warning
-- Implement a configurable demonstration threshold.
-- Clearly treat it as a demo configuration, not an official client threshold.
-- Display Normal/Warning status based on the configured rule.
-- Do not hard-code the threshold separately in multiple UI components.
+### FR-08 Data Freshness
+- Evaluate freshness based on the last reading timestamp.
+- Display fresh / stale / no_data status.
+- Freshness threshold is configurable (default: 90 minutes = 3 × 30-minute intervals).
+- No production warning/critical thresholds — monitoring condition is always `UNKNOWN`.
 
-### FR-08 Data Generation
-- Seed realistic temperature data into local PostgreSQL.
+### FR-09 Data Generation
+- Seed realistic multi-metric data into local PostgreSQL.
 - Approximate a 30-minute measurement interval.
-- Include enough historical data to demonstrate 24-hour, 7-day and 30-day views.
-- Include a small number of deliberately abnormal values to demonstrate warnings.
-- Seed generation should be repeatable/reproducible where practical.
+- Include 30 days of historical data.
+- Energy metric is cumulative (monotonically increasing).
+- Seed generation should be deterministic/reproducible.
 
 ## 3. Non-Functional Requirements
 - Local-first development.
@@ -73,21 +74,18 @@ Support sensible ordering with newest readings first.
 - Configuration and secrets must use environment variables where appropriate.
 - Do not commit real credentials.
 - Queries must be parameterised where parameters are supported.
-- Dynamic SQL identifiers must be validated against strict naming rules/allowlists; never interpolate arbitrary user input as a schema/table identifier.
+- Dynamic SQL identifiers must be validated against strict naming rules/allowlists.
 - Code should be modular and understandable for later production integration.
-- Responsive layout suitable for a normal desktop/laptop dashboard.
+- Responsive layout suitable for desktop/laptop dashboard.
 - Provide useful error states when the database is unavailable or no readings exist.
 
 ## 4. Explicitly Out of Scope for Demo
-- All 30 plants
-- All 2,112 temperature tables
 - Production authentication/SSO
 - Production Kubernetes deployment
 - Predictive maintenance/ML
 - SMS/email alerts
 - Production threshold definitions
 - Editing client data
-- Assuming unknown voltage/current/power schemas
 
 ## 5. Acceptance Criteria
-The demo is complete when a developer can clone/open the project, start PostgreSQL using Docker Compose, seed the database, start Dash, log in locally, view AA12 / 29017 temperature KPIs, filter the time period, interact with the Plotly chart, inspect recent readings and see a demo warning generated from seeded data.
+The demo is complete when a developer can clone/open the project, start PostgreSQL using Docker Compose, seed the database, start Dash, log in, navigate the plant hierarchy, view a device dashboard, change the time range, switch between metrics, see correctly calculated KPIs, interact with the chart, inspect recent readings, and observe the data freshness status.

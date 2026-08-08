@@ -1,4 +1,4 @@
-# Powerplant Dashboard Demo — Project Context
+# Powerplant Dashboard — Project Context
 
 ## Purpose
 Build a local proof-of-concept dashboard for a client that operates power-plant monitoring infrastructure. The production backend/database already exists; this demo is intended to prove the Python frontend/dashboard approach before integration with the client's environment.
@@ -34,13 +34,13 @@ The observed temperature table contains:
 The client screenshot showed approximately 2,112 tables in the `trfr_temperature` schema. Do not assume all production schemas or metrics until confirmed.
 
 ## Demo Scope
-For the first demo, implement only one transformer/device pair:
-- Transformer: AA12
-- Device: 29017
-- Physical table: `trfr_temperature.aa12_29017`
-- Metric: Temperature
+The demo uses a development schema (`plant_monitoring`) that models the client's hierarchy:
 
-Generate realistic local demo readings at approximately 30-minute intervals.
+- 30 plants, 71 transformers, 120 devices
+- 8 metrics: temperature, voltage, current, active_power, reactive_power, power_factor, frequency, energy
+- Reserved identifier: `plant-01-t1-d1` = `aa12` / `29017`
+
+Generate realistic local demo readings at approximately 30-minute intervals (1,383,360 total rows).
 
 ## Technology Decisions
 - Python
@@ -51,13 +51,13 @@ Generate realistic local demo readings at approximately 30-minute intervals.
 - SQLAlchemy for database access
 
 ## Architectural Principle
-Dash components must not contain raw database access or depend directly on physical PostgreSQL table names. A data-access/service layer must translate domain requests such as transformer `aa12`, device `29017`, metric `temperature` into the correct schema/table query.
+Dash components must not contain raw database access or depend directly on physical PostgreSQL table names. A data-access/service layer must translate domain requests (device ID, metric, time range) into the correct schema/table query.
 
 This is important because the demo database is only a local representation of the client's known structure. Production integration may require changes to database mappings without changing the UI.
 
 ## Demo Goal
 Demonstrate this journey:
 
-Login -> Device dashboard -> Temperature KPIs -> Interactive temperature trend -> Period filtering -> Recent readings -> Warning state.
+Login → Plants overview → Plant detail → Transformer detail → Device dashboard → Metric selection → KPIs → Interactive chart → Period filtering → Recent readings → Data freshness.
 
-The demo should be professional enough to show the client, but it must not expand into the complete 30-plant system before feedback.
+The demo should be professional enough to show the client and serve as a foundation for production integration.

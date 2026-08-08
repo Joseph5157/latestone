@@ -1,103 +1,132 @@
-# Database Specification — Powerplant Dashboard Demo
+# Database Specification — Powerplant Dashboard
 
 ## Goal
-Mirror the known client PostgreSQL naming convention sufficiently to test real integration behaviour without reproducing the complete production database.
+Provide a local PostgreSQL schema that mirrors the client's known naming convention while supporting the 30-plant hierarchy with 8 metrics.
 
 ## Local PostgreSQL
 Run PostgreSQL through Docker Compose.
 
-Recommended development database name:
-`powerplant_demo`
+Database name: `powerplant_demo`
 
-## Schema
-Create:
+## Schema: `plant_monitoring`
 
-```sql
-CREATE SCHEMA IF NOT EXISTS trfr_temperature;
-```
+The development schema is `plant_monitoring`, separate from the client's `trfr_temperature`. This keeps the demo independent of the production schema while following the same PostgreSQL conventions.
 
-## Demo Table
-Create one physical table:
-
-```text
-trfr_temperature.aa12_29017
-```
-
-Naming interpretation:
-- `aa12` = transformer name
-- `29017` = device name
-
-## Compatibility Decision
-The client's screenshot showed the following types:
-- `timestamp character varying(17)`
-- `temperature character varying(4)`
-- primary key on `timestamp`
-
-For this demo, mirror those observed types so the repository is forced to handle the same conversion problem expected during integration.
-
-Suggested DDL:
+### DDL
 
 ```sql
-CREATE TABLE IF NOT EXISTS trfr_temperature.aa12_29017 (
-    "timestamp" VARCHAR(17) NOT NULL,
-    temperature VARCHAR(4) NOT NULL,
-    CONSTRAINT aa12_29017_pkey PRIMARY KEY ("timestamp")
+CREATE SCHEMA IF NOT EXISTS plant_monitoring;
+
+CREATE TABLE plant_monitoring.plants (
+    plant_id        TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    country         TEXT NOT NULL,
+    latitude        DOUBLE PRECISION,
+    longitude       DOUBLE PRECISION,
+    primary_fuel    TEXT,
+    capacity_mw     DOUBLE PRECISION,
+    status          TEXT NOT NULL DEFAULT 'active',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE plant_monitoring.transformers (
+    transformer_id   TEXT PRIMARY KEY,
+    plant_id         TEXT NOT NULL REFERENCES plant_monitoring.plants(plant_id),
+    transformer_code TEXT NOT NULL,
+    tier             TEXT NOT NULL,
+    capacity_mva     DOUBLE PRECISION,
+    status           TEXT NOT NULL DEFAULT 'active',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE plant_monitoring.devices (
+    device_id       TEXT PRIMARY KEY,
+    transformer_id  TEXT NOT NULL REFERENCES plant_monitoring.transformers(transformer_id),
+    device_code     TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'active',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE plant_monitoring.readings (
+    device_id   TEXT NOT NULL REFERENCES plant_monitoring.devices(device_id),
+    metric      TEXT NOT NULL,
+    reading_ts  TIMESTAMPTZ NOT NULL,
+    value       DOUBLE PRECISION NOT NULL,
+    PRIMARY KEY (device_id, metric, reading_ts)
 );
 ```
 
-Do not redesign the client's production schema from this demo. In a greenfield system, timestamp/numeric database types would normally be preferable, but compatibility is the current objective.
+### Reserved Identifiers
+- `plant-01-t1-d1` maps to transformer `aa12` / device `29017` (the client-known example).
 
-## Timestamp Format
-The observed client data resembles:
+## Hierarchy
 
-```text
-16/12/29,13:53
-16/12/29,14:23
-```
-
-Confirm the exact date interpretation with the client before production integration. For local seed data, choose and document one unambiguous parsing convention in code and test it.
+| Entity     | Count | Source                   |
+|------------|-------|--------------------------|
+| Plants     | 30    | `db/seed_data/plants.json` |
+| Transformers | 71  | `db/hierarchy.py`        |
+| Devices    | 120   | `db/hierarchy.py`        |
+| Readings   | 1,383,360 | `db/generators.py` |
 
 ## Seed Dataset
-Generate at least 30 days of readings at approximately 30-minute intervals.
 
-Example conceptual rows:
+### Metrics (8 total)
 
-```text
-timestamp          temperature
---------------------------------
-26/08/01,00:00     31
-26/08/01,00:30     32
-26/08/01,01:00     31
-...
+| Metric          | Unit    | Aggregation | Precision |
+|-----------------|---------|-------------|-----------|
+| temperature     | °C      | statistics  | 1         |
+| voltage         | kV      | statistics  | 3         |
+| current         | A       | statistics  | 3         |
+| active_power    | MW      | statistics  | 3         |
+| reactive_power  | MVAr    | statistics  | 3         |
+| power_factor    | —       | statistics  | 3         |
+| frequency       | Hz      | statistics  | 3         |
+| energy          | MWh     | delta       | 3         |
+
+- **Statistics metrics**: KPIs show current/min/max/average for the selected period.
+- **Delta metric** (energy): KPIs show period change (last − first). Energy is monotonically increasing (cumulative meter).
+
+### Data Generation
+- 30 days of readings at 30-minute intervals (1,441 timestamps per device).
+- 120 devices × 1,441 timestamps × 8 metrics = 1,383,360 rows.
+- Deterministic generation using device index as random seed.
+- Daily temperature swing, load-correlated current, power-factor stability.
+
+### Seeding
+
+```bash
+python -m db.seed_plant_monitoring --reset
 ```
 
-Seed data should:
-- Have realistic gradual variation rather than purely random noise.
-- Contain daily variation where practical.
-- Include a few high values for warning demonstrations.
-- Be deterministic/reproducible by using a fixed random seed if randomness is used.
-- Be idempotent or provide a clear reset/reseed command.
+Verification:
+
+```bash
+docker compose exec postgres psql -U powerplant -d powerplant_demo -c "
+SELECT (SELECT COUNT(*) FROM plant_monitoring.plants)       AS plants,
+       (SELECT COUNT(*) FROM plant_monitoring.transformers) AS transformers,
+       (SELECT COUNT(*) FROM plant_monitoring.devices)      AS devices,
+       (SELECT COUNT(*) FROM plant_monitoring.readings)     AS readings;"
+```
+
+Expected: `plants=30`, `transformers=71`, `devices=120`, `readings=1383360`.
 
 ## Data Access Contract
-Repository should expose domain-oriented operations such as:
-- latest temperature
-- readings between start/end
-- min/max/average for a period
-- recent N readings
 
-The UI should not know SQL table details.
+All SQL lives in `repositories/plant_monitoring_repository.py`. Operations include:
+- Hierarchy queries (list plants/transformers/devices, get by ID, breadcrumb)
+- Latest readings (single metric or batched across metrics)
+- Range queries (single metric or batched, ordered ascending)
+- Hierarchy counts (transformer/device counts per plant)
+
+The UI and services never execute SQL directly.
 
 ## Dynamic Identifier Safety
-Because table names are derived from transformer/device identifiers:
-1. Normalise to lowercase.
-2. Validate transformer against a conservative pattern such as lowercase letters/digits only.
-3. Validate device as digits only if that remains consistent with client data.
-4. Prefer an explicit registry/allowlist of known demo devices.
-5. Build identifiers only in the repository.
-6. Never use raw browser input as a SQL identifier.
+1. All hierarchy identifiers are validated through `hierarchy_service`.
+2. Parent relationships are checked (confused-deputy guard).
+3. Metric names are bound as parameters, never interpolated.
+4. SQL identifiers (table/column names) are static strings, never derived from user input.
 
 ## Environment Configuration
-Use environment variables for connection information, e.g.:
 
 ```text
 POSTGRES_DB=powerplant_demo
@@ -105,6 +134,7 @@ POSTGRES_USER=powerplant
 POSTGRES_PASSWORD=<local-development-password>
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
+PLANT_MONITORING_SCHEMA=plant_monitoring
 ```
 
 Provide `.env.example`; do not commit a real `.env` containing secrets.
