@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: powerplant_demo_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-powerplant_demo}
+      POSTGRES_USER: ${POSTGRES_USER:-powerplant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_local_only}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - powerplant_pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./db/init_monitoring.sql:/docker-entrypoint-initdb.d/02_init_monitoring.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-powerplant} -d ${POSTGRES_DB:-powerplant_demo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  powerplant_pgdata:
