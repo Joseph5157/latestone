@@ -6,9 +6,7 @@
     "latitude": 30.8235,
     "longitude": 111.0032,
     "capacity_mw": 22500.0,
-    "primary_fuel": "Hydro",
-    "transformer": "ch01",
-    "device": "29001"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-02",
@@ -17,9 +15,7 @@
     "latitude": 61.2794,
     "longitude": 73.4889,
     "capacity_mw": 8865.0,
-    "primary_fuel": "Gas",
-    "transformer": "ru01",
-    "device": "29002"
+    "primary_fuel": "Gas"
   },
   {
     "plant_id": "plant-03",
@@ -28,9 +24,7 @@
     "latitude": 7.7659,
     "longitude": -62.9982,
     "capacity_mw": 8851.0,
-    "primary_fuel": "Hydro",
-    "transformer": "ve01",
-    "device": "29003"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-04",
@@ -39,9 +33,7 @@
     "latitude": -3.8322,
     "longitude": -49.6522,
     "capacity_mw": 8535.0,
-    "primary_fuel": "Hydro",
-    "transformer": "br01",
-    "device": "29004"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-05",
@@ -50,9 +42,7 @@
     "latitude": 37.4259,
     "longitude": 138.5941,
     "capacity_mw": 8212.0,
-    "primary_fuel": "Nuclear",
-    "transformer": "ja01",
-    "device": "29005"
+    "primary_fuel": "Nuclear"
   },
   {
     "plant_id": "plant-06",
@@ -61,9 +51,7 @@
     "latitude": -25.4081,
     "longitude": -54.5889,
     "capacity_mw": 7000.0,
-    "primary_fuel": "Hydro",
-    "transformer": "pa01",
-    "device": "29006"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-07",
@@ -72,9 +60,7 @@
     "latitude": 47.9575,
     "longitude": -118.9773,
     "capacity_mw": 6809.0,
-    "primary_fuel": "Hydro",
-    "transformer": "un01",
-    "device": "29007"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-08",
@@ -83,9 +69,7 @@
     "latitude": 20.63,
     "longitude": 39.555,
     "capacity_mw": 6794.0,
-    "primary_fuel": "Oil",
-    "transformer": "sa01",
-    "device": "29008"
+    "primary_fuel": "Oil"
   },
   {
     "plant_id": "plant-09",
@@ -94,9 +78,7 @@
     "latitude": 47.5119,
     "longitude": 34.5863,
     "capacity_mw": 6000.0,
-    "primary_fuel": "Nuclear",
-    "transformer": "uk01",
-    "device": "29009"
+    "primary_fuel": "Nuclear"
   },
   {
     "plant_id": "plant-10",
@@ -105,9 +87,7 @@
     "latitude": 35.4105,
     "longitude": 126.4175,
     "capacity_mw": 5900.0,
-    "primary_fuel": "Nuclear",
-    "transformer": "so01",
-    "device": "29010"
+    "primary_fuel": "Nuclear"
   },
   {
     "plant_id": "plant-11",
@@ -116,9 +96,7 @@
     "latitude": 28.7072,
     "longitude": 48.3742,
     "capacity_mw": 5805.0,
-    "primary_fuel": "Gas",
-    "transformer": "ku01",
-    "device": "29011"
+    "primary_fuel": "Gas"
   },
   {
     "plant_id": "plant-12",
@@ -127,9 +105,7 @@
     "latitude": 53.7818,
     "longitude": -77.5305,
     "capacity_mw": 5616.0,
-    "primary_fuel": "Hydro",
-    "transformer": "ca01",
-    "device": "29012"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-13",
@@ -138,9 +114,7 @@
     "latitude": 24.2131,
     "longitude": 120.485,
     "capacity_mw": 5500.0,
-    "primary_fuel": "Coal",
-    "transformer": "ta01",
-    "device": "29013"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-14",
@@ -149,9 +123,7 @@
     "latitude": 51.2679,
     "longitude": 19.3265,
     "capacity_mw": 5472.0,
-    "primary_fuel": "Coal",
-    "transformer": "po01",
-    "device": "29014"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-15",
@@ -160,9 +132,7 @@
     "latitude": 51.0141,
     "longitude": 2.1332,
     "capacity_mw": 5460.0,
-    "primary_fuel": "Nuclear",
-    "transformer": "fr01",
-    "device": "29015"
+    "primary_fuel": "Nuclear"
   },
   {
     "plant_id": "plant-16",
@@ -171,9 +141,7 @@
     "latitude": -7.7184,
     "longitude": 113.5827,
     "capacity_mw": 5355.0,
-    "primary_fuel": "Coal",
-    "transformer": "in01",
-    "device": "29016"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-17",
@@ -182,9 +150,7 @@
     "latitude": 24.165,
     "longitude": 52.568,
     "capacity_mw": 4889.0,
-    "primary_fuel": "Gas",
-    "transformer": "un02",
-    "device": "29017"
+    "primary_fuel": "Gas"
   },
   {
     "plant_id": "plant-18",
@@ -193,9 +159,7 @@
     "latitude": 24.0983,
     "longitude": 82.6719,
     "capacity_mw": 4760.0,
-    "primary_fuel": "Coal",
-    "transformer": "in02",
-    "device": "29018"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-19",
@@ -204,9 +168,7 @@
     "latitude": 13.501,
     "longitude": 101.0253,
     "capacity_mw": 4384.0,
-    "primary_fuel": "Gas",
-    "transformer": "th01",
-    "device": "29019"
+    "primary_fuel": "Gas"
   },
   {
     "plant_id": "plant-20",
@@ -215,9 +177,7 @@
     "latitude": 4.1586,
     "longitude": 100.6423,
     "capacity_mw": 4180.0,
-    "primary_fuel": "Coal",
-    "transformer": "ma01",
-    "device": "29020"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-21",
@@ -226,9 +186,7 @@
     "latitude": -26.088,
     "longitude": 28.9689,
     "capacity_mw": 4116.0,
-    "primary_fuel": "Coal",
-    "transformer": "so02",
-    "device": "29021"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-22",
@@ -237,9 +195,7 @@
     "latitude": 51.888,
     "longitude": 75.377,
     "capacity_mw": 4000.0,
-    "primary_fuel": "Coal",
-    "transformer": "ka01",
-    "device": "29022"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-23",
@@ -248,9 +204,7 @@
     "latitude": 57.2574,
     "longitude": 12.1087,
     "capacity_mw": 3932.0,
-    "primary_fuel": "Nuclear",
-    "transformer": "sw01",
-    "device": "29023"
+    "primary_fuel": "Nuclear"
   },
   {
     "plant_id": "plant-24",
@@ -259,9 +213,7 @@
     "latitude": 34.0889,
     "longitude": 72.6861,
     "capacity_mw": 3478.0,
-    "primary_fuel": "Hydro",
-    "transformer": "pa02",
-    "device": "29024"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-25",
@@ -270,9 +222,7 @@
     "latitude": 42.3572,
     "longitude": 11.5373,
     "capacity_mw": 3446.0,
-    "primary_fuel": "Gas",
-    "transformer": "it01",
-    "device": "29025"
+    "primary_fuel": "Gas"
   },
   {
     "plant_id": "plant-26",
@@ -281,9 +231,7 @@
     "latitude": 50.993,
     "longitude": 6.6685,
     "capacity_mw": 3430.0,
-    "primary_fuel": "Coal",
-    "transformer": "ge01",
-    "device": "29026"
+    "primary_fuel": "Coal"
   },
   {
     "plant_id": "plant-27",
@@ -292,9 +240,7 @@
     "latitude": 38.3717,
     "longitude": 69.3481,
     "capacity_mw": 3015.0,
-    "primary_fuel": "Hydro",
-    "transformer": "ta02",
-    "device": "29027"
+    "primary_fuel": "Hydro"
   },
   {
     "plant_id": "plant-28",
@@ -303,9 +249,7 @@
     "latitude": 40.2287,
     "longitude": 69.1005,
     "capacity_mw": 3000.0,
-    "primary_fuel": "Gas",
-    "transformer": "uz01",
-    "device": "29028"
+    "primary_fuel": "Gas"
   },
   {
     "plant_id": "plant-29",
@@ -314,9 +258,7 @@
     "latitude": 51.3254,
     "longitude": 4.2597,
     "capacity_mw": 2910.0,
-    "primary_fuel": "Nuclear",
-    "transformer": "be01",
-    "device": "29029"
+    "primary_fuel": "Nuclear"
   },
   {
     "plant_id": "plant-30",
@@ -325,8 +267,6 @@
     "latitude": 1.4655,
     "longitude": 103.7996,
     "capacity_mw": 2807.0,
-    "primary_fuel": "Gas",
-    "transformer": "si01",
-    "device": "29030"
+    "primary_fuel": "Gas"
   }
 ]
