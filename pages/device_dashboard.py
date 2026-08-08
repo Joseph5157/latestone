@@ -6,11 +6,10 @@ import dash_html_components as html
 
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
-from components.equipment_context import equipment_context
 from components.metric_chart import metric_chart
-from components.metric_snapshot_strip import metric_snapshot_strip
-from components.kpi_card import kpi_row
 from components.readings_table import readings_table
+from config.metrics import ordered_metrics
+from config.settings import monitoring
 
 
 def layout(
@@ -18,6 +17,8 @@ def layout(
     transformer_code: str = "",
     device_code: str = "",
 ) -> html.Div:
+    metric_options = [{"label": m.label, "value": m.key} for m in ordered_metrics()]
+
     return html.Div(
         className="page page--device-dashboard",
         children=[
@@ -29,16 +30,52 @@ def layout(
                     (device_code or "Device", None),
                 ]),
             ),
-            dcc.Loading(
+            html.Div(id="equipment-context-container"),
+            html.Div(id="snapshot-strip"),
+            html.Div(
+                className="metric-controls",
                 children=[
-                    html.Div(id="equipment-context-container"),
-                    html.Div(id="snapshot-strip-container"),
-                    html.Div(id="metric-selector-container"),
-                    html.Div(id="kpi-row-container"),
-                    html.Div(id="period-filter-container"),
-                    metric_chart(),
-                    html.Div(id="readings-table-container"),
+                    dcc.Dropdown(
+                        id="metric-dropdown",
+                        options=metric_options,
+                        value=metric_options[0]["value"] if metric_options else None,
+                        clearable=False,
+                        searchable=False,
+                        className="metric-dropdown",
+                    ),
+                    dcc.RadioItems(
+                        id="period-radio",
+                        options=[
+                            {"label": " 24h", "value": "24h"},
+                            {"label": " 7d", "value": "7d"},
+                            {"label": " 30d", "value": "30d"},
+                            {"label": " Custom", "value": "custom"},
+                        ],
+                        value="24h",
+                        inline=True,
+                        className="period-radio",
+                    ),
+                    html.Div(
+                        id="custom-range-container",
+                        style={"display": "none"},
+                        children=[
+                            dcc.DatePickerRange(
+                                id="custom-date-range",
+                                display_format="YYYY-MM-DD",
+                            ),
+                        ],
+                    ),
                 ],
+            ),
+            html.Div(id="kpi-row-container"),
+            dcc.Loading(
+                metric_chart("metric-chart"),
+                className="chart-loading",
+            ),
+            readings_table("readings-table"),
+            dcc.Interval(
+                id="device-refresh-interval",
+                interval=monitoring.refresh_interval_seconds * 1000,
             ),
         ],
     )
