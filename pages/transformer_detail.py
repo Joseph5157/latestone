@@ -8,14 +8,14 @@ from components.breadcrumb import breadcrumb
 from components.entity_table import entity_table
 
 
-def layout(plant_name: str = "", transformer_code: str = "") -> html.Div:
+def layout(plant_name: str = "", transformer_code: str = "", plant_id: str = "") -> html.Div:
     return html.Div(
         className="page page--transformer-detail",
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([
                     ("Plants", "/plants"),
-                    (plant_name or "Plant", f"/plants"),
+                    (plant_name or "Plant", f"/plants/{plant_id}" if plant_id else "/plants"),
                     (transformer_code or "Transformer", None),
                 ]),
             ),
@@ -27,6 +27,7 @@ def layout(plant_name: str = "", transformer_code: str = "") -> html.Div:
                     {"name": "Status", "id": "status", "type": "text"},
                 ],
                 rows=[],
+                link_column_id="device",
             ),
         ],
     )

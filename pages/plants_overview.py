@@ -27,6 +27,7 @@ def layout() -> html.Div:
                     {"name": "Devices", "id": "devices", "type": "numeric"},
                 ],
                 rows=[],
+                link_column_id="plant",
             ),
         ],
     )

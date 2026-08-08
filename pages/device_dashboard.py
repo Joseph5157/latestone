@@ -9,14 +9,19 @@ from components.metric_chart import metric_chart
 from components.readings_table import readings_table
 from config.metrics import ordered_metrics
 from config.settings import monitoring
+from services.monitoring_service import Freshness
 
 
 def layout(
     plant_name: str = "",
     transformer_code: str = "",
     device_code: str = "",
+    metric_key: str | None = None,
+    period: str | None = None,
 ) -> html.Div:
     metric_options = [{"label": m.label, "value": m.key} for m in ordered_metrics()]
+    initial_metric = metric_key or (metric_options[0]["value"] if metric_options else None)
+    initial_period = period or "24h"
 
     return html.Div(
         className="page page--device-dashboard",
@@ -28,8 +33,16 @@ def layout(
                     (transformer_code or "Transformer", None),
                     (device_code or "Device", None),
                 ]),
+                freshness=Freshness.NO_DATA,
             ),
-            html.Div(id="equipment-context-container"),
+            html.Div(
+                id="equipment-context-container",
+                className="equipment-context",
+                children=[
+                    html.Span("Last data: ", className="equipment-context__label"),
+                    html.Span(id="equipment-last-data", className="equipment-context__value"),
+                ],
+            ),
             html.Div(id="snapshot-strip"),
             html.Div(
                 className="metric-controls",
@@ -37,7 +50,7 @@ def layout(
                     dcc.Dropdown(
                         id="metric-dropdown",
                         options=metric_options,
-                        value=metric_options[0]["value"] if metric_options else None,
+                        value=initial_metric,
                         clearable=False,
                         searchable=False,
                         className="metric-dropdown",
@@ -50,13 +63,13 @@ def layout(
                             {"label": " 30d", "value": "30d"},
                             {"label": " Custom", "value": "custom"},
                         ],
-                        value="24h",
+                        value=initial_period,
                         inline=True,
                         className="period-radio",
                     ),
                     html.Div(
                         id="custom-range-container",
-                        style={"display": "none"},
+                        style={"display": "block" if initial_period == "custom" else "none"},
                         children=[
                             dcc.DatePickerRange(
                                 id="custom-date-range",

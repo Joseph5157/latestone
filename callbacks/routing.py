@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import parse_qs
 
-from dash import Input, Output, State, html, no_update
+from dash import Input, Output, html
 
 from config.metrics import DEFAULT_METRIC_KEY, METRIC_KEYS
 from components.status_panels import error_panel, not_found_panel
@@ -90,8 +90,7 @@ def register(app) -> None:
         Output("page-context", "data"),
         Input("url", "pathname"),
         Input("url", "search"),
-        State("auth-store", "data"),
-        prevent_initial_call=True,
+        Input("auth-store", "data"),
     )
     def route_to_page(pathname, search, auth_data):
         if not auth_data or not auth_data.get("authenticated"):
@@ -111,7 +110,6 @@ def register(app) -> None:
                 if plant is None:
                     return not_found_panel("plant"), {"route": "unknown"}
 
-                breadcrumb_items = [("Plants", "/plants"), (plant.name, None)]
                 ctx = {
                     "route": "plant",
                     "plant_id": plant.plant_id,
@@ -119,7 +117,7 @@ def register(app) -> None:
                     "metric_key": metric_key,
                     "period": period_value,
                 }
-                return plant_detail.layout(plant, breadcrumb_items), ctx
+                return plant_detail.layout(plant.name), ctx
 
             if route.name == "transformer":
                 plant = hierarchy_service.get_plant_or_none(route.plant_id)
@@ -132,11 +130,6 @@ def register(app) -> None:
                 if transformer is None:
                     return not_found_panel("transformer"), {"route": "unknown"}
 
-                breadcrumb_items = [
-                    ("Plants", "/plants"),
-                    (plant.name, f"/plants/{plant.plant_id}"),
-                    (transformer.transformer_code, None),
-                ]
                 ctx = {
                     "route": "transformer",
                     "plant_id": plant.plant_id,
@@ -146,14 +139,21 @@ def register(app) -> None:
                     "metric_key": metric_key,
                     "period": period_value,
                 }
-                return transformer_detail.layout(transformer, breadcrumb_items), ctx
+                return (
+                    transformer_detail.layout(
+                        plant.name, transformer.transformer_code, plant.plant_id
+                    ),
+                    ctx,
+                )
 
             if route.name == "device":
                 device_ctx = hierarchy_service.get_device_context(route.device_id)
                 if device_ctx is None:
                     return not_found_panel("device"), {"route": "unknown"}
 
-                plant_name, transformer_code, device_code = device_ctx
+                plant_name = device_ctx.plant_name
+                transformer_code = device_ctx.transformer_code
+                device_code = device_ctx.device_code
                 ctx = {
                     "route": "device",
                     "device_id": route.device_id,
@@ -163,7 +163,12 @@ def register(app) -> None:
                     "metric_key": metric_key,
                     "period": period_value,
                 }
-                return device_dashboard.layout(plant_name, transformer_code, device_code), ctx
+                return (
+                    device_dashboard.layout(
+                        plant_name, transformer_code, device_code, metric_key, period_value
+                    ),
+                    ctx,
+                )
 
             return not_found_panel("page"), {"route": "unknown"}
 

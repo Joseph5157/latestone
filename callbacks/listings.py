@@ -8,7 +8,7 @@ from services import hierarchy_service, monitoring_service
 
 
 PLANT_COLUMNS = [
-    {"name": "Plant", "id": "plant", "presentation": "markdown"},
+    {"name": "Plant", "id": "plant"},
     {"name": "Country", "id": "country"},
     {"name": "Fuel", "id": "fuel"},
     {"name": "Capacity", "id": "capacity"},
@@ -17,13 +17,13 @@ PLANT_COLUMNS = [
 ]
 
 TRANSFORMER_COLUMNS = [
-    {"name": "Transformer", "id": "transformer", "presentation": "markdown"},
+    {"name": "Transformer", "id": "transformer"},
     {"name": "Devices", "id": "devices", "type": "numeric"},
     {"name": "Status", "id": "status"},
 ]
 
 DEVICE_COLUMNS = [
-    {"name": "Device", "id": "device", "presentation": "markdown"},
+    {"name": "Device", "id": "device"},
     {"name": "Status", "id": "status"},
 ]
 
@@ -48,7 +48,8 @@ def register(app) -> None:
         for p in plants:
             t_count, d_count = counts.get(p.plant_id, (0, 0))
             rows.append({
-                "plant": f"[{p.name}](/plants/{p.plant_id})",
+                "plant": p.name,
+                "plant_id": p.plant_id,
                 "country": p.country,
                 "fuel": p.primary_fuel or "",
                 "capacity": f"{p.capacity_mw:,.0f} MW" if p.capacity_mw else "",
@@ -82,9 +83,9 @@ def register(app) -> None:
 
         rows = []
         for t in transformers:
-            href = f"[{t.transformer_code}](/plants/{plant_id}/{t.transformer_id})"
             rows.append({
-                "transformer": href,
+                "transformer": t.transformer_code,
+                "transformer_id": t.transformer_id,
                 "devices": device_counts.get(t.transformer_id, 0),
                 "status": t.status,
             })
@@ -106,13 +107,59 @@ def register(app) -> None:
 
         rows = []
         for d in devices:
-            href = device_href(d.device_id)
             rows.append({
-                "device": f"[{d.device_code}]({href})",
+                "device": d.device_code,
+                "device_id": d.device_id,
                 "status": d.status,
             })
 
         return rows, DEVICE_COLUMNS
+
+    # Row-click navigation. dash_table has no non-markdown way to render a
+    # cell as a link, and markdown-presentation links are hardcoded by
+    # dash_table to target="_blank" (breaking in-app navigation) — so these
+    # tables render plain text and a click on the identity column navigates
+    # via `url.pathname`, same mechanism as the cascading selector below.
+
+    @app.callback(
+        Output("url", "pathname", allow_duplicate=True),
+        Input("plants-table", "active_cell"),
+        State("plants-table", "data"),
+        prevent_initial_call=True,
+    )
+    def navigate_from_plants_table(active_cell, rows):
+        if not active_cell or active_cell.get("column_id") != "plant":
+            return no_update
+        row = rows[active_cell["row"]]
+        return f"/plants/{row['plant_id']}"
+
+    @app.callback(
+        Output("url", "pathname", allow_duplicate=True),
+        Input("transformers-table", "active_cell"),
+        State("transformers-table", "data"),
+        State("page-context", "data"),
+        prevent_initial_call=True,
+    )
+    def navigate_from_transformers_table(active_cell, rows, context):
+        if not active_cell or active_cell.get("column_id") != "transformer":
+            return no_update
+        plant_id = (context or {}).get("plant_id")
+        if not plant_id:
+            return no_update
+        row = rows[active_cell["row"]]
+        return f"/plants/{plant_id}/{row['transformer_id']}"
+
+    @app.callback(
+        Output("url", "pathname", allow_duplicate=True),
+        Input("devices-table", "active_cell"),
+        State("devices-table", "data"),
+        prevent_initial_call=True,
+    )
+    def navigate_from_devices_table(active_cell, rows):
+        if not active_cell or active_cell.get("column_id") != "device":
+            return no_update
+        row = rows[active_cell["row"]]
+        return device_href(row["device_id"])
 
     # Cascading hierarchy selector callbacks
 

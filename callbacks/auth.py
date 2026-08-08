@@ -10,25 +10,24 @@ def register(app) -> None:
     """Register auth callbacks on the Dash app."""
 
     @app.callback(
-        Output("url", "pathname"),
+        Output("login-error", "children"),
+        Output("auth-store", "data"),
         Input("login-button", "n_clicks"),
-        State("username-input", "value"),
-        State("password-input", "value"),
+        State("login-username", "value"),
+        State("login-password", "value"),
         prevent_initial_call=True,
     )
     def handle_login(n_clicks, username, password):
+        # Deliberately does not redirect: leaving `url.pathname`/`search` untouched
+        # means a successful login re-triggers routing (auth-store is a routing
+        # Input) on whatever URL the user actually requested, including deep links.
         if n_clicks is None:
-            return no_update
+            return no_update, no_update
         if username == demo_auth.username and password == demo_auth.password:
-            return "/plants"
-        return no_update
+            return "", {"authenticated": True}
+        return "Invalid username or password.", no_update
 
-    @app.callback(
-        Output("url", "pathname", allow_duplicate=True),
-        Input("logout-button", "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def handle_logout(n_clicks):
-        if n_clicks is None:
-            return no_update
-        return "/login"
+    # Logout is a plain `<a href="/logout">` (see components.app_header) rather
+    # than a callback: a full page load resets the memory-backed auth-store,
+    # which is simpler than a round trip through the server for a client-only
+    # sign-out.

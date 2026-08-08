@@ -11,7 +11,6 @@ from components.metric_chart import build_metric_figure
 from components.metric_snapshot_strip import metric_snapshot_strip
 from components.readings_table import build_table_rows
 from components.status_panels import error_panel
-from config.metrics import METRIC_KEYS
 from services import monitoring_service as svc
 from services.monitoring_service import Period
 
@@ -106,36 +105,9 @@ def register(app) -> None:
             return no_update
         return f"?metric={metric_key}&period={period_value}"
 
-    # Read URL search params to set dropdown values
-
-    @app.callback(
-        Output("metric-dropdown", "value"),
-        Output("period-radio", "value"),
-        Input("url", "search"),
-        State("metric-dropdown", "value"),
-        prevent_initial_call=True,
-    )
-    def sync_from_url(search, current_metric):
-        from urllib.parse import parse_qs
-        from config.metrics import DEFAULT_METRIC_KEY
-
-        if not search:
-            return no_update, no_update
-
-        params = parse_qs(search.lstrip("?"))
-        metric = params.get("metric", [DEFAULT_METRIC_KEY])[0]
-        period = params.get("period", ["24h"])[0]
-
-        if metric not in METRIC_KEYS:
-            metric = DEFAULT_METRIC_KEY
-        if period not in ("24h", "7d", "30d", "custom"):
-            period = "24h"
-
-        # Avoid feedback loop
-        if metric == current_metric:
-            return no_update, period
-
-        return metric, period
+    # Note: dropdown/radio are initialized from page-context by device_dashboard.layout()
+    # on each route render, so no separate url.search -> dropdown callback is needed
+    # (that would create a cycle with sync_query_string above).
 
     # Toggle custom range picker visibility
 
