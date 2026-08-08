@@ -1,8 +1,7 @@
 """Device dashboard page shell — layout only, no queries."""
 from __future__ import annotations
 
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc, html
 
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb

@@ -4,7 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import parse_qs
 
+from dash import Input, Output, State, html, no_update
+
 from config.metrics import DEFAULT_METRIC_KEY, METRIC_KEYS
+from components.status_panels import error_panel, not_found_panel
+from pages import plants_overview, plant_detail, transformer_detail, device_dashboard
+from services import hierarchy_service
 
 
 @dataclass(frozen=True)
@@ -78,5 +83,89 @@ def device_href(
 
 
 def register(app) -> None:
-    """Register routing-related callbacks on the Dash app."""
-    pass
+    """Register the top-level router callback on the Dash app."""
+
+    @app.callback(
+        Output("page-content", "children"),
+        Output("page-context", "data"),
+        Input("url", "pathname"),
+        Input("url", "search"),
+        State("auth-store", "data"),
+        prevent_initial_call=True,
+    )
+    def route_to_page(pathname, search, auth_data):
+        if not auth_data or not auth_data.get("authenticated"):
+            from pages.login import login_layout
+            return login_layout(), {}
+
+        try:
+            route = parse_pathname(pathname)
+            metric_key, period_value = parse_query(search)
+
+            if route.name == "overview":
+                ctx = {"route": "overview", "metric_key": metric_key, "period": period_value}
+                return plants_overview.layout(), ctx
+
+            if route.name == "plant":
+                plant = hierarchy_service.get_plant_or_none(route.plant_id)
+                if plant is None:
+                    return not_found_panel("plant"), {"route": "unknown"}
+
+                breadcrumb_items = [("Plants", "/plants"), (plant.name, None)]
+                ctx = {
+                    "route": "plant",
+                    "plant_id": plant.plant_id,
+                    "plant_name": plant.name,
+                    "metric_key": metric_key,
+                    "period": period_value,
+                }
+                return plant_detail.layout(plant, breadcrumb_items), ctx
+
+            if route.name == "transformer":
+                plant = hierarchy_service.get_plant_or_none(route.plant_id)
+                if plant is None:
+                    return not_found_panel("plant"), {"route": "unknown"}
+
+                transformer = hierarchy_service.get_transformer_in_plant(
+                    route.plant_id, route.transformer_id
+                )
+                if transformer is None:
+                    return not_found_panel("transformer"), {"route": "unknown"}
+
+                breadcrumb_items = [
+                    ("Plants", "/plants"),
+                    (plant.name, f"/plants/{plant.plant_id}"),
+                    (transformer.transformer_code, None),
+                ]
+                ctx = {
+                    "route": "transformer",
+                    "plant_id": plant.plant_id,
+                    "plant_name": plant.name,
+                    "transformer_id": transformer.transformer_id,
+                    "transformer_code": transformer.transformer_code,
+                    "metric_key": metric_key,
+                    "period": period_value,
+                }
+                return transformer_detail.layout(transformer, breadcrumb_items), ctx
+
+            if route.name == "device":
+                device_ctx = hierarchy_service.get_device_context(route.device_id)
+                if device_ctx is None:
+                    return not_found_panel("device"), {"route": "unknown"}
+
+                plant_name, transformer_code, device_code = device_ctx
+                ctx = {
+                    "route": "device",
+                    "device_id": route.device_id,
+                    "plant_name": plant_name,
+                    "transformer_code": transformer_code,
+                    "device_code": device_code,
+                    "metric_key": metric_key,
+                    "period": period_value,
+                }
+                return device_dashboard.layout(plant_name, transformer_code, device_code), ctx
+
+            return not_found_panel("page"), {"route": "unknown"}
+
+        except Exception:
+            return error_panel(), {"route": "unknown"}

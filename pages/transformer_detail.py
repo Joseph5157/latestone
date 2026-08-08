@@ -1,7 +1,7 @@
 """Transformer detail page shell — layout only, no queries."""
 from __future__ import annotations
 
-import dash_html_components as html
+from dash import html
 
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
