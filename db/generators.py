@@ -23,6 +23,8 @@ import math
 import random
 from datetime import datetime, timedelta
 
+from config.metrics import METRIC_KEYS
+
 INTERVAL_MINUTES = 30
 DAYS_OF_HISTORY = 30
 
@@ -103,7 +105,7 @@ def generate_device_series(
         frequency.append(round(f, 3))
         energy.append(round(meter, 3))
 
-    return {
+    result = {
         "temperature": temperature,
         "voltage": voltage,
         "current": current,
@@ -113,3 +115,5 @@ def generate_device_series(
         "frequency": frequency,
         "energy": energy,
     }
+    assert set(result) == set(METRIC_KEYS), "generator/metric registry drift"
+    return result
