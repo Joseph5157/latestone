@@ -1,7 +1,14 @@
-"""Reusable KPI card component."""
+"""Reusable KPI card component.
+
+This is the ONLY component that branches on aggregation, and it branches
+once — on MetricConfig.aggregation, never on a metric key.
+"""
 from __future__ import annotations
 
 from dash import html
+
+from config.metrics import Aggregation, format_value
+from services.monitoring_service import MetricView
 
 
 def kpi_card(label: str, value: str, card_id: str | None = None, accent: bool = False):
@@ -17,13 +24,20 @@ def kpi_card(label: str, value: str, card_id: str | None = None, accent: bool = 
     )
 
 
-def kpi_row(current: str, minimum: str, maximum: str, average: str):
-    return html.Div(
-        className="kpi-row",
-        children=[
-            kpi_card("Current Temperature", current, accent=True),
-            kpi_card("Minimum", minimum),
-            kpi_card("Maximum", maximum),
-            kpi_card("Average", average),
-        ],
-    )
+def kpi_row(view: MetricView):
+    """KPI cards for one metric.
+
+    This is the ONLY component that branches on aggregation, and it branches
+    once — on MetricConfig.aggregation, never on a metric key.
+    """
+    metric = view.metric
+    cards = [kpi_card("Current", format_value(metric, view.current), accent=True)]
+
+    if metric.aggregation is Aggregation.DELTA:
+        cards.append(kpi_card("Period Change", format_value(metric, view.period_change)))
+    else:
+        cards.append(kpi_card("Minimum", format_value(metric, view.minimum)))
+        cards.append(kpi_card("Maximum", format_value(metric, view.maximum)))
+        cards.append(kpi_card("Average", format_value(metric, view.average)))
+
+    return html.Div(className="kpi-row", children=cards)

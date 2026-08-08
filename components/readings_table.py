@@ -1,41 +1,41 @@
-"""Recent readings table component."""
+"""Recent readings table component.
+
+Metric-driven: column header comes from MetricConfig, no status column
+(implied thresholds we do not have).
+"""
 from __future__ import annotations
 
 from dash import dash_table, html
 
-from config.settings import demo_device
-from services.temperature_service import Reading, Status, get_status
+from config.metrics import MetricConfig, format_value, get_metric, METRICS
+from services.monitoring_service import Reading
 
 
-def _row_status(temp: float) -> str:
-    return get_status(temp).value
-
-
-def build_table_rows(readings: list[Reading]) -> list[dict]:
-    """readings expected newest-first."""
+def build_table_rows(metric: MetricConfig, readings: list[Reading]) -> list[dict]:
+    """Format readings for the DataTable. Readings expected newest-first."""
     rows = []
     for r in readings:
-        status = _row_status(r.temperature_c)
         rows.append(
             {
                 "timestamp": r.timestamp.strftime("%Y-%m-%d %H:%M"),
-                "temperature": f"{r.temperature_c:.1f} {demo_device.unit}",
-                "status": status,
+                "value": format_value(metric, r.value),
             }
         )
     return rows
 
 
-def readings_table(id_prefix: str = ""):
+def readings_table(table_id: str = "readings-table", metric: MetricConfig | None = None):
+    """DataTable with metric-driven column header."""
+    if metric is None:
+        metric = METRICS[0]
     return html.Div(
         className="readings-table-container",
         children=[
             dash_table.DataTable(
-                id=f"{id_prefix}readings-table",
+                id=table_id,
                 columns=[
                     {"name": "Timestamp", "id": "timestamp"},
-                    {"name": "Temperature", "id": "temperature"},
-                    {"name": "Status", "id": "status"},
+                    {"name": metric.label, "id": "value"},
                 ],
                 data=[],
                 page_size=15,
@@ -51,13 +51,6 @@ def readings_table(id_prefix: str = ""):
                     "fontWeight": "600",
                     "borderBottom": "1px solid #d1d5db",
                 },
-                style_data_conditional=[
-                    {
-                        "if": {"filter_query": '{status} = "Warning"'},
-                        "backgroundColor": "#fef2f2",
-                        "color": "#991b1b",
-                    },
-                ],
             )
         ],
     )
