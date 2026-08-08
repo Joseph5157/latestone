@@ -1,0 +1,12 @@
+# Normalize line endings so diffs stay clean across Windows/Linux/macOS.
+# Text files are stored LF in the repository and checked out LF everywhere.
+* text=auto eol=lf
+
+# Binary files: never touch these.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
