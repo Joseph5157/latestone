@@ -107,7 +107,11 @@ def entity_table(
                 # Verified against computed style, not the stylesheet source.
                 style_cell={
                     "textAlign": "left",
-                    "padding": "8px 12px",
+                    # ~40 px rows against a 40-44 px target. A target, not a
+                    # guarantee: rows whose plant name wraps are taller by
+                    # design, which is the correct trade for never hiding an
+                    # identity.
+                    "padding": "11px 12px",
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
                 },

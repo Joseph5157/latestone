@@ -77,3 +77,33 @@ def test_numeric_headers_are_right_aligned_too():
     )
     header = table.children[0].style_header_conditional
     assert {"if": {"column_id": "devices"}, "textAlign": "right"} in header
+
+
+def test_the_identity_column_wraps_and_never_truncates():
+    """Half of "Itaipu Binacional Dam (Paraguay part)" is not an identity.
+
+    It is also the cell the operator clicks to navigate, so it is the one
+    column that must never hide characters.
+    """
+    table = entity_table(
+        table_id="t",
+        columns=[{"name": "Plant", "id": "plant"}],
+        rows=[],
+        link_column_id="plant",
+    )
+    rule = next(
+        r for r in table.children[0].style_cell_conditional
+        if r["if"].get("column_id") == "plant" and "whiteSpace" in r
+    )
+    assert rule["whiteSpace"] == "normal"
+
+
+def test_every_other_column_ellipsises_rather_than_clipping():
+    """Silent clipping is the failure mode OBS-2 exists to prevent."""
+    table = entity_table(table_id="t", columns=[], rows=[])
+    assert table.children[0].style_cell["textOverflow"] == "ellipsis"
+
+
+def test_rows_are_denser_than_the_default():
+    table = entity_table(table_id="t", columns=[], rows=[])
+    assert table.children[0].style_cell["padding"] == "11px 12px"

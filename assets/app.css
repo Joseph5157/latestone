@@ -558,12 +558,38 @@ body {
 .entity-table-wrapper { overflow-x: auto; }
 .entity-table-wrapper .dash-table-container { max-width: 100%; }
 
-/* OBS-2 (truncation visibility) is deliberately NOT handled here. dash_table
-   sets `text-overflow: inherit` on td div.dash-cell-value with a 4-class
-   selector, so any rule in this file targeting that div loses the cascade and
-   does nothing. The value is set on the `td` through style_cell in
-   components/entity_table.py, which is the mechanism dash_table's `inherit`
-   exists to serve. */
+/* OBS-2 — never silently clip identity or metadata text.
+   The ellipsis itself is set on the `td` through style_cell in
+   components/entity_table.py: dash_table sets `text-overflow: inherit` on
+   td div.dash-cell-value with a 4-class selector, so a rule here targeting
+   that div loses the cascade and does nothing.
+
+   The reveal must be CSS because inline style_cell_conditional cannot carry
+   pseudo-classes. It is scoped to the three text columns by name — a generic
+   .dash-cell rule would let numeric and status cells change height on focus
+   and make the whole table jump.
+
+   Keyboard as well as pointer: a cell gets real DOM focus (not just Tab —
+   dash_table also calls .focus() on click) whenever it's selected, so
+   :focus-within fires for keyboard and pointer users alike.
+
+   `.dash-spreadsheet-inner` is repeated in the selector — not decorative.
+   dash_table's own stylesheet ships
+   `.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner
+   td { white-space: nowrap }`, three classes deep. A selector scoped only to
+   `.entity-table-wrapper td[...]` ties that rule's specificity (3 vs 3) and
+   loses on source order — verified against computed style, where whiteSpace
+   stayed "nowrap" under a real :focus-within until this extra class was
+   added. Confirmed live in the browser, not just read from the stylesheet. */
+.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="country"]:hover,
+.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="country"]:focus-within,
+.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="fuel"]:hover,
+.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="fuel"]:focus-within,
+.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="freshness"]:hover,
+.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="freshness"]:focus-within {
+  white-space: normal;
+  overflow: visible;
+}
 
 /* ---------- Readings Table ---------- */
 .readings-table-container { overflow-x: auto; }
