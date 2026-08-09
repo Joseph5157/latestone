@@ -39,6 +39,7 @@ def layout(plant_name: str = "", status: str = "") -> html.Div:
                 ],
                 rows=[],
                 link_column_id="transformer",
+                state_column_id="freshness",
             ),
         ],
     )

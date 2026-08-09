@@ -22,6 +22,7 @@ from services.monitoring_service import (
     Freshness,
     FreshnessRollup,
     fleet_health_from_rows,
+    severity_rank,
 )
 from tests.dash_tree import find_by_class, text_of
 
@@ -82,6 +83,25 @@ class TestPlantRowFreshness:
         health = _health([("p1", "d1", FRESH_TS)])
         rows = build_plant_rows([_Plant("p1", "Itaipu")], {"p1": (1, 1)}, health)
         assert rows[0]["id"] == "p1"
+
+    def test_plant_rows_carry_state_identity_alongside_severity(self):
+        """_severity orders, _state identifies. Both, and they must agree."""
+        health = _health([
+            ("p_fresh", "d1", FRESH_TS),
+            ("p_stale", "d2", STALE_TS),
+            ("p_none", "d3", None),
+        ])
+        plants = [
+            _Plant("p_fresh", "Aaa Fresh"),
+            _Plant("p_stale", "Zzz Stale"),
+            _Plant("p_none", "Mmm Nodata"),
+        ]
+        counts = {"p_fresh": (1, 1), "p_stale": (1, 1), "p_none": (1, 1)}
+        rows = build_plant_rows(plants, counts, health)
+        assert rows, "fixture produced no rows"
+        for row in rows:
+            assert row["_state"] in {s.value for s in Freshness}
+            assert row["_severity"] == severity_rank(Freshness(row["_state"]))
 
 
 class TestExceptionFirstOrdering:

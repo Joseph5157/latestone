@@ -89,6 +89,9 @@ def build_plant_rows(plants, counts: dict, health) -> list[dict]:
             # Sort key only. Carried on the row like `id`, absent from
             # PLANT_COLUMNS, so it orders rows without being rendered.
             "_severity": severity_rank(rollup.state),
+            # Semantic identity for styling. `_severity` orders, `_state`
+            # identifies, the label presents — three jobs, three keys.
+            "_state": rollup.state.value,
         })
     return rows
 
@@ -119,6 +122,9 @@ def build_transformer_rows(transformers, device_counts: dict, health) -> list[di
             "status": t.status,
             "freshness": rollup.label("devices"),
             "_severity": severity_rank(rollup.state),
+            # Semantic identity for styling. `_severity` orders, `_state`
+            # identifies, the label presents — three jobs, three keys.
+            "_state": rollup.state.value,
         })
     return rows
 
@@ -144,6 +150,9 @@ def build_device_rows(devices, health) -> list[dict]:
             "status": d.status,
             "freshness": rollup.label("metrics"),
             "_severity": severity_rank(rollup.state),
+            # Semantic identity for styling. `_severity` orders, `_state`
+            # identifies, the label presents — three jobs, three keys.
+            "_state": rollup.state.value,
         })
     return rows
 

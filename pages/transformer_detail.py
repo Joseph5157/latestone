@@ -42,6 +42,7 @@ def layout(
                 ],
                 rows=[],
                 link_column_id="device",
+                state_column_id="freshness",
             ),
         ],
     )
