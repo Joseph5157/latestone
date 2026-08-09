@@ -10,41 +10,57 @@ from __future__ import annotations
 from dash import html
 
 from components.kpi_card import kpi_card
-from services.monitoring_service import FleetHealth, Freshness
+from services.monitoring_service import FleetHealth, Freshness, severity_rank
 
-#: Exception states in the order they are reported, worst last so the eye lands
-#: on the count that matters most in a mixed fleet.
-_EXCEPTION_STATES = [(Freshness.STALE, "stale"), (Freshness.NO_DATA, "no data")]
+#: Display noun per state. Separate from the enum values so wording can change
+#: without touching the identity the styling layer joins on.
+_HEALTH_NOUNS = {
+    Freshness.FRESH: "fresh",
+    Freshness.STALE: "stale",
+    Freshness.NO_DATA: "no data",
+}
 
 
 def _health_summary(counts: dict[Freshness, int]) -> tuple[str, str]:
     """(value, secondary) for a Data Health card over any device population.
 
-    The headline is the fresh count; the supporting line carries the exceptions,
-    because "118 fresh" alone does not tell an operator whether the other two
-    devices are late or gone. States with no members are omitted rather than
-    padded with zeros, which would make every healthy population read as a list
-    of problems.
+    The headline names the **worst state present**, walking `Freshness` in
+    canonical severity order. That is the same rule as worst-of aggregation, so
+    the card cannot develop a second opinion about which state matters most —
+    leading with "stale" because stale is today's common case would be exactly
+    that kind of drift.
 
-    Shared by the fleet and plant cards so the two cannot drift apart in
-    wording or in what counts as healthy.
+    The supporting line carries the remaining states cheapest-first, always
+    including the fresh count: "120 stale" alone does not tell an operator
+    whether anything is still reporting.
+
+    Shared by the fleet, plant and transformer cards so the three cannot drift
+    apart in wording or in what counts as healthy.
     """
-    value = f"{counts.get(Freshness.FRESH, 0)} fresh"
+    total = sum(counts.values())
 
-    parts = [
-        f"{counts.get(state, 0)} {noun}"
-        for state, noun in _EXCEPTION_STATES
-        if counts.get(state, 0)
+    # Zero devices is not zero problems. A population with nothing in it has
+    # produced no evidence of health, and "0 fresh · no stale feeds" would be a
+    # true sentence hiding the fact that nothing is monitored at all.
+    if total == 0:
+        return "No active devices", "No data available"
+
+    worst_first = sorted(Freshness, key=severity_rank, reverse=True)
+    present = [s for s in worst_first if counts.get(s, 0)]
+    lead = present[0]
+    value = f"{counts[lead]} {_HEALTH_NOUNS[lead]}"
+
+    if lead is Freshness.FRESH:
+        return value, "No stale or missing feeds"
+
+    # Ascending severity: the reassuring number first, the worst remaining last.
+    # FRESH is always shown even at zero — its absence is the point.
+    rest = [
+        f"{counts.get(s, 0)} {_HEALTH_NOUNS[s]}"
+        for s in reversed(worst_first)
+        if s is not lead and (counts.get(s, 0) or s is Freshness.FRESH)
     ]
-    if parts:
-        return value, " · ".join(parts)
-
-    # No exceptions. Distinguish a healthy population from an empty one: zero
-    # devices is not zero problems, and "No stale or missing feeds" would be a
-    # true sentence hiding the fact that nothing is being monitored at all.
-    if sum(counts.values()) == 0:
-        return value, "No devices reporting"
-    return value, "No stale or missing feeds"
+    return value, " · ".join(rest)
 
 
 def fleet_health_summary(health: FleetHealth) -> tuple[str, str]:
@@ -68,7 +84,11 @@ def fleet_kpi_cards(
             kpi_card("Plants", str(plants)),
             kpi_card("Transformers", str(transformers)),
             kpi_card("Devices", str(devices)),
-            kpi_card("Data Health", value, secondary=secondary, accent=True),
+            # No accent: --color-accent is selection colour (app.css §tokens),
+            # and a permanently accented card spends the selection signal on
+            # something that is never selected. State reads from the dot and
+            # the wording instead.
+            kpi_card("Data Health", value, secondary=secondary),
         ],
     )
 
@@ -88,7 +108,11 @@ def transformer_kpi_cards(
         className="kpi-row kpi-row--fleet",
         children=[
             kpi_card("Devices", str(devices)),
-            kpi_card("Data Health", value, secondary=secondary, accent=True),
+            # No accent: --color-accent is selection colour (app.css §tokens),
+            # and a permanently accented card spends the selection signal on
+            # something that is never selected. State reads from the dot and
+            # the wording instead.
+            kpi_card("Data Health", value, secondary=secondary),
         ],
     )
 
@@ -108,6 +132,10 @@ def plant_kpi_cards(
         children=[
             kpi_card("Transformers", str(transformers)),
             kpi_card("Devices", str(devices)),
-            kpi_card("Data Health", value, secondary=secondary, accent=True),
+            # No accent: --color-accent is selection colour (app.css §tokens),
+            # and a permanently accented card spends the selection signal on
+            # something that is never selected. State reads from the dot and
+            # the wording instead.
+            kpi_card("Data Health", value, secondary=secondary),
         ],
     )

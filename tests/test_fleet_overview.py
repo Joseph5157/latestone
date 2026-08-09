@@ -132,16 +132,16 @@ class TestFleetHealthSummary:
             + [("p2", "x1", STALE_TS), ("p2", "x2", STALE_TS)]
         )
         value, secondary = fleet_health_summary(health)
-        assert value == "118 fresh"
-        assert secondary == "2 stale"
+        assert value == "2 stale"
+        assert secondary == "118 fresh"
 
     def test_both_exception_states_are_carried(self):
         health = _health([
             ("p1", "d1", FRESH_TS), ("p2", "d2", STALE_TS), ("p3", "d3", None),
         ])
         value, secondary = fleet_health_summary(health)
-        assert value == "1 fresh"
-        assert secondary == "1 stale · 1 no data"
+        assert value == "1 no data"
+        assert secondary == "1 fresh · 1 stale"
 
     def test_a_fully_healthy_fleet_says_so_without_inventing_a_judgement(self):
         health = _health([("p1", "d1", FRESH_TS), ("p1", "d2", FRESH_TS)])
@@ -151,8 +151,8 @@ class TestFleetHealthSummary:
 
     def test_empty_fleet_is_not_reported_as_healthy(self):
         value, secondary = fleet_health_summary(_health([]))
-        assert value == "0 fresh"
-        assert secondary == "No devices reporting"
+        assert value == "No active devices"
+        assert secondary == "No data available"
 
 
 class TestFleetKpiCards:
@@ -172,7 +172,7 @@ class TestFleetKpiCards:
 
     def test_data_health_card_reports_the_rollup(self):
         values = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__value")]
-        assert values[3] == "1 fresh"
+        assert values[3] == "1 stale"
 
 
 class TestSingleSourceOfFreshness:
@@ -217,7 +217,7 @@ class TestSingleSourceOfFreshness:
             health,
         )
         _value, secondary = fleet_health_summary(health)
-        assert secondary == "2 stale"
+        assert secondary == "1 fresh"
         assert [r["freshness"] for r in rows] == [
             "Stale · 1 of 2 devices", "Stale · 1 of 1 devices",
         ]
@@ -281,3 +281,48 @@ class TestRollupLabelNounAgreement:
         rollup = FreshnessRollup(S, {F: 7, S: 1}, 8)
         assert rollup.label("devices").endswith("devices")
         assert "metrics" not in rollup.label("devices")
+
+
+from components.fleet_summary import _health_summary
+
+
+def test_health_summary_leads_with_stale_when_nothing_is_fresh():
+    value, secondary = _health_summary({Freshness.FRESH: 0, Freshness.STALE: 120})
+    assert value == "120 stale"
+    assert secondary == "0 fresh"
+
+
+def test_health_summary_leads_with_no_data_over_stale():
+    """NO_DATA outranks STALE, the same worst-of order as aggregation.
+
+    Guards the whole point of the change: the lead is derived from severity,
+    never hardcoded to stale because stale is the common case today.
+    """
+    value, secondary = _health_summary(
+        {Freshness.FRESH: 102, Freshness.STALE: 15, Freshness.NO_DATA: 3}
+    )
+    assert value == "3 no data"
+    assert secondary == "102 fresh · 15 stale"
+
+
+def test_health_summary_leads_with_health_when_all_fresh():
+    value, secondary = _health_summary({Freshness.FRESH: 120})
+    assert value == "120 fresh"
+    assert secondary == "No stale or missing feeds"
+
+
+def test_health_summary_omits_zero_exception_states():
+    value, secondary = _health_summary(
+        {Freshness.FRESH: 100, Freshness.STALE: 0, Freshness.NO_DATA: 20}
+    )
+    assert value == "20 no data"
+    assert secondary == "100 fresh"
+
+
+def test_health_summary_on_an_empty_population_does_not_read_as_healthy():
+    """Zero devices is not zero problems.
+
+    The wording is specified in the spec rather than read off the
+    implementation, so this test asserts an intended sentence.
+    """
+    assert _health_summary({}) == ("No active devices", "No data available")

@@ -106,13 +106,13 @@ class TestTransformerKpiCards:
         cards = transformer_kpi_cards("t1", devices=2, health=self._health())
         values = [text_of(el) for el in find_by_class(cards, "kpi-card__value")]
         secondary = [text_of(el) for el in find_by_class(cards, "kpi-card__secondary")]
-        assert values == ["2", "1 fresh"]
-        assert secondary[1] == "1 stale"
+        assert values == ["2", "1 stale"]
+        assert secondary[1] == "1 fresh"
 
     def test_unknown_transformer_is_not_reported_as_healthy(self):
         cards = transformer_kpi_cards("nope", devices=0, health=self._health())
         secondary = [text_of(el) for el in find_by_class(cards, "kpi-card__secondary")]
-        assert secondary[1] == "No devices reporting"
+        assert secondary[1] == "No data available"
 
 
 class TestInvestigationChainConsistency:

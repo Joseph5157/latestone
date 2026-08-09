@@ -156,8 +156,8 @@ class TestPlantKpiCards:
         stale device belongs to another plant and must not appear here."""
         values = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__value")]
         secondary = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__secondary")]
-        assert values == ["1", "2", "1 fresh"]
-        assert secondary[2] == "1 stale"
+        assert values == ["1", "2", "1 stale"]
+        assert secondary[2] == "1 fresh"
 
     def test_reuses_the_frozen_card_component(self):
         """Same kpi-card language as Fleet and Device, not a new card type."""
@@ -167,4 +167,4 @@ class TestPlantKpiCards:
         cards = plant_kpi_cards(plant_id="empty", transformers=0, devices=0,
                                 health=_health([]))
         secondary = [text_of(el) for el in find_by_class(cards, "kpi-card__secondary")]
-        assert secondary[2] == "No devices reporting"
+        assert secondary[2] == "No data available"
