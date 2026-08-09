@@ -166,16 +166,25 @@ def aggregate_freshness(states: list[Freshness]) -> FreshnessRollup:
 
 @dataclass(frozen=True)
 class FleetHealth:
-    """Fleet-wide freshness, rolled up per device and per plant.
+    """Freshness at every level of the tree, from one query.
 
     `counts` counts *devices*, not metrics — the Data Health card answers "how
     many devices are reporting", and a device carries eight metrics that would
     otherwise inflate every figure eightfold.
+
+    Plant rollups are worst-of the plant's *devices*, not of its transformers:
+    aggregating twice would be a majority rule in disguise, since a transformer
+    holding one stale device among six reports STALE with equal weight to one
+    holding six.
     """
 
     devices: dict[str, FreshnessRollup]
+    transformers: dict[str, FreshnessRollup]
     plants: dict[str, FreshnessRollup]
     counts: dict[Freshness, int]
+    #: transformer_id -> plant_id, so a plant screen can select its own subtree
+    #: without a second query or a second definition of the hierarchy.
+    _transformer_plant: dict[str, str]
 
     @property
     def device_count(self) -> int:
@@ -184,6 +193,28 @@ class FleetHealth:
     @property
     def plant_count(self) -> int:
         return len(self.plants)
+
+    def transformers_for_plant(self, plant_id: str) -> dict[str, FreshnessRollup]:
+        """This plant's transformer rollups. Unknown plant selects nothing."""
+        return {
+            tid: rollup
+            for tid, rollup in self.transformers.items()
+            if self._transformer_plant.get(tid) == plant_id
+        }
+
+    def device_counts_for_plant(self, plant_id: str) -> dict[Freshness, int]:
+        """Per-state device counts within one plant, for a plant-scoped card.
+
+        Derived from the same object the fleet card uses, so a plant page and
+        the fleet page can never report different states for the same device.
+        """
+        counts = {state: 0 for state in Freshness}
+        # A transformer rollup's `counts` already tallies its devices by state,
+        # so the plant total is their sum — no second traversal of the rows.
+        for rollup in self.transformers_for_plant(plant_id).values():
+            for state, n in rollup.counts.items():
+                counts[state] += n
+        return counts
 
 
 def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
@@ -196,31 +227,47 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
 
     device_metric_states: dict[str, list[Freshness]] = {}
     device_plant: dict[str, str] = {}
+    device_transformer: dict[str, str] = {}
+    transformer_plant: dict[str, str] = {}
     for row in rows:
         device_metric_states.setdefault(row.device_id, []).append(
             evaluate_freshness(row.reading_ts, reference)
         )
         device_plant[row.device_id] = row.plant_id
+        transformer_id = getattr(row, "transformer_id", None)
+        if transformer_id is not None:
+            device_transformer[row.device_id] = transformer_id
+            transformer_plant[transformer_id] = row.plant_id
 
     devices = {
         device_id: aggregate_freshness(states)
         for device_id, states in device_metric_states.items()
     }
 
-    plant_device_states: dict[str, list[Freshness]] = {}
-    for device_id, rollup in devices.items():
-        plant_device_states.setdefault(device_plant[device_id], []).append(rollup.state)
+    def _rollup_by(owner: dict[str, str]) -> dict[str, FreshnessRollup]:
+        grouped: dict[str, list[Freshness]] = {}
+        for device_id, rollup in devices.items():
+            if device_id in owner:
+                grouped.setdefault(owner[device_id], []).append(rollup.state)
+        return {key: aggregate_freshness(states) for key, states in grouped.items()}
 
-    plants = {
-        plant_id: aggregate_freshness(states)
-        for plant_id, states in plant_device_states.items()
-    }
+    # Both levels aggregate over *devices*. Rolling plants up from transformer
+    # states instead would be a majority rule in disguise: a transformer with
+    # one stale device among six would weigh the same as one with six.
+    transformers = _rollup_by(device_transformer)
+    plants = _rollup_by(device_plant)
 
     counts = {state: 0 for state in Freshness}
     for rollup in devices.values():
         counts[rollup.state] += 1
 
-    return FleetHealth(devices=devices, plants=plants, counts=counts)
+    return FleetHealth(
+        devices=devices,
+        transformers=transformers,
+        plants=plants,
+        counts=counts,
+        _transformer_plant=transformer_plant,
+    )
 
 
 def get_fleet_health() -> FleetHealth:

@@ -207,8 +207,14 @@ def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[
 
 @dataclass(frozen=True)
 class LatestReadingRow:
-    """Newest reading time for one (device, metric), with its plant."""
+    """Newest reading time for one (device, metric), with its place in the tree.
+
+    Carries both ancestor ids because the transformer join is already in the
+    query: one result set then serves the fleet card, the plant table's
+    freshness column and the plant screen's per-transformer rollups.
+    """
     plant_id: str
+    transformer_id: str
     device_id: str
     metric: str
     reading_ts: datetime | None
@@ -260,7 +266,8 @@ def latest_reading_times(
         rows = session.execute(
             text(
                 f"""
-                SELECT t.plant_id, d.device_id, m.metric, latest.reading_ts
+                SELECT t.plant_id, t.transformer_id, d.device_id,
+                       m.metric, latest.reading_ts
                 FROM {_SCHEMA}.devices d
                 JOIN {_SCHEMA}.transformers t
                   ON t.transformer_id = d.transformer_id
@@ -278,7 +285,7 @@ def latest_reading_times(
             params,
         ).all()
 
-    return [LatestReadingRow(r[0], r[1], r[2], r[3]) for r in rows]
+    return [LatestReadingRow(r[0], r[1], r[2], r[3], r[4]) for r in rows]
 
 
 # ---------------------------------------------------------------------------

@@ -316,6 +316,14 @@ class TestFleetFreshness:
         assert match.plant_id == "plant-01"
         assert len({r.plant_id for r in rows}) == 30
 
+    def test_carries_the_owning_transformer_for_plant_level_rollups(self):
+        """The Plant screen rolls up per transformer. The join is already in
+        this query, so carrying the id costs nothing and saves a second one."""
+        rows = repo.latest_reading_times(["temperature"])
+        match = next(r for r in rows if r.device_id == RESERVED_DEVICE_ID)
+        assert match.transformer_id == "plant-01-t1"
+        assert len({r.transformer_id for r in rows}) == 71
+
     def test_a_device_with_no_readings_yields_a_row_with_no_timestamp(self):
         """A silent device must appear as NO_DATA, not vanish from the fleet."""
         rows = repo.latest_reading_times(["not_a_seeded_metric"])

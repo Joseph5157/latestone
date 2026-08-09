@@ -9,7 +9,7 @@ import logging
 
 from dash import Input, Output, State, no_update
 
-from components.fleet_summary import fleet_kpi_cards
+from components.fleet_summary import fleet_kpi_cards, plant_kpi_cards
 from components.status_panels import error_panel
 from routes import device_href
 from services import hierarchy_service, monitoring_service
@@ -38,7 +38,12 @@ PLANT_COLUMNS = [
 TRANSFORMER_COLUMNS = [
     {"name": "Transformer", "id": "transformer"},
     {"name": "Devices", "id": "devices", "type": "numeric"},
+    # Administrative status (active/inactive) and data freshness are separate
+    # concepts per CLAUDE.md and stay separate columns. Merging them would let
+    # an inactive transformer read as a data problem, or a dead feed read as an
+    # administrative one.
     {"name": "Status", "id": "status"},
+    {"name": "Data", "id": "freshness"},
 ]
 
 DEVICE_COLUMNS = [
@@ -93,16 +98,29 @@ def sort_plant_rows_exception_first(rows: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda r: (-r["_severity"], r["plant"]))
 
 
-def build_transformer_rows(transformers, device_counts: dict) -> list[dict]:
-    return [
-        {
+def build_transformer_rows(transformers, device_counts: dict, health) -> list[dict]:
+    """One row per transformer, freshness read off the shared FleetHealth.
+
+    Same contract as `build_plant_rows`: `health` is passed in, a missing rollup
+    is NO_DATA rather than blank, and the severity rank rides on the row.
+    """
+    rows = []
+    for t in transformers:
+        rollup = health.transformers.get(t.transformer_id) or aggregate_freshness([])
+        rows.append({
             "id": t.transformer_id,
             "transformer": t.transformer_code,
             "devices": device_counts.get(t.transformer_id, 0),
             "status": t.status,
-        }
-        for t in transformers
-    ]
+            "freshness": rollup.label("devices"),
+            "_severity": severity_rank(rollup.state),
+        })
+    return rows
+
+
+def sort_transformer_rows_exception_first(rows: list[dict]) -> list[dict]:
+    """Exceptions first, then transformer code — same rule as the plant table."""
+    return sorted(rows, key=lambda r: (-r["_severity"], r["transformer"]))
 
 
 def build_device_rows(devices) -> list[dict]:
@@ -218,13 +236,16 @@ def register(app) -> None:
         Output("transformers-table", "data"),
         Output("transformers-table", "columns"),
         Output("transformers-error", "children"),
+        Output("plant-kpis", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_plant_detail(context):
         if not context or context.get("route") != "plant":
-            return no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update
         plant_id = context.get("plant_id")
+
+        cards = []
 
         def build():
             transformers = hierarchy_service.list_transformers(plant_id)
@@ -232,11 +253,25 @@ def register(app) -> None:
                 t.transformer_id: len(hierarchy_service.list_devices(t.transformer_id))
                 for t in transformers
             }
-            return build_transformer_rows(transformers, device_counts)
+            # Same one-object rule as the fleet screen: one FleetHealth serves
+            # the plant's card and every transformer row beneath it.
+            health = monitoring_service.get_fleet_health()
+            cards.append(
+                plant_kpi_cards(
+                    plant_id=plant_id,
+                    transformers=len(transformers),
+                    devices=sum(device_counts.values()),
+                    health=health,
+                )
+            )
+            return sort_transformer_rows_exception_first(
+                build_transformer_rows(transformers, device_counts, health)
+            )
 
-        return listing_outputs(
+        rows, columns, error = listing_outputs(
             build, TRANSFORMER_COLUMNS, f"loading transformers for plant_id={plant_id!r}"
         )
+        return rows, columns, error, (cards[0] if cards else None)
 
     @app.callback(
         Output("devices-table", "data"),

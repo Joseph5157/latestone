@@ -129,7 +129,11 @@ class TestRowsCarryTheirIdentity:
             transformer_code = "un01"
             status = "active"
 
-        rows = build_transformer_rows([_T()], {"plant-07-t1": 3})
+        from services.monitoring_service import fleet_health_from_rows
+
+        rows = build_transformer_rows(
+            [_T()], {"plant-07-t1": 3}, fleet_health_from_rows([])
+        )
         assert rows[0]["id"] == "plant-07-t1"
 
     def test_device_rows_expose_an_id(self):
