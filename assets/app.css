@@ -46,6 +46,18 @@
   --fs-body: 13px;
   --fs-meta: 11px;
 
+  /* Fleet-scoped additions (Fleet Overview v2 §4.1).
+     Additive: every token Device consumes keeps its value, so the frozen
+     Device reference is unchanged by construction rather than by
+     re-validation. --fs-micro and --fs-table are deliberately absent — they
+     would duplicate the values AND the roles of --fs-meta and --fs-body, and
+     a second name for an existing role is the drift this layer prevents. */
+  --w-monitoring:   1550px;   /* a maximum, never a target width */
+  --w-reading:      1200px;
+  --fs-fleet-title:   24px;   /* Device keeps --fs-page-title: 22px */
+  --fs-fleet-kpi:     30px;   /* Device keeps --fs-kpi: 26px */
+  --fs-fleet-body:    14px;
+
   --radius: 8px;
   --radius-sm: 6px;
 }
@@ -484,6 +496,13 @@ body {
   color: var(--color-text);
 }
 
+/* Data Health carries more information than the three structural counts, so
+   it gets more room. Device's .kpi-row is untouched. */
+.kpi-row--fleet {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 1.5fr;
+}
+.kpi-row--fleet .kpi-card__value { font-size: var(--fs-fleet-kpi); }
+
 /* ---------- Metric Controls ---------- */
 .metric-controls {
   display: flex;
@@ -551,13 +570,30 @@ body {
 .readings-table-container .dash-table-container { max-width: 100%; }
 
 /* ---------- Pages ---------- */
+/* .page stays the default reading-width container: Device, Plant and
+   Transformer are unaffected by anything below. */
 .page {
-  max-width: 1200px;
+  max-width: var(--w-reading);
   margin: 0 auto;
   padding: 0 20px 40px 20px;
 }
 
-.page h1 { font-size: 22px; margin: 0 0 16px 0; }
+/* Monitoring width — dashboards, summaries and hierarchy content.
+   max-width, never width: at 1366 the page fills the viewport minus gutters
+   (~1318 px), at 1920 it caps at 1550 and the remainder becomes whitespace.
+   Gutters are restated rather than inherited so widening the container can
+   never leave content glued to the viewport edge. */
+.page--monitoring {
+  max-width: var(--w-monitoring);
+  padding: 0 24px 40px 24px;
+}
+
+/* Scoped title override. The global .page h1 keeps its 22 px so the other
+   three pages are untouched; specificity does the work, not !important. */
+.page--monitoring h1 { font-size: var(--fs-fleet-title); }
+
+.page__subtitle { font-size: var(--fs-fleet-body); color: var(--color-muted); margin: 0 0 4px 0; }
+.page__meta     { font-size: var(--fs-meta);       color: var(--color-muted); margin: 0 0 20px 0; }
 
 /* ---------- Responsive: Snapshot Strip ----------
    8 across is validated at >=1200 px only (§24). Below that it steps down

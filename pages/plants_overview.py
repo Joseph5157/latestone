@@ -10,7 +10,7 @@ from components.entity_table import entity_table
 
 def layout() -> html.Div:
     return html.Div(
-        className="page page--plants-overview",
+        className="page page--monitoring page--plants-overview",
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([("Fleet", None)]),
