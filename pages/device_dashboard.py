@@ -12,6 +12,17 @@ from config.settings import monitoring
 from services.monitoring_service import Freshness
 
 
+def _context_item(label: str, value, value_id: str | None = None) -> html.Div:
+    value_props = {"id": value_id} if value_id else {}
+    return html.Div(
+        className="equipment-context__item",
+        children=[
+            html.Span(label, className="equipment-context__label"),
+            html.Span(value, className="equipment-context__value", **value_props),
+        ],
+    )
+
+
 def layout(
     plant_name: str = "",
     transformer_code: str = "",
@@ -20,10 +31,20 @@ def layout(
     period: str | None = None,
     custom_start: str | None = None,
     custom_end: str | None = None,
+    plant_id: str = "",
+    transformer_id: str = "",
+    device_status: str = "",
 ) -> html.Div:
     metric_options = [{"label": m.label, "value": m.key} for m in ordered_metrics()]
     initial_metric = metric_key or (metric_options[0]["value"] if metric_options else None)
     initial_period = period or "24h"
+
+    # Parent crumbs link only when their ids are known; a crumb with a
+    # half-built href is worse than plain text.
+    plant_href = f"/plants/{plant_id}" if plant_id else None
+    transformer_href = (
+        f"/plants/{plant_id}/{transformer_id}" if plant_id and transformer_id else None
+    )
 
     return html.Div(
         className="page page--device-dashboard",
@@ -31,18 +52,24 @@ def layout(
             app_header(
                 breadcrumb_children=breadcrumb([
                     ("Plants", "/plants"),
-                    (plant_name or "Plant", None),
-                    (transformer_code or "Transformer", None),
+                    (plant_name or "Plant", plant_href),
+                    (transformer_code or "Transformer", transformer_href),
                     (device_code or "Device", None),
                 ]),
                 freshness=Freshness.NO_DATA,
             ),
+            # UI_SPEC 6a: Plant | Transformer | Device | Status. `Status` is the
+            # administrative state from DevicePath — deliberately not merged
+            # with data freshness (header badge) or monitoring condition.
             html.Div(
                 id="equipment-context-container",
                 className="equipment-context",
                 children=[
-                    html.Span("Last data: ", className="equipment-context__label"),
-                    html.Span(id="equipment-last-data", className="equipment-context__value"),
+                    _context_item("Plant", plant_name or "—"),
+                    _context_item("Transformer", transformer_code or "—"),
+                    _context_item("Device", device_code or "—"),
+                    _context_item("Status", device_status or "—"),
+                    _context_item("Last data", "—", value_id="equipment-last-data"),
                 ],
             ),
             html.Div(id="snapshot-strip"),

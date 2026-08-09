@@ -254,9 +254,9 @@ the running application. Dispositions:
 | NEW-03 relative periods anchored to last sample | Confirmed | **Fixed** |
 | NEW-11 capacity sorts as formatted text | Confirmed | **Fixed** (adjacent to NEW-02) |
 | NEW-08 listing callbacks lack an error boundary | Confirmed | **Partially fixed** — see below |
-| NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | Open |
-| NEW-05 badge rendered inside a badge | Confirmed | Open |
-| NEW-06 equipment context/status + breadcrumb links | Confirmed | Open |
+| NEW-05 badge rendered inside a badge | Confirmed | **Fixed** |
+| NEW-06 equipment context/status + breadcrumb links | Confirmed | **Fixed** |
+| NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | Open — needs a timezone policy decision |
 | NEW-07 inactive hierarchy count mismatch | Plausible, needs a policy decision | Open |
 | NEW-09 schema configurable but DDL hard-coded | Confirmed | Open |
 | NEW-10 chart `uirevision` keeps zoom across periods | Confirmed | Open |
@@ -313,3 +313,42 @@ The three listing callbacks were being rewritten for NEW-02, so they gained
 Dash. The shared page-level loading/error container the finding asks for is
 **not** built; a database outage now yields an empty table, not an explanatory
 panel. Still open.
+
+## NEW-05 — fixed
+
+`header-freshness` is now a neutral `header__freshness-slot` container holding
+exactly one badge, instead of being the badge itself. The device callback writes
+a badge into that slot via `header_freshness_children()`.
+
+The visible symptom was that the header pill kept the class the layout first
+rendered (`freshness-badge--no_data`) regardless of the data, because the real
+badge was nested one level inside it. Verified live on a stale device: one badge
+node, class `freshness-badge--stale`, slot carries no badge styling.
+
+The error path no longer writes an `error_panel()` `<div>` into that slot — a
+block element inside the header span was invalid markup. `error_outputs()` now
+returns a no-data badge for the slot; the error panel still renders in the body.
+
+## NEW-06 — fixed
+
+`build_device_context()` was extracted from the router and carries the whole
+`DevicePath`, including `plant_id`, `transformer_id` and `device_status`, which
+the router previously discarded.
+
+`device_dashboard.layout()` renders the UI_SPEC 6a bar —
+`Plant | Transformer | Device | Status` — with `Last data` retained as a fifth
+item. Device breadcrumb parents are now links (`/plants/{plant_id}` and
+`/plants/{plant_id}/{transformer_id}`); they degrade to plain text when the ids
+are unknown rather than emitting a half-built href.
+
+`Status` here is administrative state only. It is deliberately not merged with
+data freshness (the header badge) or monitoring condition, per CLAUDE.md.
+
+## Note on the test suite
+
+`tests/test_plant_monitoring_repository.py::TestLatestReadings::test_batched_latest_returns_all_eight_metrics`
+failed once at 84.5ms against an 80ms budget on a cold connection, then passed
+on five consecutive runs and two further full-suite runs. The timing assertions
+in `tests/timing.py` have no warm-up, so the first query of a session pays
+connection setup. Pre-existing fragility, not a regression — but it will
+intermittently redden CI.

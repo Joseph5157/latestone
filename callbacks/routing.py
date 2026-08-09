@@ -22,6 +22,28 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
+def build_device_context(device_path, metric_key: str, period_value: str) -> dict:
+    """page-context for a device route.
+
+    Carries the full `DevicePath`, not just the display names. The parent ids
+    were previously dropped here, which is why the device breadcrumb could not
+    link back up the hierarchy and the equipment context bar could not show
+    administrative status.
+    """
+    return {
+        "route": "device",
+        "device_id": device_path.device_id,
+        "plant_id": device_path.plant_id,
+        "plant_name": device_path.plant_name,
+        "transformer_id": device_path.transformer_id,
+        "transformer_code": device_path.transformer_code,
+        "device_code": device_path.device_code,
+        "device_status": device_path.device_status,
+        "metric_key": metric_key,
+        "period": period_value,
+    }
+
+
 def register(app) -> None:
     """Register the top-level router callback on the Dash app."""
 
@@ -92,22 +114,19 @@ def register(app) -> None:
                 if device_ctx is None:
                     return not_found_panel("device"), {"route": "unknown"}
 
-                plant_name = device_ctx.plant_name
-                transformer_code = device_ctx.transformer_code
-                device_code = device_ctx.device_code
-                ctx = {
-                    "route": "device",
-                    "device_id": route.device_id,
-                    "plant_name": plant_name,
-                    "transformer_code": transformer_code,
-                    "device_code": device_code,
-                    "metric_key": metric_key,
-                    "period": period_value,
-                }
+                ctx = build_device_context(device_ctx, metric_key, period_value)
                 return (
                     device_dashboard.layout(
-                        plant_name, transformer_code, device_code,
-                        metric_key, period_value, custom_start, custom_end,
+                        plant_name=device_ctx.plant_name,
+                        transformer_code=device_ctx.transformer_code,
+                        device_code=device_ctx.device_code,
+                        metric_key=metric_key,
+                        period=period_value,
+                        custom_start=custom_start,
+                        custom_end=custom_end,
+                        plant_id=device_ctx.plant_id,
+                        transformer_id=device_ctx.transformer_id,
+                        device_status=device_ctx.device_status,
                     ),
                     ctx,
                 )

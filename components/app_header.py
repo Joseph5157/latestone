@@ -32,7 +32,16 @@ def app_header(
             html.Div(
                 [
                     html.Span("Data: ", className="header__freshness-label"),
-                    freshness_badge(freshness, component_id="header-freshness"),
+                    # `header-freshness` is a neutral container, not the badge.
+                    # It used to be the badge itself while the device callback
+                    # wrote a whole new badge into its children — nesting a
+                    # badge inside a badge and leaving the outer class stuck at
+                    # whatever the layout first rendered.
+                    html.Span(
+                        freshness_badge(freshness),
+                        id="header-freshness",
+                        className="header__freshness-slot",
+                    ),
                 ],
                 className="header__freshness",
             )

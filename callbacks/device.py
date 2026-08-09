@@ -14,7 +14,7 @@ from components.readings_table import build_table_rows
 from components.status_panels import error_panel
 from routes import device_href
 from services import monitoring_service as svc
-from services.monitoring_service import Period
+from services.monitoring_service import Freshness, Period
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,36 @@ def _parse_picker_date(value: str | None, *, is_end: bool = False) -> datetime |
     if is_end and parsed.time() == time.min:
         parsed = parsed + timedelta(days=1) - timedelta(microseconds=1)
     return parsed
+
+
+def header_freshness_children(freshness: Freshness):
+    """Contents of the header's `header-freshness` slot.
+
+    The slot is a plain container, so exactly one badge goes into it. Returning
+    a badge that itself carried the slot id is what previously produced a badge
+    nested inside a badge.
+    """
+    return freshness_badge(freshness)
+
+
+def error_outputs() -> tuple:
+    """Fallback for every output of `refresh_device_dashboard`, in order.
+
+    The freshness slot gets a no-data badge rather than the error panel: a
+    `<div>` panel inside the header slot was invalid markup, and "we could not
+    load this" is what no-data already conveys. The error panel still shows in
+    the body, where the operator will see it.
+    """
+    err = error_panel()
+    return (
+        err,                                            # snapshot-strip
+        err,                                            # kpi-row-container
+        {},                                             # metric-chart figure
+        [],                                             # readings-table data
+        [],                                             # readings-table columns
+        header_freshness_children(Freshness.NO_DATA),   # header-freshness
+        "—",                                       # equipment-last-data
+    )
 
 
 def register(app) -> None:
@@ -101,7 +131,7 @@ def register(app) -> None:
                 {"name": view.metric.label, "id": "value"},
             ]
 
-            freshness = freshness_badge(view.freshness)
+            freshness = header_freshness_children(view.freshness)
             last_data = (
                 view.last_updated.strftime("%Y-%m-%d %H:%M") if view.last_updated else "\u2014"
             )
@@ -115,8 +145,7 @@ def register(app) -> None:
                 "Device dashboard refresh failed for device_id=%r metric=%r period=%r",
                 device_id, metric_key, period_value,
             )
-            err = error_panel()
-            return err, err, {}, [], [], err, "\u2014"
+            return error_outputs()
 
     # Sync metric/period into URL for shareability
 
