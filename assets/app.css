@@ -1,16 +1,105 @@
+/* Semantic design tokens — HMI_UI_UX_SPEC.md §6.2.
+   Roles, not raw colours: components reference the role so a palette change is
+   one edit here. Colour is reserved for state and selection (§6.3); normal
+   information stays neutral so a healthy screen reads calm. */
 :root {
-  --color-bg: #f4f6f8;
-  --color-surface: #ffffff;
-  --color-border: #e2e5e9;
-  --color-text: #1f2937;
-  --color-muted: #6b7280;
+  /* surfaces */
+  --color-bg: #f4f6f8;              /* canvas — neutral cool grey */
+  --color-surface: #ffffff;         /* cards */
+  --color-border: #e2e5e9;          /* dividers */
+
+  /* text */
+  --color-text: #1f2937;            /* primary — 13.6:1 on surface */
+  --color-muted: #5b6472;           /* secondary — 6.4:1 on surface (was #6b7280, 4.8:1) */
   --color-brand: #1f3a5f;
+
+  /* selection */
   --color-accent: #2563eb;
-  --color-warning-bg: #fef2f2;
-  --color-warning-text: #991b1b;
-  --color-normal-bg: #ecfdf5;
-  --color-normal-text: #065f46;
+  --color-accent-bg: #eff6ff;
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.45);
+
+  /* state — freshness/data quality only, never electrical condition */
+  --state-fresh-bg: #dcfce7;
+  --state-fresh-text: #14532d;      /* 8.6:1 on its own background */
+  --state-stale-bg: #fef3c7;
+  --state-stale-text: #713f12;      /* 8.1:1 — was #92400e at 5.9:1 */
+  --state-error-bg: #fef2f2;
+  --state-error-text: #991b1b;
+  --state-none-bg: #f1f3f5;
+  --state-none-text: #495057;
+
+  /* legacy aliases retained so existing rules keep working */
+  --color-warning-bg: var(--state-error-bg);
+  --color-warning-text: var(--state-error-text);
+  --color-normal-bg: var(--state-fresh-bg);
+  --color-normal-text: var(--state-fresh-text);
+
+  /* spacing scale — 4/8/12/16/20/24/32 (§6.5) */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  /* type scale (§6.4) */
+  --fs-page-title: 22px;
+  --fs-section: 16px;
+  --fs-kpi: 26px;
+  --fs-snapshot: 17px;
+  --fs-body: 13px;
+  --fs-meta: 11px;
+
   --radius: 8px;
+  --radius-sm: 6px;
+}
+
+/* Accessibility (§23.1): a visible focus indicator that is not the hover style,
+   on every interactive element. Never remove this without a replacement.
+
+   NOT wrapped in :where(). That was the first attempt and it silently did
+   nothing: :where() contributes zero specificity, so Dash's react-select and
+   Plotly's own `outline: none` beat it and keyboard users got no focus ring at
+   all — while the element still matched :focus-visible, so it looked correct in
+   the DOM. `!important` on the outline is deliberate: the resets we are
+   overriding live in third-party stylesheets we do not control, and a focus
+   indicator that a vendor bump can silently remove is not an accessibility
+   guarantee. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.modebar-btn:focus-visible,
+.Select-control:focus-within {
+  outline: 2px solid var(--color-accent) !important;
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* dash_table stamps `tabindex="-1"` on every cell and every `.dash-cell-value`
+   — 210 of them on the plants table — so all of them match the
+   `[tabindex]:focus-visible` rule above. That rule was written for form
+   controls, where a 2 px outline plus a soft box-shadow reads as one ring with
+   a halo. On a compact table cell it reads as **two** concentric lines, and the
+   positive outline-offset pushes the outer one outside the cell box, so a
+   keyboard-focused cell showed a doubled vertical rule beside its text.
+
+   The indicator is not removed — keyboard cell navigation needs it just as much
+   as a button does, which is the whole point of DEF-1. It becomes a single
+   tight ring drawn inside the cell: one line, no halo, no radius, and nothing
+   overlapping the neighbouring column. */
+td.dash-cell:focus-visible,
+.dash-cell-value:focus-visible {
+  outline-offset: -2px;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* Numeric values change in place on refresh; tabular figures stop them
+   shifting width as digits change (§6.4). */
+.kpi-card__value,
+.snapshot-tile__value,
+.equipment-context__value {
+  font-variant-numeric: tabular-nums;
 }
 
 * { box-sizing: border-box; }
@@ -39,9 +128,13 @@ body {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
 }
 
+/* Login is in design-system scope (§6.7) and is the first screen the client
+   sees. Sized so "Power Plant Monitoring System" holds one line in the card
+   instead of wrapping mid-phrase. */
 .login-title {
-  font-size: 19px;
-  margin: 0 0 4px 0;
+  font-size: 17px;
+  line-height: 1.3;
+  margin: 0 0 var(--sp-1) 0;
   color: var(--color-brand);
 }
 
@@ -53,30 +146,47 @@ body {
 
 .login-input {
   width: 100%;
-  padding: 10px 12px;
-  margin-bottom: 12px;
+  padding: 10px var(--sp-3);
+  margin-bottom: var(--sp-3);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  color: var(--color-text);
+  background: var(--color-surface);
 }
 
+.login-input:focus {
+  border-color: var(--color-accent);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The password row owns the spacing below; its children must not double it. */
+.login-password-row .login-input { margin-bottom: 0; }
+
+/* `stretch`, not `flex-start`: the toggle button carried its own margin and sat
+   below the field's baseline. */
 .login-password-row {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
+  gap: var(--sp-2);
+  align-items: stretch;
+  margin-bottom: var(--sp-3);
 }
 
 .login-password-row .login-input { flex: 1; }
 
 .toggle-password-btn {
-  padding: 10px 12px;
+  padding: 0 var(--sp-3);
   border: 1px solid var(--color-border);
   background: #f9fafb;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
+  color: var(--color-text);
   cursor: pointer;
-  margin-bottom: 12px;
+  white-space: nowrap;
 }
+
+.toggle-password-btn:hover { background: #f1f3f5; }
 
 .login-button {
   width: 100%;
@@ -93,123 +203,265 @@ body {
 
 .login-button:hover { background: #16304f; }
 
+/* Reserved height so the card does not jump when an error appears. */
 .login-error {
-  color: #dc2626;
-  font-size: 13px;
-  margin-top: 12px;
+  color: var(--state-error-text);
+  font-size: var(--fs-body);
+  margin-top: var(--sp-3);
   min-height: 18px;
 }
 
-/* ---------- Dashboard shell ---------- */
-.dashboard-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px 40px 20px;
-}
-
-.dashboard-header {
+/* ---------- App Header ---------- */
+/* Target 56–64 px (§5). Contributes to the chart-top budget in §6.8. */
+.app-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 4px;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 16px;
+  margin-bottom: var(--sp-3);
 }
 
-.dashboard-header__brand {
+.header__brand {
   font-weight: 700;
   font-size: 15px;
-  letter-spacing: 0.02em;
   color: var(--color-brand);
+  margin-right: auto;
 }
 
-.dashboard-header__meta {
-  font-size: 13px;
-  color: var(--color-muted);
+.header__breadcrumb { font-size: 13px; }
+.header__freshness { font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.header__freshness-label { color: var(--color-muted); }
+.header__logout { padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 6px; text-decoration: none; color: var(--color-text); font-size: 13px; }
+.header__logout:hover { background: #f3f4f6; }
+
+/* ---------- Breadcrumb ---------- */
+.breadcrumb { display: flex; align-items: center; gap: 6px; }
+.breadcrumb__link { color: var(--color-accent); text-decoration: none; font-size: 13px; }
+.breadcrumb__link:hover { text-decoration: underline; }
+.breadcrumb__current { font-size: 13px; color: var(--color-text); font-weight: 500; }
+.breadcrumb__sep { color: var(--color-muted); font-size: 12px; }
+
+/* ---------- Equipment Selector ----------
+   A global bar above the page, not part of .app-header: the selector is
+   mounted once in app.layout so its callbacks always have targets, while each
+   page renders its own header. */
+/* Compacted for the §6.8 budget. The component deliberately stays in the global
+   layout — visual integration only, never relocation into the page-local header,
+   which would reintroduce docs/CODE_AUDIT.md finding 2. */
+.equipment-selector-bar {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-5);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.dashboard-header__dot { color: var(--color-border); }
-
-.dashboard-header__actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.connection-state {
+.equipment-selector-bar__label {
   font-size: 12px;
-  color: var(--color-muted);
-}
-
-.logout-button {
-  padding: 7px 14px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.logout-button:hover { background: #f3f4f6; }
-
-/* ---------- Controls ---------- */
-.dashboard-controls {
-  margin-bottom: 20px;
-}
-
-.period-filter__options {
-  display: flex;
-  gap: 8px;
-}
-
-.period-filter__input { display: none; }
-
-.period-filter__label {
-  padding: 7px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-surface);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.period-filter__custom {
-  margin-top: 10px;
-}
-
-/* ---------- Plant selector ---------- */
-.plant-selector {
-  margin-bottom: 12px;
-  max-width: 420px;
-}
-
-.plant-selector__label {
-  display: block;
-  font-size: 12px;
+  font-weight: 600;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 6px;
+  white-space: nowrap;
 }
 
-/* ---------- KPI cards ---------- */
+.hierarchy-selector { display: flex; gap: 8px; flex: 1; min-width: 300px; }
+
+/* Size the `.dash-dropdown` wrapper, not `.hierarchy-selector__field`.
+   dcc.Dropdown puts its `className` on the inner `.Select` div, while the flex
+   child is the outer wrapper — so flex/max-width set on the field class landed
+   on an element whose parent is not a flex container and did nothing. The three
+   dropdowns sat at their 120 px min-width with ~790 px of the bar unused, and
+   "Transformer..." was the one placeholder wide enough to be clipped by it. */
+.hierarchy-selector .dash-dropdown {
+  flex: 1 1 0;
+  min-width: 140px;
+  max-width: 260px;
+}
+.hierarchy-selector__field { width: 100%; }
+
+/* react-select's search input ships `padding: 8px 0 12px` on a content-box
+   element. That is 37 px of input inside a 36 px control — it overflows its own
+   container — and the mismatched top/bottom values drop the caret 2 px below
+   the text centre, so typing visibly nudges the text down.
+
+   Zeroing the padding is necessary but not sufficient: alone it collapses the
+   input to 17 px and lands the text 6 px *above* centre. The height and
+   line-height are restored with it, which measures 18 px — the same centre as
+   the placeholder and the selected value.
+
+   Applies to every dcc.Dropdown, not just the selector bar: the metric dropdown
+   on the device page has the identical vendor default. Deliberately NOT applied
+   to inputs generally — the login fields use a symmetric `10px 12px` on a
+   border-box element and are correct as they are; zeroing those would put the
+   text against the border.
+
+   `!important` is required, not lazy. react-select injects `.Select-input >
+   input` at runtime *twice*, and the second copy lands after app.css in the
+   sheet order. The selector is identical, so specificity cannot win and source
+   order cannot either — verified by walking document.styleSheets. This is the
+   same justification as the DEF-1 focus ring: a vendor rule that a version bump
+   could silently reorder or restore. */
+.Select-input > input {
+  padding: 0 !important;
+  height: 34px !important;
+  line-height: 34px !important;
+}
+
+/* No focus ring on the *hidden* search input.
+
+   react-select keeps a 5 px-wide input parked exactly where the selected value
+   text starts. The global `input:focus-visible` rule painted a 2 px outline at
+   `outline-offset: 2px` around that 5 px box, and its left and right edges read
+   as two stray vertical lines immediately before the value — "|| Bang Pakong".
+   The `height: 34px` above made it worse by turning a short mark into a
+   full-height bar.
+
+   This does not weaken the focus indicator. The affordance the operator sees is
+   the ring on `.Select-control:focus-within`, which is in the DEF-1 rule set
+   precisely because the real input is invisible: focus moves into the control
+   and the control is what lights up. Verified: with this rule the control still
+   computes a 2 px outline while the inner input computes none. */
+.Select-input > input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep the selected value clear of the clear/arrow buttons.
+
+   `.Select-value` already reserves `padding-right: 42px` and carries
+   `overflow: hidden; text-overflow: ellipsis` — but the inner
+   `.Select-value-label` is an inline span with `overflow: visible`, so it
+   escapes the padding box and paints straight over the two buttons. Measured
+   with "Itaipu Binacional Dam (Paraguay part)": the label ran 80 px past the
+   clear zone. The parent's ellipsis never fires because the child is not the
+   element being clipped, so the constraint has to go on the label itself. */
+.Select-value-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Freshness Badge ---------- */
+.freshness-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Text label is always present alongside the colour — status is never conveyed
+   by colour alone (§23.1). */
+.freshness-badge--fresh { background: var(--state-fresh-bg); color: var(--state-fresh-text); }
+.freshness-badge--stale { background: var(--state-stale-bg); color: var(--state-stale-text); }
+.freshness-badge--no_data { background: var(--state-none-bg); color: var(--state-none-text); }
+
+/* ---------- Equipment Context ---------- */
+.equipment-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-6);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin-bottom: var(--sp-3);
+}
+
+/* Refinement, not a rebuild: same items, same ids, better hierarchy. The device
+   is what the operator is looking at, so it leads; the rest is supporting
+   context at a lower weight. */
+.equipment-context__item { display: flex; flex-direction: column; gap: 1px; }
+.equipment-context__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.equipment-context__value { font-size: var(--fs-body); font-weight: 500; color: var(--color-text); }
+
+.equipment-context__item:nth-child(3) .equipment-context__value {
+  font-size: var(--fs-section);
+  font-weight: 700;
+}
+
+/* Last data carries a paired relative + absolute string, so it needs room. */
+.equipment-context__item:last-child { margin-left: auto; }
+.equipment-context__item:last-child .equipment-context__value { white-space: nowrap; }
+
+/* ---------- Metric Snapshot Strip ---------- */
+/* Eight across on desktop. Validated at 1366 px: 138 px per tile, no label or
+   value wraps, uniform 77 px height. This is the single largest saving against
+   the §6.8 chart-top budget — 196 px as a 4x2 grid, 77 px as one row. */
+.metric-snapshot-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.snapshot-tile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) 10px;
+  transition: border-color 0.15s;
+}
+
+.snapshot-tile:hover { border-color: var(--color-accent); }
+.snapshot-tile--active { border-color: var(--color-accent); background: #eff6ff; }
+.snapshot-tile a { text-decoration: none; color: inherit; display: block; }
+.snapshot-tile__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.snapshot-tile__value { font-size: var(--fs-snapshot); font-weight: 700; margin-bottom: var(--sp-1); white-space: nowrap; }
+
+/* Fixed height, and it must stay fixed. Without `nowrap` this line wrapped on
+   the one tile whose value happened to be long — "▲ +428.0 MWh" on a 7-day
+   energy delta — and because the strip is a grid, that single wrapped tile
+   stretched all eight to 117 px and pushed the primary chart to 430 px, past
+   the §6.8 budget of 420. The defect appeared only at some periods, which is
+   why checking one period was not enough. Same treatment as
+   .kpi-card__secondary, for the same reason. */
+.snapshot-tile__direction {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  height: 16px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snapshot-tile__condition { height: 0; overflow: hidden; }
+
+/* ---------- KPI Cards ---------- */
+/* Target 72–84 px per card (§6.8 budget work). The previous 104 px was mostly
+   padding; the height now buys a third line of real context instead. */
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  min-height: 80px;   /* reserved so the row does not collapse while loading */
 }
 
 .kpi-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-4);
+}
+
+/* Always rendered, empty when there is nothing to say, so all four cards keep
+   one height instead of stepping. */
+.kpi-card__secondary {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  min-height: 14px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kpi-card--accent {
@@ -218,57 +470,206 @@ body {
 }
 
 .kpi-card__label {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .kpi-card__value {
-  font-size: 24px;
+  font-size: var(--fs-kpi);
   font-weight: 700;
+  line-height: 1.15;
   color: var(--color-text);
 }
 
-/* ---------- Chart section ---------- */
-.chart-section, .table-section {
+/* ---------- Metric Controls ---------- */
+.metric-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.metric-dropdown { min-width: 180px; }
+.period-radio { display: flex; gap: 12px; font-size: 13px; }
+.period-radio label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+/* ---------- Metric Chart ---------- */
+.metric-chart { width: 100%; }
+
+/* Reserved heights (§23): these containers are filled by callback and would
+   otherwise collapse to zero and jump the page as each one returns. Reserved in
+   CSS rather than with placeholder components, so it holds on the error path
+   too — where the same containers receive a panel instead of content. */
+.metric-chart,
+.chart-loading { min-height: 340px; }
+.chart-loading { margin-bottom: var(--sp-3); }
+#snapshot-strip { min-height: 89px; display: block; }
+#kpi-row-container { min-height: 80px; display: block; }
+
+/* ---------- Status Panels ---------- */
+.status-panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 32px;
+  text-align: center;
   margin-bottom: 20px;
 }
 
-.chart-section__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
+/* Inactive is a normal administrative state, not a failure: an informational
+   strip rather than a full-height centred panel. */
+.status-panel--inactive {
+  padding: 10px 16px;
+  text-align: left;
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+  font-size: 13px;
 }
 
-.chart-section__title, .table-section__title {
+.status-panel h3 { margin: 0 0 8px 0; font-size: 16px; }
+.status-panel p { color: var(--color-muted); margin: 0 0 16px 0; }
+.status-panel a { color: var(--color-accent); }
+
+/* ---------- Entity Table ---------- */
+.entity-table-wrapper { overflow-x: auto; }
+.entity-table-wrapper .dash-table-container { max-width: 100%; }
+
+/* OBS-2 (truncation visibility) is deliberately NOT handled here. dash_table
+   sets `text-overflow: inherit` on td div.dash-cell-value with a 4-class
+   selector, so any rule in this file targeting that div loses the cascade and
+   does nothing. The value is set on the `td` through style_cell in
+   components/entity_table.py, which is the mechanism dash_table's `inherit`
+   exists to serve. */
+
+/* ---------- Readings Table ---------- */
+.readings-table-container { overflow-x: auto; }
+.readings-table-container .dash-table-container { max-width: 100%; }
+
+/* ---------- Pages ---------- */
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 40px 20px;
+}
+
+.page h1 { font-size: 22px; margin: 0 0 16px 0; }
+
+/* ---------- Responsive: Snapshot Strip ----------
+   8 across is validated at >=1200 px only (§24). Below that it steps down
+   rather than squeezing labels past the point they stay on one line. */
+@media (max-width: 1199px) {
+  .metric-snapshot-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1024px) {
+  .metric-snapshot-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .metric-snapshot-strip {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+  .snapshot-tile { flex: 0 0 60%; scroll-snap-align: start; }
+}
+
+/* ---------- Responsive: KPI Row ---------- */
+@media (max-width: 1024px) {
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .kpi-row { grid-template-columns: 1fr; }
+}
+
+/* ---------- Responsive: Header ---------- */
+@media (max-width: 768px) {
+  .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  /* The selector stacks rather than disappearing. It is now the only way to
+     reach a device under another plant in one step, so hiding it on narrow
+     screens would remove the feature instead of collapsing it. */
+  .equipment-selector-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .hierarchy-selector { flex-direction: column; }
+  /* Same wrapper-not-field target as the desktop rule above. */
+  .hierarchy-selector .dash-dropdown { max-width: none; }
+}
+
+/* ---------- Quick Trends ---------- */
+/* Two columns on desktop: at the 1200 px content cap a cell is ~570 px, which
+   holds 48 energy bars at ~12 px each. Below 1024 px a two-column cell drops
+   under the ~280 px a trace needs to stay legible, so it goes single column
+   rather than shrinking further. */
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.trend-cell {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+/* The whole cell is an anchor so a click anywhere promotes the metric.
+   Underlining it would underline a chart. */
+.trend-cell__link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.trend-cell__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2) 0;
+}
+
+.trend-cell__label {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.trend-cell__value {
   font-size: 14px;
   font-weight: 600;
-  margin: 0 0 12px 0;
-  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.temperature-chart { width: 100%; }
+.trend-cell:hover { border-color: var(--color-accent); }
 
-.status-badge {
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
+/* Selection only. A selected cell must never look like a cell in trouble, so
+   freshness and warning colours stay out of this rule entirely. */
+.trend-cell--selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+.section-heading {
+  font-size: 13px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  margin: var(--sp-3) 0 0;
 }
 
-.status-badge--normal { background: var(--color-normal-bg); color: var(--color-normal-text); }
-.status-badge--warning { background: var(--color-warning-bg); color: var(--color-warning-text); }
-.status-badge--no-data { background: #f3f4f6; color: var(--color-muted); }
-
-/* ---------- Responsive ---------- */
-@media (max-width: 720px) {
-  .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  .dashboard-header { flex-direction: column; align-items: flex-start; }
+@media (max-width: 1023px) {
+  .trend-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 }

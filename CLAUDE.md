@@ -1,7 +1,9 @@
-# CLAUDE.md — Powerplant Dashboard Demo
+# CLAUDE.md — Powerplant Dashboard
 
 ## Mission
-Build a local proof-of-concept Python dashboard that visualises temperature readings for one transformer/device from a PostgreSQL database modelled on the client's known structure.
+Build the **primary development application**: a Python dashboard visualising 8 metrics across a 30-plant hierarchy from a PostgreSQL database modelled on the client's known structure.
+
+This is not a demo or throwaway proof-of-concept. Architecture, database design, UI structure and data-access patterns are production-oriented. Only the *measurements* are synthetic, because real client data is not yet available.
 
 Read these files before making architectural changes:
 1. `PROJECT_CONTEXT.md`
@@ -11,15 +13,14 @@ Read these files before making architectural changes:
 5. `UI_SPEC.md`
 6. `IMPLEMENTATION_PLAN.md`
 
-## Fixed Demo Scope
-Implement only:
-- Transformer: `AA12` (`aa12` in physical identifier)
-- Device: `29017`
-- Schema: `trfr_temperature`
-- Table: `aa12_29017`
-- Metric: temperature
+## Hierarchy Scope
+- 30 plants, 71 transformers, 120 devices
+- Schema: `plant_monitoring`
+- Tables: `plants`, `transformers`, `devices`, `readings`
+- Reserved identifier: `plant-01-t1-d1` = `aa12`/`29017`
+- 8 metrics: temperature, voltage, current, active_power, reactive_power, power_factor, frequency, energy
 
-Do not expand to all plants/devices/metrics unless explicitly instructed.
+Do not expand beyond this scope unless explicitly instructed.
 
 ## Required Stack
 - Python
@@ -33,15 +34,13 @@ Do not replace Dash with Streamlit/Taipy/another frontend framework without expl
 
 ## Critical Architecture Rules
 1. UI/page/component code must not execute raw SQL.
-2. Put PostgreSQL access in a repository/data-access layer.
+2. Put PostgreSQL access in `repositories/plant_monitoring_repository.py`.
 3. Put KPI/status/domain calculations in services, not scattered across callbacks.
-4. Treat `aa12_29017` as a physical database implementation detail.
-5. Resolve transformer/device -> table only inside the data layer.
-6. Validate dynamic identifiers strictly; never interpolate arbitrary browser/user input into SQL identifiers.
-7. Keep demo authentication isolated so it can later be replaced by client authentication.
-8. Use environment configuration; do not commit secrets.
-9. Do not redesign the client's database in this demo.
-10. Do not add Kubernetes deployment until production requirements are known.
+4. Resolve hierarchy identifiers through `hierarchy_service`; validate parent relationships.
+5. Validate dynamic identifiers strictly; never interpolate arbitrary browser/user input into SQL identifiers.
+6. Keep demo authentication isolated so it can later be replaced by client authentication.
+7. Use environment configuration; do not commit secrets.
+8. Do not add Kubernetes deployment until production requirements are known.
 
 ## Client Database Facts vs Assumptions
 Known from supplied screenshots:
@@ -54,30 +53,23 @@ Known from supplied screenshots:
 - The schema screenshot showed approximately 2,112 tables.
 - Example readings are roughly 30 minutes apart.
 
-Anything beyond this is an assumption. Mark assumptions clearly and do not invent production schemas, thresholds or authentication behaviour.
+The `plant_monitoring` schema is our development schema, not the client's production schema.
 
 ## Data Rules
-- Seed at least 30 days of local data at approximately 30-minute intervals.
+- Seed 30 days of local data at approximately 30-minute intervals (1,383,360 readings).
 - Use deterministic generation where practical.
-- Include a few abnormal values for warning UI testing.
-- Demo warning threshold must be configurable in one place.
+- Energy metric is cumulative (monotonically increasing); all others use statistics aggregation.
 - Parse database strings into proper datetime/numeric types before calculations/visualisation.
 - Current temperature means latest available reading.
 - Min/max/average apply to the selected time range.
+- No production warning/critical thresholds — `MonitoringCondition` is always `UNKNOWN`.
 
 ## UI Requirements
-After login, dashboard must include:
-- AA12 / 29017 identity
-- Last data timestamp
-- Current temperature KPI
-- Minimum KPI
-- Maximum KPI
-- Average KPI
-- 24h / 7d / 30d / custom filter
-- Plotly temperature time-series chart
-- Recent readings table
-- Normal / Warning / No-data status
-- Logout
+After login, the operator workflow is:
+- Plants overview (30 plants with transformer/device counts)
+- Plant detail (list of transformers)
+- Transformer detail (list of devices)
+- Device dashboard with: equipment context, 8-metric snapshot strip, metric selector, period filter, aggregation-aware KPIs, Plotly chart, readings table, freshness badge
 
 Do not add unnecessary gauges, pie charts, animations or unrelated screens.
 
@@ -92,13 +84,19 @@ Do not add unnecessary gauges, pie charts, animations or unrelated screens.
 
 ## Testing Expectations
 At minimum test:
-- Transformer/device identifier validation.
+- Hierarchy generation (30 plants, 71 transformers, 120 devices).
+- Metric configuration (8 metrics, aggregation types).
 - Timestamp parsing.
-- Temperature numeric parsing.
-- KPI calculations.
-- Warning-status calculation.
-- Empty-data behaviour.
-- Repository range filtering where feasible.
+- Numeric parsing.
+- KPI calculations (statistics and delta).
+- Freshness evaluation.
+- Routing/URL parsing.
+- Repository range filtering.
+- Seed integrity (row counts, per-metric coverage, energy monotonicity).
+
+Run tests:
+- Pure logic: `python -m pytest -m "not db" -v`
+- Full suite: `python -m pytest -v` (requires Docker + seeded DB)
 
 ## Implementation Behaviour
 Work through `IMPLEMENTATION_PLAN.md` phase by phase. Do not perform a broad rewrite when a small change is sufficient. Before introducing a new dependency, explain why the existing stack cannot reasonably solve the requirement.
@@ -109,4 +107,4 @@ After each phase:
 - Keep README commands accurate.
 
 ## Definition of Done
-A developer can locally start PostgreSQL, seed the demo data, run Dash, log in, view the AA12 / 29017 dashboard, change the time range, see correctly calculated KPIs, interact with the temperature chart, inspect recent readings and observe the configurable demo warning state.
+A developer can locally start PostgreSQL, seed the development data, run Dash, log in, navigate the plant hierarchy, view a device dashboard, change the time range, switch metrics, see correctly calculated KPIs, interact with the chart, inspect recent readings, and observe the data freshness status.

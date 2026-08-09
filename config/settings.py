@@ -8,11 +8,28 @@ connection details out of UI/service/repository code.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
+from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_identifier(value: str, name: str) -> str:
+    """Guard a value that will be interpolated into SQL as an identifier.
+
+    Schema names cannot be passed as bound parameters, so the repository
+    interpolates this one. It comes from application configuration and is not
+    reachable from browser input, but validating here means that stays true
+    even if the value is later sourced from somewhere less trusted.
+    """
+    if not _IDENTIFIER_RE.match(value):
+        raise ValueError(f"{name} must be a plain SQL identifier, got {value!r}")
+    return value
 
 
 def _get_bool(name: str, default: bool) -> bool:
@@ -39,46 +56,76 @@ class DatabaseSettings:
     password: str = os.getenv("POSTGRES_PASSWORD", "")
     host: str = os.getenv("POSTGRES_HOST", "localhost")
     port: int = _get_int("POSTGRES_PORT", 5432)
-    schema: str = os.getenv("DB_SCHEMA", "trfr_temperature")
 
     @property
     def sqlalchemy_url(self) -> str:
+        # Credentials must be percent-encoded: an unescaped '@', ':' or '/' in a
+        # password otherwise corrupts the URL and surfaces as a baffling
+        # "invalid literal for int()" from the port parser.
         return (
-            f"postgresql+psycopg2://{self.user}:{self.password}"
+            f"postgresql+psycopg2://{quote_plus(self.user)}:{quote_plus(self.password)}"
             f"@{self.host}:{self.port}/{self.db}"
         )
 
 
+# Defaults are chosen so that an unconfigured environment is the *safe* one and
+# anything riskier has to be asked for explicitly. This is the primary
+# development application, not a throwaway, and it is destined for a government
+# client's environment.
+DEFAULT_DASH_DEBUG = False      # was True: never the default for a served app
+DEFAULT_DASH_HOST = "127.0.0.1"  # was 0.0.0.0: exposing interfaces is opt-in
+
+
 @dataclass(frozen=True)
 class DemoAuthSettings:
-    username: str = os.getenv("DEMO_USERNAME", "admin")
-    password: str = os.getenv("DEMO_PASSWORD", "demo1234")
+    """Placeholder credentials, replaced wholesale by the client's auth.
+
+    There is deliberately **no** fallback credential. A hard-coded default
+    password meant an operator who never configured anything still got a working
+    login with a value published in `.env.example`. Unset now means unset, and
+    `auth_service.verify_credentials()` fails closed.
+    """
+    username: str = os.getenv("DEMO_USERNAME", "")
+    password: str = os.getenv("DEMO_PASSWORD", "")
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.username) and bool(self.password)
 
 
 @dataclass(frozen=True)
 class DashSettings:
-    debug: bool = _get_bool("DASH_DEBUG", True)
-    host: str = os.getenv("DASH_HOST", "0.0.0.0")
+    debug: bool = _get_bool("DASH_DEBUG", DEFAULT_DASH_DEBUG)
+    host: str = os.getenv("DASH_HOST", DEFAULT_DASH_HOST)
     port: int = _get_int("DASH_PORT", 8050)
 
 
 @dataclass(frozen=True)
-class DemoDeviceSettings:
-    """Fixed demo scope: exactly one transformer/device pair."""
-    transformer: str = "aa12"
-    device: str = "29017"
-    metric_label: str = "Temperature"
-    unit: str = "°C"
+class MonitoringSettings:
+    """Freshness policy and refresh cadence.
 
+    expected_interval_minutes: current project/client-known requirement
+        (readings arrive roughly every 30 minutes).
+    stale_after_intervals: DEVELOPMENT APPLICATION POLICY. Requires client
+        confirmation before production use.
+    refresh_interval_seconds: UI polling cadence. Short by default for local
+        development convenience; production polling should be aligned to
+        actual ingestion behaviour.
+    """
+    schema: str = _validate_identifier(
+        os.getenv("PLANT_MONITORING_SCHEMA", "plant_monitoring"),
+        "PLANT_MONITORING_SCHEMA",
+    )
+    expected_interval_minutes: int = _get_int("EXPECTED_INTERVAL_MINUTES", 30)
+    stale_after_intervals: int = _get_int("STALE_AFTER_INTERVALS", 3)
+    refresh_interval_seconds: int = _get_int("UI_REFRESH_INTERVAL_SECONDS", 60)
 
-@dataclass(frozen=True)
-class WarningSettings:
-    # Explicitly a demo configuration value, not a client-provided threshold.
-    threshold_celsius: float = float(os.getenv("DEMO_WARNING_THRESHOLD_C", "45"))
+    @property
+    def stale_after_minutes(self) -> int:
+        return self.expected_interval_minutes * self.stale_after_intervals
 
 
 database = DatabaseSettings()
+monitoring = MonitoringSettings()
 demo_auth = DemoAuthSettings()
 dash_settings = DashSettings()
-demo_device = DemoDeviceSettings()
-warning_settings = WarningSettings()

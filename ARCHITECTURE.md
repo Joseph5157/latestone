@@ -1,4 +1,4 @@
-# Architecture — Powerplant Dashboard Demo
+# Architecture — Powerplant Dashboard
 
 ## High-Level Architecture
 
@@ -23,8 +23,11 @@ SQLAlchemy
   v
 PostgreSQL (Docker)
   |
-  +-- schema: trfr_temperature
-       +-- table: aa12_29017
+  +-- schema: plant_monitoring
+       +-- plants (30 rows)
+       +-- transformers (71 rows)
+       +-- devices (120 rows)
+       +-- readings (~1.38M rows, 8 metrics)
 ```
 
 ## Core Rule
@@ -34,67 +37,79 @@ Preferred flow:
 
 ```text
 UI asks:
-get_temperature(transformer="aa12", device="29017", range=...)
+get_metric_view(device_id="plant-01-t1-d1", metric="temperature", period=24h)
 
-        -> Temperature service
-        -> Repository resolves validated physical identifier
-        -> trfr_temperature.aa12_29017
-        -> PostgreSQL query
+        -> Monitoring service
+        -> Hierarchy service validates device exists
+        -> Repository queries plant_monitoring.readings
         -> Typed/normalised data
+        -> View model (MetricView)
         -> UI
 ```
 
-## Suggested Project Structure
+## Project Structure
 
 ```text
 powerplant-dashboard/
-├── CLAUDE.md
-├── README.md
-├── docker-compose.yml
-├── .env.example
-├── requirements.txt or pyproject.toml
-├── app.py
+├── app.py                          # Dash app, layout, callback registration
+├── routes.py                       # URL parsing/building
 ├── config/
-│   └── settings.py
+│   ├── settings.py                 # All environment config
+│   ├── logging_config.py           # Logging setup
+│   └── metrics.py                  # 8-metric registry
 ├── pages/
 │   ├── login.py
-│   └── dashboard.py
+│   ├── plants_overview.py
+│   ├── plant_detail.py
+│   ├── transformer_detail.py
+│   └── device_dashboard.py
+├── callbacks/
+│   ├── routing.py                  # Page routing, page-context assembly
+│   ├── auth.py
+│   ├── listings.py
+│   ├── equipment_selector.py
+│   └── device.py
 ├── components/
 │   ├── kpi_card.py
-│   ├── temperature_chart.py
-│   ├── period_filter.py
-│   └── readings_table.py
+│   ├── metric_chart.py
+│   ├── metric_snapshot_strip.py
+│   ├── readings_table.py
+│   ├── freshness_badge.py
+│   ├── status_panels.py
+│   ├── breadcrumb.py
+│   ├── entity_table.py
+│   ├── app_header.py
+│   └── equipment_selector.py
 ├── services/
 │   ├── auth_service.py
-│   └── temperature_service.py
+│   ├── monitoring_service.py
+│   └── hierarchy_service.py
 ├── repositories/
-│   └── temperature_repository.py
+│   └── plant_monitoring_repository.py
 ├── db/
 │   ├── engine.py
-│   ├── init.sql
-│   └── seed.py
+│   ├── init_plant_monitoring.sql.template
+│   ├── init_plant_monitoring.sh
+│   ├── generators.py
+│   ├── hierarchy.py
+│   └── seed_plant_monitoring.py
 ├── assets/
 │   └── app.css
 └── tests/
-    ├── test_temperature_service.py
-    └── test_temperature_repository.py
 ```
 
-This structure is guidance; keep it simple and adjust only when there is a clear benefit.
+## Layering Rules
+1. **Pages** render layout only; no queries, no business logic.
+2. **Callbacks** gather inputs, call services, format outputs.
+3. **Services** contain KPI calculations, freshness evaluation, view models.
+4. **Repositories** are the only place SQL is written. Raw SQL lives in `plant_monitoring_repository.py`.
+5. **Config** centralises metric metadata and aggregation types.
 
-## Database Boundary
-The known client convention uses dynamic physical table names. Therefore:
-- Validate transformer and device identifiers with a strict pattern/allowlist.
-- Construct physical table names only inside the repository/data-access layer.
-- Never accept an arbitrary table name directly from a browser request.
-- Keep the schema name configurable where practical.
-
-## Data Normalisation
-Although the client's observed DDL stores timestamp and temperature as character varying fields, application code should convert them immediately after retrieval into:
-- Python/Pandas datetime for timestamp
-- Numeric value for temperature
-
-For the local mirror, see `DATABASE.md` for the deliberate compatibility decision.
+## Schema Design
+The `plant_monitoring` schema uses a normalised hierarchy:
+- `plants` → `transformers` → `devices` → `readings`
+- Each reading row stores one metric value (no wide tables).
+- All hierarchy identifiers are validated through `hierarchy_service`.
 
 ## Authentication Boundary
 Demo authentication is intentionally local/mock. Keep it behind an authentication service so it can later be replaced by the client's real API/session/SSO mechanism.

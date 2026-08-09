@@ -1,4 +1,4 @@
-# Implementation Plan — Powerplant Dashboard Demo
+# Implementation Plan — Powerplant Dashboard
 
 ## Phase 0 — Project Bootstrap
 - Create Python project structure.
@@ -12,71 +12,113 @@
 ## Phase 1 — PostgreSQL in Docker
 - Add `docker-compose.yml`.
 - Start PostgreSQL locally.
-- Create `trfr_temperature` schema.
-- Create `aa12_29017` table using the known client-compatible structure.
-- Add health check where practical.
+- Create `plant_monitoring` schema with DDL.
+- Add health check.
 
 **Done when:** database starts from a clean environment and table existence can be verified.
 
-## Phase 2 — Seed Data
-- Build repeatable seed script.
-- Generate at least 30 days of approximately 30-minute temperature readings.
-- Add realistic variation and a few demo warning values.
-- Ensure timestamps are unique.
+## Phase 2 — Hierarchy Generation
+- Build deterministic hierarchy generator (30 plants, 71 transformers, 120 devices).
+- Reserve `plant-01-t1-d1` = `aa12`/`29017`.
+- Add hierarchy generation tests.
 
-**Done when:** reseeding produces a usable deterministic dataset without duplicate-key failures.
+**Done when:** hierarchy counts and determinism tests pass.
 
-## Phase 3 — Repository and Service Layer
-- Configure SQLAlchemy engine/session/connection handling.
-- Implement validated transformer/device -> physical table resolution.
-- Implement readings-by-range query.
-- Implement latest/min/max/average/recent operations.
-- Parse timestamp strings and temperature strings safely.
-- Add tests for conversions and identifier validation.
+## Phase 3 — Multi-Metric Data Generation
+- Build 8-metric series generator (temperature, voltage, current, active_power, reactive_power, power_factor, frequency, energy).
+- Implement cumulative energy with monotonic guard.
+- Add generator tests.
 
-**Done when:** tests can retrieve correct values without Dash being involved.
+**Done when:** generation tests pass and energy is monotonically increasing.
 
-## Phase 4 — Local Authentication
-- Implement login page.
-- Isolate demo credentials/configuration.
-- Protect dashboard route/page from unauthenticated access.
-- Add logout.
+## Phase 4 — Metric Configuration
+- Create `config/metrics.py` with 8-metric registry.
+- Define aggregation types (statistics vs delta), units, precision.
+- Add metric config tests.
 
-**Done when:** invalid login fails and valid demo login reaches dashboard.
+**Done when:** metric registry tests pass.
 
-## Phase 5 — Dashboard UI
-- Build header/device context.
-- Build four KPI cards.
-- Build 24h/7d/30d/custom period control.
-- Build Plotly temperature line chart.
-- Build recent readings table.
-- Build Normal/Warning/No-data state.
+## Phase 5 — Repository Layer
+- Implement `repositories/plant_monitoring_repository.py`.
+- Hierarchy queries (list/get plants/transformers/devices, breadcrumb, counts).
+- Latest readings (single metric or batched).
+- Range queries (single metric or batched, ordered ascending).
+- Add DB-dependent repository tests.
 
-**Done when:** changing the period updates all relevant components consistently.
+**Done when:** repository tests pass against seeded database.
 
-## Phase 6 — Resilience and UX
-- Handle database unavailable state.
-- Handle empty ranges.
-- Handle malformed source values without crashing the whole dashboard.
-- Add loading states where useful.
-- Improve desktop/laptop responsiveness.
+## Phase 6 — Service Layer
+- Implement `services/monitoring_service.py` (view models, freshness, statistics/delta).
+- Implement `services/hierarchy_service.py` (active filtering, parent validation).
+- Add service tests (pure logic, no DB).
 
-## Phase 7 — Demo Verification
-Test the full path:
+**Done when:** service tests pass.
 
-```text
-Docker up
--> database ready
--> seed data
--> Dash start
--> login
--> AA12 / 29017 dashboard
--> KPI calculations
--> time filters
--> chart hover/zoom
--> readings table
--> warning demonstration
-```
+## Phase 7 — Components
+- Build reusable components: kpi_card, metric_chart, metric_snapshot_strip, readings_table, freshness_badge, status_panels, breadcrumb, entity_table, equipment_context, app_header, hierarchy_selector.
+- Add component tests.
+
+**Done when:** component tests pass.
+
+## Phase 8 — Routing and Navigation
+- Implement URL parsing and hierarchy routing in `callbacks/routing.py`.
+- Implement auth callbacks in `callbacks/auth.py`.
+- Create page shells (login, plants_overview, plant_detail, transformer_detail, device_dashboard).
+- Add routing tests.
+
+**Done when:** routing tests pass and all valid URLs render.
+
+## Phase 9 — Plant, Transformer and Device Listings
+- Implement `callbacks/listings.py` (populate overview/plant/transformer tables).
+- Wire cascading hierarchy selector callbacks.
+- Add listing population tests.
+
+**Done when:** listing callbacks populate tables correctly.
+
+## Phase 10 — Device Monitoring Dashboard
+- Implement `callbacks/device.py` (snapshot strip, KPIs, chart, readings, URL sync).
+- Wire metric/period to URL for shareability.
+- Add device dashboard tests.
+
+**Done when:** device dashboard renders with metric selection and period filtering.
+
+## Phase 11 — Refresh and Data-Freshness Behaviour
+- Add freshness policy tests (configuration-driven thresholds).
+- Verify refresh trigger respects configuration.
+
+**Done when:** freshness policy tests pass.
+
+## Phase 12 — Responsive CSS
+- Update `assets/app.css` with responsive breakpoints.
+- Add styles for all new components.
+
+**Done when:** layout works on desktop and tablet widths.
+
+## Phase 13 — Legacy Retirement
+- Delete legacy files (old pages, services, repositories, components, SQL, seed scripts, tests).
+- Implement router callback in `callbacks/routing.py`.
+- Slim `app.py` to layout + callback registration.
+- Clean `config/settings.py` and `.env.example`.
+
+**Done when:** no legacy imports remain, full test suite passes.
+
+## Phase 14 — Test Consolidation
+- Add `pytest.ini` with `db` marker configuration.
+- Create seed-integrity tests (row counts, per-metric coverage, sampling cadence, energy monotonicity, referential integrity).
+- Two suite modes: pure-logic and full.
+
+**Done when:** `python -m pytest -m "not db"` (131 tests) and `python -m pytest` (168 tests) both pass.
+
+## Phase 15 — Performance Guardrails (pending)
+- Add query timing assertions.
+- Verify batched queries are efficient.
+
+## Phase 16 — e2e Verification (pending)
+- Verify full operator workflow end-to-end.
+- Test all navigation paths.
+
+## Phase 17 — Documentation (pending)
+- Update all project documentation to reflect current state.
 
 ## Stop Condition
-Do not expand to more plants, transformers, devices or electrical metrics until the one-device temperature demo is working and reviewed.
+Do not expand beyond the current scope unless explicitly instructed.
