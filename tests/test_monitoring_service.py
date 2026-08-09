@@ -245,7 +245,7 @@ class TestGetDeviceFullView:
         svc.get_device_full_view(DEVICE, Period.LAST_24H)
         assert len(self.range_calls) == 1
 
-    def test_uses_one_common_window_anchored_to_newest_metric(self):
+    def test_uses_one_common_window_anchored_to_now(self):
         svc.get_device_full_view(DEVICE, Period.LAST_24H)
         _, start, end = self.range_calls[0]
         assert end == NOW

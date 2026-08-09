@@ -197,8 +197,13 @@ def get_metric_view(
     if latest is None:
         return _build_metric_view(metric, None, [], now)
 
-    anchor = _align_tz(latest.timestamp, now)
-    window = _resolve_window(period, anchor, custom_start, custom_end)
+    # Relative periods are anchored to wall-clock now, never to the newest
+    # reading. Anchoring to the sample made "Last 24h" on a device that stopped
+    # reporting days ago return the 24 hours before *that* reading — a full
+    # chart and a full set of KPIs under a label the operator reads as "the
+    # last 24 hours". `current` stays tied to the latest reading below, which
+    # is what REQUIREMENTS.md actually specifies.
+    window = _resolve_window(period, now, custom_start, custom_end)
 
     if window is None:
         return _build_metric_view(metric, latest, [], now)
@@ -246,12 +251,11 @@ def get_device_full_view(
             for m in ordered_metrics()
         }
 
-    # Dashboard anchor = latest timestamp across requested metrics
-    latest_timestamps = [_align_tz(r.timestamp, now) for r in latest_map.values()]
-    anchor = max(latest_timestamps)
-
-    # Resolve one common window
-    window = _resolve_window(period, anchor, custom_start, custom_end)
+    # One common window, anchored to wall-clock now for the same reason as
+    # get_metric_view: a stale device must show an empty "Last 24h", not the
+    # 24 hours around its final reading. Per-metric `last_updated` below still
+    # reflects each metric's own newest sample.
+    window = _resolve_window(period, now, custom_start, custom_end)
 
     if window is not None:
         start, end = window

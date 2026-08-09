@@ -237,3 +237,79 @@ Added a strict identifier validation at import time.
 - **Generator determinism** — seeded per device via SHA-256; `build_timestamps`
   correctly yields 1,441 inclusive points.
 - **Energy monotonicity** — meter accumulates `max(0.0, ...)`, never decreasing.
+
+---
+
+# Second-pass audit (external) — dispositions
+
+An independent second-pass audit (`CODE_AUDIT_SECOND_PASS.md`, 2026-08-08)
+reviewed the same build for defects outside findings 1–12 above. Its findings
+were re-verified against the code and, where the claim was behavioural, against
+the running application. Dispositions:
+
+| Finding | Verdict | Status |
+|---|---|---|
+| NEW-01 page-specific Outputs driven by a global Input | **Does not reproduce** | Closed — see below |
+| NEW-02 row click wrong under sort/filter/page | Confirmed | **Fixed** |
+| NEW-03 relative periods anchored to last sample | Confirmed | **Fixed** |
+| NEW-11 capacity sorts as formatted text | Confirmed | **Fixed** (adjacent to NEW-02) |
+| NEW-08 listing callbacks lack an error boundary | Confirmed | **Partially fixed** — see below |
+| NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | Open |
+| NEW-05 badge rendered inside a badge | Confirmed | Open |
+| NEW-06 equipment context/status + breadcrumb links | Confirmed | Open |
+| NEW-07 inactive hierarchy count mismatch | Plausible, needs a policy decision | Open |
+| NEW-09 schema configurable but DDL hard-coded | Confirmed | Open |
+| NEW-10 chart `uirevision` keeps zoom across periods | Confirmed | Open |
+| NEW-12 interrupted seed passes the "already seeded" guard | Confirmed | Open |
+| NEW-13 documentation drift | Confirmed | Open |
+| NEW-14 Enter does not submit login | Confirmed | Open |
+
+## NEW-01 — not reproducible on Dash 2.17.1
+
+The audit's stated mechanism is that the browser must resolve callback
+dependencies before a Python-side `no_update` guard can protect them, so the two
+listing callbacks whose tables are absent from the current route raise on every
+navigation.
+
+Its own prescribed regression test was run against the live application:
+`login -> /plants -> plant -> transformer -> device -> /plants`, capturing
+`console.error`. Every route rendered its expected content and **zero**
+nonexistent-object errors were logged.
+
+With `suppress_callback_exceptions=True`, dash-renderer prunes callbacks whose
+Outputs are not in the currently rendered tree. The distinction from the real
+finding 2 failure is that `hier-plant` existed in *no* layout at any time,
+whereas `plants-table` exists in a layout that is sometimes mounted.
+
+Restructuring the three working listing callbacks was therefore not done. Note
+that `tests/test_equipment_selector.py` does *not* cover this claim: it asserts
+each referenced id exists in **some** layout, not the currently mounted one. The
+browser run is the evidence here.
+
+## NEW-02 — fixed
+
+Rows now carry an `id`, and the three navigation callbacks read
+`active_cell["row_id"]` instead of indexing `State(table, "data")` by
+`active_cell["row"]`. Verified live: with Plant sorted descending, the top row
+(`Zaporozhye`) navigates to `/plants/plant-09` — under the old code it would
+have followed base-order index 0 (`Az Zour South CCGT`).
+
+## NEW-03 — fixed
+
+`get_metric_view` and `get_device_full_view` now anchor relative periods to
+wall-clock `now`. `current` / `last_updated` remain tied to the latest available
+reading, which is what REQUIREMENTS.md specifies.
+
+Consequence worth knowing when demoing: a device whose data ends before `now`
+shows a *partially* filled 24h chart plus a stale badge, instead of a full chart
+of older readings. On the seeded dataset (`latest = 2026-08-08 13:30`) a 24h
+window returns 25 points rather than 48. That is the corrected behaviour, not a
+data problem.
+
+## NEW-08 — partially fixed
+
+The three listing callbacks were being rewritten for NEW-02, so they gained
+`logger.exception` plus a safe empty-table fallback rather than raising through
+Dash. The shared page-level loading/error container the finding asks for is
+**not** built; a database outage now yields an empty table, not an explanatory
+panel. Still open.
