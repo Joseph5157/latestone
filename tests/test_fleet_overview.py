@@ -390,3 +390,26 @@ def test_get_fleet_health_accepts_an_injected_instant(monkeypatch):
     frozen = datetime(2026, 8, 9, 11, 24, tzinfo=timezone.utc)
     ms.get_fleet_health(now=frozen)
     assert seen["now"] == frozen
+
+
+def test_the_layout_column_spec_matches_the_callback_that_replaces_it():
+    """Two definitions, deliberately, but they must agree.
+
+    The layout's spec is what renders for the first paint; the callback
+    replaces it on first fire. They drifted once — the layout still said
+    `plant_id` and "Primary Fuel" long after the callback said `plant` and
+    "Fuel" — so the first thing a reader found was the wrong one.
+
+    Importing PLANT_COLUMNS here would fix the duplication by inverting the
+    dependency: pages would depend on their own callback module. This test is
+    the cheaper guard.
+    """
+    from tests.dash_tree import walk
+
+    import pages.plants_overview as plants_overview
+
+    table = next(
+        n for n in walk(plants_overview.layout())
+        if getattr(n, "id", None) == "plants-table"
+    )
+    assert table.columns == PLANT_COLUMNS

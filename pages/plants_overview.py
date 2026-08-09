@@ -32,14 +32,20 @@ def layout() -> html.Div:
             html.Div(id="fleet-kpis"),
             entity_table(
                 table_id="plants-table",
+                # Deliberately duplicated from callbacks.listings.PLANT_COLUMNS
+                # rather than imported: pages define layout, callbacks consume
+                # it, and a page importing its own callback module inverts that.
+                # The callback replaces these on first fire; this spec is what
+                # renders for the first paint, so it must agree. A test asserts
+                # the two stay identical.
                 columns=[
-                    {"name": "Plant", "id": "plant_id", "type": "text"},
-                    {"name": "Country", "id": "country", "type": "text"},
-                    {"name": "Primary Fuel", "id": "primary_fuel", "type": "text"},
+                    {"name": "Plant", "id": "plant"},
+                    {"name": "Country", "id": "country"},
+                    {"name": "Fuel", "id": "fuel"},
                     {"name": "Capacity (MW)", "id": "capacity_mw", "type": "numeric"},
                     {"name": "Transformers", "id": "transformers", "type": "numeric"},
                     {"name": "Devices", "id": "devices", "type": "numeric"},
-                    {"name": "Data", "id": "freshness", "type": "text"},
+                    {"name": "Data", "id": "freshness"},
                 ],
                 rows=[],
                 link_column_id="plant",
