@@ -37,8 +37,12 @@ alongside the selector, which turns breadcrumb and freshness from layout
 arguments into route-driven callback outputs. Spec section 5 already names this
 as a separate architectural change. It is not vertical-slice work.
 
-**Not blocking.** The §6.8 chart-top budget was met at 390 px without touching
-this, so there is no performance or layout argument forcing the change now.
+**Not blocking.** The §6.8 chart-top budget was met at 390 px at the time this
+entry was written, without touching this. The device-analytics expansion later
+moved the chart top to **406 px** (the direction line on the snapshot tiles),
+re-confirmed live in a real browser during the Fleet Overview v2 acceptance
+pass (`docs/UX_ACCEPTANCE_FLEET.md`) — still comfortably inside the 420 px
+budget, so there remains no performance or layout argument forcing this change.
 
 **Cost of waiting.** Cosmetic only. No functional, accessibility or data-trust
 impact — the breadcrumb still communicates location, and the selector still
