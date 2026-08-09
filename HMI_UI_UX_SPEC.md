@@ -319,6 +319,32 @@ goals ever conflict, the invariant wins and the budget is renegotiated.
 - KPI/snapshot controls must not consume enough height to push the primary chart below the fold.
 - Reserve approximately 300 px of visible chart height above the fold at 768 px viewport height where practical.
 
+### 6.9 Visual acceptance verifies computed behaviour, not source (binding)
+
+**A rule present in a stylesheet is not a rule in effect.** Where a style *is* the
+deliverable — focus indication, overflow and truncation, loading and empty-state
+heights, responsive sizing, status presentation — acceptance must read the
+**computed** value from a running browser. CSS-source assertions are useful
+regression guards and belong in the suite, but they cannot see a lost cascade and
+must never stand alone as proof.
+
+This has now produced two defects of the identical shape:
+
+| defect | written | actually computed | why source review missed it |
+|---|---|---|---|
+| DEF-1 | `:where(...):focus-visible { outline }` | `outline-width: 0px` | `:where()` contributes zero specificity; react-select and Plotly's `outline: none` won |
+| OBS-2 | `.entity-table-wrapper .dash-cell-value { text-overflow: ellipsis }` | `text-overflow: clip` | dash_table's `td div.dash-cell-value` (4 classes + 2 elements) sets `inherit` and outranks it |
+
+In both cases the rule was in the file, a screenshot looked identical either way,
+and only `getComputedStyle` on the real element revealed it. In both cases the
+vendor rule was also *intentional*: dash_table's `inherit` exists to route the
+property to the `td`, where `style_cell` sets it. Prefer the component's own
+mechanism over `!important`; reach for `!important` only when overriding a
+third-party reset that a version bump could otherwise silently restore.
+
+Applies to focus, overflow, loading heights, responsive sizing and status
+presentation alike.
+
 ---
 
 # PART A — FLEET / PLANTS OVERVIEW
