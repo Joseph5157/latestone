@@ -1,5 +1,10 @@
 -- Plant monitoring schema — our clean, normalized internal model.
 --
+-- TEMPLATE. `@SCHEMA@` is substituted by db/init_plant_monitoring.sh at
+-- container init time from PLANT_MONITORING_SCHEMA, so the DDL and the
+-- application setting cannot disagree. Postgres ignores this file directly
+-- because it is not named *.sql.
+--
 -- This deliberately does NOT reproduce the client's ~2,112-table physical
 -- structure (one table per transformer/device pair, VARCHAR timestamp and
 -- value columns). That layout is a property of the client's current database,
@@ -18,9 +23,9 @@
 -- `readings.metric` is a generic metric key; there are no metric-specific
 -- columns.
 
-CREATE SCHEMA IF NOT EXISTS plant_monitoring;
+CREATE SCHEMA IF NOT EXISTS @SCHEMA@;
 
-CREATE TABLE IF NOT EXISTS plant_monitoring.plants (
+CREATE TABLE IF NOT EXISTS @SCHEMA@.plants (
     plant_id     VARCHAR(20)  PRIMARY KEY,
     name         VARCHAR(200) NOT NULL,
     country      VARCHAR(100) NOT NULL,
@@ -31,31 +36,31 @@ CREATE TABLE IF NOT EXISTS plant_monitoring.plants (
     status       VARCHAR(20)  NOT NULL DEFAULT 'active'
 );
 
-CREATE TABLE IF NOT EXISTS plant_monitoring.transformers (
+CREATE TABLE IF NOT EXISTS @SCHEMA@.transformers (
     transformer_id   VARCHAR(30) PRIMARY KEY,
-    plant_id         VARCHAR(20) NOT NULL REFERENCES plant_monitoring.plants(plant_id),
+    plant_id         VARCHAR(20) NOT NULL REFERENCES @SCHEMA@.plants(plant_id),
     transformer_code VARCHAR(10) NOT NULL,
     status           VARCHAR(20) NOT NULL DEFAULT 'active',
     UNIQUE (plant_id, transformer_code)
 );
 
-CREATE TABLE IF NOT EXISTS plant_monitoring.devices (
+CREATE TABLE IF NOT EXISTS @SCHEMA@.devices (
     device_id      VARCHAR(30) PRIMARY KEY,
-    transformer_id VARCHAR(30) NOT NULL REFERENCES plant_monitoring.transformers(transformer_id),
+    transformer_id VARCHAR(30) NOT NULL REFERENCES @SCHEMA@.transformers(transformer_id),
     device_code    VARCHAR(10) NOT NULL,
     status         VARCHAR(20) NOT NULL DEFAULT 'active',
     UNIQUE (transformer_id, device_code)
 );
 
-CREATE TABLE IF NOT EXISTS plant_monitoring.readings (
+CREATE TABLE IF NOT EXISTS @SCHEMA@.readings (
     id         BIGSERIAL     PRIMARY KEY,
-    device_id  VARCHAR(30)   NOT NULL REFERENCES plant_monitoring.devices(device_id),
+    device_id  VARCHAR(30)   NOT NULL REFERENCES @SCHEMA@.devices(device_id),
     metric     VARCHAR(30)   NOT NULL,
     reading_ts TIMESTAMPTZ   NOT NULL,
     value      NUMERIC(12,3) NOT NULL,
     UNIQUE (device_id, metric, reading_ts)
 );
 
-CREATE INDEX IF NOT EXISTS ix_transformers_plant_id     ON plant_monitoring.transformers (plant_id);
-CREATE INDEX IF NOT EXISTS ix_devices_transformer_id    ON plant_monitoring.devices (transformer_id);
-CREATE INDEX IF NOT EXISTS ix_readings_device_metric_ts ON plant_monitoring.readings (device_id, metric, reading_ts DESC);
+CREATE INDEX IF NOT EXISTS ix_transformers_plant_id     ON @SCHEMA@.transformers (plant_id);
+CREATE INDEX IF NOT EXISTS ix_devices_transformer_id    ON @SCHEMA@.devices (transformer_id);
+CREATE INDEX IF NOT EXISTS ix_readings_device_metric_ts ON @SCHEMA@.readings (device_id, metric, reading_ts DESC);

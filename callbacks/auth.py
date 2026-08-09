@@ -6,6 +6,19 @@ from dash import Input, Output, State, no_update
 from services import auth_service
 
 
+def login_was_submitted(n_clicks, username_submits, password_submits) -> bool:
+    """Whether the operator actually asked to log in.
+
+    Counts the button and both Enter presses. Must stay false when every
+    counter is 0: the router inserts the login form dynamically, so the
+    callback fires on insertion with the layout's zeros. `prevent_initial_call`
+    only suppresses the app's very first load, so an `is None` check let that
+    through and greeted every visitor with "Invalid username or password."
+    before they had typed anything.
+    """
+    return any(bool(counter) for counter in (n_clicks, username_submits, password_submits))
+
+
 def register(app) -> None:
     """Register auth callbacks on the Dash app."""
 
@@ -13,20 +26,19 @@ def register(app) -> None:
         Output("login-error", "children"),
         Output("auth-store", "data"),
         Input("login-button", "n_clicks"),
+        Input("login-username", "n_submit"),
+        Input("login-password", "n_submit"),
         State("login-username", "value"),
         State("login-password", "value"),
         prevent_initial_call=True,
     )
-    def handle_login(n_clicks, username, password):
+    def handle_login(n_clicks, username_submits, password_submits, username, password):
         # Deliberately does not redirect: leaving `url.pathname`/`search` untouched
         # means a successful login re-triggers routing (auth-store is a routing
         # Input) on whatever URL the user actually requested, including deep links.
-        # `not n_clicks`, not `is None`: the router inserts the login form
-        # dynamically, so this fires on insertion with the layout's n_clicks=0.
-        # `prevent_initial_call` only suppresses the app's very first load, so an
-        # `is None` guard let that through and greeted every visitor with
-        # "Invalid username or password." before they had typed anything.
-        if not n_clicks:
+        # Enter in either field submits, same as the button — the inputs already
+        # declared n_submit but nothing listened to it.
+        if not login_was_submitted(n_clicks, username_submits, password_submits):
             return no_update, no_update
         # Credential checking stays behind auth_service so swapping in the
         # client's real authentication needs no change to callback code.

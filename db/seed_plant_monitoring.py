@@ -19,11 +19,13 @@ import json
 import sys
 import time
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 
 import psycopg2
 from sqlalchemy import text
 
+from config.metrics import ordered_metrics
 from config.settings import database, monitoring
 from db.engine import get_engine, session_scope
 from db.generators import DAYS_OF_HISTORY, build_timestamps, generate_device_series
@@ -96,13 +98,42 @@ def _seed_readings_bulk(
     return total_rows
 
 
-def _check_readings_exist(schema: str) -> bool:
-    """Check if readings already exist."""
+class SeedState(str, Enum):
+    EMPTY = "empty"
+    PARTIAL = "partial"
+    COMPLETE = "complete"
+
+
+def evaluate_seed_state(pairs_with_readings: int, expected_pairs: int) -> SeedState:
+    """Classify the dataset from its (device, metric) coverage.
+
+    "Any reading exists" was the previous test, which reported a seed that died
+    partway through the device loop as finished — so every later run skipped,
+    preserving the incomplete data.
+
+    `expected_pairs == 0` means there are no devices to cover, which is an empty
+    database rather than a completed seed of nothing.
+    """
+    if pairs_with_readings <= 0 or expected_pairs <= 0:
+        return SeedState.EMPTY
+    if pairs_with_readings != expected_pairs:
+        return SeedState.PARTIAL
+    return SeedState.COMPLETE
+
+
+def _measure_seed_state(schema: str) -> tuple[SeedState, int, int]:
+    """(state, pairs_with_readings, expected_pairs) read from the database."""
+    metric_count = len(ordered_metrics())
     with session_scope() as session:
-        result = session.execute(
-            text(f"SELECT EXISTS(SELECT 1 FROM {schema}.readings LIMIT 1)")
-        )
-        return result.scalar()
+        device_count = session.execute(
+            text(f"SELECT COUNT(*) FROM {schema}.devices")
+        ).scalar() or 0
+        pairs = session.execute(
+            text(f"SELECT COUNT(*) FROM (SELECT DISTINCT device_id, metric FROM {schema}.readings) p")
+        ).scalar() or 0
+
+    expected = device_count * metric_count
+    return evaluate_seed_state(pairs, expected), pairs, expected
 
 
 def seed(*, reset: bool = False) -> None:
@@ -113,10 +144,22 @@ def seed(*, reset: bool = False) -> None:
     print(f"Schema: {schema}")
     print(f"Database: {database.db}@{database.host}:{database.port}")
 
-    # Check if data already exists
-    if not reset and _check_readings_exist(schema):
-        print("Readings already exist. Use --reset to reseed.")
-        return
+    # Check what is already there. A partial dataset must not be mistaken for a
+    # finished one — that is how an interrupted seed used to survive every
+    # subsequent run.
+    if not reset:
+        state, pairs, expected = _measure_seed_state(schema)
+        if state is SeedState.COMPLETE:
+            print(f"Readings already exist ({pairs}/{expected} device-metric pairs).")
+            print("Use --reset to reseed.")
+            return
+        if state is SeedState.PARTIAL:
+            print(
+                f"Incomplete dataset: {pairs}/{expected} device-metric pairs have "
+                "readings.\nA previous seed did not finish. Re-run with --reset "
+                "to rebuild it."
+            )
+            sys.exit(1)
 
     if reset:
         print("Resetting existing data...")

@@ -9,11 +9,17 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-powerplant_demo}
       POSTGRES_USER: ${POSTGRES_USER:-powerplant}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_local_only}
+      # The init script creates the schema under this name, so the DDL and the
+      # application's PLANT_MONITORING_SCHEMA can never disagree.
+      PLANT_MONITORING_SCHEMA: ${PLANT_MONITORING_SCHEMA:-plant_monitoring}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - powerplant_pgdata:/var/lib/postgresql/data
-      - ./db/init_plant_monitoring.sql:/docker-entrypoint-initdb.d/01_init_plant_monitoring.sql:ro
+      # The template is not named *.sql, so postgres runs only the script,
+      # which substitutes the schema name before piping the DDL to psql.
+      - ./db/init_plant_monitoring.sh:/docker-entrypoint-initdb.d/01_init_plant_monitoring.sh:ro
+      - ./db/init_plant_monitoring.sql.template:/docker-entrypoint-initdb.d/init_plant_monitoring.sql.template:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-powerplant} -d ${POSTGRES_DB:-powerplant_demo}"]
       interval: 5s

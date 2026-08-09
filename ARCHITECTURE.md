@@ -52,8 +52,10 @@ get_metric_view(device_id="plant-01-t1-d1", metric="temperature", period=24h)
 ```text
 powerplant-dashboard/
 ├── app.py                          # Dash app, layout, callback registration
+├── routes.py                       # URL parsing/building
 ├── config/
 │   ├── settings.py                 # All environment config
+│   ├── logging_config.py           # Logging setup
 │   └── metrics.py                  # 8-metric registry
 ├── pages/
 │   ├── login.py
@@ -62,9 +64,10 @@ powerplant-dashboard/
 │   ├── transformer_detail.py
 │   └── device_dashboard.py
 ├── callbacks/
-│   ├── routing.py                  # URL parsing, page routing
+│   ├── routing.py                  # Page routing, page-context assembly
 │   ├── auth.py
 │   ├── listings.py
+│   ├── equipment_selector.py
 │   └── device.py
 ├── components/
 │   ├── kpi_card.py
@@ -75,9 +78,8 @@ powerplant-dashboard/
 │   ├── status_panels.py
 │   ├── breadcrumb.py
 │   ├── entity_table.py
-│   ├── equipment_context.py
 │   ├── app_header.py
-│   └── hierarchy_selector.py
+│   └── equipment_selector.py
 ├── services/
 │   ├── auth_service.py
 │   ├── monitoring_service.py
@@ -86,7 +88,8 @@ powerplant-dashboard/
 │   └── plant_monitoring_repository.py
 ├── db/
 │   ├── engine.py
-│   ├── init_plant_monitoring.sql
+│   ├── init_plant_monitoring.sql.template
+│   ├── init_plant_monitoring.sh
 │   ├── generators.py
 │   ├── hierarchy.py
 │   └── seed_plant_monitoring.py

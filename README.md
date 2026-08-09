@@ -60,6 +60,7 @@ powerplant-dashboard/
 ├── app.py                          # Dash app, layout, callback registration
 ├── config/
 │   ├── settings.py                 # All environment config, read once
+│   ├── logging_config.py           # Logging setup, called once at startup
 │   └── metrics.py                  # 8-metric registry, aggregation types
 ├── pages/
 │   ├── login.py                    # Login page shell
@@ -67,10 +68,12 @@ powerplant-dashboard/
 │   ├── plant_detail.py             # Transformer listing for a plant
 │   ├── transformer_detail.py       # Device listing for a transformer
 │   └── device_dashboard.py         # Device monitoring dashboard
+├── routes.py                       # URL parsing/building, shared by both layers
 ├── callbacks/
-│   ├── routing.py                  # URL parsing, page routing, page-context
+│   ├── routing.py                  # Page routing, page-context assembly
 │   ├── auth.py                     # Login/logout callbacks
-│   ├── listings.py                 # Plant/transformer/device table population
+│   ├── listings.py                 # Table population and row-click navigation
+│   ├── equipment_selector.py       # Cascade + cross-plant device navigation
 │   └── device.py                   # Device dashboard data loading
 ├── components/
 │   ├── kpi_card.py                 # Aggregation-aware KPI row
@@ -81,9 +84,8 @@ powerplant-dashboard/
 │   ├── status_panels.py            # Not-found and error panels
 │   ├── breadcrumb.py               # Navigation breadcrumb
 │   ├── entity_table.py             # Generic DataTable wrapper
-│   ├── equipment_context.py        # Plant/transformer/device identity bar
-│   ├── app_header.py               # Shared header with selector and logout
-│   └── hierarchy_selector.py       # Cascading plant/transformer/device dropdowns
+│   ├── app_header.py               # Brand, breadcrumb, freshness slot, logout
+│   └── equipment_selector.py       # Cascading plant/transformer/device dropdowns
 ├── services/
 │   ├── auth_service.py             # Demo credential verification
 │   ├── monitoring_service.py       # View models, freshness, statistics/delta
@@ -92,7 +94,8 @@ powerplant-dashboard/
 │   └── plant_monitoring_repository.py  # ALL raw SQL, hierarchy + readings
 ├── db/
 │   ├── engine.py                   # SQLAlchemy engine/session
-│   ├── init_plant_monitoring.sql   # Schema DDL
+│   ├── init_plant_monitoring.sql.template  # Schema DDL (@SCHEMA@ placeholder)
+│   ├── init_plant_monitoring.sh    # Substitutes PLANT_MONITORING_SCHEMA at init
 │   ├── generators.py               # Deterministic multi-metric data generation
 │   ├── hierarchy.py                # 71 transformers, 120 devices
 │   └── seed_plant_monitoring.py    # Bulk seed via COPY (~1.38M rows)

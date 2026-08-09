@@ -8,7 +8,7 @@ from dash import Input, Output, State, no_update
 
 from components.freshness_badge import freshness_badge
 from components.kpi_card import kpi_row
-from components.metric_chart import build_metric_figure
+from components.metric_chart import build_metric_figure, chart_revision
 from components.metric_snapshot_strip import metric_snapshot_strip
 from components.readings_table import build_table_rows
 from components.status_panels import error_panel
@@ -121,7 +121,13 @@ def register(app) -> None:
                 period=period_value, custom_start=custom_start, custom_end=custom_end,
             )
             kpis = kpi_row(view)
-            fig = build_metric_figure(view.metric, view.series)
+            fig = build_metric_figure(
+                view.metric,
+                view.series,
+                view_revision=chart_revision(
+                    metric_key, period_value, custom_start, custom_end
+                ),
+            )
 
             # Readings table (newest first)
             sorted_series = sorted(view.series, key=lambda r: r.timestamp, reverse=True)

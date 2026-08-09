@@ -258,11 +258,11 @@ the running application. Dispositions:
 | NEW-06 equipment context/status + breadcrumb links | Confirmed | **Fixed** |
 | NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | Open — needs a timezone policy decision |
 | NEW-07 inactive hierarchy count mismatch | Plausible, needs a policy decision | Open |
-| NEW-09 schema configurable but DDL hard-coded | Confirmed | Open |
-| NEW-10 chart `uirevision` keeps zoom across periods | Confirmed | Open |
-| NEW-12 interrupted seed passes the "already seeded" guard | Confirmed | Open |
-| NEW-13 documentation drift | Confirmed | Open |
-| NEW-14 Enter does not submit login | Confirmed | Open |
+| NEW-09 schema configurable but DDL hard-coded | Confirmed | **Fixed** |
+| NEW-10 chart `uirevision` keeps zoom across periods | Confirmed | **Fixed** |
+| NEW-12 interrupted seed passes the "already seeded" guard | Confirmed | **Fixed** |
+| NEW-13 documentation drift | Confirmed | **Fixed** (live docs; historical plan/spec left as records) |
+| NEW-14 Enter does not submit login | Confirmed | **Fixed** |
 
 ## NEW-01 — not reproducible on Dash 2.17.1
 
@@ -352,3 +352,52 @@ on five consecutive runs and two further full-suite runs. The timing assertions
 in `tests/timing.py` have no warm-up, so the first query of a session pays
 connection setup. Pre-existing fragility, not a regression — but it will
 intermittently redden CI.
+
+## NEW-09, NEW-10, NEW-12, NEW-13, NEW-14 — fixed
+
+**NEW-09.** `db/init_plant_monitoring.sql` hard-coded `plant_monitoring` in all
+11 identifier positions while `config/settings.py` and `.env.example` advertised
+`PLANT_MONITORING_SCHEMA` as configurable, so any non-default value produced an
+app and seed pointed at a schema the database had never created. The DDL is now
+`db/init_plant_monitoring.sql.template` with an `@SCHEMA@` placeholder, applied
+by `db/init_plant_monitoring.sh`, which validates the name against the same
+identifier rule as `_validate_identifier()` before substituting.
+
+Verified with a disposable stack on port 5497 using
+`PLANT_MONITORING_SCHEMA=trfr_temperature`: the container logged
+`Initialising monitoring schema: trfr_temperature`, created all four tables under
+that schema, and did **not** create `plant_monitoring`. Stack and volume removed
+afterwards; the working stack was untouched.
+
+**NEW-10.** `chart_revision(metric, period, start, end)` now supplies
+`uirevision`, so zoom survives the refresh interval but resets whenever the
+operator changes metric, period or custom bounds.
+
+**NEW-12.** The seed guard measured "does any reading exist". It now measures
+(device, metric) pairs against devices × metrics, classified by
+`evaluate_seed_state()`. COMPLETE skips as before; PARTIAL prints the shortfall
+and exits 1 instead of reporting success. Verified against the live database:
+full coverage reads 960/960 → complete, and simulating a device that never
+finished loading gives 952/960 → partial.
+
+**NEW-13.** `README.md` and `ARCHITECTURE.md` listed the deleted
+`equipment_context.py` and `hierarchy_selector.py` and omitted `routes.py`,
+`config/logging_config.py`, `callbacks/equipment_selector.py` and
+`components/equipment_selector.py`. Both trees now match the filesystem, checked
+programmatically rather than by eye.
+
+`DATABASE.md` carried an invented DDL — `TEXT` columns instead of `VARCHAR(n)`,
+`DOUBLE PRECISION` instead of `NUMERIC`, plus `created_at`, transformer `tier`
+and `capacity_mva` columns that have never existed. It is now spliced directly
+from the template. Its metric table had **six of eight precisions wrong**
+(voltage 3→2, current 3→1, active_power 3→2, reactive_power 3→2, frequency 3→2,
+energy 3→1); it is regenerated from `config/metrics.py`.
+
+The plan and spec under `docs/superpowers/` still name the deleted components.
+They are dated records of what was planned, not reference documentation, and
+were deliberately left alone.
+
+**NEW-14.** `login_was_submitted()` accepts the button click and Enter in either
+field. The zero-counter guard is preserved: the router inserts the login form
+dynamically, so the callback still fires on insertion with every counter at 0
+and must stay silent.

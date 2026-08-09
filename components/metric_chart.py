@@ -14,7 +14,33 @@ def _axis_title(metric: MetricConfig) -> str:
     return f"{metric.label} ({metric.unit})" if metric.unit else metric.label
 
 
-def build_metric_figure(metric: MetricConfig, series: list[Reading]) -> go.Figure:
+def chart_revision(
+    metric_key: str,
+    period: str | None,
+    custom_start: str | None,
+    custom_end: str | None,
+) -> str:
+    """Identity of the *view* the chart is showing.
+
+    Plotly keeps the user's zoom/pan while `uirevision` is unchanged, so this
+    must be stable across the periodic refresh of one view and different for
+    every view the operator can switch to. Keying on the metric alone let a
+    zoom taken on 24h persist into 30d, where it looked like a narrow slice of
+    the new range.
+    """
+    return "|".join([
+        metric_key or "",
+        period or "",
+        custom_start or "",
+        custom_end or "",
+    ])
+
+
+def build_metric_figure(
+    metric: MetricConfig,
+    series: list[Reading],
+    view_revision: str | None = None,
+) -> go.Figure:
     """Line chart driven entirely by MetricConfig.
 
     No threshold line is drawn: no client-confirmed warning/critical
@@ -53,7 +79,9 @@ def build_metric_figure(metric: MetricConfig, series: list[Reading]) -> go.Figur
         template="plotly_white",
         hovermode="x unified",
         showlegend=False,
-        uirevision=metric.key,  # preserve zoom/pan across refresh, reset on metric change
+        # Preserve zoom/pan across the refresh interval; reset when the
+        # operator changes metric, period or custom bounds.
+        uirevision=view_revision or metric.key,
     )
     return fig
 
