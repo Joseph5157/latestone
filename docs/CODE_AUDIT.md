@@ -58,7 +58,7 @@ anything was missing.
 **Fix.** Added `_parse_picker_date()`, which widens a date-only end value to the
 last microsecond of that day. Covered by new tests in `tests/test_date_range.py`.
 
-### 2. Cascading hierarchy selector never rendered, but four callbacks drive it — **Open (feature gap)**
+### 2. Cascading hierarchy selector never rendered, but four callbacks drive it — **Fixed** (dead code removed in this pass; feature implemented in follow-up commit)
 
 `components/hierarchy_selector.py`, `callbacks/listings.py`
 
@@ -73,13 +73,38 @@ This also means the cross-plant equipment selector required by the plan
 (Phase 16 Step 3 — "use the header selector to jump directly to a device under a
 different plant") **is not implemented**.
 
-**Action taken.** The dead component and its four callbacks were removed, which
-eliminates the runtime error. The feature itself was deliberately **not**
-implemented in this pass: making it work correctly requires a design decision
-that belongs outside a bugfix — the selector must exist in every layout that its
-callbacks can fire against, so it needs to live either in the global app layout
-(and therefore be suppressed on the login page) or be driven by route-scoped
-callbacks. Half-shipping it would have reintroduced the same class of defect.
+**Action taken (audit pass).** The dead component and its four callbacks were
+removed, which eliminates the runtime error. The feature itself was deliberately
+**not** implemented in that pass: making it work correctly requires a design
+decision that belongs outside a bugfix — the selector must exist in every layout
+that its callbacks can fire against, so it needs to live either in the global app
+layout (and therefore be suppressed on the login page) or be driven by
+route-scoped callbacks. Half-shipping it would have reintroduced the same class
+of defect.
+
+**Resolution (follow-up).** The global-layout option was chosen. The selector is
+now mounted once in `app.layout` (`components/equipment_selector.py`) and hidden
+via `style` on the login route rather than unmounted, so its callbacks in
+`callbacks/equipment_selector.py` always have their targets. Three consequences
+were designed in explicitly:
+
+- **No pre-auth data.** The component sits in the DOM on the login page, so
+  `plant_options()` returns `[]` unless `auth-store` says authenticated. No
+  hierarchy query runs before login.
+- **One-way data flow.** The selector writes to `url.pathname`; the route never
+  writes back into the dropdowns. A route → selector sync would close the loop
+  `selector → url → page-context → selector`. `device_navigation_target()`
+  additionally returns `no_update` when the chosen device is already on screen.
+- **Cascade resets its children.** Changing plant clears the transformer and
+  device values, so a stale selection cannot navigate somewhere unintended.
+
+`app_header()` lost its unused `selector_children` slot, since a header rendered
+inside a page layout is precisely the wrong place for this component.
+
+**Regression guard.** `tests/test_equipment_selector.py` walks `app.layout` plus
+every page layout, walks `app._callback_list`, and asserts that no callback
+references a component id that no layout renders. That assertion fails on the
+original code, and covers the whole class rather than this one instance.
 
 ### 3. Blanket exception handlers with no logging anywhere — **Fixed**
 

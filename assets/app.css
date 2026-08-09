@@ -120,7 +120,6 @@ body {
 }
 
 .header__breadcrumb { font-size: 13px; }
-.header__selector { display: flex; gap: 8px; }
 .header__freshness { font-size: 13px; display: flex; align-items: center; gap: 4px; }
 .header__freshness-label { color: var(--color-muted); }
 .header__logout { padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 6px; text-decoration: none; color: var(--color-text); font-size: 13px; }
@@ -133,9 +132,31 @@ body {
 .breadcrumb__current { font-size: 13px; color: var(--color-text); font-weight: 500; }
 .breadcrumb__sep { color: var(--color-muted); font-size: 12px; }
 
-/* ---------- Hierarchy Selector ---------- */
-.hierarchy-selector { display: flex; gap: 8px; min-width: 300px; }
+/* ---------- Equipment Selector ----------
+   A global bar above the page, not part of .app-header: the selector is
+   mounted once in app.layout so its callbacks always have targets, while each
+   page renders its own header. */
+.equipment-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.equipment-selector-bar__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.hierarchy-selector { display: flex; gap: 8px; flex: 1; min-width: 300px; }
 .hierarchy-selector .dash-dropdown { min-width: 120px; }
+.hierarchy-selector__field { flex: 1; max-width: 260px; }
 
 /* ---------- Freshness Badge ---------- */
 .freshness-badge {
@@ -299,6 +320,10 @@ body {
 /* ---------- Responsive: Header ---------- */
 @media (max-width: 768px) {
   .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .hierarchy-selector { display: none; }
-  .header__selector { width: 100%; }
+  /* The selector stacks rather than disappearing. It is now the only way to
+     reach a device under another plant in one step, so hiding it on narrow
+     screens would remove the feature instead of collapsing it. */
+  .equipment-selector-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .hierarchy-selector { flex-direction: column; }
+  .hierarchy-selector__field { max-width: none; }
 }

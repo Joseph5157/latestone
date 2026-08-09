@@ -1,4 +1,11 @@
-"""App header — brand, breadcrumb slot, hierarchy selector slot, freshness, logout."""
+"""App header — brand, breadcrumb slot, freshness, logout.
+
+Deliberately has no equipment-selector slot. The header is rendered *inside*
+each page layout, so anything mounted here disappears whenever another route is
+active; the selector's callbacks fire on every route and would then target
+components that do not exist. The selector therefore lives in the global
+app layout instead — see components/equipment_selector.
+"""
 from __future__ import annotations
 
 from dash import html
@@ -10,7 +17,6 @@ from services.monitoring_service import Freshness
 def app_header(
     breadcrumb_children=None,
     freshness: Freshness | None = None,
-    selector_children=None,
 ) -> html.Header:
     children = [
         html.Div("Powerplant Dashboard", className="header__brand"),
@@ -19,11 +25,6 @@ def app_header(
     if breadcrumb_children is not None:
         children.append(
             html.Div(breadcrumb_children, className="header__breadcrumb")
-        )
-
-    if selector_children is not None:
-        children.append(
-            html.Div(selector_children, className="header__selector")
         )
 
     if freshness is not None:
