@@ -338,3 +338,54 @@ class TestDropdownSearchInputPadding:
         assert not self._re.search(
             r"(^|\})\s*input\s*\{[^}]*padding:\s*0", self.CSS_TEXT, self._re.S
         )
+
+
+class TestDropdownValuePresentation:
+    """Two artefacts inside the dropdown control, both from styles reaching
+    react-select internals that were never meant to be styled.
+
+    Reported as stray vertical lines before the selected value and as the
+    clear/arrow buttons colliding with the value text. Both reproduced and
+    measured in a browser before fixing; see the comments in app.css.
+    """
+
+    import pathlib as _pathlib
+    import re as _re
+
+    CSS_TEXT = (
+        _pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+    ).read_text(encoding="utf-8")
+
+    def test_hidden_search_input_draws_no_focus_ring(self):
+        """A 5 px input parked at the value's text origin, ringed at
+        offset 2px, reads as two vertical bars before the value."""
+        match = self._re.search(
+            r"\.Select-input\s*>\s*input:focus-visible\s*\{([^}]*)\}",
+            self.CSS_TEXT, self._re.S,
+        )
+        assert match, "the stray-line suppression is missing"
+        block = match.group(1)
+        assert self._re.search(r"outline:\s*none\s*!important", block)
+        assert self._re.search(r"box-shadow:\s*none\s*!important", block)
+
+    def test_the_visible_control_keeps_its_focus_ring(self):
+        """Suppressing the inner ring is only safe because the control itself
+        lights up. If this selector ever leaves the focus rule, the dropdown
+        becomes unfocusable to the eye."""
+        match = self._re.search(
+            r"([^{]*):focus-within\s*\{[^}]*outline:[^;]*var\(--color-accent\)",
+            self.CSS_TEXT, self._re.S,
+        )
+        assert match and ".Select-control" in match.group(0)
+
+    def test_value_label_is_clipped_before_the_buttons(self):
+        """The parent reserves 42px and sets ellipsis, but the label span
+        overflows it; the constraint must be on the label."""
+        match = self._re.search(
+            r"\.Select-value-label\s*\{([^}]*)\}", self.CSS_TEXT, self._re.S
+        )
+        assert match, "the value-label clipping rule is missing"
+        block = match.group(1)
+        for prop in ("overflow: hidden", "text-overflow: ellipsis",
+                     "white-space: nowrap", "display: block"):
+            assert prop in block, prop

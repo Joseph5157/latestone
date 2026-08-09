@@ -312,6 +312,41 @@ body {
   line-height: 34px !important;
 }
 
+/* No focus ring on the *hidden* search input.
+
+   react-select keeps a 5 px-wide input parked exactly where the selected value
+   text starts. The global `input:focus-visible` rule painted a 2 px outline at
+   `outline-offset: 2px` around that 5 px box, and its left and right edges read
+   as two stray vertical lines immediately before the value — "|| Bang Pakong".
+   The `height: 34px` above made it worse by turning a short mark into a
+   full-height bar.
+
+   This does not weaken the focus indicator. The affordance the operator sees is
+   the ring on `.Select-control:focus-within`, which is in the DEF-1 rule set
+   precisely because the real input is invisible: focus moves into the control
+   and the control is what lights up. Verified: with this rule the control still
+   computes a 2 px outline while the inner input computes none. */
+.Select-input > input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep the selected value clear of the clear/arrow buttons.
+
+   `.Select-value` already reserves `padding-right: 42px` and carries
+   `overflow: hidden; text-overflow: ellipsis` — but the inner
+   `.Select-value-label` is an inline span with `overflow: visible`, so it
+   escapes the padding box and paints straight over the two buttons. Measured
+   with "Itaipu Binacional Dam (Paraguay part)": the label ran 80 px past the
+   clear zone. The parent's ellipsis never fires because the child is not the
+   element being clipped, so the constraint has to go on the label itself. */
+.Select-value-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- Freshness Badge ---------- */
 .freshness-badge {
   display: inline-block;
