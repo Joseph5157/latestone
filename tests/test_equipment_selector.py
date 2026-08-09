@@ -287,3 +287,54 @@ class TestSelectorFieldSizing:
         )
         min_width = int(self._re.search(r"min-width:\s*(\d+)px", match.group(1)).group(1))
         assert min_width >= 140
+
+
+class TestDropdownSearchInputPadding:
+    """react-select's search input ships `padding: 8px 0 12px` on a content-box
+    element: 37 px inside a 36 px control, growing to 54 px once text is typed,
+    with the caret below the text centre because top and bottom differ.
+
+    `!important` is required here rather than lazy. react-select injects
+    `.Select-input > input` at runtime twice, and the second copy lands after
+    app.css in sheet order, so an identical selector can win neither on
+    specificity nor on order. Verified by walking document.styleSheets.
+
+    Source guards only. The proof is the computed measurement: 34 px input,
+    inside a 36 px control, text centred at 18 px — the same centre as the
+    placeholder and the selected value.
+    """
+
+    import pathlib as _pathlib
+    import re as _re
+
+    CSS_TEXT = (
+        _pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+    ).read_text(encoding="utf-8")
+
+    def _block(self):
+        match = self._re.search(
+            r"\.Select-input\s*>\s*input\s*\{([^}]*)\}", self.CSS_TEXT, self._re.S
+        )
+        assert match, "the dropdown search input override is missing"
+        return match.group(1)
+
+    def test_padding_is_zeroed(self):
+        assert self._re.search(r"padding:\s*0\s*!important", self._block())
+
+    def test_height_is_restored_with_the_padding(self):
+        """Zeroing padding alone collapses the input to 17 px and puts the text
+        6 px above centre — measured. The height must go with it."""
+        block = self._block()
+        assert "height: 34px" in block and "line-height: 34px" in block
+
+    def test_override_is_marked_important(self):
+        """Without it the vendor rule injected after app.css wins every time."""
+        for prop in ("padding", "height", "line-height"):
+            assert self._re.search(rf"{prop}:[^;]*!important", self._block()), prop
+
+    def test_login_inputs_are_not_zeroed(self):
+        """The login fields use a symmetric 10px 12px on a border-box element and
+        are correct; a blanket input reset would put their text on the border."""
+        assert not self._re.search(
+            r"(^|\})\s*input\s*\{[^}]*padding:\s*0", self.CSS_TEXT, self._re.S
+        )

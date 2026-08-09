@@ -265,6 +265,34 @@ body {
 }
 .hierarchy-selector__field { width: 100%; }
 
+/* react-select's search input ships `padding: 8px 0 12px` on a content-box
+   element. That is 37 px of input inside a 36 px control — it overflows its own
+   container — and the mismatched top/bottom values drop the caret 2 px below
+   the text centre, so typing visibly nudges the text down.
+
+   Zeroing the padding is necessary but not sufficient: alone it collapses the
+   input to 17 px and lands the text 6 px *above* centre. The height and
+   line-height are restored with it, which measures 18 px — the same centre as
+   the placeholder and the selected value.
+
+   Applies to every dcc.Dropdown, not just the selector bar: the metric dropdown
+   on the device page has the identical vendor default. Deliberately NOT applied
+   to inputs generally — the login fields use a symmetric `10px 12px` on a
+   border-box element and are correct as they are; zeroing those would put the
+   text against the border.
+
+   `!important` is required, not lazy. react-select injects `.Select-input >
+   input` at runtime *twice*, and the second copy lands after app.css in the
+   sheet order. The selector is identical, so specificity cannot win and source
+   order cannot either — verified by walking document.styleSheets. This is the
+   same justification as the DEF-1 focus ring: a vendor rule that a version bump
+   could silently reorder or restore. */
+.Select-input > input {
+  padding: 0 !important;
+  height: 34px !important;
+  line-height: 34px !important;
+}
+
 /* ---------- Freshness Badge ---------- */
 .freshness-badge {
   display: inline-block;
