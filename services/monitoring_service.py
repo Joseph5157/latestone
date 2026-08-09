@@ -15,7 +15,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 
-from config.metrics import Aggregation, MetricConfig, get_metric, ordered_metrics
+from config.metrics import (
+    SOURCE_RESOLUTION_MINUTES,
+    Aggregation,
+    MetricConfig,
+    get_metric,
+    ordered_metrics,
+)
 from config.settings import monitoring
 from repositories import plant_monitoring_repository as repo
 from repositories.plant_monitoring_repository import RawReading
@@ -50,6 +56,36 @@ class Period(str, Enum):
     LAST_7D = "7d"
     LAST_30D = "30d"
     CUSTOM = "custom"
+
+
+#: Bin widths energy may be aggregated into, coarsest last.
+BIN_LADDER: tuple[timedelta, ...] = (
+    timedelta(minutes=30), timedelta(hours=1), timedelta(hours=2),
+    timedelta(hours=3), timedelta(hours=6), timedelta(hours=12),
+    timedelta(days=1), timedelta(days=7),
+)
+
+#: Upper bound on bars in one chart. At two grid columns a cell is ~570 px,
+#: which gives ~12 px per bar at this count — legible. One target serves the
+#: primary chart and the cells alike, so the same metric never shows two
+#: different bar widths on one screen.
+TARGET_BARS: int = 48
+
+
+def choose_bin(span: timedelta) -> timedelta:
+    """Smallest bin whose bar count fits the target, so density is as high as
+    legibility allows.
+
+    Driven by duration, never by period name: a 3-day and a 90-day custom range
+    must not share a bin width. Rungs finer than the source resolution are
+    excluded rather than clamped, so the floor is a property of the data.
+    """
+    floor = timedelta(minutes=SOURCE_RESOLUTION_MINUTES)
+    usable = [b for b in BIN_LADDER if b >= floor] or [BIN_LADDER[-1]]
+    for candidate in usable:
+        if span / candidate <= TARGET_BARS:
+            return candidate
+    return usable[-1]
 
 
 @dataclass(frozen=True)

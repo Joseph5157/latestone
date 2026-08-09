@@ -49,6 +49,12 @@ METRICS: tuple[MetricConfig, ...] = (
     MetricConfig("energy", "Energy", "MWh", 1, "line", 8, Aggregation.DELTA),
 )
 
+#: Approximate cadence of the source data. Client readings arrive roughly every
+#: 30 minutes and our seed matches. Energy bins are never finer than this: a
+#: 5-minute bar would imply a measurement resolution we do not have.
+#: DEVELOPMENT VALUE — replace when the real client cadence is known.
+SOURCE_RESOLUTION_MINUTES: int = 30
+
 METRIC_KEYS: tuple[str, ...] = tuple(m.key for m in METRICS)
 DEFAULT_METRIC_KEY: str = METRICS[0].key
 
