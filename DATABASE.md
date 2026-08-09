@@ -140,7 +140,7 @@ POSTGRES_DB=powerplant_demo
 POSTGRES_USER=powerplant
 POSTGRES_PASSWORD=<local-development-password>
 POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
+POSTGRES_PORT=5436
 PLANT_MONITORING_SCHEMA=plant_monitoring
 ```
 
