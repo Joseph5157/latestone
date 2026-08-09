@@ -110,11 +110,25 @@ The global `.page h1` rule keeps its value, so Device, Plant and Transformer
 titles are unchanged. No `!important` — if the cascade needs forcing, the
 selector is wrong.
 
-### 4.4 Consequence to verify
+### 4.4 Intended responsive behaviour
 
-Fleet's layout changes at **1366 as well as 1920**. Today `.page` caps at 1200,
-leaving ~166 px of margin at 1366; at monitoring width the page fills to ~1318
-(1366 − 48 gutters). 1366 is a changed layout, not a control.
+Fleet widens at **1366 as well as 1920**. This is wanted, not incidental: the
+seven-column table is already under pressure from names like
+`Itaipu Binacional Dam (Paraguay part)`, and the extra ~120 px goes to Plant,
+Country and Data.
+
+| Viewport | Fleet content width |
+|---|---|
+| 1366 | fills available width minus gutters, ~1318 px (1366 − 48) |
+| 1920 | grows to the ~1550 px cap; the remainder becomes outer whitespace |
+| >1550 available | never exceeds the cap |
+
+1366 is therefore a **changed layout to verify, not a control**.
+
+**Verify at 1366:** with `repeat(3, minmax(0, 1fr)) 1.5fr` at ~1318 px, confirm
+the three structural cards do not read as empty slabs. If they do, that is a
+card-content or layout problem to solve on its own terms — it is **not** a
+reason to restore the 1200 px cap.
 
 ---
 
@@ -213,9 +227,18 @@ Fuel, Capacity (MW), Transformers, Devices, Data. Nothing added or removed.
 **Cleanup in scope:** `pages/plants_overview.py` carries a second, stale column
 spec (`plant_id`, `"Primary Fuel"`) that the callback overwrites on first fire.
 It is dead, it contradicts the live spec, and it is the first thing a reader
-finds. The layout imports `PLANT_COLUMNS` instead — *provided* `pages →
-callbacks` introduces no import cycle. If it does, correct the literal in place;
-do not invent a new module purely to de-duplicate.
+finds. **Correct the literal in place** so the two definitions agree, and guard
+the agreement with a test (§9.1).
+
+**Do not import `PLANT_COLUMNS` from `callbacks.listings` into
+`pages.plants_overview`, even if no circular import occurs.** The dependency
+direction is backwards: pages define layout, callbacks consume it. A page
+depending on its own callback module trades a documentation smell for an
+architectural one.
+
+Do not relocate `PLANT_COLUMNS` or create a constants module during a visual
+slice either. If several pages later need the same column definitions, extract a
+neutral table-schema module deliberately, as its own change.
 
 ### 7.2 Numeric alignment
 
