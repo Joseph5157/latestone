@@ -6,11 +6,11 @@ from dash import dcc, html
 from config.metrics import format_value, ordered_metrics
 from components.freshness_badge import freshness_badge
 from routes import device_href
-from services.monitoring_service import MetricSnapshot
+from services.monitoring_service import MetricView
 
 
 def snapshot_tile(
-    snapshot: MetricSnapshot,
+    snapshot: MetricView,
     is_active: bool,
     device_id: str,
     period: str | None = None,
@@ -53,7 +53,7 @@ def snapshot_tile(
 
 
 def metric_snapshot_strip(
-    snapshots: list[MetricSnapshot],
+    snapshots: list[MetricView],
     active_metric_key: str,
     device_id: str,
     period: str | None = None,

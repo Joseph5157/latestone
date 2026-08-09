@@ -12,6 +12,7 @@ from components.metric_chart import build_metric_figure, chart_revision
 from components.metric_snapshot_strip import metric_snapshot_strip
 from components.readings_table import build_table_rows
 from components.status_panels import error_panel
+from config.metrics import ordered_metrics
 from routes import device_href
 from services import monitoring_service as svc
 from services.monitoring_service import Freshness, Period
@@ -120,31 +121,35 @@ def register(app) -> None:
             return [no_update] * 7
 
         try:
-            # 1. Snapshot strip — one batched query
-            snapshots = svc.get_device_snapshot(device_id)
-
-            # 2. Resolve period
+            # 1. Resolve period
             try:
                 period = Period(period_value)
             except ValueError:
                 period = Period.LAST_24H
 
-            # 3. Parse custom dates
+            # 2. Parse custom dates
             start = None
             end = None
             if period is Period.CUSTOM:
                 start = _parse_picker_date(custom_start)
                 end = _parse_picker_date(custom_end, is_end=True)
 
-            # 4. Get metric view
-            view = svc.get_metric_view(device_id, metric_key, period, start, end)
+            # 3. One fetch for the whole page: two batched queries covering all
+            #    eight metrics, where the previous pairing of get_device_snapshot
+            #    and get_metric_view cost three and returned one series. Every
+            #    component below reads from this one result, so the strip, the
+            #    KPIs and the charts cannot disagree about the same reading.
+            views = svc.get_device_full_view(device_id, period, start, end)
+            view = views.get(metric_key)
 
             if view is None:
                 return [no_update] * 7
 
-            # 5. Build outputs
+            ordered_views = [views[m.key] for m in ordered_metrics() if m.key in views]
+
+            # 4. Build outputs
             strip = metric_snapshot_strip(
-                snapshots, metric_key, device_id,
+                ordered_views, metric_key, device_id,
                 period=period_value, custom_start=custom_start, custom_end=custom_end,
             )
             label = period_label(period_value, custom_start, custom_end)

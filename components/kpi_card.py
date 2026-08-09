@@ -11,7 +11,9 @@ from dash import html
 
 from components.freshness_badge import format_last_reading
 from config.metrics import Aggregation, format_value
-from services.monitoring_service import MetricView, reading_age, series_context
+from services.monitoring_service import (
+    DeltaStatus, MetricView, reading_age, series_context,
+)
 
 
 def kpi_card(
@@ -91,13 +93,21 @@ def kpi_row(view: MetricView, period_label: str | None = None):
     ]
 
     if metric.aggregation is Aggregation.DELTA:
-        cards.append(
-            kpi_card(
-                "Period Change",
-                format_value(metric, view.period_change),
-                secondary=period_label or "",
-            )
-        )
+        # A cumulative meter's period change is only a number while the meter is
+        # monotonic. The two ways it can be unknown get different explanations:
+        # "the meter reset" and "we have too few readings" are not the same
+        # thing, and one em dash for both tells the operator nothing.
+        status = view.period_change_status
+        if status is DeltaStatus.DISCONTINUITY:
+            value_text = format_value(metric, None)
+            secondary = "Meter discontinuity in this period"
+        elif status is DeltaStatus.INSUFFICIENT_DATA:
+            value_text = format_value(metric, None)
+            secondary = "Not enough readings in this period"
+        else:
+            value_text = format_value(metric, view.period_change)
+            secondary = period_label or ""
+        cards.append(kpi_card("Period Change", value_text, secondary=secondary))
     else:
         cards.append(
             kpi_card("Minimum", format_value(metric, view.minimum),
