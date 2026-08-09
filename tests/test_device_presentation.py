@@ -20,6 +20,7 @@ from config.metrics import get_metric
 from services.monitoring_service import (
     Freshness,
     MetricView,
+    DeltaStatus,
     MonitoringCondition,
     Reading,
     reading_age,
@@ -38,7 +39,8 @@ def _view(metric_key="voltage", series=None, last_updated=NOW):
     ]
     return MetricView(
         metric=metric, current=11.0, minimum=10.9, maximum=11.4, average=11.1,
-        period_change=None, series=series, last_updated=last_updated,
+        period_change=None, period_change_status=DeltaStatus.OK,
+        series=series, last_updated=last_updated,
         freshness=Freshness.FRESH, condition=MonitoringCondition.UNKNOWN, has_data=True,
     )
 

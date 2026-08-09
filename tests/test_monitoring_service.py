@@ -56,19 +56,33 @@ class TestComputeStatistics:
         assert svc._compute_statistics([]) == (None, None, None)
 
 
-class TestComputeDelta:
+class TestPeriodDelta:
+    """`_compute_delta` became `period_delta`, which returns a DeltaResult.
+
+    The last assertion here is a deliberate reversal. The old test required a
+    counter reset to surface as a negative number, on the reasoning that
+    surfacing beats hiding. Both are true and neither is the right answer: a
+    negative MWh figure reads as generation, so the reset is now surfaced as a
+    *named* condition instead of as arithmetic that looks valid.
+    """
+
     def test_returns_last_minus_first(self):
-        assert svc._compute_delta(_series([100.0, 110.0, 125.0])) == pytest.approx(25.0)
+        result = svc.period_delta(_series([100.0, 110.0, 125.0]))
+        assert result.value == pytest.approx(25.0)
+        assert result.status is svc.DeltaStatus.OK
 
     def test_requires_at_least_two_readings(self):
-        assert svc._compute_delta(_series([100.0])) is None
+        result = svc.period_delta(_series([100.0]))
+        assert result.value is None
+        assert result.status is svc.DeltaStatus.INSUFFICIENT_DATA
 
     def test_empty_series_returns_none(self):
-        assert svc._compute_delta([]) is None
+        assert svc.period_delta([]).value is None
 
-    def test_negative_delta_is_returned_not_suppressed(self):
-        """A counter reset shows as a negative delta; we surface it, not hide it."""
-        assert svc._compute_delta(_series([500.0, 10.0])) == pytest.approx(-490.0)
+    def test_a_counter_reset_is_named_not_rendered_as_a_negative(self):
+        result = svc.period_delta(_series([500.0, 10.0]))
+        assert result.status is svc.DeltaStatus.DISCONTINUITY
+        assert result.value is None
 
 
 class TestPeriodStart:

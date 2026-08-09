@@ -44,6 +44,24 @@ _FRESHNESS_LABELS = {
 }
 
 
+class DeltaStatus(str, Enum):
+    """Why a cumulative-meter delta is, or is not, a number."""
+
+    OK = "ok"
+    INSUFFICIENT_DATA = "insufficient_data"
+    DISCONTINUITY = "discontinuity"
+
+
+@dataclass(frozen=True)
+class DeltaResult:
+    value: float | None
+    status: DeltaStatus
+
+    @property
+    def is_known(self) -> bool:
+        return self.status is DeltaStatus.OK
+
+
 class MonitoringCondition(str, Enum):
     NORMAL = "normal"
     WARNING = "warning"
@@ -111,6 +129,9 @@ class MetricView:
     maximum: float | None
     average: float | None
     period_change: float | None
+    #: Why `period_change` is or is not a number. A bare None cannot tell
+    #: "too few readings" apart from "the meter reset".
+    period_change_status: DeltaStatus
     series: list[Reading]
     last_updated: datetime | None
     freshness: Freshness
@@ -364,16 +385,27 @@ def _compute_statistics(series: list[Reading]) -> tuple[float | None, float | No
     return min(values), max(values), sum(values) / len(values)
 
 
-def _compute_delta(series: list[Reading]) -> float | None:
-    """Period change for cumulative meters.
+def period_delta(series: list[Reading], prime: Reading | None = None) -> DeltaResult:
+    """Consumption over a window: last − first, but only while monotonic.
 
-    Requires at least TWO readings - a single point has no change. A negative
-    result may indicate a counter reset or data-quality condition; it is
-    surfaced as-is, with no reset handling at this stage.
+    A decrease means a reset, replacement, rollover or backfill correction. It
+    is reported as DISCONTINUITY rather than corrected: no abs(), no assumed
+    register width, no summing of positive segments only. The register width is
+    unknown, and a wrong constant produces a plausible number that is wrong,
+    which is worse than an honest gap.
+
+    `prime` is the last reading at or before the window start, so the first
+    interval is not silently dropped.
     """
-    if len(series) < 2:
-        return None
-    return series[-1].value - series[0].value
+    values = [r.value for r in series]
+    if prime is not None:
+        values = [prime.value] + values
+    if len(values) < 2:
+        return DeltaResult(None, DeltaStatus.INSUFFICIENT_DATA)
+    for earlier, later in zip(values, values[1:]):
+        if later < earlier:
+            return DeltaResult(None, DeltaStatus.DISCONTINUITY)
+    return DeltaResult(values[-1] - values[0], DeltaStatus.OK)
 
 
 def period_start(period: Period, anchor: datetime) -> datetime | None:
@@ -393,8 +425,11 @@ def _build_metric_view(
     now: datetime,
 ) -> MetricView:
     minimum = maximum = average = period_change = None
+    period_change_status = DeltaStatus.OK
     if metric.aggregation is Aggregation.DELTA:
-        period_change = _compute_delta(series)
+        delta = period_delta(series)
+        period_change = delta.value
+        period_change_status = delta.status
     else:
         minimum, maximum, average = _compute_statistics(series)
 
@@ -406,6 +441,7 @@ def _build_metric_view(
         maximum=maximum,
         average=average,
         period_change=period_change,
+        period_change_status=period_change_status,
         series=series,
         last_updated=last_updated,
         freshness=evaluate_freshness(last_updated, now),

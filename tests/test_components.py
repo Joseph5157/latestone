@@ -10,6 +10,7 @@ from components.readings_table import build_table_rows
 from services.monitoring_service import (
     Freshness,
     MetricView,
+    DeltaStatus,
     MonitoringCondition,
     Reading,
 )
@@ -25,6 +26,7 @@ def _view(metric_key: str, **overrides) -> MetricView:
         maximum=15.0,
         average=10.0,
         period_change=None,
+        period_change_status=DeltaStatus.OK,
         series=[Reading(NOW, 10.0)],
         last_updated=NOW,
         freshness=Freshness.FRESH,
