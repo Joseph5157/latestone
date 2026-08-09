@@ -46,7 +46,11 @@ METRICS: tuple[MetricConfig, ...] = (
     MetricConfig("power_factor", "Power Factor", "", 3, "line", 6, Aggregation.STATISTICS),
     MetricConfig("frequency", "Frequency", "Hz", 2, "line", 7, Aggregation.STATISTICS),
     # Cumulative meter: period KPI is last - first, never average/min/max.
-    MetricConfig("energy", "Energy", "MWh", 1, "line", 8, Aggregation.DELTA),
+    # Bars, not a line, and the chart type follows the aggregation rather than a
+    # hand-picked list: a cumulative meter answers "how much in this interval",
+    # which is an interval quantity. The rising meter reading stays available as
+    # the Current KPI.
+    MetricConfig("energy", "Energy", "MWh", 1, "bar", 8, Aggregation.DELTA),
 )
 
 #: Approximate cadence of the source data. Client readings arrive roughly every

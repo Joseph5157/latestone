@@ -111,6 +111,88 @@ def build_metric_figure(
     return fig
 
 
+BAR_COLOR = "#3b82f6"
+
+#: Neutral, deliberately not the warning palette. A meter discontinuity is a
+#: data-quality condition, not an electrical alarm — CLAUDE.md keeps the three
+#: status concepts separate, and a red mark here would read as the third one.
+DISCONTINUITY_COLOR = "#9ca3af"
+
+_STATUS_TEXT = {
+    "discontinuity": "Meter discontinuity — not computed",
+    "insufficient_data": "Not enough readings in this interval",
+}
+
+
+def build_delta_figure(
+    metric: MetricConfig,
+    bars: list,
+    view_revision: str | None = None,
+    period_label: str | None = None,
+    bin_label: str = "",
+) -> go.Figure:
+    """Interval consumption for a cumulative meter.
+
+    Bars carry `DeltaResult`s. A bin we could not compute draws no bar and a
+    neutral marker — never a zero, which would assert we measured no
+    consumption, and never a negative, which would read as generation.
+    """
+    fig = go.Figure()
+    if not bars:
+        fig.add_annotation(
+            text="No data available for the selected period",
+            showarrow=False, font=dict(size=14, color="#6b7280"),
+        )
+    else:
+        fig.add_trace(
+            go.Bar(
+                x=[b.start for b in bars],
+                y=[b.result.value if b.result.is_known else None for b in bars],
+                marker_color=BAR_COLOR,
+                name=metric.label,
+                hovertemplate=(
+                    "%{x|%Y-%m-%d %H:%M} UTC<br>%{y:."
+                    + str(metric.precision) + "f} " + metric.unit
+                    + "<extra></extra>"
+                ),
+            )
+        )
+        unknown = [b for b in bars if not b.result.is_known]
+        if unknown:
+            fig.add_trace(
+                go.Scatter(
+                    x=[b.start for b in unknown],
+                    y=[0 for _ in unknown],
+                    mode="markers",
+                    marker=dict(color=DISCONTINUITY_COLOR, size=6, symbol="x"),
+                    hovertext=[
+                        _STATUS_TEXT.get(b.result.status.value, b.result.status.value)
+                        for b in unknown
+                    ],
+                    hovertemplate="%{x|%Y-%m-%d %H:%M} UTC<br>%{hovertext}<extra></extra>",
+                    showlegend=False,
+                )
+            )
+
+    title = _chart_title(metric, period_label)
+    if bin_label:
+        title = f"{title} &#183; {bin_label}"
+
+    fig.update_layout(
+        margin=dict(l=56, r=20, t=44, b=48),
+        height=CHART_HEIGHT,
+        title=dict(text=title, x=0, xanchor="left", font=dict(size=14)),
+        xaxis_title="Time (UTC)",
+        yaxis_title=_axis_title(metric),
+        template="plotly_white",
+        showlegend=False,
+        xaxis=dict(showgrid=True, gridcolor="#eef0f3"),
+        yaxis=dict(showgrid=True, gridcolor="#eef0f3"),
+        uirevision=view_revision or metric.key,
+    )
+    return fig
+
+
 # Validated against the installed Plotly 5.24.1 default 2D cartesian modebar —
 # every name here is a button that actually renders. `sendDataToCloud` is NOT in
 # the default set (it needs `showSendToCloud`), so listing it would be noise.

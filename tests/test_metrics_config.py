@@ -42,8 +42,17 @@ class TestRegistry:
         }
         assert {m.key: m.unit for m in METRICS} == expected
 
-    def test_all_charts_are_line_charts(self):
-        assert {m.chart_type for m in METRICS} == {"line"}
+    def test_chart_type_follows_the_aggregation(self):
+        """Was `all charts are line charts`, changed deliberately.
+
+        Energy became a bar chart when the analytics phase landed. The rule that
+        replaced the old one is stronger than a list of keys: chart type is a
+        function of aggregation, so a new cumulative metric gets bars for free
+        and cannot be given a line by oversight.
+        """
+        for metric in METRICS:
+            expected = "bar" if metric.aggregation is Aggregation.DELTA else "line"
+            assert metric.chart_type == expected, metric.key
 
     def test_no_threshold_fields_defined(self):
         """Guard: production thresholds are explicitly out of scope."""
