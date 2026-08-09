@@ -95,3 +95,43 @@ class TestServiceAlwaysPopulatesChange:
     def test_single_reading_yields_insufficient_data(self):
         view = _build_metric_view(get_metric("voltage"), None, [Reading(T0, 10.0)], T0)
         assert view.change.status is DeltaStatus.INSUFFICIENT_DATA
+
+
+class TestDirectionLineCannotGrowTheTile:
+    """DEF-2 of this slice, found in the acceptance pass.
+
+    The direction line had no CSS rule at all, so it inherited
+    `white-space: normal`. On a 7-day energy delta the value read
+    "* +428.0 MWh", wrapped to two lines, and because the strip is a grid that
+    one wrapped tile stretched all eight from 97 px to 117 px and pushed the
+    primary chart from 410 px to 430 px - past the section 6.8 budget of 420.
+
+    It appeared only at some periods, which is why the Task 7 check at the
+    default 24h missed it. Computed heights were re-verified across 24h, 7d and
+    30d after the fix; these are the source guards.
+    """
+
+    import pathlib as _pathlib
+    import re as _re
+
+    CSS_TEXT = (
+        _pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+    ).read_text(encoding="utf-8")
+
+    def _block(self):
+        match = self._re.search(
+            r"\.snapshot-tile__direction\s*\{([^}]*)\}", self.CSS_TEXT, self._re.S
+        )
+        assert match, "the direction line must carry an explicit rule"
+        return match.group(1)
+
+    def test_the_line_never_wraps(self):
+        assert "white-space: nowrap" in self._block()
+
+    def test_the_line_has_a_fixed_height(self):
+        """A value-dependent height makes the chart-top budget value-dependent."""
+        block = self._block()
+        assert self._re.search(r"\bheight:\s*\d+px", block)
+
+    def test_overflow_is_revealed_not_clipped_silently(self):
+        assert "text-overflow: ellipsis" in self._block()

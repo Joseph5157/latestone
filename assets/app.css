@@ -415,6 +415,23 @@ body {
 .snapshot-tile a { text-decoration: none; color: inherit; display: block; }
 .snapshot-tile__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .snapshot-tile__value { font-size: var(--fs-snapshot); font-weight: 700; margin-bottom: var(--sp-1); white-space: nowrap; }
+
+/* Fixed height, and it must stay fixed. Without `nowrap` this line wrapped on
+   the one tile whose value happened to be long — "▲ +428.0 MWh" on a 7-day
+   energy delta — and because the strip is a grid, that single wrapped tile
+   stretched all eight to 117 px and pushed the primary chart to 430 px, past
+   the §6.8 budget of 420. The defect appeared only at some periods, which is
+   why checking one period was not enough. Same treatment as
+   .kpi-card__secondary, for the same reason. */
+.snapshot-tile__direction {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  height: 16px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .snapshot-tile__condition { height: 0; overflow: hidden; }
 
 /* ---------- KPI Cards ---------- */
