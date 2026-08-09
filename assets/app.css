@@ -271,6 +271,17 @@ body {
   margin-bottom: 20px;
 }
 
+/* Inactive is a normal administrative state, not a failure: an informational
+   strip rather than a full-height centred panel. */
+.status-panel--inactive {
+  padding: 10px 16px;
+  text-align: left;
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+  font-size: 13px;
+}
+
 .status-panel h3 { margin: 0 0 8px 0; font-size: 16px; }
 .status-panel p { color: var(--color-muted); margin: 0 0 16px 0; }
 .status-panel a { color: var(--color-accent); }

@@ -80,7 +80,7 @@ def register(app) -> None:
                     "metric_key": metric_key,
                     "period": period_value,
                 }
-                return plant_detail.layout(plant.name), ctx
+                return plant_detail.layout(plant.name, status=plant.status), ctx
 
             if route.name == "transformer":
                 plant = hierarchy_service.get_plant_or_none(route.plant_id)
@@ -104,7 +104,8 @@ def register(app) -> None:
                 }
                 return (
                     transformer_detail.layout(
-                        plant.name, transformer.transformer_code, plant.plant_id
+                        plant.name, transformer.transformer_code, plant.plant_id,
+                        status=transformer.status,
                     ),
                     ctx,
                 )

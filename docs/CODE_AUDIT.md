@@ -257,7 +257,7 @@ the running application. Dispositions:
 | NEW-05 badge rendered inside a badge | Confirmed | **Fixed** |
 | NEW-06 equipment context/status + breadcrumb links | Confirmed | **Fixed** |
 | NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | **Fixed** (UTC assumed — see below) |
-| NEW-07 inactive hierarchy count mismatch | Plausible, needs a policy decision | Open |
+| NEW-07 inactive hierarchy count mismatch | Confirmed | **Fixed** (policy chosen — see below) |
 | NEW-09 schema configurable but DDL hard-coded | Confirmed | **Fixed** |
 | NEW-10 chart `uirevision` keeps zoom across periods | Confirmed | **Fixed** |
 | NEW-12 interrupted seed passes the "already seeded" guard | Confirmed | **Fixed** |
@@ -453,3 +453,41 @@ Displayed instants are now labelled: `Timestamp (UTC)` in the readings table,
 `Last data (UTC)` in the equipment context bar, and `Time (UTC)` on the chart
 x-axis. `tests/test_date_range.py` was updated to expect aware values, since the
 bounds it asserts on deliberately changed.
+
+## NEW-07 — fixed, policy chosen
+
+**Policy.** Inactive equipment is excluded from listings *and* counts, so the two
+finally agree, but remains reachable by direct URL with a notice. A monitoring
+system for decommissioned plant still holds readings worth inspecting; making
+them unreachable would lose that, while listing them would clutter operational
+views with equipment that is no longer reporting.
+
+`count_hierarchy_by_plant()` takes `include_inactive` (default `False`) and
+applies the status filters **in the JOIN, not a WHERE clause** — a WHERE would
+turn the LEFT JOINs inner and drop plants with no active equipment off the
+overview entirely.
+
+**Demonstrated against the seeded database** by inserting an inactive
+transformer and device under `plant-07` inside a transaction, then rolling back:
+
+| query | result |
+|---|---|
+| unfiltered (previous behaviour) | 2 transformers, 2 devices |
+| what the drill-down page lists | 1 transformer, 1 device |
+| filtered (current behaviour) | 1 transformer, 1 device |
+
+`inactive_notice()` marks inactive plants, transformers and devices when opened
+directly. It is styled as an informational strip rather than an error panel,
+because inactive is a normal administrative state. As everywhere else,
+administrative status stays separate from data freshness and monitoring
+condition.
+
+Note that the seeded dataset is entirely `active`, so this finding was latent —
+it could not have been observed in the demo, only once real data arrives.
+
+---
+
+# Second-pass audit — closed
+
+All 14 findings are dispositioned: 13 fixed, 1 (NEW-01) closed as not
+reproducible with the evidence recorded above. Test count went from 180 to 315.

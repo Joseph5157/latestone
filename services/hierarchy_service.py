@@ -56,5 +56,19 @@ def get_device_context(device_id: str) -> DevicePath | None:
     return repo.get_device_breadcrumb(device_id)
 
 
-def get_plant_hierarchy_counts() -> dict[str, tuple[int, int]]:
-    return repo.count_hierarchy_by_plant()
+def get_plant_hierarchy_counts(include_inactive: bool = False) -> dict[str, tuple[int, int]]:
+    """Counts matching what the drill-down pages actually list.
+
+    The default must stay aligned with `list_transformers`/`list_devices`, or an
+    overview row will disagree with the page it opens.
+    """
+    return repo.count_hierarchy_by_plant(include_inactive=include_inactive)
+
+
+def is_active(record) -> bool:
+    """Administrative state only — never a monitoring or freshness signal.
+
+    Inactive equipment stays reachable by direct URL so its history can still be
+    inspected; the pages mark it rather than hiding it.
+    """
+    return getattr(record, "status", ACTIVE) == ACTIVE

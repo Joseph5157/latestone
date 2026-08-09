@@ -7,6 +7,7 @@ from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.metric_chart import metric_chart
 from components.readings_table import readings_table
+from components.status_panels import inactive_notice
 from config.metrics import ordered_metrics
 from config.settings import monitoring
 from services.monitoring_service import Freshness
@@ -58,6 +59,9 @@ def layout(
                 ]),
                 freshness=Freshness.NO_DATA,
             ),
+            # Inactive equipment stays reachable by URL; it is marked rather
+            # than hidden, so historical readings remain inspectable.
+            inactive_notice("device") if device_status == "inactive" else None,
             # UI_SPEC 6a: Plant | Transformer | Device | Status. `Status` is the
             # administrative state from DevicePath — deliberately not merged
             # with data freshness (header badge) or monitoring condition.

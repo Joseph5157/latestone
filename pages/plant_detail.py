@@ -6,9 +6,10 @@ from dash import html
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.entity_table import entity_table
+from components.status_panels import inactive_notice
 
 
-def layout(plant_name: str = "") -> html.Div:
+def layout(plant_name: str = "", status: str = "") -> html.Div:
     return html.Div(
         className="page page--plant-detail",
         children=[
@@ -18,6 +19,7 @@ def layout(plant_name: str = "") -> html.Div:
                     (plant_name or "Plant", None),
                 ]),
             ),
+            inactive_notice("plant") if status == "inactive" else None,
             html.H1(plant_name or "Plant"),
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.

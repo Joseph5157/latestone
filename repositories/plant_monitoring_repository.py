@@ -20,6 +20,9 @@ from db.engine import session_scope
 
 _SCHEMA = monitoring.schema
 
+# Administrative status only. Never a monitoring condition — see CLAUDE.md.
+ACTIVE_STATUS = "active"
+
 
 @dataclass(frozen=True)
 class PlantRecord:
@@ -168,8 +171,20 @@ def get_device_breadcrumb(device_id: str) -> DevicePath | None:
     return DevicePath(*row) if row else None
 
 
-def count_hierarchy_by_plant() -> dict[str, tuple[int, int]]:
-    """Returns {plant_id: (transformer_count, device_count)}."""
+def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[int, int]]:
+    """Returns {plant_id: (transformer_count, device_count)}.
+
+    Counts the same population the drill-down pages list. Without the status
+    filters an overview row could claim 4 transformers and then show 3 once
+    opened, because `list_transformers`/`list_devices` exclude inactive
+    equipment by default.
+
+    The filters sit in the JOIN, not a WHERE clause: moving them to WHERE would
+    turn the LEFT JOINs inner and drop plants that have no active equipment
+    from the overview entirely.
+    """
+    status_filter = "" if include_inactive else " AND t.status = :active"
+    device_filter = "" if include_inactive else " AND d.status = :active"
     with session_scope() as session:
         rows = session.execute(
             text(
@@ -178,11 +193,14 @@ def count_hierarchy_by_plant() -> dict[str, tuple[int, int]]:
                        COUNT(DISTINCT t.transformer_id) AS transformers,
                        COUNT(d.device_id)               AS devices
                 FROM {_SCHEMA}.plants p
-                LEFT JOIN {_SCHEMA}.transformers t ON t.plant_id = p.plant_id
-                LEFT JOIN {_SCHEMA}.devices d      ON d.transformer_id = t.transformer_id
+                LEFT JOIN {_SCHEMA}.transformers t
+                       ON t.plant_id = p.plant_id{status_filter}
+                LEFT JOIN {_SCHEMA}.devices d
+                       ON d.transformer_id = t.transformer_id{device_filter}
                 GROUP BY p.plant_id
                 """
-            )
+            ),
+            {"active": ACTIVE_STATUS},
         ).all()
     return {r[0]: (r[1], r[2]) for r in rows}
 
