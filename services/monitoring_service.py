@@ -136,6 +136,16 @@ class FreshnessRollup:
         return f"{text} · {self.affected} of {self.total}{suffix}"
 
 
+def severity_rank(state: Freshness) -> int:
+    """How alarming a state is: NO_DATA > STALE > FRESH.
+
+    Public because exception-first ordering (§10) is the same domain rule as
+    worst-of aggregation, and a presentation layer sorting by its own private
+    copy is how the two would eventually disagree.
+    """
+    return _FRESHNESS_SEVERITY[state]
+
+
 def aggregate_freshness(states: list[Freshness]) -> FreshnessRollup:
     """Worst-of rollup over one level's children.
 
@@ -211,6 +221,23 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
         counts[rollup.state] += 1
 
     return FleetHealth(devices=devices, plants=plants, counts=counts)
+
+
+def get_fleet_health() -> FleetHealth:
+    """The fleet's freshness, from one query, for one render.
+
+    The Fleet screen's Data Health card and every plant's freshness label are
+    derived from the object this returns — call it once per render and pass the
+    result down. Calling it per component would issue N queries and, worse,
+    let two parts of one screen disagree about which devices are stale.
+
+    Every configured metric is included: a device is only FRESH when all of its
+    metrics are, so querying a subset would report a device healthy on the
+    strength of one working feed.
+    """
+    return fleet_health_from_rows(
+        repo.latest_reading_times([m.key for m in ordered_metrics()])
+    )
 
 
 def reading_age(last_updated: datetime | None, now: datetime | None = None):

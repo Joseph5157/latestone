@@ -30,6 +30,12 @@ def entity_table(
                 "color": "#2563eb",
                 "textDecoration": "underline",
                 "cursor": "pointer",
+                # The identity column wraps instead of truncating. Every other
+                # column gets an ellipsis (see app.css), but half of "Itaipu
+                # Binacional Dam (Paraguay part)" is not an identity, and this
+                # is the cell the operator clicks to navigate.
+                "whiteSpace": "normal",
+                "overflowWrap": "anywhere",
             }
         ]
         if link_column_id
@@ -47,7 +53,17 @@ def entity_table(
                 page_size=30,
                 style_as_list_view=True,
                 style_table={"overflowX": "auto"},
-                style_cell={"textAlign": "left", "padding": "8px 12px"},
+                # OBS-2: dash_table's stylesheet sets `text-overflow: inherit`
+                # on the inner .dash-cell-value with a 4-class selector, so the
+                # value must be set on the `td` here — an app.css rule targeting
+                # the inner div loses the cascade and silently does nothing.
+                # Verified against computed style, not the stylesheet source.
+                style_cell={
+                    "textAlign": "left",
+                    "padding": "8px 12px",
+                    "overflow": "hidden",
+                    "textOverflow": "ellipsis",
+                },
                 style_header={"fontWeight": "600", "backgroundColor": "#f9fafb"},
                 style_data_conditional=[
                     {"if": {"row_index": "odd"}, "backgroundColor": "#f9fafb"},

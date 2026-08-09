@@ -9,9 +9,11 @@ import logging
 
 from dash import Input, Output, State, no_update
 
+from components.fleet_summary import fleet_kpi_cards
 from components.status_panels import error_panel
 from routes import device_href
-from services import hierarchy_service
+from services import hierarchy_service, monitoring_service
+from services.monitoring_service import aggregate_freshness, severity_rank
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,8 @@ PLANT_COLUMNS = [
     {"name": "Capacity (MW)", "id": "capacity_mw", "type": "numeric"},
     {"name": "Transformers", "id": "transformers", "type": "numeric"},
     {"name": "Devices", "id": "devices", "type": "numeric"},
+    # Data-delivery freshness only, never an electrical condition (§21).
+    {"name": "Data", "id": "freshness"},
 ]
 
 TRANSFORMER_COLUMNS = [
@@ -51,10 +55,18 @@ DEVICE_COLUMNS = [
 # `id` is not listed in the column specs, so it is never rendered.
 # --------------------------------------------------------------------------
 
-def build_plant_rows(plants, counts: dict) -> list[dict]:
+def build_plant_rows(plants, counts: dict, health) -> list[dict]:
+    """One row per plant, with its freshness read off the shared FleetHealth.
+
+    `health` is passed in rather than fetched here so the whole screen is served
+    by one query and one definition of freshness. A plant with no rollup is
+    reported as NO_DATA over zero devices, never as a blank cell: an empty cell
+    in a health column reads as "fine".
+    """
     rows = []
     for p in plants:
         t_count, d_count = counts.get(p.plant_id, (0, 0))
+        rollup = health.plants.get(p.plant_id) or aggregate_freshness([])
         rows.append({
             "id": p.plant_id,
             "plant": p.name,
@@ -63,8 +75,22 @@ def build_plant_rows(plants, counts: dict) -> list[dict]:
             "capacity_mw": p.capacity_mw,
             "transformers": t_count,
             "devices": d_count,
+            "freshness": rollup.label("devices"),
+            # Sort key only. Carried on the row like `id`, absent from
+            # PLANT_COLUMNS, so it orders rows without being rendered.
+            "_severity": severity_rank(rollup.state),
         })
     return rows
+
+
+def sort_plant_rows_exception_first(rows: list[dict]) -> list[dict]:
+    """Exceptions above healthy rows, then alphabetical (§10).
+
+    The operator's first question is which plant to inspect, and thirty
+    alphabetical rows do not answer it. dash_table's own sorting still works and
+    overrides this — it is the default order, not a lock.
+    """
+    return sorted(rows, key=lambda r: (-r["_severity"], r["plant"]))
 
 
 def build_transformer_rows(transformers, device_counts: dict) -> list[dict]:
@@ -152,19 +178,41 @@ def register(app) -> None:
         Output("plants-table", "data"),
         Output("plants-table", "columns"),
         Output("plants-error", "children"),
+        Output("fleet-kpis", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_overview(context):
         if not context or context.get("route") != "overview":
-            return no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update
+
+        # One fetch, one FleetHealth, both outputs derived from it. Building the
+        # cards in a second callback would issue a second query and let the card
+        # and the table answer "which devices are stale?" differently.
+        cards = []
 
         def build():
             plants = hierarchy_service.list_plants()
             counts = hierarchy_service.get_plant_hierarchy_counts()
-            return build_plant_rows(plants, counts)
+            health = monitoring_service.get_fleet_health()
+            cards.append(
+                fleet_kpi_cards(
+                    plants=len(plants),
+                    transformers=sum(t for t, _d in counts.values()),
+                    devices=sum(d for _t, d in counts.values()),
+                    health=health,
+                )
+            )
+            return sort_plant_rows_exception_first(
+                build_plant_rows(plants, counts, health)
+            )
 
-        return listing_outputs(build, PLANT_COLUMNS, "loading the plants overview")
+        rows, columns, error = listing_outputs(
+            build, PLANT_COLUMNS, "loading the plants overview"
+        )
+        # On failure the cards never got built; an empty slot is correct, since
+        # the error panel is what explains the empty screen.
+        return rows, columns, error, (cards[0] if cards else None)
 
     @app.callback(
         Output("transformers-table", "data"),

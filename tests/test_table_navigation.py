@@ -114,7 +114,11 @@ class TestRowsCarryTheirIdentity:
                 self.primary_fuel = "Hydro"
                 self.capacity_mw = 6809.0
 
-        rows = build_plant_rows([_P("plant-07")], {"plant-07": (1, 3)})
+        from services.monitoring_service import fleet_health_from_rows
+
+        rows = build_plant_rows(
+            [_P("plant-07")], {"plant-07": (1, 3)}, fleet_health_from_rows([])
+        )
         assert rows[0]["id"] == "plant-07"
 
     def test_transformer_rows_expose_an_id(self):

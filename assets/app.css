@@ -429,6 +429,13 @@ body {
 .entity-table-wrapper { overflow-x: auto; }
 .entity-table-wrapper .dash-table-container { max-width: 100%; }
 
+/* OBS-2 (truncation visibility) is deliberately NOT handled here. dash_table
+   sets `text-overflow: inherit` on td div.dash-cell-value with a 4-class
+   selector, so any rule in this file targeting that div loses the cascade and
+   does nothing. The value is set on the `td` through style_cell in
+   components/entity_table.py, which is the mechanism dash_table's `inherit`
+   exists to serve. */
+
 /* ---------- Readings Table ---------- */
 .readings-table-container { overflow-x: auto; }
 .readings-table-container .dash-table-container { max-width: 100%; }
