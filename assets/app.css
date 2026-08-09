@@ -51,10 +51,25 @@
 }
 
 /* Accessibility (§23.1): a visible focus indicator that is not the hover style,
-   on every interactive element. Never remove this without a replacement. */
-:where(a, button, input, select, [tabindex]):focus-visible,
+   on every interactive element. Never remove this without a replacement.
+
+   NOT wrapped in :where(). That was the first attempt and it silently did
+   nothing: :where() contributes zero specificity, so Dash's react-select and
+   Plotly's own `outline: none` beat it and keyboard users got no focus ring at
+   all — while the element still matched :focus-visible, so it looked correct in
+   the DOM. `!important` on the outline is deliberate: the resets we are
+   overriding live in third-party stylesheets we do not control, and a focus
+   indicator that a vendor bump can silently remove is not an accessibility
+   guarantee. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.modebar-btn:focus-visible,
 .Select-control:focus-within {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-accent) !important;
   outline-offset: 2px;
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);
