@@ -20,6 +20,9 @@ def layout(plant_name: str = "", transformer_code: str = "", plant_id: str = "")
                 ]),
             ),
             html.H1(transformer_code or "Transformer"),
+            # Filled by the listing callback when a query fails, so an
+            # unreachable database does not look like an empty result.
+            html.Div(id="devices-error", className="listing-error"),
             entity_table(
                 table_id="devices-table",
                 columns=[

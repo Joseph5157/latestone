@@ -30,6 +30,25 @@ python -m db.seed_plant_monitoring --reset
 python app.py
 ```
 
+### Upgrading an existing checkout
+
+The schema DDL moved from `db/init_plant_monitoring.sql` to
+`db/init_plant_monitoring.sql.template` plus `db/init_plant_monitoring.sh`, so
+the schema name honours `PLANT_MONITORING_SCHEMA` instead of being hard-coded.
+
+If you already have a `powerplant_demo_postgres` container, recreate it rather
+than restarting it:
+
+```bash
+docker compose up -d          # recreates with the new mounts
+```
+
+`docker start <container>` will fail with exit 127, because the old container
+still bind-mounts the file that was renamed — and Docker silently recreates the
+missing source as an empty directory. Your data is safe either way: it lives in
+the `powerplant_pgdata` volume, not the container. Delete any stray
+`db/init_plant_monitoring.sql` *directory* if one appears.
+
 Open http://localhost:8050 and log in with the demo credentials from
 `.env` (defaults: `admin` / `demo1234`).
 

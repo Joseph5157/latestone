@@ -16,6 +16,9 @@ def layout() -> html.Div:
                 breadcrumb_children=breadcrumb([("Plants", None)]),
             ),
             html.H1("Plants"),
+            # Filled by the listing callback when a query fails, so an
+            # unreachable database does not look like an empty result.
+            html.Div(id="plants-error", className="listing-error"),
             entity_table(
                 table_id="plants-table",
                 columns=[

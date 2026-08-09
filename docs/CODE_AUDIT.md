@@ -253,7 +253,7 @@ the running application. Dispositions:
 | NEW-02 row click wrong under sort/filter/page | Confirmed | **Fixed** |
 | NEW-03 relative periods anchored to last sample | Confirmed | **Fixed** |
 | NEW-11 capacity sorts as formatted text | Confirmed | **Fixed** (adjacent to NEW-02) |
-| NEW-08 listing callbacks lack an error boundary | Confirmed | **Partially fixed** — see below |
+| NEW-08 listing callbacks lack an error boundary | Confirmed | **Fixed** |
 | NEW-05 badge rendered inside a badge | Confirmed | **Fixed** |
 | NEW-06 equipment context/status + breadcrumb links | Confirmed | **Fixed** |
 | NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | Open — needs a timezone policy decision |
@@ -401,3 +401,26 @@ were deliberately left alone.
 field. The zero-counter guard is preserved: the router inserts the login form
 dynamically, so the callback still fires on insertion with every counter at 0
 and must stay silent.
+
+## NEW-08 — now fully fixed
+
+The earlier pass gave the listing callbacks logging and a safe empty-table
+fallback but no explanatory state, so a database outage and a genuinely empty
+result looked identical. Each listing page now carries an error slot
+(`plants-error`, `transformers-error`, `devices-error`) that
+`listing_outputs()` fills.
+
+Verified by stopping the Postgres container and loading the overview: the page
+rendered "Something went wrong loading this data. Please try again." while the
+server log recorded `Listing failed while loading the plants overview` with the
+full `OperationalError`. No stack trace, SQL or connection string reached the UI.
+The same run confirmed NEW-14 — the session was logged in with Enter rather than
+the button.
+
+**Migration note discovered during that test.** Renaming the DDL to
+`*.sql.template` (NEW-09) breaks `docker start` on a container created before the
+change: the old container still bind-mounts the old path, exits 127, and Docker
+silently recreates the missing mount source as an empty *directory* in `db/`.
+`docker compose up -d` recreates the container correctly and the data survives,
+since it lives in the `powerplant_pgdata` volume. Documented in README under
+"Upgrading an existing checkout".

@@ -9,6 +9,7 @@ import logging
 
 from dash import Input, Output, State, no_update
 
+from components.status_panels import error_panel
 from routes import device_href
 from services import hierarchy_service
 
@@ -126,67 +127,86 @@ def device_row_target(active_cell):
     return device_href(device_id)
 
 
+def listing_outputs(build_rows, columns: list[dict], context_msg: str) -> tuple:
+    """(rows, columns, error_children) for one listing table.
+
+    The three listing callbacks previously called services with no boundary. The
+    overview route does no database access itself, so an outage after login first
+    surfaced here and raised through Dash, leaving a page that never filled in.
+
+    An empty table alone is not enough: "no rows exist" and "we could not reach
+    the database" must not look identical, hence the separate error slot. The
+    cause is logged in full; the panel stays generic per CLAUDE.md.
+    """
+    try:
+        return build_rows(), columns, None
+    except Exception:
+        logger.exception("Listing failed while %s", context_msg)
+        return [], columns, error_panel()
+
+
 def register(app) -> None:
     """Register listing callbacks on the Dash app."""
 
     @app.callback(
         Output("plants-table", "data"),
         Output("plants-table", "columns"),
+        Output("plants-error", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_overview(context):
         if not context or context.get("route") != "overview":
-            return no_update, no_update
-        try:
+            return no_update, no_update, no_update
+
+        def build():
             plants = hierarchy_service.list_plants()
             counts = hierarchy_service.get_plant_hierarchy_counts()
-            return build_plant_rows(plants, counts), PLANT_COLUMNS
-        except Exception:
-            # Logged in full; the operator gets an empty table rather than a
-            # raised callback. No internals reach the UI, per CLAUDE.md.
-            logger.exception("Failed to populate plants overview")
-            return [], PLANT_COLUMNS
+            return build_plant_rows(plants, counts)
+
+        return listing_outputs(build, PLANT_COLUMNS, "loading the plants overview")
 
     @app.callback(
         Output("transformers-table", "data"),
         Output("transformers-table", "columns"),
+        Output("transformers-error", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_plant_detail(context):
         if not context or context.get("route") != "plant":
-            return no_update, no_update
+            return no_update, no_update, no_update
         plant_id = context.get("plant_id")
-        try:
+
+        def build():
             transformers = hierarchy_service.list_transformers(plant_id)
             device_counts = {
                 t.transformer_id: len(hierarchy_service.list_devices(t.transformer_id))
                 for t in transformers
             }
-            return build_transformer_rows(transformers, device_counts), TRANSFORMER_COLUMNS
-        except Exception:
-            logger.exception("Failed to populate plant detail for plant_id=%r", plant_id)
-            return [], TRANSFORMER_COLUMNS
+            return build_transformer_rows(transformers, device_counts)
+
+        return listing_outputs(
+            build, TRANSFORMER_COLUMNS, f"loading transformers for plant_id={plant_id!r}"
+        )
 
     @app.callback(
         Output("devices-table", "data"),
         Output("devices-table", "columns"),
+        Output("devices-error", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_transformer_detail(context):
         if not context or context.get("route") != "transformer":
-            return no_update, no_update
+            return no_update, no_update, no_update
         transformer_id = context.get("transformer_id")
-        try:
-            devices = hierarchy_service.list_devices(transformer_id)
-            return build_device_rows(devices), DEVICE_COLUMNS
-        except Exception:
-            logger.exception(
-                "Failed to populate transformer detail for transformer_id=%r", transformer_id
-            )
-            return [], DEVICE_COLUMNS
+
+        return listing_outputs(
+            lambda: build_device_rows(hierarchy_service.list_devices(transformer_id)),
+            DEVICE_COLUMNS,
+            f"loading devices for transformer_id={transformer_id!r}",
+        )
 
     # Row-click navigation. dash_table has no non-markdown way to render a cell
     # as a link, and markdown-presentation links are hardcoded by dash_table to
