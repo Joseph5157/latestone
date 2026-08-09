@@ -69,7 +69,7 @@ def layout(
                     _context_item("Transformer", transformer_code or "—"),
                     _context_item("Device", device_code or "—"),
                     _context_item("Status", device_status or "—"),
-                    _context_item("Last data", "—", value_id="equipment-last-data"),
+                    _context_item("Last data (UTC)", "—", value_id="equipment-last-data"),
                 ],
             ),
             html.Div(id="snapshot-strip"),

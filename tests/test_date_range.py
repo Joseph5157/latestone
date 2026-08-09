@@ -7,7 +7,7 @@ conversion where the truncation happened.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from callbacks.device import _parse_picker_date
 from components.metric_snapshot_strip import snapshot_tile
@@ -17,28 +17,35 @@ from services.monitoring_service import Freshness, MetricSnapshot, MonitoringCon
 
 
 class TestParsePickerDate:
+    # Bounds are UTC-aware since NEW-04; they are compared against a
+    # TIMESTAMPTZ column, where a naive value is resolved using the database
+    # session's timezone.
     def test_empty_is_none(self):
         assert _parse_picker_date(None) is None
         assert _parse_picker_date("") is None
 
     def test_start_date_is_midnight(self):
-        assert _parse_picker_date("2026-08-03") == datetime(2026, 8, 3, 0, 0)
+        assert _parse_picker_date("2026-08-03") == datetime(
+            2026, 8, 3, 0, 0, tzinfo=timezone.utc
+        )
 
     def test_end_date_covers_the_whole_day(self):
         """The regression: a date-only end must not truncate to midnight."""
         end = _parse_picker_date("2026-08-06", is_end=True)
         assert end.date() == datetime(2026, 8, 6).date()
         assert (end.hour, end.minute) == (23, 59)
-        assert end > datetime(2026, 8, 6, 23, 30)
+        assert end > datetime(2026, 8, 6, 23, 30, tzinfo=timezone.utc)
 
     def test_end_with_explicit_time_is_left_alone(self):
         value = "2026-08-06T12:00:00"
-        assert _parse_picker_date(value, is_end=True) == datetime(2026, 8, 6, 12, 0)
+        assert _parse_picker_date(value, is_end=True) == datetime(
+            2026, 8, 6, 12, 0, tzinfo=timezone.utc
+        )
 
     def test_a_full_day_of_half_hourly_readings_is_included(self):
         """30-min cadence: the last reading of the end day is 23:30."""
         end = _parse_picker_date("2026-08-06", is_end=True)
-        assert datetime(2026, 8, 6, 23, 30) <= end
+        assert datetime(2026, 8, 6, 23, 30, tzinfo=timezone.utc) <= end
 
 
 class TestCustomRangeInUrl:

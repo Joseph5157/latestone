@@ -34,7 +34,7 @@ def readings_table(table_id: str = "readings-table", metric: MetricConfig | None
             dash_table.DataTable(
                 id=table_id,
                 columns=[
-                    {"name": "Timestamp", "id": "timestamp"},
+                    {"name": "Timestamp (UTC)", "id": "timestamp"},
                     {"name": metric.label, "id": "value"},
                 ],
                 data=[],

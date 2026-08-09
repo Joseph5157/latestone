@@ -165,10 +165,19 @@ def _resolve_window(
     period: Period, anchor: datetime | None,
     custom_start: datetime | None, custom_end: datetime | None,
 ) -> tuple[datetime, datetime] | None:
-    """Return the (start, end) window, or None when no window is computable."""
+    """Return the (start, end) window, or None when no window is computable.
+
+    Custom bounds are aligned to the anchor's timezone before leaving this
+    function. They reach a `TIMESTAMPTZ` comparison, and a naive value there is
+    resolved using the database session's `TimeZone` — which would shift the
+    operator's selected day on any session that is not UTC.
+    """
     if period is Period.CUSTOM:
         if custom_start is None or custom_end is None:
             return None
+        if anchor is not None:
+            custom_start = _align_tz(custom_start, anchor)
+            custom_end = _align_tz(custom_end, anchor)
         return custom_start, custom_end
     if anchor is None:
         return None

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 from dash import Input, Output, State, no_update
 
@@ -18,6 +18,10 @@ from services.monitoring_service import Freshness, Period
 
 logger = logging.getLogger(__name__)
 
+# All displayed instants are UTC. Stated in the UI because the demo spans
+# plants in many countries and an unlabelled timestamp is ambiguous.
+TIMESTAMP_COLUMN_NAME = "Timestamp (UTC)"
+
 
 def _parse_picker_date(value: str | None, *, is_end: bool = False) -> datetime | None:
     """Convert a `dcc.DatePickerRange` value into a query bound.
@@ -26,12 +30,20 @@ def _parse_picker_date(value: str | None, *, is_end: bool = False) -> datetime |
     that literally gives midnight, which would exclude the whole of the chosen
     end day — selecting Aug 3 to Aug 6 silently dropped 47 of 192 readings and
     skewed every period KPI. An end date therefore means the *end* of that day.
+
+    The result is timezone-aware. These bounds are compared against
+    `readings.reading_ts TIMESTAMPTZ`, and PostgreSQL resolves a naive timestamp
+    using the session's `TimeZone` — so a client session outside UTC would
+    silently shift the selected day. The demo treats everything as UTC, matching
+    `_now()` and `_align_tz()` in the service layer.
     """
     if not value:
         return None
     parsed = datetime.fromisoformat(value)
     if is_end and parsed.time() == time.min:
         parsed = parsed + timedelta(days=1) - timedelta(microseconds=1)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
 
 
@@ -133,7 +145,7 @@ def register(app) -> None:
             sorted_series = sorted(view.series, key=lambda r: r.timestamp, reverse=True)
             table_data = build_table_rows(view.metric, sorted_series)
             table_columns = [
-                {"name": "Timestamp", "id": "timestamp"},
+                {"name": TIMESTAMP_COLUMN_NAME, "id": "timestamp"},
                 {"name": view.metric.label, "id": "value"},
             ]
 

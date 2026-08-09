@@ -256,7 +256,7 @@ the running application. Dispositions:
 | NEW-08 listing callbacks lack an error boundary | Confirmed | **Fixed** |
 | NEW-05 badge rendered inside a badge | Confirmed | **Fixed** |
 | NEW-06 equipment context/status + breadcrumb links | Confirmed | **Fixed** |
-| NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | Open — needs a timezone policy decision |
+| NEW-04 naive bounds vs `TIMESTAMPTZ` | Confirmed | **Fixed** (UTC assumed — see below) |
 | NEW-07 inactive hierarchy count mismatch | Plausible, needs a policy decision | Open |
 | NEW-09 schema configurable but DDL hard-coded | Confirmed | **Fixed** |
 | NEW-10 chart `uirevision` keeps zoom across periods | Confirmed | **Fixed** |
@@ -424,3 +424,32 @@ silently recreates the missing mount source as an empty *directory* in `db/`.
 `docker compose up -d` recreates the container correctly and the data survives,
 since it lives in the `powerplant_pgdata` volume. Documented in README under
 "Upgrading an existing checkout".
+
+## NEW-04 — fixed, under a stated assumption
+
+**Assumption.** The demo treats every instant as UTC. This was not an open
+choice so much as an inconsistency: `_now()` already returns UTC-aware and
+`_align_tz()` already attaches UTC, while only the date-picker bounds stayed
+naive. If the client later wants plant-local display, that is a presentation
+layer on top of UTC storage, not a change to any of this.
+
+`_parse_picker_date()` now returns UTC-aware values and `_resolve_window()`
+aligns custom bounds to the anchor's timezone before they leave the service.
+
+**Demonstrated on the seeded database.** Selecting Aug 3 on `plant-01-t1-d1`,
+comparing naive against aware bounds under three session timezones:
+
+| session `TimeZone` | window actually selected | |
+|---|---|---|
+| `UTC` | 08-03 00:00Z .. 08-03 23:30Z | same either way |
+| `Asia/Kolkata` | naive gave 00:00+05:30 .. 23:30+05:30 | **shifted 5h30** |
+| `America/Los_Angeles` | naive gave 00:00−07:00 .. 23:30−07:00 | **shifted 7h** |
+
+The row count is identical in every case — a 24-hour window holds 48 half-hourly
+readings wherever it starts — which is precisely why this would not have been
+noticed. The *readings* differ.
+
+Displayed instants are now labelled: `Timestamp (UTC)` in the readings table,
+`Last data (UTC)` in the equipment context bar, and `Time (UTC)` on the chart
+x-axis. `tests/test_date_range.py` was updated to expect aware values, since the
+bounds it asserts on deliberately changed.

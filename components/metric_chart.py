@@ -74,7 +74,7 @@ def build_metric_figure(
     fig.update_layout(
         margin=dict(l=40, r=20, t=30, b=40),
         height=380,
-        xaxis_title="Time",
+        xaxis_title="Time (UTC)",
         yaxis_title=_axis_title(metric),
         template="plotly_white",
         hovermode="x unified",
