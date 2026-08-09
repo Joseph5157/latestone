@@ -144,5 +144,7 @@ class TestRowsCarryTheirIdentity:
             device_code = "29017"
             status = "active"
 
-        rows = build_device_rows([_D()])
+        from services.monitoring_service import fleet_health_from_rows
+
+        rows = build_device_rows([_D()], fleet_health_from_rows([]))
         assert rows[0]["id"] == "plant-07-t1-d1"

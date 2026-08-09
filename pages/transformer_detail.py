@@ -24,14 +24,21 @@ def layout(
             ),
             inactive_notice("transformer") if status == "inactive" else None,
             html.H1(transformer_code or "Transformer"),
+            html.P(
+                "Devices on this transformer, worst data first",
+                className="page__subtitle",
+            ),
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="devices-error", className="listing-error"),
+            # Same callback, same FleetHealth as the table below it.
+            html.Div(id="transformer-kpis"),
             entity_table(
                 table_id="devices-table",
                 columns=[
                     {"name": "Device", "id": "device_code", "type": "text"},
                     {"name": "Status", "id": "status", "type": "text"},
+                    {"name": "Data", "id": "freshness", "type": "text"},
                 ],
                 rows=[],
                 link_column_id="device",

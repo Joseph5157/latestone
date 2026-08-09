@@ -73,6 +73,26 @@ def fleet_kpi_cards(
     )
 
 
+def transformer_kpi_cards(
+    transformer_id: str, devices: int, health: FleetHealth
+) -> html.Div:
+    """Summary for one transformer, scoped to its own devices.
+
+    The transformer's rollup already tallies its devices by state, so the card
+    reads straight off it — no third traversal and no third definition.
+    """
+    rollup = health.transformers.get(transformer_id)
+    counts = rollup.counts if rollup else {}
+    value, secondary = _health_summary(counts)
+    return html.Div(
+        className="kpi-row kpi-row--fleet",
+        children=[
+            kpi_card("Devices", str(devices)),
+            kpi_card("Data Health", value, secondary=secondary, accent=True),
+        ],
+    )
+
+
 def plant_kpi_cards(
     plant_id: str, transformers: int, devices: int, health: FleetHealth
 ) -> html.Div:

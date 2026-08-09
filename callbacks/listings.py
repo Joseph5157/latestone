@@ -9,7 +9,11 @@ import logging
 
 from dash import Input, Output, State, no_update
 
-from components.fleet_summary import fleet_kpi_cards, plant_kpi_cards
+from components.fleet_summary import (
+    fleet_kpi_cards,
+    plant_kpi_cards,
+    transformer_kpi_cards,
+)
 from components.status_panels import error_panel
 from routes import device_href
 from services import hierarchy_service, monitoring_service
@@ -49,6 +53,7 @@ TRANSFORMER_COLUMNS = [
 DEVICE_COLUMNS = [
     {"name": "Device", "id": "device"},
     {"name": "Status", "id": "status"},
+    {"name": "Data", "id": "freshness"},
 ]
 
 
@@ -123,11 +128,29 @@ def sort_transformer_rows_exception_first(rows: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda r: (-r["_severity"], r["transformer"]))
 
 
-def build_device_rows(devices) -> list[dict]:
-    return [
-        {"id": d.device_id, "device": d.device_code, "status": d.status}
-        for d in devices
-    ]
+def build_device_rows(devices, health) -> list[dict]:
+    """One row per device. The noun is `metrics`, not `devices`.
+
+    A device is the level freshness is actually measured at, so its rollup is
+    over its eight metrics. Reusing the parent nouns here would render
+    "Stale · 1 of 8 devices" on a single device.
+    """
+    rows = []
+    for d in devices:
+        rollup = health.devices.get(d.device_id) or aggregate_freshness([])
+        rows.append({
+            "id": d.device_id,
+            "device": d.device_code,
+            "status": d.status,
+            "freshness": rollup.label("metrics"),
+            "_severity": severity_rank(rollup.state),
+        })
+    return rows
+
+
+def sort_device_rows_exception_first(rows: list[dict]) -> list[dict]:
+    """Exceptions first, then device code — same rule as the tables above it."""
+    return sorted(rows, key=lambda r: (-r["_severity"], r["device"]))
 
 
 # --------------------------------------------------------------------------
@@ -277,19 +300,31 @@ def register(app) -> None:
         Output("devices-table", "data"),
         Output("devices-table", "columns"),
         Output("devices-error", "children"),
+        Output("transformer-kpis", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_transformer_detail(context):
         if not context or context.get("route") != "transformer":
-            return no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update
         transformer_id = context.get("transformer_id")
 
-        return listing_outputs(
-            lambda: build_device_rows(hierarchy_service.list_devices(transformer_id)),
+        cards = []
+
+        def build():
+            devices = hierarchy_service.list_devices(transformer_id)
+            health = monitoring_service.get_fleet_health()
+            cards.append(
+                transformer_kpi_cards(transformer_id, len(devices), health)
+            )
+            return sort_device_rows_exception_first(build_device_rows(devices, health))
+
+        rows, columns, error = listing_outputs(
+            build,
             DEVICE_COLUMNS,
             f"loading devices for transformer_id={transformer_id!r}",
         )
+        return rows, columns, error, (cards[0] if cards else None)
 
     # Row-click navigation. dash_table has no non-markdown way to render a cell
     # as a link, and markdown-presentation links are hardcoded by dash_table to
