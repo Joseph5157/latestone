@@ -95,7 +95,7 @@ class TestDeviceBreadcrumbIsNavigable:
     def test_plant_and_transformer_are_links(self):
         crumb = find_by_class(_layout(), "breadcrumb")[0]
         hrefs = dict(links(crumb))
-        assert hrefs.get("Plants") == "/plants"
+        assert hrefs.get("Fleet") == "/plants"
         assert hrefs.get("Grand Coulee") == "/plants/plant-07"
         assert hrefs.get("un01") == "/plants/plant-07/plant-07-t1"
 
@@ -110,6 +110,6 @@ class TestDeviceBreadcrumbIsNavigable:
         )
         crumb = find_by_class(layout, "breadcrumb")[0]
         hrefs = dict(links(crumb))
-        assert hrefs.get("Plants") == "/plants"
+        assert hrefs.get("Fleet") == "/plants"
         assert "Grand Coulee" not in hrefs
         assert "un01" not in hrefs

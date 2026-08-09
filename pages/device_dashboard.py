@@ -52,7 +52,8 @@ def layout(
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([
-                    ("Plants", "/plants"),
+                    # Label only — the route stays /plants (spec §3.1).
+                    ("Fleet", "/plants"),
                     (plant_name or "Plant", plant_href),
                     (transformer_code or "Transformer", transformer_href),
                     (device_code or "Device", None),

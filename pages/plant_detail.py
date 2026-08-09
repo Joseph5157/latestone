@@ -15,7 +15,8 @@ def layout(plant_name: str = "", status: str = "") -> html.Div:
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([
-                    ("Plants", "/plants"),
+                    # Label only — the route stays /plants (spec §3.1).
+                    ("Fleet", "/plants"),
                     (plant_name or "Plant", None),
                 ]),
             ),

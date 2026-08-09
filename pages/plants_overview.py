@@ -13,13 +13,12 @@ def layout() -> html.Div:
         className="page page--plants-overview",
         children=[
             app_header(
-                breadcrumb_children=breadcrumb([("Plants", None)]),
+                breadcrumb_children=breadcrumb([("Fleet", None)]),
             ),
-            html.H1("Plants"),
-            html.P(
-                "Monitor plant hierarchy and data availability",
-                className="page__subtitle",
-            ),
+            html.H1("Fleet Overview"),
+            # Filled by the listing callback so the count comes from the same
+            # hierarchy query as the Plants card, never a literal.
+            html.P(id="fleet-subtitle", className="page__subtitle"),
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="plants-error", className="listing-error"),
