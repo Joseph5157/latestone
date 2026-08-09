@@ -1,4 +1,4 @@
-"""Device dashboard callback — single callback owns the whole dashboard body."""
+﻿"""Device dashboard callback â€” single callback owns the whole dashboard body."""
 from __future__ import annotations
 
 import logging
@@ -8,10 +8,13 @@ from dash import Input, Output, State, no_update
 
 from components.freshness_badge import format_last_reading, freshness_badge
 from components.kpi_card import kpi_row
-from components.metric_chart import build_metric_figure, chart_revision
+from components.metric_chart import (
+    build_delta_figure, build_metric_figure, chart_revision,
+)
 from components.metric_snapshot_strip import metric_snapshot_strip
 from components.readings_table import build_table_rows
 from components.status_panels import error_panel
+from components.trend_grid import trend_grid
 from config.metrics import ordered_metrics
 from routes import device_href
 from services import monitoring_service as svc
@@ -44,12 +47,12 @@ def _parse_picker_date(value: str | None, *, is_end: bool = False) -> datetime |
 
     The picker yields a calendar date ("2026-08-06"), not an instant. Parsing
     that literally gives midnight, which would exclude the whole of the chosen
-    end day — selecting Aug 3 to Aug 6 silently dropped 47 of 192 readings and
+    end day â€” selecting Aug 3 to Aug 6 silently dropped 47 of 192 readings and
     skewed every period KPI. An end date therefore means the *end* of that day.
 
     The result is timezone-aware. These bounds are compared against
     `readings.reading_ts TIMESTAMPTZ`, and PostgreSQL resolves a naive timestamp
-    using the session's `TimeZone` — so a client session outside UTC would
+    using the session's `TimeZone` â€” so a client session outside UTC would
     silently shift the selected day. UTC is the canonical form throughout, matching
     `_now()` and `_align_tz()` in the service layer.
     """
@@ -90,6 +93,7 @@ def error_outputs() -> tuple:
         [],                                             # readings-table columns
         header_freshness_children(Freshness.NO_DATA),   # header-freshness
         "No readings",                                  # equipment-last-data
+        err,                                            # trend-grid
     )
 
 
@@ -104,6 +108,7 @@ def register(app) -> None:
         Output("readings-table", "columns"),
         Output("header-freshness", "children"),
         Output("equipment-last-data", "children"),
+        Output("trend-grid", "children"),
         Input("page-context", "data"),
         Input("metric-dropdown", "value"),
         Input("period-radio", "value"),
@@ -114,11 +119,11 @@ def register(app) -> None:
     )
     def refresh_device_dashboard(context, metric_key, period_value, custom_start, custom_end, _n):
         if not context or context.get("route") != "device":
-            return [no_update] * 7
+            return [no_update] * 8
 
         device_id = context.get("device_id")
         if not device_id:
-            return [no_update] * 7
+            return [no_update] * 8
 
         try:
             # 1. Resolve period
@@ -143,7 +148,7 @@ def register(app) -> None:
             view = views.get(metric_key)
 
             if view is None:
-                return [no_update] * 7
+                return [no_update] * 8
 
             ordered_views = [views[m.key] for m in ordered_metrics() if m.key in views]
 
@@ -154,14 +159,35 @@ def register(app) -> None:
             )
             label = period_label(period_value, custom_start, custom_end)
             kpis = kpi_row(view, period_label=label)
-            fig = build_metric_figure(
-                view.metric,
-                view.series,
-                view_revision=chart_revision(
-                    metric_key, period_value, custom_start, custom_end
-                ),
-                period_label=label,
-            )
+            revision = chart_revision(metric_key, period_value, custom_start, custom_end)
+
+            # Chart shape follows the metric's configured chart_type, which
+            # follows its aggregation. The bars bin over the view's own window
+            # and prime, so they sum to exactly the Period Change KPI beside
+            # them rather than to something close to it.
+            if view.metric.chart_type == "bar":
+                window_start = view.window_start or (
+                    view.series[0].timestamp if view.series else None
+                )
+                window_end = view.window_end or (
+                    view.series[-1].timestamp if view.series else None
+                )
+                if window_start and window_end and window_end > window_start:
+                    width = svc.choose_bin(window_end - window_start)
+                    bars = svc.bin_consumption(
+                        view.series, width, window_start, window_end, view.prime
+                    )
+                else:
+                    width, bars = None, []
+                fig = build_delta_figure(
+                    view.metric, bars, view_revision=revision, period_label=label,
+                    bin_label=svc.bin_label(width) if width else "",
+                )
+            else:
+                fig = build_metric_figure(
+                    view.metric, view.series,
+                    view_revision=revision, period_label=label,
+                )
 
             # Readings table (newest first)
             sorted_series = sorted(view.series, key=lambda r: r.timestamp, reverse=True)
@@ -178,7 +204,14 @@ def register(app) -> None:
                 view.last_updated, svc.reading_age(view.last_updated)
             )
 
-            return strip, kpis, fig, table_data, table_columns, freshness, last_data
+            grid = trend_grid(
+                views, metric_key, device_id,
+                period=period_value, custom_start=custom_start, custom_end=custom_end,
+            )
+
+            return (
+                strip, kpis, fig, table_data, table_columns, freshness, last_data, grid
+            )
 
         except Exception:
             # Logged in full so programming errors are diagnosable; the UI panel
@@ -229,3 +262,4 @@ def register(app) -> None:
         if period_value == "custom":
             return {"display": "block"}
         return {"display": "none"}
+

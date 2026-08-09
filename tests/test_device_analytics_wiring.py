@@ -77,3 +77,105 @@ class TestStripAcceptsViews:
         views = [_view("temperature")]
         strip = metric_snapshot_strip(views, "voltage", "dev-1", period="7d")
         assert all("period=7d" in href for _label, href in links(strip))
+
+
+class TestBinLabel:
+    def test_names_the_bin_width_in_operator_units(self):
+        from datetime import timedelta
+
+        from services.monitoring_service import bin_label
+
+        assert bin_label(timedelta(minutes=30)) == "30 min bars"
+        assert bin_label(timedelta(hours=6)) == "6 h bars"
+        assert bin_label(timedelta(days=1)) == "1 d bars"
+        assert bin_label(timedelta(days=7)) == "7 d bars"
+
+
+class TestWindowAndPrimeReachTheView:
+    """The chart bins over the same window the KPI totals, opened by the same
+    priming reading. If the two used different bases the bars would stop
+    summing to the KPI, which is the invariant the bar arithmetic exists to
+    protect."""
+
+    def test_a_delta_metric_carries_its_window_and_prime(self, monkeypatch):
+        from datetime import timedelta
+
+        from repositories import plant_monitoring_repository as repo
+        from services import monitoring_service as svc
+
+        window_start = NOW - timedelta(hours=24)
+        prime = Reading(window_start, 900.0)
+        series = [Reading(window_start + timedelta(minutes=30 * i), 1000.0 + i)
+                  for i in range(4)]
+
+        monkeypatch.setattr(
+            svc.repo, "get_latest_readings_for_device",
+            lambda device_id: {"energy": type("R", (), {
+                "timestamp": series[-1].timestamp, "value": series[-1].value})()},
+        )
+        monkeypatch.setattr(
+            svc.repo, "get_readings_for_device_in_range",
+            lambda device_id, metrics, start, end: {"energy": series},
+        )
+        monkeypatch.setattr(
+            svc.repo, "get_last_reading_before",
+            lambda device_id, metric, ts: prime,
+        )
+
+        views = svc.get_device_full_view("dev-1", svc.Period.LAST_24H)
+        energy = views["energy"]
+        assert energy.prime == prime
+        assert energy.window_start is not None and energy.window_end is not None
+
+    def test_bars_sum_to_the_reported_period_change(self, monkeypatch):
+        from datetime import timedelta
+
+        from services import monitoring_service as svc
+
+        window_start = NOW - timedelta(hours=4)
+        prime = Reading(window_start, 900.0)
+        series = [Reading(window_start + timedelta(minutes=30 * (i + 1)), 1000.0 + 2 * i)
+                  for i in range(8)]
+
+        monkeypatch.setattr(
+            svc.repo, "get_latest_readings_for_device",
+            lambda device_id: {"energy": type("R", (), {
+                "timestamp": series[-1].timestamp, "value": series[-1].value})()},
+        )
+        monkeypatch.setattr(
+            svc.repo, "get_readings_for_device_in_range",
+            lambda device_id, metrics, start, end: {"energy": series},
+        )
+        monkeypatch.setattr(
+            svc.repo, "get_last_reading_before",
+            lambda device_id, metric, ts: prime,
+        )
+
+        view = svc.get_device_full_view("dev-1", svc.Period.LAST_24H)["energy"]
+        bars = svc.bin_consumption(
+            view.series, svc.choose_bin(view.window_end - view.window_start),
+            view.window_start, view.window_end, view.prime,
+        )
+        total = sum(b.result.value for b in bars if b.result.is_known)
+        assert total == view.period_change
+
+
+class TestGridWiring:
+    def test_layout_provides_the_grid_slot(self):
+        from pages import device_dashboard
+        from tests.dash_tree import find_by_id
+
+        assert find_by_id(device_dashboard.layout(), "trend-grid") is not None
+
+    def test_grid_sits_below_the_primary_chart(self):
+        """Section 6.8: eight more figures must not push the chart down."""
+        from pages import device_dashboard
+        from tests.dash_tree import walk
+
+        ids = [getattr(n, "id", None) for n in walk(device_dashboard.layout())]
+        assert ids.index("metric-chart") < ids.index("trend-grid")
+
+    def test_error_outputs_cover_every_output(self):
+        from callbacks.device import error_outputs
+
+        assert len(error_outputs()) == 8

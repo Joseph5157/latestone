@@ -142,6 +142,13 @@ class MetricView:
     #: asserts the service always computes it, so production never relies on
     #: the default.
     change: DeltaResult = DeltaResult(None, DeltaStatus.INSUFFICIENT_DATA)
+    #: The requested window, and the meter value that opens it. Carried on the
+    #: view so the chart bins over exactly the window the KPI totals, opened by
+    #: the same reading. Two different bases would make the bars stop summing to
+    #: the KPI, silently.
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    prime: Reading | None = None
 
 
 def _now() -> datetime:
@@ -486,6 +493,16 @@ def bin_consumption(
     return bars
 
 
+def bin_label(bin_width: timedelta) -> str:
+    """How the chart names its bin width, so the quantity is never ambiguous."""
+    seconds = int(bin_width.total_seconds())
+    if seconds % 86400 == 0:
+        return f"{seconds // 86400} d bars"
+    if seconds % 3600 == 0:
+        return f"{seconds // 3600} h bars"
+    return f"{seconds // 60} min bars"
+
+
 def period_start(period: Period, anchor: datetime) -> datetime | None:
     deltas = {
         Period.LAST_24H: timedelta(hours=24),
@@ -501,11 +518,17 @@ def _build_metric_view(
     latest: RawReading | None,
     series: list[Reading],
     now: datetime,
+    window: tuple[datetime, datetime] | None = None,
+    prime: Reading | None = None,
 ) -> MetricView:
     minimum = maximum = average = period_change = None
     period_change_status = DeltaStatus.OK
     if metric.aggregation is Aggregation.DELTA:
-        delta = period_delta(series)
+        # The prime opens the window, so the KPI covers the whole requested
+        # period rather than starting at the first reading inside it — and the
+        # chart's bars, binned over the same window with the same prime, sum to
+        # exactly this number.
+        delta = period_delta(series, prime=prime)
         period_change = delta.value
         period_change_status = delta.status
     else:
@@ -515,7 +538,7 @@ def _build_metric_view(
     # reuses period_delta, so a discontinuity propagates to the tile too rather
     # than printing a negative there.
     if metric.aggregation is Aggregation.DELTA:
-        change = period_delta(series)
+        change = period_delta(series, prime=prime)
     elif len(series) >= 2:
         change = DeltaResult(series[-1].value - series[0].value, DeltaStatus.OK)
     else:
@@ -536,6 +559,9 @@ def _build_metric_view(
         condition=_current_condition(None),
         has_data=latest is not None,
         change=change,
+        window_start=window[0] if window else None,
+        window_end=window[1] if window else None,
+        prime=prime,
     )
 
 
@@ -656,6 +682,15 @@ def get_device_full_view(
         reading = latest_map.get(metric.key)
         raw_rows = batched.get(metric.key, [])
         series = [_to_reading(r) for r in raw_rows]
-        views[metric.key] = _build_metric_view(metric, reading, series, now)
+        # Only a cumulative meter needs the reading that opens the window. One
+        # extra indexed seek, and only for the metrics whose arithmetic depends
+        # on it.
+        prime = None
+        if window is not None and metric.aggregation is Aggregation.DELTA:
+            raw_prime = repo.get_last_reading_before(device_id, metric.key, window[0])
+            prime = _to_reading(raw_prime) if raw_prime else None
+        views[metric.key] = _build_metric_view(
+            metric, reading, series, now, window=window, prime=prime
+        )
 
     return views

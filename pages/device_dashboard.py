@@ -119,6 +119,10 @@ def layout(
                 metric_chart("metric-chart"),
                 className="chart-loading",
             ),
+            # Below the primary chart, so eight more figures cannot push it
+            # past the §6.8 budget.
+            html.H2("Quick Trends", className="section-heading"),
+            html.Div(id="trend-grid"),
             readings_table("readings-table"),
             dcc.Interval(
                 id="device-refresh-interval",

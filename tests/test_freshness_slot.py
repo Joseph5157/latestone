@@ -91,4 +91,8 @@ class TestErrorPathDoesNotPutAPanelInTheHeader:
         assert find_by_class(slot_children, "status-panel") == []
 
     def test_error_output_still_covers_every_callback_output(self):
-        assert len(error_outputs()) == 7
+        """Eight since the Quick Trends grid became an output. The count is the
+        point, not the number: a callback that returns fewer values than it
+        declares fails at runtime, in the browser, on the error path — the one
+        path least likely to be exercised by hand."""
+        assert len(error_outputs()) == 8
