@@ -578,6 +578,8 @@ body {
   padding: 0 20px 40px 20px;
 }
 
+.page h1 { font-size: 22px; margin: 0 0 16px 0; }
+
 /* Monitoring width — dashboards, summaries and hierarchy content.
    max-width, never width: at 1366 the page fills the viewport minus gutters
    (~1318 px), at 1920 it caps at 1550 and the remainder becomes whitespace.
@@ -588,8 +590,9 @@ body {
   padding: 0 24px 40px 24px;
 }
 
-/* Scoped title override. The global .page h1 keeps its 22 px so the other
-   three pages are untouched; specificity does the work, not !important. */
+/* Scoped title override: Fleet uses .page--monitoring h1 (more specific),
+   which wins over .page h1 by selector specificity (not !important). Device,
+   Plant, and Transformer keep .page h1 at 22 px. */
 .page--monitoring h1 { font-size: var(--fs-fleet-title); }
 
 .page__subtitle { font-size: var(--fs-fleet-body); color: var(--color-muted); margin: 0 0 4px 0; }
