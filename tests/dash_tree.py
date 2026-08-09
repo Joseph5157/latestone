@@ -31,6 +31,20 @@ def find_by_class(node, class_fragment: str) -> list:
     ]
 
 
+def find_by_exact_class(node, class_name: str) -> list:
+    """Components carrying `class_name` as a whole class token.
+
+    `find_by_class` matches substrings, so "kpi-card" also hits
+    "kpi-card__label" and "kpi-card__secondary". Use this when you mean the
+    element itself and not its BEM children.
+    """
+    return [
+        n for n in walk(node)
+        if isinstance(getattr(n, "className", None), str)
+        and class_name in n.className.split()
+    ]
+
+
 def find_by_id(node, component_id: str):
     """The single component with this id, or None."""
     for n in walk(node):

@@ -97,6 +97,33 @@ def evaluate_freshness(last_updated: datetime | None, now: datetime | None = Non
     )
 
 
+def reading_age(last_updated: datetime | None, now: datetime | None = None):
+    """How old the newest reading is, or None when there has never been one.
+
+    Time arithmetic lives here rather than in a component: the service already
+    owns `_now()` and the naive/aware alignment that this needs. Formatting the
+    result for display is a presentation concern and stays in the components.
+    """
+    if last_updated is None:
+        return None
+    reference = now or _now()
+    return reference - _align_tz(last_updated, reference)
+
+
+def series_context(series: list[Reading]) -> dict:
+    """Real, derived context for the KPI row — never a fabricated condition.
+
+    Returns when the extremes occurred and how many samples the period holds.
+    An operator asking "when did it peak?" currently has to read it off the
+    chart. Empty keys where a series is too short to answer.
+    """
+    if not series:
+        return {"min_at": None, "max_at": None, "count": 0}
+    lo = min(series, key=lambda r: r.value)
+    hi = max(series, key=lambda r: r.value)
+    return {"min_at": lo.timestamp, "max_at": hi.timestamp, "count": len(series)}
+
+
 def _current_condition(_view_inputs) -> MonitoringCondition:
     """Placeholder. No client-confirmed thresholds exist, so every metric
     reports UNKNOWN. Wiring this through now means adding real thresholds

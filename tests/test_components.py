@@ -95,13 +95,38 @@ class TestBuildTableRows:
 
 
 class TestBuildMetricFigure:
-    def test_axis_title_comes_from_metric_config(self):
-        fig = build_metric_figure(get_metric("voltage"), [Reading(NOW, 11.0)])
-        assert fig.layout.yaxis.title.text == "Voltage (kV)"
+    # The y-axis carries the unit alone and the metric name moved into the chart
+    # title. Repeating the name on the axis widened the left margin enough that
+    # the rotated "Temperature (°C)" was clipped to "perature (°C)" at l=40.
 
-    def test_dimensionless_metric_omits_parenthetical_unit(self):
+    def test_axis_title_is_the_unit(self):
+        fig = build_metric_figure(get_metric("voltage"), [Reading(NOW, 11.0)])
+        assert fig.layout.yaxis.title.text == "kV"
+
+    def test_dimensionless_metric_has_no_axis_unit(self):
         fig = build_metric_figure(get_metric("power_factor"), [Reading(NOW, 0.97)])
-        assert fig.layout.yaxis.title.text == "Power Factor"
+        assert fig.layout.yaxis.title.text == ""
+
+    def test_title_carries_metric_and_unit(self):
+        fig = build_metric_figure(get_metric("voltage"), [Reading(NOW, 11.0)])
+        assert "Voltage" in fig.layout.title.text
+        assert "kV" in fig.layout.title.text
+
+    def test_title_carries_the_period_when_supplied(self):
+        fig = build_metric_figure(
+            get_metric("voltage"), [Reading(NOW, 11.0)], period_label="Last 24 hours"
+        )
+        assert "Last 24 hours" in fig.layout.title.text
+
+    def test_x_axis_states_the_timezone(self):
+        fig = build_metric_figure(get_metric("voltage"), [Reading(NOW, 11.0)])
+        assert "UTC" in fig.layout.xaxis.title.text
+
+    def test_chart_height_keeps_the_axis_inside_a_768px_viewport(self):
+        """Chart top sits at the §6.8 budget of 420 px; 420 + height must fit."""
+        from components.metric_chart import CHART_HEIGHT
+
+        assert 420 + CHART_HEIGHT <= 768
 
     def test_plots_one_trace_for_the_series(self):
         readings = [Reading(NOW - timedelta(minutes=30), 10.0), Reading(NOW, 11.0)]

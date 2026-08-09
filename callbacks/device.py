@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta, timezone
 
 from dash import Input, Output, State, no_update
 
-from components.freshness_badge import freshness_badge
+from components.freshness_badge import format_last_reading, freshness_badge
 from components.kpi_card import kpi_row
 from components.metric_chart import build_metric_figure, chart_revision
 from components.metric_snapshot_strip import metric_snapshot_strip
@@ -21,6 +21,21 @@ logger = logging.getLogger(__name__)
 # All displayed instants are UTC. Stated in the UI because the hierarchy spans
 # plants in many countries and an unlabelled timestamp is ambiguous.
 TIMESTAMP_COLUMN_NAME = "Timestamp (UTC)"
+
+# Human labels for the chart header (spec section 18: title includes period).
+PERIOD_LABELS = {
+    "24h": "Last 24 hours",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "custom": "Custom range",
+}
+
+
+def period_label(period_value: str | None, custom_start=None, custom_end=None) -> str:
+    """Chart-header text for the active period, with bounds when custom."""
+    if period_value == "custom" and custom_start and custom_end:
+        return f"{custom_start} to {custom_end} UTC"
+    return PERIOD_LABELS.get(period_value or "", "")
 
 
 def _parse_picker_date(value: str | None, *, is_end: bool = False) -> datetime | None:
@@ -73,7 +88,7 @@ def error_outputs() -> tuple:
         [],                                             # readings-table data
         [],                                             # readings-table columns
         header_freshness_children(Freshness.NO_DATA),   # header-freshness
-        "—",                                       # equipment-last-data
+        "No readings",                                  # equipment-last-data
     )
 
 
@@ -132,13 +147,15 @@ def register(app) -> None:
                 snapshots, metric_key, device_id,
                 period=period_value, custom_start=custom_start, custom_end=custom_end,
             )
-            kpis = kpi_row(view)
+            label = period_label(period_value, custom_start, custom_end)
+            kpis = kpi_row(view, period_label=label)
             fig = build_metric_figure(
                 view.metric,
                 view.series,
                 view_revision=chart_revision(
                     metric_key, period_value, custom_start, custom_end
                 ),
+                period_label=label,
             )
 
             # Readings table (newest first)
@@ -150,8 +167,10 @@ def register(app) -> None:
             ]
 
             freshness = header_freshness_children(view.freshness)
-            last_data = (
-                view.last_updated.strftime("%Y-%m-%d %H:%M") if view.last_updated else "\u2014"
+            # Paired relative + absolute UTC (spec section 21). Relative alone
+            # drifts between refreshes; absolute alone is hard to scan.
+            last_data = format_last_reading(
+                view.last_updated, svc.reading_age(view.last_updated)
             )
 
             return strip, kpis, fig, table_data, table_columns, freshness, last_data

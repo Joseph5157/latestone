@@ -267,9 +267,21 @@ body {
   margin-bottom: var(--sp-3);
 }
 
-.equipment-context__item { display: flex; flex-direction: column; gap: 2px; }
-.equipment-context__label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.equipment-context__value { font-size: 14px; font-weight: 500; }
+/* Refinement, not a rebuild: same items, same ids, better hierarchy. The device
+   is what the operator is looking at, so it leads; the rest is supporting
+   context at a lower weight. */
+.equipment-context__item { display: flex; flex-direction: column; gap: 1px; }
+.equipment-context__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.equipment-context__value { font-size: var(--fs-body); font-weight: 500; color: var(--color-text); }
+
+.equipment-context__item:nth-child(3) .equipment-context__value {
+  font-size: var(--fs-section);
+  font-weight: 700;
+}
+
+/* Last data carries a paired relative + absolute string, so it needs room. */
+.equipment-context__item:last-child { margin-left: auto; }
+.equipment-context__item:last-child .equipment-context__value { white-space: nowrap; }
 
 /* ---------- Metric Snapshot Strip ---------- */
 /* Eight across on desktop. Validated at 1366 px: 138 px per tile, no label or
@@ -298,18 +310,33 @@ body {
 .snapshot-tile__condition { height: 0; overflow: hidden; }
 
 /* ---------- KPI Cards ---------- */
+/* Target 72–84 px per card (§6.8 budget work). The previous 104 px was mostly
+   padding; the height now buys a third line of real context instead. */
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  min-height: 80px;   /* reserved so the row does not collapse while loading */
 }
 
 .kpi-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-4);
+}
+
+/* Always rendered, empty when there is nothing to say, so all four cards keep
+   one height instead of stepping. */
+.kpi-card__secondary {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  min-height: 14px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kpi-card--accent {
@@ -318,16 +345,17 @@ body {
 }
 
 .kpi-card__label {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .kpi-card__value {
-  font-size: 24px;
+  font-size: var(--fs-kpi);
   font-weight: 700;
+  line-height: 1.15;
   color: var(--color-text);
 }
 
@@ -346,7 +374,16 @@ body {
 
 /* ---------- Metric Chart ---------- */
 .metric-chart { width: 100%; }
-.chart-loading { margin-bottom: 20px; }
+
+/* Reserved heights (§23): these containers are filled by callback and would
+   otherwise collapse to zero and jump the page as each one returns. Reserved in
+   CSS rather than with placeholder components, so it holds on the error path
+   too — where the same containers receive a panel instead of content. */
+.metric-chart,
+.chart-loading { min-height: 340px; }
+.chart-loading { margin-bottom: var(--sp-3); }
+#snapshot-strip { min-height: 89px; display: block; }
+#kpi-row-container { min-height: 80px; display: block; }
 
 /* ---------- Status Panels ---------- */
 .status-panel {
