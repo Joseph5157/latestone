@@ -306,6 +306,36 @@ def get_latest_reading(device_id: str, metric: str) -> RawReading | None:
     return _to_reading(row) if row else None
 
 
+def get_last_reading_before(
+    device_id: str, metric: str, ts: datetime
+) -> RawReading | None:
+    """Newest reading strictly before `ts`, or None if there is none.
+
+    Opens the first energy bin. A bar is consumption *across* its bin, so the
+    first one needs the meter value at the window start — a reading that lies
+    outside the window. Without it the first bar is short by one sampling
+    interval, and nothing on screen says so.
+
+    Strictly before, not at-or-before: including the instant itself would make
+    the first bar cover zero elapsed time.
+
+    One bounded seek against `ix_readings_device_metric_ts`, the same shape as
+    `latest_reading_times`.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"SELECT device_id, metric, reading_ts, value "
+                f"FROM {_SCHEMA}.readings "
+                f"WHERE device_id = :device_id AND metric = :metric "
+                f"AND reading_ts < :ts "
+                f"ORDER BY reading_ts DESC LIMIT 1"
+            ),
+            {"device_id": device_id, "metric": metric, "ts": ts},
+        ).first()
+    return _to_reading(row) if row else None
+
+
 def get_latest_readings_for_device(
     device_id: str, metrics: list[str] | None = None
 ) -> dict[str, RawReading]:

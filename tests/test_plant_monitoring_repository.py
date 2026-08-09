@@ -1,7 +1,7 @@
 """Repository tests against the seeded local PostgreSQL."""
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -363,3 +363,61 @@ class TestFleetFreshness:
         rows = repo.latest_reading_times([injected])
         assert all(r.reading_ts is None for r in rows)
         assert repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature") is not None
+
+
+class TestPrimingRead:
+    """The reading that opens the first energy bin.
+
+    A bar is consumption *across* its bin, so the first one needs the meter
+    value at the window start - a reading that lies outside the window. Without
+    it the first bar is short by one sampling interval and the bars no longer
+    sum to the KPI, which is invisible on screen.
+    """
+
+    def test_returns_the_reading_immediately_before_the_instant(self):
+        latest = repo.get_latest_reading(RESERVED_DEVICE_ID, "energy")
+        with measure_time() as t:
+            prime = repo.get_last_reading_before(
+                RESERVED_DEVICE_ID, "energy", latest.timestamp
+            )
+        assert prime is not None
+        assert prime.timestamp < latest.timestamp
+        t.row_count = 1
+        assert_timing(t, BUDGET_LATEST_READING, min_rows=1)
+
+    def test_boundary_is_exclusive(self):
+        """`before` means before. Including the instant itself would make the
+        first bar cover zero elapsed time."""
+        latest = repo.get_latest_reading(RESERVED_DEVICE_ID, "energy")
+        prime = repo.get_last_reading_before(
+            RESERVED_DEVICE_ID, "energy", latest.timestamp
+        )
+        assert prime.timestamp != latest.timestamp
+
+    def test_returns_the_nearest_earlier_reading_not_an_arbitrary_one(self):
+        latest = repo.get_latest_reading(RESERVED_DEVICE_ID, "energy")
+        prime = repo.get_last_reading_before(
+            RESERVED_DEVICE_ID, "energy", latest.timestamp
+        )
+        earlier = repo.get_last_reading_before(
+            RESERVED_DEVICE_ID, "energy", prime.timestamp
+        )
+        assert earlier.timestamp < prime.timestamp
+
+    def test_returns_none_before_the_first_reading(self):
+        ancient = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        assert repo.get_last_reading_before(
+            RESERVED_DEVICE_ID, "energy", ancient
+        ) is None
+
+    def test_unknown_device_returns_none(self):
+        assert repo.get_last_reading_before(
+            "no-such-device", "energy", datetime(2026, 1, 1, tzinfo=timezone.utc)
+        ) is None
+
+    def test_metric_is_bound_not_interpolated(self):
+        injected = "'); DROP TABLE plant_monitoring.readings; --"
+        assert repo.get_last_reading_before(
+            RESERVED_DEVICE_ID, injected, datetime(2026, 1, 1, tzinfo=timezone.utc)
+        ) is None
+        assert repo.get_latest_reading(RESERVED_DEVICE_ID, "energy") is not None
