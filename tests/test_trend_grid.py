@@ -125,3 +125,43 @@ class TestEmptyAndTypes:
         grid = trend_grid(_views(), "temperature", "dev-1")
         trace = _figures(grid)[0].figure.data[0]
         assert "UTC" in trace.hovertemplate
+
+
+import pathlib
+import re
+
+CSS_TEXT = (
+    pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+).read_text(encoding="utf-8")
+
+
+class TestGridStyling:
+    """Source guards only. Computed widths are verified in a browser per
+    spec section 6.9, because a rule present in a stylesheet is not a rule in
+    effect - four defects in this codebase have taken that exact shape."""
+
+    def test_two_columns_on_desktop(self):
+        assert re.search(
+            r"\.trend-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,",
+            CSS_TEXT, re.S,
+        )
+
+    def test_falls_back_to_one_column_when_a_cell_gets_too_narrow(self):
+        assert re.search(
+            r"@media \(max-width: 1023px\)\s*\{[^}]*\.trend-grid[^}]*repeat\(1,",
+            CSS_TEXT, re.S,
+        )
+
+    def test_selection_styling_uses_the_accent_token(self):
+        match = re.search(r"\.trend-cell--selected\s*\{([^}]*)\}", CSS_TEXT, re.S)
+        assert match and "--color-accent" in match.group(1)
+
+    def test_selection_styling_never_borrows_the_warning_palette(self):
+        match = re.search(r"\.trend-cell--selected\s*\{([^}]*)\}", CSS_TEXT, re.S)
+        for forbidden in ("--color-warning", "--color-danger", "--color-stale"):
+            assert forbidden not in match.group(1)
+
+    def test_the_cell_link_carries_no_underline(self):
+        """The whole cell is an anchor; underlining it would underline a chart."""
+        match = re.search(r"\.trend-cell__link\s*\{([^}]*)\}", CSS_TEXT, re.S)
+        assert match and "text-decoration: none" in match.group(1)

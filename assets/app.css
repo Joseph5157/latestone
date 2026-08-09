@@ -584,3 +584,75 @@ body {
   /* Same wrapper-not-field target as the desktop rule above. */
   .hierarchy-selector .dash-dropdown { max-width: none; }
 }
+
+/* ---------- Quick Trends ---------- */
+/* Two columns on desktop: at the 1200 px content cap a cell is ~570 px, which
+   holds 48 energy bars at ~12 px each. Below 1024 px a two-column cell drops
+   under the ~280 px a trace needs to stay legible, so it goes single column
+   rather than shrinking further. */
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.trend-cell {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+/* The whole cell is an anchor so a click anywhere promotes the metric.
+   Underlining it would underline a chart. */
+.trend-cell__link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.trend-cell__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2) 0;
+}
+
+.trend-cell__label {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.trend-cell__value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trend-cell:hover { border-color: var(--color-accent); }
+
+/* Selection only. A selected cell must never look like a cell in trouble, so
+   freshness and warning colours stay out of this rule entirely. */
+.trend-cell--selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+.section-heading {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  margin: var(--sp-3) 0 0;
+}
+
+@media (max-width: 1023px) {
+  .trend-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+}
