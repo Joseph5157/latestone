@@ -1,6 +1,6 @@
 # Power Plant Dashboard
 
-Local proof-of-concept dashboard visualising 8 metrics across a 30-plant
+Primary development application: a dashboard visualising 8 metrics across a 30-plant
 hierarchy from a PostgreSQL database. See `CLAUDE.md`, `PROJECT_CONTEXT.md`,
 `REQUIREMENTS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `UI_SPEC.md` for
 full context.
@@ -23,7 +23,7 @@ pip install -r requirements.txt
 # 3. Start PostgreSQL
 docker compose up -d
 
-# 4. Seed demo data (30 plants, 120 devices, ~1.38M readings)
+# 4. Seed development data (30 plants, 120 devices, ~1.38M readings)
 python -m db.seed_plant_monitoring --reset
 
 # 5. Run the app
@@ -49,8 +49,9 @@ missing source as an empty directory. Your data is safe either way: it lives in
 the `powerplant_pgdata` volume, not the container. Delete any stray
 `db/init_plant_monitoring.sql` *directory* if one appears.
 
-Open http://localhost:8050 and log in with the demo credentials from
-`.env` (defaults: `admin` / `demo1234`).
+Open http://localhost:8050 and log in with the credentials you set as
+`DEMO_USERNAME` / `DEMO_PASSWORD` in `.env`. There is no fallback credential:
+if they are unset, every login is refused.
 
 ## Reseeding
 
@@ -106,7 +107,7 @@ powerplant-dashboard/
 │   ├── app_header.py               # Brand, breadcrumb, freshness slot, logout
 │   └── equipment_selector.py       # Cascading plant/transformer/device dropdowns
 ├── services/
-│   ├── auth_service.py             # Demo credential verification
+│   ├── auth_service.py             # Placeholder credential verification
 │   ├── monitoring_service.py       # View models, freshness, statistics/delta
 │   └── hierarchy_service.py        # Active filtering, parent validation
 ├── repositories/

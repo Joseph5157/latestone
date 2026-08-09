@@ -300,7 +300,7 @@ have followed base-order index 0 (`Az Zour South CCGT`).
 wall-clock `now`. `current` / `last_updated` remain tied to the latest available
 reading, which is what REQUIREMENTS.md specifies.
 
-Consequence worth knowing when demoing: a device whose data ends before `now`
+Consequence worth knowing: a device whose data ends before `now`
 shows a *partially* filled 24h chart plus a stale badge, instead of a full chart
 of older readings. On the seeded dataset (`latest = 2026-08-08 13:30`) a 24h
 window returns 25 points rather than 48. That is the corrected behaviour, not a
@@ -427,7 +427,7 @@ since it lives in the `powerplant_pgdata` volume. Documented in README under
 
 ## NEW-04 — fixed, under a stated assumption
 
-**Assumption.** The demo treats every instant as UTC. This was not an open
+**Assumption.** UTC is the canonical form for every instant. This was not an open
 choice so much as an inconsistency: `_now()` already returns UTC-aware and
 `_align_tz()` already attaches UTC, while only the date-picker bounds stayed
 naive. If the client later wants plant-local display, that is a presentation
@@ -483,7 +483,7 @@ administrative status stays separate from data freshness and monitoring
 condition.
 
 Note that the seeded dataset is entirely `active`, so this finding was latent —
-it could not have been observed in the demo, only once real data arrives.
+it cannot be observed against the current dataset, only once real data arrives.
 
 ---
 
@@ -491,3 +491,58 @@ it could not have been observed in the demo, only once real data arrives.
 
 All 14 findings are dispositioned: 13 fixed, 1 (NEW-01) closed as not
 reproducible with the evidence recorded above. Test count went from 180 to 315.
+
+---
+
+# Security posture — reclassified 2026-08-09
+
+The second-pass audit closed with five items filed as *"production blockers that
+are intentional demo limitations (do not count as demo bugs)"*. That
+classification was accepted without challenge and is **wrong for this project**.
+The approved spec promoted the 30-plant system from a secondary demo to the
+primary development application, and the client is a government entity. These
+are open work on the real application, not acceptable limitations.
+
+Reassessed, three were plain code defaults and are now fixed. Two are
+architectural and genuinely blocked on the client's authentication mechanism.
+
+## Fixed
+
+**S-1. `DASH_DEBUG` defaulted to `True`.** Debug mode serves Werkzeug's
+interactive debugger, which executes arbitrary Python from the browser on any
+traceback. Shipping that as the *default* meant a deployment that simply never
+set the variable was remotely executable. Default is now `False`; debug is opt-in
+via `.env`.
+
+**S-2. `DASH_HOST` defaulted to `0.0.0.0`.** An unconfigured run published the
+app on every network interface. Default is now `127.0.0.1`; exposing interfaces
+is a deliberate act.
+
+**S-3. A working credential was hard-coded in `config/settings.py`.**
+`password: str = os.getenv("DEMO_PASSWORD", "demo1234")` meant an operator who
+configured nothing still got a functioning login, using a value published in
+`.env.example` and in the README. The fallback is removed:
+`DemoAuthSettings.is_configured` is false when either value is unset and
+`verify_credentials()` refuses every login, logging why. Credential comparison
+also moved to `hmac.compare_digest`.
+
+Local behaviour is unchanged, because `.env` sets all three explicitly. Only the
+*unconfigured* case moved, and it moved to safe.
+
+## Open — blocked on the client's authentication mechanism
+
+**S-4. Authentication state lives in a browser-side `dcc.Store`.** It is not a
+server-side session and not an authorization boundary: anyone who can set that
+store is "authenticated". `auth_service` is deliberately isolated so it can be
+replaced, but replacing it is necessary and *not sufficient* — the state has to
+move server-side too.
+
+**S-5. Data callbacks do not independently verify a session.** `route_to_page`
+checks `auth-store`, but `refresh_device_dashboard` and the listing callbacks do
+not; they answer whoever asks. With S-4 this means monitoring data is reachable
+without a genuine login.
+
+S-4 and S-5 are one piece of work, not two, and it needs the client's mechanism
+(session cookie, SSO, API token) before it can be designed. **It must be
+scheduled explicitly rather than carried as an assumption** — it is the gap
+between "there is a login page" and "the data is protected".

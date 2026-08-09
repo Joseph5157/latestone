@@ -1,7 +1,9 @@
 # Powerplant Dashboard — Project Context
 
 ## Purpose
-Build a local proof-of-concept dashboard for a client that operates power-plant monitoring infrastructure. The production backend/database already exists; this demo is intended to prove the Python frontend/dashboard approach before integration with the client's environment.
+Build the primary development application for a client that operates power-plant monitoring infrastructure. The production backend/database already exists; this application is the Python frontend that will be integrated with the client's environment.
+
+It was promoted from a secondary demo to the primary development application on 2026-08-08 (see `docs/superpowers/specs/2026-08-08-plant-monitoring-architecture-design.md`). It is not throwaway code.
 
 ## Known Client Context
 - Client has approximately 30 plants in different locations.
@@ -33,14 +35,14 @@ The observed temperature table contains:
 
 The client screenshot showed approximately 2,112 tables in the `trfr_temperature` schema. Do not assume all production schemas or metrics until confirmed.
 
-## Demo Scope
-The demo uses a development schema (`plant_monitoring`) that models the client's hierarchy:
+## Application Scope
+The application uses a development schema (`plant_monitoring`) that models the client's hierarchy:
 
 - 30 plants, 71 transformers, 120 devices
 - 8 metrics: temperature, voltage, current, active_power, reactive_power, power_factor, frequency, energy
 - Reserved identifier: `plant-01-t1-d1` = `aa12` / `29017`
 
-Generate realistic local demo readings at approximately 30-minute intervals (1,383,360 total rows).
+Generate realistic local development readings at approximately 30-minute intervals (1,383,360 total rows).
 
 ## Technology Decisions
 - Python
@@ -53,11 +55,11 @@ Generate realistic local demo readings at approximately 30-minute intervals (1,3
 ## Architectural Principle
 Dash components must not contain raw database access or depend directly on physical PostgreSQL table names. A data-access/service layer must translate domain requests (device ID, metric, time range) into the correct schema/table query.
 
-This is important because the demo database is only a local representation of the client's known structure. Production integration may require changes to database mappings without changing the UI.
+This is important because the development database is only a local representation of the client's known structure. Production integration may require changes to database mappings without changing the UI.
 
-## Demo Goal
+## Product Goal
 Demonstrate this journey:
 
 Login → Plants overview → Plant detail → Transformer detail → Device dashboard → Metric selection → KPIs → Interactive chart → Period filtering → Recent readings → Data freshness.
 
-The demo should be professional enough to show the client and serve as a foundation for production integration.
+The application must be production-oriented: presentable to the client and the actual foundation for production integration, not a mock-up to be rewritten.

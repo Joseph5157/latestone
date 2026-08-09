@@ -68,16 +68,35 @@ class DatabaseSettings:
         )
 
 
+# Defaults are chosen so that an unconfigured environment is the *safe* one and
+# anything riskier has to be asked for explicitly. This is the primary
+# development application, not a throwaway, and it is destined for a government
+# client's environment.
+DEFAULT_DASH_DEBUG = False      # was True: never the default for a served app
+DEFAULT_DASH_HOST = "127.0.0.1"  # was 0.0.0.0: exposing interfaces is opt-in
+
+
 @dataclass(frozen=True)
 class DemoAuthSettings:
-    username: str = os.getenv("DEMO_USERNAME", "admin")
-    password: str = os.getenv("DEMO_PASSWORD", "demo1234")
+    """Placeholder credentials, replaced wholesale by the client's auth.
+
+    There is deliberately **no** fallback credential. A hard-coded default
+    password meant an operator who never configured anything still got a working
+    login with a value published in `.env.example`. Unset now means unset, and
+    `auth_service.verify_credentials()` fails closed.
+    """
+    username: str = os.getenv("DEMO_USERNAME", "")
+    password: str = os.getenv("DEMO_PASSWORD", "")
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.username) and bool(self.password)
 
 
 @dataclass(frozen=True)
 class DashSettings:
-    debug: bool = _get_bool("DASH_DEBUG", True)
-    host: str = os.getenv("DASH_HOST", "0.0.0.0")
+    debug: bool = _get_bool("DASH_DEBUG", DEFAULT_DASH_DEBUG)
+    host: str = os.getenv("DASH_HOST", DEFAULT_DASH_HOST)
     port: int = _get_int("DASH_PORT", 8050)
 
 

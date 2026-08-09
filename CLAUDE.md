@@ -1,7 +1,9 @@
 # CLAUDE.md — Powerplant Dashboard
 
 ## Mission
-Build a local proof-of-concept Python dashboard that visualises 8 metrics across a 30-plant hierarchy from a PostgreSQL database modelled on the client's known structure.
+Build the **primary development application**: a Python dashboard visualising 8 metrics across a 30-plant hierarchy from a PostgreSQL database modelled on the client's known structure.
+
+This is not a demo or throwaway proof-of-concept. Architecture, database design, UI structure and data-access patterns are production-oriented. Only the *measurements* are synthetic, because real client data is not yet available.
 
 Read these files before making architectural changes:
 1. `PROJECT_CONTEXT.md`
@@ -105,4 +107,4 @@ After each phase:
 - Keep README commands accurate.
 
 ## Definition of Done
-A developer can locally start PostgreSQL, seed the demo data, run Dash, log in, navigate the plant hierarchy, view a device dashboard, change the time range, switch metrics, see correctly calculated KPIs, interact with the chart, inspect recent readings, and observe the data freshness status.
+A developer can locally start PostgreSQL, seed the development data, run Dash, log in, navigate the plant hierarchy, view a device dashboard, change the time range, switch metrics, see correctly calculated KPIs, interact with the chart, inspect recent readings, and observe the data freshness status.

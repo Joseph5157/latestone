@@ -1,20 +1,20 @@
 # Requirements — Powerplant Dashboard
 
-## 1. Demo Objective
-Create a locally runnable proof of concept that demonstrates how the client's PostgreSQL power-plant monitoring data can be presented through an interactive Python dashboard with a 30-plant hierarchy and 8 metrics.
+## 1. Objective
+Build the primary development application, demonstrating how the client's PostgreSQL power-plant monitoring data can be presented through an interactive Python dashboard with a 30-plant hierarchy and 8 metrics.
 
 ## 2. Functional Requirements
 
 ### FR-01 Local Login
 - Provide a professional login page.
-- Use local/mock credentials for the demo only.
+- Use local/mock credentials as a placeholder only, pending the client's authentication.
 - Do not implement production authentication.
 - Invalid credentials must show a clear error.
 - Successful login opens the plants overview.
 - Credentials must not be embedded throughout UI code; keep demo authentication isolated for later replacement.
 
 ### FR-02 Hierarchy Navigation
-The demo represents:
+The application represents:
 - 30 plants, 71 transformers, 120 devices
 - Schema: `plant_monitoring`
 - Reserved identifier: `plant-01-t1-d1` = `aa12` / `29017`
@@ -79,7 +79,7 @@ Support sensible ordering with newest readings first.
 - Responsive layout suitable for desktop/laptop dashboard.
 - Provide useful error states when the database is unavailable or no readings exist.
 
-## 4. Explicitly Out of Scope for Demo
+## 4. Explicitly Out of Scope (for now)
 - Production authentication/SSO
 - Production Kubernetes deployment
 - Predictive maintenance/ML
@@ -88,4 +88,4 @@ Support sensible ordering with newest readings first.
 - Editing client data
 
 ## 5. Acceptance Criteria
-The demo is complete when a developer can clone/open the project, start PostgreSQL using Docker Compose, seed the database, start Dash, log in, navigate the plant hierarchy, view a device dashboard, change the time range, switch between metrics, see correctly calculated KPIs, interact with the chart, inspect recent readings, and observe the data freshness status.
+The application is feature-complete when a developer can clone/open the project, start PostgreSQL using Docker Compose, seed the database, start Dash, log in, navigate the plant hierarchy, view a device dashboard, change the time range, switch between metrics, see correctly calculated KPIs, interact with the chart, inspect recent readings, and observe the data freshness status.

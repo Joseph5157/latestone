@@ -8,8 +8,8 @@ Regression tests for audit finding NEW-04.
 using the session's `TimeZone`, so the local Docker database happened to behave
 while a client session in another timezone would silently shift the selected day.
 
-**Assumption, stated because the client has not specified one:** the demo treats
-everything as UTC. That is what `_now()` already returns and what `_align_tz()`
+**Assumption, stated because the client has not specified one:** UTC is the
+canonical form throughout. That is what `_now()` already returns and what `_align_tz()`
 already attaches, so this makes the picker consistent with the rest of the app
 rather than introducing a new policy. If the client later wants plant-local time,
 that is a display concern layered on top, not a change to storage.

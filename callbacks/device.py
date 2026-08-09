@@ -18,7 +18,7 @@ from services.monitoring_service import Freshness, Period
 
 logger = logging.getLogger(__name__)
 
-# All displayed instants are UTC. Stated in the UI because the demo spans
+# All displayed instants are UTC. Stated in the UI because the hierarchy spans
 # plants in many countries and an unlabelled timestamp is ambiguous.
 TIMESTAMP_COLUMN_NAME = "Timestamp (UTC)"
 
@@ -34,7 +34,7 @@ def _parse_picker_date(value: str | None, *, is_end: bool = False) -> datetime |
     The result is timezone-aware. These bounds are compared against
     `readings.reading_ts TIMESTAMPTZ`, and PostgreSQL resolves a naive timestamp
     using the session's `TimeZone` — so a client session outside UTC would
-    silently shift the selected day. The demo treats everything as UTC, matching
+    silently shift the selected day. UTC is the canonical form throughout, matching
     `_now()` and `_align_tz()` in the service layer.
     """
     if not value:
