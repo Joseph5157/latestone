@@ -251,8 +251,19 @@ body {
 }
 
 .hierarchy-selector { display: flex; gap: 8px; flex: 1; min-width: 300px; }
-.hierarchy-selector .dash-dropdown { min-width: 120px; }
-.hierarchy-selector__field { flex: 1; max-width: 260px; }
+
+/* Size the `.dash-dropdown` wrapper, not `.hierarchy-selector__field`.
+   dcc.Dropdown puts its `className` on the inner `.Select` div, while the flex
+   child is the outer wrapper — so flex/max-width set on the field class landed
+   on an element whose parent is not a flex container and did nothing. The three
+   dropdowns sat at their 120 px min-width with ~790 px of the bar unused, and
+   "Transformer..." was the one placeholder wide enough to be clipped by it. */
+.hierarchy-selector .dash-dropdown {
+  flex: 1 1 0;
+  min-width: 140px;
+  max-width: 260px;
+}
+.hierarchy-selector__field { width: 100%; }
 
 /* ---------- Freshness Badge ---------- */
 .freshness-badge {
@@ -488,5 +499,6 @@ body {
      screens would remove the feature instead of collapsing it. */
   .equipment-selector-bar { flex-direction: column; align-items: stretch; gap: 8px; }
   .hierarchy-selector { flex-direction: column; }
-  .hierarchy-selector__field { max-width: none; }
+  /* Same wrapper-not-field target as the desktop rule above. */
+  .hierarchy-selector .dash-dropdown { max-width: none; }
 }

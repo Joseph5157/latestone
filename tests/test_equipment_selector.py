@@ -243,3 +243,47 @@ def _transformer(transformer_id, code):
 
 def _device(device_id, code):
     return _Rec(device_id=device_id, device_code=code)
+
+
+class TestSelectorFieldSizing:
+    """The selector bar's dropdowns must actually be sized by the stylesheet.
+
+    dcc.Dropdown applies `className` to the inner `.Select` div, while the flex
+    child is the outer `.dash-dropdown` wrapper. Sizing written against the
+    field class therefore lands on an element whose parent is not a flex
+    container and silently does nothing: the three dropdowns collapsed to their
+    120 px min-width with ~790 px of the bar unused, and "Transformer..." was
+    clipped while the two shorter placeholders were not.
+
+    Source assertions only — they cannot prove the cascade was won. Computed
+    widths were verified in a browser per spec section 6.9.
+    """
+
+    import pathlib as _pathlib
+    import re as _re
+
+    CSS_TEXT = (
+        _pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+    ).read_text(encoding="utf-8")
+
+    def test_flex_sizing_targets_the_wrapper_dash_dropdown(self):
+        assert self._re.search(
+            r"\.hierarchy-selector\s+\.dash-dropdown\s*\{[^}]*flex:",
+            self.CSS_TEXT, self._re.S,
+        ), "the flex child is .dash-dropdown, not .hierarchy-selector__field"
+
+    def test_max_width_is_not_set_on_the_inner_field_class(self):
+        """Putting it back on the field class would look like sizing and do nothing."""
+        match = self._re.search(
+            r"\.hierarchy-selector__field\s*\{([^}]*)\}", self.CSS_TEXT, self._re.S
+        )
+        assert match and "max-width" not in match.group(1)
+
+    def test_min_width_clears_the_longest_placeholder(self):
+        """"Transformer..." needed 126 px and had 118."""
+        match = self._re.search(
+            r"\.hierarchy-selector\s+\.dash-dropdown\s*\{([^}]*)\}",
+            self.CSS_TEXT, self._re.S,
+        )
+        min_width = int(self._re.search(r"min-width:\s*(\d+)px", match.group(1)).group(1))
+        assert min_width >= 140
