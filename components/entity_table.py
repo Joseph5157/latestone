@@ -62,7 +62,15 @@ def entity_table(
     state_column_id: column coloured by each row's hidden `_state` key.
         Rows must carry `_state`; see freshness_style_rules.
     """
-    style_cell_conditional = (
+    # Derived from the column spec rather than a per-page list: 900 < 1,000 <
+    # 12,000 only reads correctly right-aligned, and the columns that need it
+    # already declare `type: "numeric"` so native sorting works. One
+    # declaration, two behaviours.
+    numeric_ids = [c["id"] for c in columns if c.get("type") == "numeric"]
+    numeric_alignment = [
+        {"if": {"column_id": cid}, "textAlign": "right"} for cid in numeric_ids
+    ]
+    style_cell_conditional = numeric_alignment + (
         [
             {
                 "if": {"column_id": link_column_id},
@@ -104,6 +112,10 @@ def entity_table(
                     "textOverflow": "ellipsis",
                 },
                 style_header={"fontWeight": "600", "backgroundColor": "#f9fafb"},
+                style_header_conditional=[
+                    {"if": {"column_id": cid}, "textAlign": "right"}
+                    for cid in numeric_ids
+                ],
                 style_data_conditional=[
                     {"if": {"row_index": "odd"}, "backgroundColor": "#f9fafb"},
                     *(freshness_style_rules(state_column_id)

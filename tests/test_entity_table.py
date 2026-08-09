@@ -44,3 +44,36 @@ def test_entity_table_without_a_state_column_adds_no_state_rules():
     table = entity_table(table_id="t", columns=[], rows=[])
     conditional = table.children[0].style_data_conditional
     assert not any("_state" in str(r.get("if", {})) for r in conditional)
+
+
+def test_numeric_columns_are_right_aligned_from_their_own_type():
+    """Alignment is derived, not listed.
+
+    A per-page list of "which columns are numbers" is a second source of
+    truth that drifts the first time a column is added.
+    """
+    table = entity_table(
+        table_id="t",
+        columns=[
+            {"name": "Plant", "id": "plant"},
+            {"name": "Devices", "id": "devices", "type": "numeric"},
+        ],
+        rows=[],
+    )
+    conditional = table.children[0].style_cell_conditional
+    aligned = {
+        r["if"]["column_id"]: r["textAlign"]
+        for r in conditional if "textAlign" in r
+    }
+    assert aligned["devices"] == "right"
+    assert "plant" not in aligned
+
+
+def test_numeric_headers_are_right_aligned_too():
+    table = entity_table(
+        table_id="t",
+        columns=[{"name": "Devices", "id": "devices", "type": "numeric"}],
+        rows=[],
+    )
+    header = table.children[0].style_header_conditional
+    assert {"if": {"column_id": "devices"}, "textAlign": "right"} in header
