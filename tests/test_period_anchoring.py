@@ -120,6 +120,12 @@ class TestFullViewAnchoring:
             return {m: [] for m in metrics}
 
         monkeypatch.setattr(svc.repo, "get_readings_for_device_in_range", _batched)
+        # Cumulative metrics also ask for the reading that opens the window.
+        # Unstubbed, this test reaches the real database despite being marked
+        # "not db".
+        monkeypatch.setattr(
+            svc.repo, "get_last_reading_before", lambda device_id, metric, ts: None
+        )
         return captured
 
     def test_common_window_ends_at_now(self, stale_full_view):

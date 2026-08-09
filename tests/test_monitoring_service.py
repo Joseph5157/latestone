@@ -255,6 +255,24 @@ class TestGetDeviceFullView:
 
         monkeypatch.setattr(svc.repo, "get_readings_for_device_in_range", _batched)
 
+        # The priming read for cumulative meters. Without this stub these tests
+        # reach the real database despite being marked "not db": they passed
+        # only where a correctly seeded database happened to be listening, and
+        # failed the moment they ran against a checkout pointing elsewhere.
+        self.prime_calls: list[tuple] = []
+
+        def _prime(device_id, metric, ts):
+            self.prime_calls.append((device_id, metric, ts))
+            return None
+
+        monkeypatch.setattr(svc.repo, "get_last_reading_before", _prime)
+
+    def test_the_priming_read_is_only_issued_for_cumulative_meters(self):
+        """Seven of the eight metrics have no meter to prime, and a query per
+        metric would undo the point of batching."""
+        svc.get_device_full_view(DEVICE, Period.LAST_24H)
+        assert [m for _d, m, _t in self.prime_calls] == ["energy"]
+
     def test_issues_exactly_one_batched_range_call(self):
         svc.get_device_full_view(DEVICE, Period.LAST_24H)
         assert len(self.range_calls) == 1
