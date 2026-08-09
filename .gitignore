@@ -6,3 +6,7 @@ __pycache__/
 *.egg-info/
 .DS_Store
 *.zip
+
+# Agent/tooling scratch — never part of the application
+.claude/
+.playwright-mcp/

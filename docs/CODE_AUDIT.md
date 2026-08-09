@@ -393,9 +393,15 @@ from the template. Its metric table had **six of eight precisions wrong**
 (voltage 3→2, current 3→1, active_power 3→2, reactive_power 3→2, frequency 3→2,
 energy 3→1); it is regenerated from `config/metrics.py`.
 
-The plan and spec under `docs/superpowers/` still name the deleted components.
-They are dated records of what was planned, not reference documentation, and
-were deliberately left alone.
+The design spec under `docs/superpowers/specs/` still names the deleted
+components. It is a dated record of what was designed, not reference
+documentation, and was deliberately left alone — it is also what establishes
+this as the primary development application rather than a demo, cited from
+`PROJECT_CONTEXT.md`.
+
+The 17-phase execution plan that sat alongside it was deleted on 2026-08-09: all
+phases were complete, nothing referenced it, and its component names were stale.
+Recoverable from git history if the rationale behind a phase is ever needed.
 
 **NEW-14.** `login_was_submitted()` accepts the button click and Enter in either
 field. The zero-counter guard is preserved: the router inserts the login form
