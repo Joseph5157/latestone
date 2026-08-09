@@ -408,6 +408,79 @@ def period_delta(series: list[Reading], prime: Reading | None = None) -> DeltaRe
     return DeltaResult(values[-1] - values[0], DeltaStatus.OK)
 
 
+@dataclass(frozen=True)
+class ConsumptionBar:
+    """One bar: consumption across [start, end]."""
+
+    start: datetime
+    end: datetime
+    result: DeltaResult
+
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _utc_floor(ts: datetime, bin_width: timedelta) -> datetime:
+    """Round down to a UTC wall-clock boundary, so a day bar means that UTC day."""
+    return _EPOCH + ((ts - _EPOCH) // bin_width) * bin_width
+
+
+def bin_edges(start: datetime, end: datetime, bin_width: timedelta) -> list[datetime]:
+    """Window bounds plus every UTC boundary strictly between them."""
+    edges = [start]
+    boundary = _utc_floor(start, bin_width) + bin_width
+    while boundary < end:
+        edges.append(boundary)
+        boundary += bin_width
+    edges.append(end)
+    return edges
+
+
+def bin_consumption(
+    series: list[Reading],
+    bin_width: timedelta,
+    start: datetime,
+    end: datetime,
+    prime: Reading | None = None,
+) -> list[ConsumptionBar]:
+    """Energy consumed in each bin, from the meter value at each boundary.
+
+    `bar(t0, t1) = V(t1) − V(t0)`, where V(t) is the last reading at or before
+    t. It is NOT last − first of the readings inside the bin: at 30-minute
+    sampling with 30-minute bins each bin holds a single reading, so that
+    definition draws only zeros, and at any width it drops the consumption
+    between one bin's last reading and the next bin's first.
+
+    A bin whose opening value is unknown, or which no reading closes, is
+    INSUFFICIENT_DATA rather than zero — carrying a value forward would assert
+    consumption we did not measure.
+    """
+    pool = [r for r in series if start <= r.timestamp <= end]
+    if prime is not None:
+        pool = [prime] + pool
+    pool.sort(key=lambda r: r.timestamp)
+
+    edges = bin_edges(start, end, bin_width)
+    bars: list[ConsumptionBar] = []
+    for t0, t1 in zip(edges, edges[1:]):
+        opening = [r for r in pool if r.timestamp <= t0]
+        inside = [r for r in pool if t0 < r.timestamp <= t1]
+        if not opening or not inside:
+            bars.append(
+                ConsumptionBar(t0, t1, DeltaResult(None, DeltaStatus.INSUFFICIENT_DATA))
+            )
+            continue
+        values = [opening[-1].value] + [r.value for r in inside]
+        discontinuous = any(later < earlier for earlier, later in zip(values, values[1:]))
+        result = (
+            DeltaResult(None, DeltaStatus.DISCONTINUITY)
+            if discontinuous
+            else DeltaResult(values[-1] - values[0], DeltaStatus.OK)
+        )
+        bars.append(ConsumptionBar(t0, t1, result))
+    return bars
+
+
 def period_start(period: Period, anchor: datetime) -> datetime | None:
     deltas = {
         Period.LAST_24H: timedelta(hours=24),
