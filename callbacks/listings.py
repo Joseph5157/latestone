@@ -6,11 +6,14 @@ tested without a Dash runtime; `register()` only wires them up.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from dash import Input, Output, State, no_update
 
 from components.fleet_summary import (
     fleet_kpi_cards,
+    fleet_subtitle_text,
+    format_render_stamp,
     plant_kpi_cards,
     transformer_kpi_cards,
 )
@@ -229,12 +232,20 @@ def register(app) -> None:
         Output("plants-table", "columns"),
         Output("plants-error", "children"),
         Output("fleet-kpis", "children"),
+        Output("fleet-subtitle", "children"),
+        Output("fleet-refreshed", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_overview(context):
         if not context or context.get("route") != "overview":
-            return no_update, no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update, no_update, no_update
+
+        # One instant for the whole render. Taken once here and passed to both
+        # the freshness computation and the header, so the stamp cannot name a
+        # moment different from the one the rows were evaluated at.
+        rendered_at = datetime.now(timezone.utc)
+        subtitle = []
 
         # One fetch, one FleetHealth, both outputs derived from it. Building the
         # cards in a second callback would issue a second query and let the card
@@ -244,7 +255,7 @@ def register(app) -> None:
         def build():
             plants = hierarchy_service.list_plants()
             counts = hierarchy_service.get_plant_hierarchy_counts()
-            health = monitoring_service.get_fleet_health()
+            health = monitoring_service.get_fleet_health(rendered_at)
             cards.append(
                 fleet_kpi_cards(
                     plants=len(plants),
@@ -253,6 +264,7 @@ def register(app) -> None:
                     health=health,
                 )
             )
+            subtitle.append(fleet_subtitle_text(len(plants)))
             return sort_plant_rows_exception_first(
                 build_plant_rows(plants, counts, health)
             )
@@ -260,9 +272,20 @@ def register(app) -> None:
         rows, columns, error = listing_outputs(
             build, PLANT_COLUMNS, "loading the plants overview"
         )
-        # On failure the cards never got built; an empty slot is correct, since
-        # the error panel is what explains the empty screen.
-        return rows, columns, error, (cards[0] if cards else None)
+        # On failure the cards and the plant count never got built, so the
+        # subtitle is left blank rather than lying about a count that was
+        # never read — the error panel is what explains the empty screen.
+        # The refresh stamp still reflects reality: the page itself rendered
+        # at `rendered_at` even though the table query underneath it failed,
+        # so it is not tied to `build()` succeeding.
+        return (
+            rows,
+            columns,
+            error,
+            (cards[0] if cards else None),
+            (subtitle[0] if subtitle else ""),
+            format_render_stamp(rendered_at),
+        )
 
     @app.callback(
         Output("transformers-table", "data"),

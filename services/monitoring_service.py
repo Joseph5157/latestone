@@ -339,7 +339,7 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
     )
 
 
-def get_fleet_health() -> FleetHealth:
+def get_fleet_health(now: datetime | None = None) -> FleetHealth:
     """The fleet's freshness, from one query, for one render.
 
     The Fleet screen's Data Health card and every plant's freshness label are
@@ -350,9 +350,14 @@ def get_fleet_health() -> FleetHealth:
     Every configured metric is included: a device is only FRESH when all of its
     metrics are, so querying a subset would report a device healthy on the
     strength of one working feed.
+
+    `now` is threaded through so one render evaluates every device against a
+    single instant. The Fleet header stamps that same instant, so the page
+    cannot claim to have refreshed at a moment different from the one its
+    freshness column was computed at.
     """
     return fleet_health_from_rows(
-        repo.latest_reading_times([m.key for m in ordered_metrics()])
+        repo.latest_reading_times([m.key for m in ordered_metrics()]), now
     )
 
 

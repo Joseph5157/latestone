@@ -19,6 +19,11 @@ def layout() -> html.Div:
             # Filled by the listing callback so the count comes from the same
             # hierarchy query as the Plants card, never a literal.
             html.P(id="fleet-subtitle", className="page__subtitle"),
+            # Filled by the listing callback with an absolute UTC render
+            # stamp — the same instant passed to get_fleet_health(), so this
+            # line and the table's freshness column can never disagree about
+            # what "now" was.
+            html.P(id="fleet-refreshed", className="page__meta"),
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="plants-error", className="listing-error"),

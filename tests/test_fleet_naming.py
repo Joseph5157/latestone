@@ -28,13 +28,24 @@ def test_fleet_page_title():
     assert headings[0].children == "Fleet Overview"
 
 
-@pytest.mark.xfail(
-    reason="subtitle filled by the callback in Task 5", strict=True
-)
-def test_fleet_page_subtitle():
+def test_fleet_page_subtitle_slot_is_present():
+    """The slot itself is static layout; its text is filled by the listing
+    callback (populate_overview), since layout() performs no queries."""
     layout = plants_overview.layout()
-    subtitle = find_by_class(layout, "page__subtitle")[0]
-    assert "monitored plants" in subtitle.children
+    assert find_by_class(layout, "page__subtitle")
+
+
+def test_fleet_page_subtitle_wording():
+    """The wording the callback writes into that slot.
+
+    `fleet_subtitle_text` is the pure function the callback calls, so this
+    proves the wording without needing a live query — the plant count itself
+    is exercised in tests/test_fleet_overview.py alongside the rest of the
+    freshness chain.
+    """
+    from components.fleet_summary import fleet_subtitle_text
+
+    assert "monitored plants" in fleet_subtitle_text(30)
 
 
 def test_breadcrumb_root_reads_fleet_on_the_fleet_page():

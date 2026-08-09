@@ -7,6 +7,8 @@ table beside it.
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from dash import html
 
 from components.kpi_card import kpi_card
@@ -115,6 +117,33 @@ def transformer_kpi_cards(
             kpi_card("Data Health", value, secondary=secondary),
         ],
     )
+
+
+def fleet_subtitle_text(plant_count: int) -> str:
+    """Subtitle wording for the Fleet header.
+
+    A pure string function so the wording is unit-testable on its own —
+    `pages/plants_overview.layout()` performs no queries (it is layout only),
+    so the plant count can only exist after the listing callback has run.
+    The callback is the only caller; `plant_count` always comes from the same
+    `hierarchy_service.list_plants()` call that feeds the Plants KPI card,
+    never a literal.
+    """
+    return f"{plant_count} monitored plants across the active fleet"
+
+
+def format_render_stamp(now: datetime) -> str:
+    """When this Fleet snapshot was rendered — absolute, never relative.
+
+    There is no `dcc.Interval` on the Fleet page, so a relative label would
+    freeze at first render and quietly become wrong. Absolute UTC is honest
+    about what it is.
+
+    "Page refreshed" is deliberately not "Last updated": updated reads as
+    sensor freshness, which the Data column already reports and which this
+    line has nothing to do with.
+    """
+    return f"Page refreshed {now.strftime('%d %b %Y %H:%M')} UTC"
 
 
 def plant_kpi_cards(

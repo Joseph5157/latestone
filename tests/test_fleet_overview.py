@@ -346,3 +346,47 @@ def test_health_summary_on_an_empty_population_does_not_read_as_healthy():
     implementation, so this test asserts an intended sentence.
     """
     assert _health_summary({}) == ("No active devices", "No data available")
+
+
+from components.fleet_summary import format_render_stamp
+
+
+def test_render_stamp_is_absolute_utc_never_relative():
+    """There is no dcc.Interval on this page.
+
+    A relative "1 min ago" would freeze at render and quietly lie. An absolute
+    stamp is honest about being a render time. "updated" is banned outright —
+    it reads as sensor freshness, which is a different concept.
+    """
+    stamp = format_render_stamp(datetime(2026, 8, 9, 11, 24, tzinfo=timezone.utc))
+    assert stamp == "Page refreshed 09 Aug 2026 11:24 UTC"
+    assert "ago" not in stamp
+    assert "updated" not in stamp.lower()
+
+
+def test_get_fleet_health_accepts_an_injected_instant(monkeypatch):
+    """The header stamp and the rows' freshness must share one instant.
+
+    Without the pass-through, get_fleet_health called the clock itself, so the
+    header could stamp T while the rows were evaluated at T minus a few
+    hundred milliseconds. Asserting an injected value proves one instant is
+    used, which comparing two generated times for proximity never could.
+    """
+    import services.monitoring_service as ms
+
+    seen = {}
+    # Captured before patching: `fake_from_rows` below replaces
+    # `ms.fleet_health_from_rows`, so calling that name from inside the fake
+    # would call the fake itself and recurse forever.
+    real_from_rows = ms.fleet_health_from_rows
+
+    def fake_from_rows(rows, now=None):
+        seen["now"] = now
+        return real_from_rows(rows, now)
+
+    monkeypatch.setattr(ms.repo, "latest_reading_times", lambda keys: [])
+    monkeypatch.setattr(ms, "fleet_health_from_rows", fake_from_rows)
+
+    frozen = datetime(2026, 8, 9, 11, 24, tzinfo=timezone.utc)
+    ms.get_fleet_health(now=frozen)
+    assert seen["now"] == frozen
