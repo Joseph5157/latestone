@@ -205,6 +205,82 @@ def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[
     return {r[0]: (r[1], r[2]) for r in rows}
 
 
+@dataclass(frozen=True)
+class LatestReadingRow:
+    """Newest reading time for one (device, metric), with its plant."""
+    plant_id: str
+    device_id: str
+    metric: str
+    reading_ts: datetime | None
+
+
+def latest_reading_times(
+    metrics: list[str], include_inactive: bool = False
+) -> list[LatestReadingRow]:
+    """Newest reading per (device, metric) across the whole fleet, in one query.
+
+    Feeds both the fleet Data Health card and the per-plant freshness column —
+    counting the rows gives one, grouping by plant_id gives the other. Issuing
+    two near-identical queries per page load would be the obvious mistake.
+
+    **Query shape is a contract, not an implementation detail.** The seeks are
+    driven from the small `devices` relation through
+    `LEFT JOIN LATERAL (... ORDER BY reading_ts DESC LIMIT 1)`, which uses
+    `ix_readings_device_metric_ts` and costs one bounded seek per pair.
+
+    The obvious alternative, `DISTINCT ON (device_id, metric)` over `readings`,
+    plans as a full index scan — measured at 3332 ms against 1.38M rows versus
+    ~14 ms warm here, and it degrades with history rather than with device
+    count. The client's dataset is larger than ours, so a shape that scales with
+    history is the wrong one regardless of how it benchmarks today.
+
+    `metrics` is passed in rather than read from config so this layer stays
+    free of presentation concerns.
+    """
+    if not metrics:
+        return []
+
+    # Metric keys come from application config, never from browser input, but
+    # they are still bound rather than interpolated.
+    values = ", ".join(f"(:m{i})" for i in range(len(metrics)))
+    params = {f"m{i}": key for i, key in enumerate(metrics)}
+
+    # Both levels, matching count_hierarchy_by_plant exactly. Filtering only on
+    # the device would let a device under an inactive transformer into the
+    # fleet health figures while the listing pages omit it — the two numbers
+    # sit on the same screen and must describe the same population.
+    status_filter = (
+        "" if include_inactive
+        else " AND d.status = :active AND t.status = :active"
+    )
+    if not include_inactive:
+        params["active"] = ACTIVE_STATUS
+
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT t.plant_id, d.device_id, m.metric, latest.reading_ts
+                FROM {_SCHEMA}.devices d
+                JOIN {_SCHEMA}.transformers t
+                  ON t.transformer_id = d.transformer_id
+                CROSS JOIN (VALUES {values}) AS m(metric)
+                LEFT JOIN LATERAL (
+                    SELECT rr.reading_ts
+                    FROM {_SCHEMA}.readings rr
+                    WHERE rr.device_id = d.device_id AND rr.metric = m.metric
+                    ORDER BY rr.reading_ts DESC
+                    LIMIT 1
+                ) latest ON TRUE
+                WHERE TRUE{status_filter}
+                """
+            ),
+            params,
+        ).all()
+
+    return [LatestReadingRow(r[0], r[1], r[2], r[3]) for r in rows]
+
+
 # ---------------------------------------------------------------------------
 # Reading queries
 # ---------------------------------------------------------------------------

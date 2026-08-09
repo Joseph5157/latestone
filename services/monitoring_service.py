@@ -27,6 +27,17 @@ class Freshness(str, Enum):
     NO_DATA = "no_data"
 
 
+#: Worst-of ordering. A rollup reports the least reassuring state present, so a
+#: single dead feed cannot hide behind healthy siblings.
+_FRESHNESS_SEVERITY = {Freshness.FRESH: 0, Freshness.STALE: 1, Freshness.NO_DATA: 2}
+
+_FRESHNESS_LABELS = {
+    Freshness.FRESH: "Fresh",
+    Freshness.STALE: "Stale",
+    Freshness.NO_DATA: "No data",
+}
+
+
 class MonitoringCondition(str, Enum):
     NORMAL = "normal"
     WARNING = "warning"
@@ -95,6 +106,111 @@ def evaluate_freshness(last_updated: datetime | None, now: datetime | None = Non
         if age > timedelta(minutes=monitoring.stale_after_minutes)
         else Freshness.FRESH
     )
+
+
+@dataclass(frozen=True)
+class FreshnessRollup:
+    """One level of the metric -> device -> plant -> fleet freshness chain.
+
+    Keeps the counts, not just the winning state: "Stale" alone tells an
+    operator nothing about whether one feed or every feed stopped.
+    """
+
+    state: Freshness
+    counts: dict[Freshness, int]
+    total: int
+
+    @property
+    def affected(self) -> int:
+        """How many children are in the reported state (0 when all are fresh)."""
+        if self.state is Freshness.FRESH:
+            return 0
+        return self.counts.get(self.state, 0)
+
+    def label(self, noun: str = "") -> str:
+        """Display text. Fresh needs no qualifier; anything else must say how many."""
+        text = _FRESHNESS_LABELS[self.state]
+        if self.state is Freshness.FRESH:
+            return text
+        suffix = f" {noun}" if noun else ""
+        return f"{text} · {self.affected} of {self.total}{suffix}"
+
+
+def aggregate_freshness(states: list[Freshness]) -> FreshnessRollup:
+    """Worst-of rollup over one level's children.
+
+    Empty is NO_DATA, never FRESH: a plant with nothing reporting under it has
+    produced no evidence of health, and defaulting to green would invent some.
+    """
+    counts = {state: 0 for state in Freshness}
+    for state in states:
+        counts[state] += 1
+
+    worst = (
+        max(states, key=lambda s: _FRESHNESS_SEVERITY[s])
+        if states
+        else Freshness.NO_DATA
+    )
+    return FreshnessRollup(state=worst, counts=counts, total=len(states))
+
+
+@dataclass(frozen=True)
+class FleetHealth:
+    """Fleet-wide freshness, rolled up per device and per plant.
+
+    `counts` counts *devices*, not metrics — the Data Health card answers "how
+    many devices are reporting", and a device carries eight metrics that would
+    otherwise inflate every figure eightfold.
+    """
+
+    devices: dict[str, FreshnessRollup]
+    plants: dict[str, FreshnessRollup]
+    counts: dict[Freshness, int]
+
+    @property
+    def device_count(self) -> int:
+        return len(self.devices)
+
+    @property
+    def plant_count(self) -> int:
+        return len(self.plants)
+
+
+def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
+    """Build the whole chain from one `latest_reading_times()` result set.
+
+    Takes rows rather than querying, so the fleet card and the per-plant
+    freshness column are served by a single database round trip.
+    """
+    reference = now or _now()
+
+    device_metric_states: dict[str, list[Freshness]] = {}
+    device_plant: dict[str, str] = {}
+    for row in rows:
+        device_metric_states.setdefault(row.device_id, []).append(
+            evaluate_freshness(row.reading_ts, reference)
+        )
+        device_plant[row.device_id] = row.plant_id
+
+    devices = {
+        device_id: aggregate_freshness(states)
+        for device_id, states in device_metric_states.items()
+    }
+
+    plant_device_states: dict[str, list[Freshness]] = {}
+    for device_id, rollup in devices.items():
+        plant_device_states.setdefault(device_plant[device_id], []).append(rollup.state)
+
+    plants = {
+        plant_id: aggregate_freshness(states)
+        for plant_id, states in plant_device_states.items()
+    }
+
+    counts = {state: 0 for state in Freshness}
+    for rollup in devices.values():
+        counts[rollup.state] += 1
+
+    return FleetHealth(devices=devices, plants=plants, counts=counts)
 
 
 def reading_age(last_updated: datetime | None, now: datetime | None = None):

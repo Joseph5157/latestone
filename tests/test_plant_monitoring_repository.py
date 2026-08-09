@@ -25,6 +25,15 @@ BUDGET_LATEST_READING = 50
 BUDGET_BATCHED_LATEST = 80
 BUDGET_RANGE_SINGLE = 100
 BUDGET_BATCHED_RANGE = 150
+# Binding per HMI spec section 9: the fleet freshness query feeds a page load,
+# and the client's history is longer than ours, so a query whose cost grows with
+# history rather than device count must fail here rather than in production.
+BUDGET_FLEET_FRESHNESS = 80
+
+ALL_METRIC_KEYS = [
+    "temperature", "voltage", "current", "active_power",
+    "reactive_power", "power_factor", "frequency", "energy",
+]
 
 
 class TestHierarchy:
@@ -265,3 +274,84 @@ class TestRangeQueries:
         total_rows = sum(len(v) for v in result.values())
         t.row_count = total_rows
         assert_timing(t, BUDGET_BATCHED_RANGE)
+
+
+class TestFleetFreshness:
+    """`latest_reading_times` — one round trip behind both the fleet Data Health
+    card and the per-plant freshness column."""
+
+    def test_covers_every_active_device_and_metric_pair(self):
+        rows = repo.latest_reading_times(ALL_METRIC_KEYS)
+        pairs = {(r.device_id, r.metric) for r in rows}
+        assert len(pairs) == len(rows), "a (device, metric) pair appeared twice"
+        assert len(rows) == 120 * len(ALL_METRIC_KEYS)
+
+    def test_stays_within_budget_on_the_full_reading_history(self):
+        """The guard the spec makes binding: a shape that scales with history
+        instead of device count passes every other test in this class.
+
+        The first call in a process is discarded deliberately. Measured on the
+        seeded database, engine and connection setup costs ~79 ms while the
+        query itself runs in 15-19 ms; folding startup into the budget would
+        measure SQLAlchemy, not the query shape this test exists to protect.
+        """
+        repo.latest_reading_times(ALL_METRIC_KEYS)  # pay connection setup first
+        with measure_time() as t:
+            rows = repo.latest_reading_times(ALL_METRIC_KEYS)
+        t.row_count = len(rows)
+        assert_timing(t, BUDGET_FLEET_FRESHNESS, min_rows=960)
+
+    def test_reports_the_newest_reading_for_a_known_device(self):
+        expected = repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature")
+        rows = repo.latest_reading_times(["temperature"])
+        match = next(
+            r for r in rows
+            if r.device_id == RESERVED_DEVICE_ID and r.metric == "temperature"
+        )
+        assert match.reading_ts == expected.timestamp
+
+    def test_carries_the_owning_plant_so_no_second_query_is_needed(self):
+        rows = repo.latest_reading_times(["temperature"])
+        match = next(r for r in rows if r.device_id == RESERVED_DEVICE_ID)
+        assert match.plant_id == "plant-01"
+        assert len({r.plant_id for r in rows}) == 30
+
+    def test_a_device_with_no_readings_yields_a_row_with_no_timestamp(self):
+        """A silent device must appear as NO_DATA, not vanish from the fleet."""
+        rows = repo.latest_reading_times(["not_a_seeded_metric"])
+        assert len(rows) == 120
+        assert all(r.reading_ts is None for r in rows)
+
+    def test_population_agrees_with_the_hierarchy_counts(self):
+        """Fleet health and the plant table's device counts share a screen, so
+        they must describe the same population — including the transformer-level
+        status filter, which is easy to omit here and invisible while the seed
+        holds no inactive rows."""
+        counts = repo.count_hierarchy_by_plant()
+        rows = repo.latest_reading_times(["temperature"])
+        devices_per_plant = {}
+        for r in rows:
+            devices_per_plant[r.plant_id] = devices_per_plant.get(r.plant_id, 0) + 1
+        for plant_id, (_transformers, devices) in counts.items():
+            assert devices_per_plant.get(plant_id, 0) == devices, (
+                f"{plant_id}: fleet freshness sees "
+                f"{devices_per_plant.get(plant_id, 0)} devices, listings see {devices}"
+            )
+
+    def test_include_inactive_widens_the_population(self):
+        default_rows = repo.latest_reading_times(["temperature"])
+        with_inactive = repo.latest_reading_times(["temperature"], include_inactive=True)
+        assert {r.device_id for r in default_rows} <= {r.device_id for r in with_inactive}
+
+    def test_empty_metric_list_returns_empty_without_querying(self):
+        with measure_time() as t:
+            rows = repo.latest_reading_times([])
+        assert rows == []
+        t.row_count = 0
+        assert_timing(t, BUDGET_FLEET_FRESHNESS)
+
+    def test_metric_names_are_bound_not_interpolated(self):
+        injected = "'); DROP TABLE plant_monitoring.readings; --"
+        rows = repo.latest_reading_times([injected])
+        assert all(r.reading_ts is None for r in rows)
+        assert repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature") is not None
