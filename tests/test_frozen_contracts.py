@@ -124,3 +124,46 @@ class TestTimestampContract:
             datetime(2026, 8, 9, 5, 43, tzinfo=timezone.utc), timedelta(hours=2, minutes=17)
         )
         assert "ago" in text and "UTC" in text
+
+
+class TestTableCellFocusRing:
+    """dash_table stamps `tabindex="-1"` on every cell and every
+    `.dash-cell-value` — 210 elements on the plants table — so all of them match
+    the global `[tabindex]:focus-visible` rule written for form controls.
+
+    On a 38 px input, `outline` plus `box-shadow` reads as one ring with a halo.
+    On a compact table cell it reads as two concentric lines, and the positive
+    outline-offset pushes the outer one outside the cell box, so a
+    keyboard-focused cell showed a doubled vertical rule beside its text.
+
+    The indicator must survive — keyboard cell navigation needs it exactly as
+    much as a button does, which is what DEF-1 established. Only the doubling
+    goes. Computed values verified in a browser: cells ring once at
+    offset -2px, controls still ring twice.
+    """
+
+    def test_cells_draw_a_single_ring_inside_the_cell(self):
+        match = re.search(
+            r"td\.dash-cell:focus-visible,\s*\.dash-cell-value:focus-visible\s*\{([^}]*)\}",
+            CSS_TEXT, re.S,
+        )
+        assert match, "the table-cell focus override is missing"
+        block = match.group(1)
+        assert "box-shadow: none" in block, "the halo must not double the outline"
+        assert "outline-offset: -2px" in block, "the ring must not overlap the neighbour"
+
+    def test_the_override_never_removes_the_outline(self):
+        """Zeroing the outline here would silently undo DEF-1 for table users."""
+        match = re.search(
+            r"td\.dash-cell:focus-visible,\s*\.dash-cell-value:focus-visible\s*\{([^}]*)\}",
+            CSS_TEXT, re.S,
+        )
+        block = match.group(1)
+        assert not re.search(r"outline:\s*(none|0)", block)
+
+    def test_form_controls_keep_the_halo(self):
+        """The global rule keeps both layers; only cells opt out of the second."""
+        match = re.search(
+            r"\[tabindex\]:focus-visible,[^{]*\{([^}]*)\}", CSS_TEXT, re.S
+        )
+        assert match and "box-shadow: var(--focus-ring)" in match.group(1)

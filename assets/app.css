@@ -75,6 +75,25 @@ textarea:focus-visible,
   border-radius: var(--radius-sm);
 }
 
+/* dash_table stamps `tabindex="-1"` on every cell and every `.dash-cell-value`
+   — 210 of them on the plants table — so all of them match the
+   `[tabindex]:focus-visible` rule above. That rule was written for form
+   controls, where a 2 px outline plus a soft box-shadow reads as one ring with
+   a halo. On a compact table cell it reads as **two** concentric lines, and the
+   positive outline-offset pushes the outer one outside the cell box, so a
+   keyboard-focused cell showed a doubled vertical rule beside its text.
+
+   The indicator is not removed — keyboard cell navigation needs it just as much
+   as a button does, which is the whole point of DEF-1. It becomes a single
+   tight ring drawn inside the cell: one line, no halo, no radius, and nothing
+   overlapping the neighbouring column. */
+td.dash-cell:focus-visible,
+.dash-cell-value:focus-visible {
+  outline-offset: -2px;
+  box-shadow: none;
+  border-radius: 0;
+}
+
 /* Numeric values change in place on refresh; tabular figures stop them
    shifting width as digits change (§6.4). */
 .kpi-card__value,
