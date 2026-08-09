@@ -3,10 +3,28 @@ from __future__ import annotations
 
 from dash import dcc, html
 
-from config.metrics import format_value, ordered_metrics
+from config.metrics import MetricConfig, format_value, ordered_metrics
 from components.freshness_badge import freshness_badge
 from routes import device_href
-from services.monitoring_service import MetricView
+from services.monitoring_service import DeltaResult, MetricView
+
+
+def direction_text(metric: MetricConfig, change: DeltaResult) -> str:
+    """Signed change against the period start, or an em dash when unknown.
+
+    The arrow carries the direction and the number carries the magnitude, so a
+    fall reads "▼ 0.31 kV" rather than "▼ -0.31 kV" — one sign, not two.
+
+    A cumulative meter whose delta is indeterminate shows the dash rather than a
+    negative, which would read as generation.
+    """
+    if not change.is_known or change.value is None:
+        return "—"
+    if change.value > 0:
+        return f"▲ +{format_value(metric, change.value)}"
+    if change.value < 0:
+        return f"▼ {format_value(metric, abs(change.value))}"
+    return format_value(metric, change.value)
 
 
 def snapshot_tile(
@@ -43,6 +61,13 @@ def snapshot_tile(
                     html.Div(
                         format_value(metric, snapshot.current),
                         className="snapshot-tile__value",
+                    ),
+                    # Always rendered, em dash when unknown, so every tile keeps
+                    # one height — the strip feeds the §6.8 chart-top budget and
+                    # a stepping row would push the chart down.
+                    html.Div(
+                        direction_text(metric, snapshot.change),
+                        className="snapshot-tile__direction",
                     ),
                     freshness_badge(snapshot.freshness),
                     html.Div(className="snapshot-tile__condition"),

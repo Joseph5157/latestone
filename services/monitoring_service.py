@@ -137,6 +137,11 @@ class MetricView:
     freshness: Freshness
     condition: MonitoringCondition
     has_data: bool
+    #: Change against the start of the selected period, for the tile direction
+    #: line. Defaults to unknown so test factories need not restate it; a test
+    #: asserts the service always computes it, so production never relies on
+    #: the default.
+    change: DeltaResult = DeltaResult(None, DeltaStatus.INSUFFICIENT_DATA)
 
 
 def _now() -> datetime:
@@ -506,6 +511,16 @@ def _build_metric_view(
     else:
         minimum, maximum, average = _compute_statistics(series)
 
+    # Direction against the start of the selected period. A cumulative meter
+    # reuses period_delta, so a discontinuity propagates to the tile too rather
+    # than printing a negative there.
+    if metric.aggregation is Aggregation.DELTA:
+        change = period_delta(series)
+    elif len(series) >= 2:
+        change = DeltaResult(series[-1].value - series[0].value, DeltaStatus.OK)
+    else:
+        change = DeltaResult(None, DeltaStatus.INSUFFICIENT_DATA)
+
     last_updated = latest.timestamp if latest else None
     return MetricView(
         metric=metric,
@@ -520,6 +535,7 @@ def _build_metric_view(
         freshness=evaluate_freshness(last_updated, now),
         condition=_current_condition(None),
         has_data=latest is not None,
+        change=change,
     )
 
 

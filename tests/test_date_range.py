@@ -13,7 +13,9 @@ from callbacks.device import _parse_picker_date
 from components.metric_snapshot_strip import snapshot_tile
 from config.metrics import get_metric
 from routes import device_href, parse_custom_range, parse_query
-from services.monitoring_service import Freshness, MetricSnapshot, MonitoringCondition
+from services.monitoring_service import (
+    DeltaStatus, Freshness, MetricView, MonitoringCondition,
+)
 
 
 class TestParsePickerDate:
@@ -71,10 +73,16 @@ class TestCustomRangeInUrl:
 
 class TestSnapshotTileKeepsPeriod:
     def _tile_href(self, **kwargs):
-        snap = MetricSnapshot(
-            get_metric("energy"), 1.0, None, Freshness.FRESH, MonitoringCondition.UNKNOWN
+        # The tile is fed MetricViews since the analytics phase: the strip reads
+        # from the same fetch as the KPIs and charts, so it can also show the
+        # period direction.
+        view = MetricView(
+            metric=get_metric("energy"), current=1.0, minimum=None, maximum=None,
+            average=None, period_change=None, period_change_status=DeltaStatus.OK,
+            series=[], last_updated=None, freshness=Freshness.FRESH,
+            condition=MonitoringCondition.UNKNOWN, has_data=True,
         )
-        return snapshot_tile(snap, False, "d1", **kwargs).children[0].href
+        return snapshot_tile(view, False, "d1", **kwargs).children[0].href
 
     def test_period_is_preserved(self):
         """The regression: switching metric must not snap back to 24h."""
