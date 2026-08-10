@@ -123,104 +123,320 @@ body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
 
-/* ---------- Login ---------- */
+/* ---------- Login ----------
+   Split composition: 45% form / 55% hero, the whole shell centred in the
+   viewport. Login is a *state*, not a route — callbacks/routing.py renders this
+   layout for any pathname while auth-store is unauthenticated — so nothing here
+   may key off a URL.
+
+   Type sizes below are literal px rather than tokens on purpose. Fleet earned
+   its --fs-fleet-* tokens by spanning many components; login is one block on
+   one screen, and a second name for a one-use value is the drift the token
+   layer exists to prevent (§4.1 reasoning, applied in the other direction). */
 .login-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #1f3a5f 0%, #0f1f33 100%);
+  padding: var(--sp-8) 40px;
+  background: var(--color-bg);
 }
 
-.login-card {
+/* Height is capped, not fixed: `min(690px, 100vh - gutters)` and it keeps
+   shrinking rather than overflowing on a short viewport.
+
+   Polish pass: the shell was 1220x640, leaving the composition floating in the
+   1366x768 frame at 89% x 83%. Widening the cap and narrowing the page gutter
+   takes it to ~94% x 90% there while the 45/55 split and every internal
+   proportion stay exactly as they were.
+
+   690, not 700. At 700 the sum is 32 + 700 + 32 = 764 against a 768 viewport —
+   4 px of clearance, which passes a clean measurement and then loses to browser
+   chrome, OS scaling, a zoom step or a different font stack rounding one line
+   taller. 690 leaves 14 px, which absorbs that without being visibly smaller. */
+.login-shell {
+  display: grid;
+  grid-template-columns: 45fr 55fr;
+  width: min(1320px, 100%);
+  height: min(690px, calc(100vh - 64px));
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 40px 36px;
-  width: 360px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px rgba(15, 23, 42, 0.10);
+  overflow: hidden;
 }
 
-/* Login is in design-system scope (§6.7) and is the first screen the client
-   sees. Sized so "Power Plant Monitoring System" holds one line in the card
-   instead of wrapping mid-phrase. */
-.login-title {
-  font-size: 17px;
-  line-height: 1.3;
-  margin: 0 0 var(--sp-1) 0;
+.login-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-8) 56px;
+  overflow-y: auto;
+}
+
+.login-form { width: 100%; max-width: 400px; }
+
+/* Uppercase + tracking is the existing HMI label idiom (see
+   .equipment-selector-bar__label), reused rather than invented.
+   Polish pass: 11px/600 muted was the least readable text on the screen —
+   uppercase at 11px with 0.10em tracking is doing the most work at the
+   smallest size. 12px/700 in --color-text keeps the same role and rank in the
+   hierarchy while lifting contrast from 5.98:1 to 13.6:1. */
+.login-eyebrow {
+  margin: 0 0 var(--sp-6) 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.login-heading {
+  margin: 0 0 var(--sp-2) 0;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
   color: var(--color-brand);
 }
 
-.login-subtitle {
-  font-size: 13px;
+.login-support {
+  margin: 0 0 var(--sp-6) 0;
+  font-size: 15px;
+  line-height: 1.5;
   color: var(--color-muted);
-  margin: 0 0 24px 0;
 }
 
+.login-field { margin-bottom: var(--sp-4); }
+
+.login-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Symmetric 10px 12px on a border-box element — deliberately outside the
+   `.Select-input > input` padding reset (see the note on that rule). */
 .login-input {
   width: 100%;
   padding: 10px var(--sp-3);
-  margin-bottom: var(--sp-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-text);
   background: var(--color-surface);
 }
 
-.login-input:focus {
-  border-color: var(--color-accent);
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
+/* Border tint only. This rule used to add `box-shadow: var(--focus-ring)` on
+   plain :focus, which gave a mouse click a halo with no outline and a keyboard
+   tab a halo *plus* the global DEF-1 outline — two indicators for one focus.
+   The ring belongs to the global :focus-visible rule; this is just the tint. */
+.login-input:focus { border-color: var(--color-accent); }
 
-/* The password row owns the spacing below; its children must not double it. */
-.login-password-row .login-input { margin-bottom: 0; }
+/* The control sits *inside* the field rather than beside it. As an adjacent
+   bordered button it read as the weakest element on the screen — a second,
+   competing box next to the input. Now the input is one uninterrupted field
+   whose right end is reserved for the control.
 
-/* `stretch`, not `flex-start`: the toggle button carried its own margin and sat
-   below the field's baseline. */
+   The row is the positioning context; the input reserves the space with
+   padding-right so text can never run underneath the control. */
 .login-password-row {
-  display: flex;
-  gap: var(--sp-2);
-  align-items: stretch;
-  margin-bottom: var(--sp-3);
+  position: relative;
+  display: block;
 }
 
-.login-password-row .login-input { flex: 1; }
+.login-password-row .login-input { padding-right: 88px; }
 
+/* Borderless and transparent: it belongs to the field, not next to it.
+   min-width holds the row steady when the callback swaps "Show" for "Hide" —
+   the label is server-rendered and stays the accessible name. */
 .toggle-password-btn {
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--color-border);
-  background: #f9fafb;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  color: var(--color-text);
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 78px;
+  height: 32px;
+  padding: 0 var(--sp-2);
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent);
   cursor: pointer;
   white-space: nowrap;
 }
 
-.toggle-password-btn:hover { background: #f1f3f5; }
+.toggle-password-btn:hover { background: var(--color-accent-bg); }
+
+/* The icon tracks the field's own `type`, which is exactly what the callback
+   writes — so the eye and the label can never disagree, and no callback
+   contract changes to get a stateful icon. Stroke is the literal accent hex
+   because a data: URI cannot inherit currentColor; it is the same
+   --color-accent value, not a new colour. */
+.toggle-password-btn::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+}
+
+.login-input[type="password"] + .toggle-password-btn::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+}
+
+.login-input[type="text"] + .toggle-password-btn::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94'/%3E%3Cpath d='M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19'/%3E%3Cpath d='M14.12 14.12a3 3 0 1 1-4.24-4.24'/%3E%3Cline x1='1' y1='1' x2='23' y2='23'/%3E%3C/svg%3E");
+}
 
 .login-button {
   width: 100%;
-  padding: 11px;
+  margin-top: var(--sp-5);
+  padding: 13px;
   background: var(--color-brand);
-  color: white;
+  color: #ffffff;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-  margin-top: 6px;
 }
 
 .login-button:hover { background: #16304f; }
 
-/* Reserved height so the card does not jump when an error appears. */
+/* Reserved height so a failed attempt never moves the form. The message is a
+   sentence, so the state is carried by words, not by colour; the marker and
+   tint are additive. `:not(:empty)` keeps both off the reserved-but-idle box —
+   the callback clears this region to "", which renders no child node. */
 .login-error {
-  color: var(--state-error-text);
-  font-size: var(--fs-body);
+  min-height: 40px;
   margin-top: var(--sp-3);
-  min-height: 18px;
+  font-size: var(--fs-body);
+  line-height: 1.4;
+  color: var(--state-error-text);
+}
+
+.login-error:not(:empty) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--state-error-bg);
+  border-left: 3px solid var(--state-error-text);
+  border-radius: var(--radius-sm);
+}
+
+/* Drawn in CSS rather than typed as a glyph: no emoji font dependency, and it
+   inherits currentColor so it cannot drift from the message. */
+.login-error:not(:empty)::before {
+  content: "!";
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The illustration's mass — plant, substation, pylons — sits right of centre,
+   so the crop is anchored right; centring it cuts the cooling tower off. The
+   background-color is the illustration's own ground, so any letterboxing at an
+   unexpected ratio is invisible rather than a grey band. */
+.login-visual-panel {
+  position: relative;
+  background-color: #0d151d;
+  background-image: url("/assets/login-industrial-hero.png");
+  background-size: cover;
+  background-position: 72% center;
+  background-repeat: no-repeat;
+}
+
+/* Scrim over the top band only: that region of the illustration is empty sky,
+   which is why the copy goes there and why the gradient stops before the
+   subject rather than washing the whole panel. */
+.login-visual-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 62%;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 14, 20, 0.88) 0%,
+    rgba(8, 14, 20, 0.55) 42%,
+    rgba(8, 14, 20, 0) 100%
+  );
+}
+
+/* Placed against the illustration rather than parked in its corner: the copy
+   sat hard against the top-left while the subject mass is lower and right, so
+   the block read as floating. Dropping it to ~12% of panel height and leading
+   it with a short rule anchors it — the rule is drawn, not marked up, so the
+   layout keeps exactly the two paragraphs it had. */
+.login-visual__copy {
+  position: relative;
+  max-width: 440px;
+  padding: 12% 56px 0 56px;
+}
+
+.login-visual__copy::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 2px;
+  margin-bottom: var(--sp-5);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.login-visual__headline {
+  margin: 0 0 var(--sp-3) 0;
+  font-size: 24px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.login-visual__support {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.80);
+}
+
+/* Intermediate: the visual gives up width first, the form keeps its 380 px. */
+@media (max-width: 1199px) {
+  .login-shell { grid-template-columns: 52fr 48fr; }
+  .login-form-panel { padding: var(--sp-8) 40px; }
+  .login-visual__copy { padding: 10% 32px 0 32px; }
+}
+
+/* Narrow: form becomes the whole page. Mobile is a fallback here — the desktop
+   composition is not compromised to serve it. */
+@media (max-width: 899px) {
+  .login-page { padding: var(--sp-6) var(--sp-5); }
+  .login-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+    max-width: 460px;
+  }
+  .login-visual-panel { display: none; }
+  .login-form-panel { padding: var(--sp-8) var(--sp-6); }
 }
 
 /* ---------- App Header ---------- */
