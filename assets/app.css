@@ -124,10 +124,13 @@ body {
 }
 
 /* ---------- Login ----------
-   Split composition: 45% form / 55% hero, the whole shell centred in the
-   viewport. Login is a *state*, not a route — callbacks/routing.py renders this
-   layout for any pathname while auth-store is unauthenticated — so nothing here
-   may key off a URL.
+   Full-bleed hero photo as the page background with a two-column grid
+   overlaid on it — replaces the earlier 45/55 split composition entirely
+   (design reference: two client-supplied mockups, solid-card variant chosen
+   over a translucent glass card so text contrast never depends on which part
+   of the photo sits behind it). Login is a *state*, not a route —
+   callbacks/routing.py renders this layout for any pathname while auth-store
+   is unauthenticated — so nothing here may key off a URL.
 
    Type sizes below are literal px rather than tokens on purpose. Fleet earned
    its --fs-fleet-* tokens by spanning many components; login is one block on
@@ -138,43 +141,79 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--sp-8) 40px;
-  background: var(--color-bg);
+  padding: var(--sp-8) 80px;
+  background-color: #0d151d;
+  background-image: url("/assets/login-powerplant-hero.png");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
 
-/* Height is capped, not fixed: `min(690px, 100vh - gutters)` and it keeps
-   shrinking rather than overflowing on a short viewport.
+/* The source photo is 1672x941 — 1.777:1, which matches 1366x768 and
+   1920x1080 (both 1.778:1) almost exactly. `cover` on the *whole viewport*
+   therefore shows close to the entire frame at both target breakpoints —
+   transformer, main structure, smokestack, cooling tower and the transmission
+   lines are all in view — unlike the near-square hero panel in the previous
+   composition, which always lost ~40% of the image's width to `cover`
+   regardless of anchor. */
 
-   Polish pass: the shell was 1220x640, leaving the composition floating in the
-   1366x768 frame at 89% x 83%. Widening the cap and narrowing the page gutter
-   takes it to ~94% x 90% there while the 45/55 split and every internal
-   proportion stay exactly as they were.
-
-   690, not 700. At 700 the sum is 32 + 700 + 32 = 764 against a 768 viewport —
-   4 px of clearance, which passes a clean measurement and then loses to browser
-   chrome, OS scaling, a zoom step or a different font stack rounding one line
-   taller. 690 leaves 14 px, which absorbs that without being visibly smaller. */
-.login-shell {
+/* The layout system, not the card's own position. Card position used to be
+   `padding-left` on .login-page — a number with no relationship to anything
+   else on the page, retuned by feel every time the width changed. A grid
+   gives the same "card near the left, plant unobstructed on the right"
+   composition, but the card's left edge and width now both come from one
+   declared column instead of independent guesses. Column 2 is deliberately
+   never given a child: the plant is the content there, and forcing a second
+   headline onto it to "use the space" was rejected — an intentionally empty
+   grid cell is not a bug. */
+.login-stage {
   display: grid;
-  grid-template-columns: 45fr 55fr;
-  width: min(1320px, 100%);
-  height: min(690px, calc(100vh - 64px));
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px rgba(15, 23, 42, 0.10);
-  overflow: hidden;
-}
-
-.login-form-panel {
-  display: flex;
+  grid-template-columns: minmax(420px, 500px) 1fr;
   align-items: center;
-  justify-content: center;
-  padding: var(--sp-8) 56px;
-  overflow-y: auto;
+  width: 100%;
+  max-width: 1440px;
 }
 
-.login-form { width: 100%; max-width: 400px; }
+.login-card {
+  position: relative;
+  width: 100%;
+  /* Belt-and-suspenders on top of the grid track's own minmax: fixes the
+     card's rendered width to a value verified in-browser (not the track's
+     theoretical 420–500px range, which a browser's fr-distribution algorithm
+     doesn't have to land in the middle of) regardless of exactly how the grid
+     resolves column 1.
+
+     490, not 460: measured directly off the reference composition (b1.png,
+     1680x945 canvas — the same 16:9 aspect as the 1366x768 and 1920x1080
+     targets) rather than picked by eye. The card there is ~36% of canvas
+     width, which scales to ~490px at 1366. */
+  max-width: 490px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.35);
+  /* "Square" was the accurate complaint: at 460x520 the card was 48% of a
+     1920x1080 viewport's height, centred with huge equal margins above and
+     below — it read as a small box floating mid-page, not a column. In the
+     reference the card is ~80% of its frame's height with tight ~9-10%
+     margins top and bottom. That comes from generously-sized content, not
+     from an artificial min-height — the padding below is measured off the
+     same reference (its card devotes ~85% of its own height to content,
+     ~15% to top+bottom padding combined). */
+  padding: 56px 44px;
+}
+
+/* Decorative mark, not a logo asset: a data: URI so it recolours from
+   --color-accent in one place rather than shipping as a raster file that
+   would need re-exporting for every colour change. */
+.login-logo-mark {
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--sp-5);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 44px 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5.2c0 4.6-3 8.4-7 9.8-4-1.4-7-5.2-7-9.8V6l7-3z'/%3E%3Cpath d='M13 8l-3.3 4.6h2.4L10.8 17l4.1-5.6h-2.3L13 8z' fill='%232563eb' stroke='none'/%3E%3C/svg%3E");
+}
 
 /* Uppercase + tracking is the existing HMI label idiom (see
    .equipment-selector-bar__label), reused rather than invented.
@@ -184,7 +223,7 @@ body {
    hierarchy while lifting contrast from 5.98:1 to 13.6:1. */
 .login-eyebrow {
   margin: 0 0 var(--sp-6) 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.10em;
   text-transform: uppercase;
@@ -192,25 +231,25 @@ body {
 }
 
 .login-heading {
-  margin: 0 0 var(--sp-2) 0;
-  font-size: 30px;
+  margin: 0 0 var(--sp-3) 0;
+  font-size: 36px;
   line-height: 1.2;
   font-weight: 700;
   color: var(--color-brand);
 }
 
 .login-support {
-  margin: 0 0 var(--sp-6) 0;
-  font-size: 15px;
+  margin: 0 0 var(--sp-8) 0;
+  font-size: 16px;
   line-height: 1.5;
   color: var(--color-muted);
 }
 
-.login-field { margin-bottom: var(--sp-4); }
+.login-field { margin-bottom: var(--sp-5); }
 
 .login-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text);
@@ -220,10 +259,10 @@ body {
    `.Select-input > input` padding reset (see the note on that rule). */
 .login-input {
   width: 100%;
-  padding: 10px var(--sp-3);
+  padding: 14px 16px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: 16px;
   color: var(--color-text);
   background: var(--color-surface);
 }
@@ -246,7 +285,7 @@ body {
   display: block;
 }
 
-.login-password-row .login-input { padding-right: 88px; }
+.login-password-row .login-input { padding-right: 92px; }
 
 /* Borderless and transparent: it belongs to the field, not next to it.
    min-width holds the row steady when the callback swaps "Show" for "Hide" —
@@ -300,13 +339,13 @@ body {
 
 .login-button {
   width: 100%;
-  margin-top: var(--sp-5);
-  padding: 13px;
+  margin-top: var(--sp-6);
+  padding: 16px;
   background: var(--color-brand);
   color: #ffffff;
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -355,88 +394,30 @@ body {
   line-height: 1;
 }
 
-/* The illustration's mass — plant, substation, pylons — sits right of centre,
-   so the crop is anchored right; centring it cuts the cooling tower off. The
-   background-color is the illustration's own ground, so any letterboxing at an
-   unexpected ratio is invisible rather than a grey band. */
-.login-visual-panel {
-  position: relative;
-  background-color: #0d151d;
-  background-image: url("/assets/login-industrial-hero.png");
-  background-size: cover;
-  background-position: 72% center;
-  background-repeat: no-repeat;
-}
-
-/* Scrim over the top band only: that region of the illustration is empty sky,
-   which is why the copy goes there and why the gradient stops before the
-   subject rather than washing the whole panel. */
-.login-visual-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 62%;
-  background: linear-gradient(
-    180deg,
-    rgba(8, 14, 20, 0.88) 0%,
-    rgba(8, 14, 20, 0.55) 42%,
-    rgba(8, 14, 20, 0) 100%
-  );
-}
-
-/* Placed against the illustration rather than parked in its corner: the copy
-   sat hard against the top-left while the subject mass is lower and right, so
-   the block read as floating. Dropping it to ~12% of panel height and leading
-   it with a short rule anchors it — the rule is drawn, not marked up, so the
-   layout keeps exactly the two paragraphs it had. */
-.login-visual__copy {
-  position: relative;
-  max-width: 440px;
-  padding: 12% 56px 0 56px;
-}
-
-.login-visual__copy::before {
-  content: "";
-  display: block;
-  width: 40px;
-  height: 2px;
-  margin-bottom: var(--sp-5);
-  background: rgba(255, 255, 255, 0.45);
-}
-
-.login-visual__headline {
-  margin: 0 0 var(--sp-3) 0;
-  font-size: 24px;
-  line-height: 1.35;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.login-visual__support {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.80);
-}
-
-/* Intermediate: the visual gives up width first, the form keeps its 380 px. */
+/* Intermediate: the grid keeps its two columns; only the page gutter
+   tightens. */
 @media (max-width: 1199px) {
-  .login-shell { grid-template-columns: 52fr 48fr; }
-  .login-form-panel { padding: var(--sp-8) 40px; }
-  .login-visual__copy { padding: 10% 32px 0 32px; }
+  .login-page { padding: var(--sp-8) 40px; }
 }
 
-/* Narrow: form becomes the whole page. Mobile is a fallback here — the desktop
-   composition is not compromised to serve it. */
+/* Narrow: no room for an off-centre two-column grid, so it collapses to one
+   column and the card centres like any other small dialog —
+   `justify-items: center` centres the card *within* that single column, since
+   the card's own max-width is well under the column's width at this
+   breakpoint. The photo stays full-bleed regardless: it is the page
+   background now, not a content panel, so nothing needs to hide it — a
+   narrower/taller viewport just crops it further, which is normal for a
+   full-bleed hero image and was not a constraint on the previous
+   composition's two-*panel* layout. The card is opaque (verified in
+   TestAccessibility below), so no extra dark overlay is needed for text
+   legibility at this or any other breakpoint. */
 @media (max-width: 899px) {
-  .login-page { padding: var(--sp-6) var(--sp-5); }
-  .login-shell {
+  .login-stage {
     grid-template-columns: 1fr;
-    height: auto;
-    max-width: 460px;
+    justify-items: center;
   }
-  .login-visual-panel { display: none; }
-  .login-form-panel { padding: var(--sp-8) var(--sp-6); }
+  .login-page { padding: var(--sp-6) var(--sp-5); }
+  .login-card { padding: var(--sp-6) var(--sp-5); }
 }
 
 /* ---------- App Header ---------- */

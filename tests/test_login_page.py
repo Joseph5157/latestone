@@ -1,8 +1,9 @@
 """Login page — control inventory, callback contracts and accessibility shape.
 
-The login slice was a *visual* refinement, so the tests that matter are the ones
+The login slice is a *visual* refinement, so the tests that matter are the ones
 that catch a redesign quietly breaking authentication: a renamed id, a dropped
-`n_submit=0`, a label that stopped pointing at its input.
+`n_submit=0`, a label that stopped pointing at its input. That held true across
+the full-bleed rewrite too — none of the auth wiring below changed with it.
 
 Focus *rendering* is deliberately not asserted here. CSS source has twice passed
 in this project while the browser computed something else (DEF-1's `:where()`
@@ -90,12 +91,25 @@ class TestCallbackContract:
 
 
 class TestRequiredControls:
-    def test_form_panel_and_visual_panel_both_render(self, layout):
-        assert find_by_exact_class(layout, "login-form-panel")
-        assert find_by_exact_class(layout, "login-visual-panel")
+    def test_card_sits_inside_the_grid_stage(self, layout):
+        """The card's position comes from a declared grid column, not a
+        standalone flex-positioned element — `.login-stage` must be the card's
+        parent, not a sibling or absent entirely."""
+        assert len(find_by_exact_class(layout, "login-stage")) == 1
+        assert len(find_by_exact_class(layout, "login-card")) == 1
+        stage = find_by_exact_class(layout, "login-stage")[0]
+        assert find_by_exact_class(stage, "login-card")
 
-    def test_shell_is_the_single_composition_root(self, layout):
-        assert len(find_by_exact_class(layout, "login-shell")) == 1
+    def test_no_leftover_split_composition_classes(self, layout):
+        """Guards against a half-finished revert: the old shell/panel classes
+        must not still be in the tree alongside the new grid."""
+        rendered_classes = {
+            cls
+            for n in walk(layout)
+            for cls in str(getattr(n, "className", "") or "").split()
+        }
+        for stale in ("login-shell", "login-form-panel", "login-visual-panel"):
+            assert stale not in rendered_classes
 
     def test_error_region_exists(self, layout):
         assert find_by_id(layout, "login-error") is not None
@@ -151,12 +165,29 @@ class TestAccessibility:
         assert "input:focus-visible," in css
         assert "button:focus-visible," in css
 
+    def test_logo_mark_uses_the_system_accent(self, css):
+        """The new shield mark is a decorative data: URI, not a raster asset —
+        it must draw from the same --color-accent as the rest of the system
+        rather than hard-coding an unrelated brand blue."""
+        block = css.split(".login-logo-mark {")[1].split("}")[0]
+        assert "stroke='%232563eb'" in block
+
+    def test_card_is_opaque_so_contrast_never_depends_on_the_photo(self, css):
+        """The solid-card variant was chosen over a translucent one specifically
+        so text contrast can never depend on which part of the background photo
+        sits behind it. Guards that the card background stays a flat token, not
+        an rgba() or a backdrop-filter creeping back in."""
+        block = css.split(".login-card {")[1].split("}")[0]
+        assert "background: var(--color-surface);" in block
+        assert "backdrop-filter" not in block
+        assert "rgba(255, 255, 255" not in block
+
 
 class TestPasswordToggleIsInlineButUnchanged:
-    """The control moved inside the field. What must not move with it is the
-    callback contract: the button still owns its label, and the icon is derived
-    from the field's `type` — the very property the callback writes — so the eye
-    and the word can never disagree."""
+    """The control moved inside the field in an earlier pass, and the full-bleed
+    rewrite must not have disturbed it. The icon is derived from the field's
+    `type` — the very property the callback writes — so the eye and the word
+    can never disagree."""
 
     def test_icon_is_defined_for_both_states(self, css):
         assert '.login-input[type="password"] + .toggle-password-btn::before' in css
@@ -166,8 +197,6 @@ class TestPasswordToggleIsInlineButUnchanged:
         """`type` is what callbacks/auth.py writes. A state *class* would have to
         be toggled by something, and nothing does — that would be a contract
         change dressed up as styling."""
-        # Every rule that supplies an icon image must be reached through the
-        # field's type; the bare ::before rule carries geometry only.
         icon_rules = [
             block.split("{")[0].strip()
             for block in css.split("}")
@@ -182,14 +211,19 @@ class TestPasswordToggleIsInlineButUnchanged:
 
     def test_icon_uses_the_system_accent_not_a_new_colour(self, css):
         """A data: URI cannot inherit currentColor, so the hex is literal — it
-        must be the --color-accent value, not a login-only colour."""
+        must be the --color-accent value, not a login-only colour. Scoped to the
+        toggle rules specifically: the logo mark also legitimately encodes the
+        same accent in its own data: URI, so a whole-file count would conflate
+        two different components sharing one design decision."""
         accent = css.split("--color-accent:")[1].split(";")[0].strip()
         assert accent == "#2563eb"
-        assert css.count("stroke='%232563eb'") == 2
+        toggle_block = css.split(".login-input[type=\"password\"] + .toggle-password-btn::before")[1]
+        toggle_block = toggle_block.split(".login-button {")[0]
+        assert toggle_block.count("stroke='%232563eb'") == 2
 
     def test_field_reserves_space_for_the_control(self, css):
         """Without the reservation the value would run underneath the button."""
-        assert ".login-password-row .login-input { padding-right: 88px; }" in css
+        assert ".login-password-row .login-input { padding-right: 92px; }" in css
 
     def test_control_is_still_a_focusable_button(self, layout):
         """Absolute positioning must not turn it into a decoration."""
@@ -206,23 +240,26 @@ class TestHeroAsset:
         assert f'url("/assets/{login.HERO_ASSET}")' in css
 
     def test_no_sandbox_path_is_referenced(self, css):
-        """/mnt/data is where the illustration was authored, never where it is
+        """/mnt/data is where source images are authored, never where they are
         served from."""
         assert "/mnt/data" not in css
         assert "/mnt/data" not in (PROJECT_ROOT / "pages" / "login.py").read_text(
             encoding="utf-8"
         )
 
-    def test_overlay_copy_renders(self, layout):
-        rendered = text_of(layout)
-        assert login.HERO_HEADLINE in rendered
-        assert login.HERO_SUPPORT in rendered
+    def test_hero_is_the_page_background_not_a_panel(self, css):
+        """Full-bleed rewrite: the photo belongs to .login-page (the whole
+        viewport), not a dedicated hero panel — there is no panel left."""
+        block = css.split(".login-page {")[1].split("}")[0]
+        assert f'url("/assets/{login.HERO_ASSET}")' in block
+        assert "background-size: cover;" in block
 
-    def test_overlay_copy_states_no_operational_values(self, layout):
-        """Restrained copy only — no fabricated readings, counts or states on an
-        unauthenticated screen."""
-        copy = f"{login.HERO_HEADLINE} {login.HERO_SUPPORT}"
-        assert not any(ch.isdigit() for ch in copy)
+    def test_no_overlay_copy_on_the_photo(self, layout):
+        """The reference design has no headline/support text on the image
+        itself — only the card carries copy now."""
+        rendered = text_of(layout)
+        assert "Operational visibility" not in rendered
+        assert "one workspace" not in rendered
 
 
 class TestEquipmentSelectorStaysHidden:
@@ -251,28 +288,54 @@ class TestEquipmentSelectorStaysHidden:
 
 
 class TestResponsiveContract:
-    def test_desktop_split_is_45_55(self, css):
-        assert "grid-template-columns: 45fr 55fr;" in css
+    def test_card_is_width_capped_not_full_width_by_default(self, css):
+        """A rigid box was rejected in the previous composition too; the card
+        keeps that discipline — it tracks the viewport up to a cap rather than
+        stretching edge to edge. Fixed on the card itself rather than left to
+        the grid track's own minmax() resolution — verified in-browser to land
+        at exactly 490px at both 1366 and 1920, which the track's theoretical
+        420–500px range does not guarantee on its own. 490, not 460: measured
+        directly off the reference composition's ~36% width-to-canvas ratio."""
+        block = css.split(".login-card {")[1].split("}")[0]
+        assert "max-width: 490px;" in block
+        assert "width: 100%;" in block
 
-    def test_shell_is_width_capped_not_fixed(self, css):
-        """A rigid box was explicitly rejected; the shell tracks the viewport up
-        to its cap."""
-        assert "width: min(1320px, 100%);" in css
+    def test_position_comes_from_a_declared_grid_not_a_page_offset(self, css):
+        """The card's position used to be `.login-page`'s own padding — a
+        number with no relationship to anything else. It now comes from
+        `.login-stage`'s grid track, and `.login-page` centres that stage
+        rather than pushing the card directly."""
+        page_block = css.split(".login-page {")[1].split("}")[0]
+        assert "justify-content: center;" in page_block
 
-    def test_height_cannot_exceed_the_viewport(self, css):
-        """1366x768 has to fit without vertical scrolling, with enough slack to
-        survive browser chrome / OS scaling / a zoom step: 32 + 690 + 32 = 754
-        against 768 is 14 px. 700 would leave 4 px, which measures clean and
-        scrolls in the real world."""
-        assert "height: min(690px, calc(100vh - 64px));" in css
+        stage_block = css.split(".login-stage {")[1].split("}")[0]
+        assert "display: grid;" in stage_block
+        assert "grid-template-columns: minmax(420px, 500px) 1fr;" in stage_block
+        assert "align-items: center;" in stage_block
 
-    def test_vertical_clearance_has_a_safety_margin(self, css):
-        """Guards the number above against being nudged back up."""
-        import re
-        cap = int(re.search(r"height: min\((\d+)px, calc\(100vh - (\d+)px\)\)", css).group(1))
-        gutter = int(re.search(r"height: min\(\d+px, calc\(100vh - (\d+)px\)\)", css).group(1))
-        assert 768 - (cap + gutter) >= 12, f"only {768 - (cap + gutter)}px clearance at 768"
+    def test_card_is_truly_centred_not_nudged(self, css):
+        """An earlier pass added `margin-top` to nudge the card down from dead
+        centre. The grid replaces that entirely — verified in-browser as equal
+        top/bottom gaps at both 1366 and 1920 — so the nudge must not have
+        crept back into either rule."""
+        card_block = css.split(".login-card {")[1].split("}")[0]
+        assert "margin-top" not in card_block
+        page_block = css.split(".login-page {")[1].split("}")[0]
+        assert "margin-top" not in page_block
 
-    def test_visual_panel_collapses_on_narrow_viewports(self, css):
+    def test_grid_collapses_to_one_centred_column_on_narrow_viewports(self, css):
+        """No room for a two-column grid once the viewport is phone-width —
+        falls back to a single column with the card centred in it, like any
+        other small dialog."""
         narrow = css.split("@media (max-width: 899px)")[1]
-        assert ".login-visual-panel { display: none; }" in narrow
+        assert "grid-template-columns: 1fr;" in narrow
+        assert "justify-items: center;" in narrow
+
+    def test_hero_stays_full_bleed_at_every_width(self, css):
+        """The photo is the page background, not a panel — it should never be
+        toggled off in any media query, at this breakpoint or any other."""
+        assert ".login-page { display: none" not in css
+        for block in css.split("@media"):
+            if "max-width" not in block.split("{")[0]:
+                continue
+            assert "background-image: none" not in block

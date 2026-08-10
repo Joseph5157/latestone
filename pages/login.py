@@ -1,4 +1,4 @@
-"""Login page layout — split composition, form left / hero right.
+"""Login page layout — full-bleed hero with a floating card.
 
 Visual refinement only. Every `id` below is a callback contract in
 `callbacks/auth.py` and must not be renamed:
@@ -22,10 +22,7 @@ from __future__ import annotations
 
 from dash import dcc, html
 
-HERO_HEADLINE = "Operational visibility across the fleet"
-HERO_SUPPORT = "Monitor plants, transformers and devices from one workspace."
-
-HERO_ASSET = "login-industrial-hero.png"
+HERO_ASSET = "login-powerplant-hero.png"
 
 
 def _field(label: str, field_id: str, control) -> html.Div:
@@ -45,97 +42,83 @@ def login_layout():
     return html.Div(
         className="login-page",
         children=[
+            # A two-column grid, not an absolutely/flex-positioned card. The
+            # card's own left offset previously had no relationship to
+            # anything else on the page — this gives it one: column 1 is sized
+            # by `minmax()`, column 2 is left empty on purpose so the plant
+            # stays fully visible and unobstructed rather than needing a
+            # headline to justify its existence.
             html.Div(
-                className="login-shell",
+                className="login-stage",
                 children=[
                     html.Div(
-                        className="login-form-panel",
+                        className="login-card",
                         children=[
-                            html.Div(
-                                className="login-form",
-                                children=[
-                                    html.P(
-                                        "Power Plant Monitoring",
-                                        className="login-eyebrow",
-                                    ),
-                                    html.H1("Welcome back", className="login-heading"),
-                                    html.P(
-                                        "Sign in to access the monitoring workspace.",
-                                        className="login-support",
-                                    ),
-                                    _field(
-                                        "Username",
-                                        "login-username",
+                            # Decorative mark, not a logo asset: CSS
+                            # background-image (see .login-logo-mark in
+                            # app.css) so it recolours from one token instead
+                            # of shipping as a raster file.
+                            html.Div(className="login-logo-mark"),
+                            html.P(
+                                "Power Plant Monitoring",
+                                className="login-eyebrow",
+                            ),
+                            html.H1("Welcome back", className="login-heading"),
+                            html.P(
+                                "Sign in to access the monitoring workspace.",
+                                className="login-support",
+                            ),
+                            _field(
+                                "Username",
+                                "login-username",
+                                dcc.Input(
+                                    id="login-username",
+                                    type="text",
+                                    className="login-input",
+                                    autoComplete="username",
+                                    n_submit=0,
+                                ),
+                            ),
+                            _field(
+                                "Password",
+                                "login-password",
+                                html.Div(
+                                    className="login-password-row",
+                                    children=[
                                         dcc.Input(
-                                            id="login-username",
-                                            type="text",
+                                            id="login-password",
+                                            type="password",
                                             className="login-input",
-                                            autoComplete="username",
+                                            autoComplete="current-password",
                                             n_submit=0,
                                         ),
-                                    ),
-                                    _field(
-                                        "Password",
-                                        "login-password",
-                                        html.Div(
-                                            className="login-password-row",
-                                            children=[
-                                                dcc.Input(
-                                                    id="login-password",
-                                                    type="password",
-                                                    className="login-input",
-                                                    autoComplete="current-password",
-                                                    n_submit=0,
-                                                ),
-                                                html.Button(
-                                                    "Show",
-                                                    id="toggle-password-btn",
-                                                    className="toggle-password-btn",
-                                                    n_clicks=0,
-                                                ),
-                                            ],
+                                        html.Button(
+                                            "Show",
+                                            id="toggle-password-btn",
+                                            className="toggle-password-btn",
+                                            n_clicks=0,
                                         ),
-                                    ),
-                                    html.Button(
-                                        "Sign in",
-                                        id="login-button",
-                                        className="login-button",
-                                        n_clicks=0,
-                                    ),
-                                    # role="alert" so the failure is announced rather
-                                    # than only rendered. The message is a sentence,
-                                    # so the state never depends on colour; the CSS
-                                    # marker is additive.
-                                    html.Div(
-                                        id="login-error",
-                                        className="login-error",
-                                        role="alert",
-                                    ),
-                                ],
-                            )
-                        ],
-                    ),
-                    # Decorative: the illustration is a CSS background so it needs
-                    # no alt text, and the only content here is the overlay copy.
-                    html.Div(
-                        className="login-visual-panel",
-                        children=[
+                                    ],
+                                ),
+                            ),
+                            html.Button(
+                                "Sign in",
+                                id="login-button",
+                                className="login-button",
+                                n_clicks=0,
+                            ),
+                            # role="alert" so the failure is announced rather
+                            # than only rendered. The message is a sentence,
+                            # so the state never depends on colour; the CSS
+                            # marker is additive.
                             html.Div(
-                                className="login-visual__copy",
-                                children=[
-                                    html.P(
-                                        HERO_HEADLINE,
-                                        className="login-visual__headline",
-                                    ),
-                                    html.P(
-                                        HERO_SUPPORT,
-                                        className="login-visual__support",
-                                    ),
-                                ],
-                            )
+                                id="login-error",
+                                className="login-error",
+                                role="alert",
+                            ),
                         ],
                     ),
                 ],
-            )
+            ),
         ],
     )
