@@ -6,4 +6,3 @@ python-dotenv==1.0.1
 pandas==2.2.3
 gunicorn==23.0.0
 dash-ag-grid==35.2.0
-dash-iconify==0.1.2
