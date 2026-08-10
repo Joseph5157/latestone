@@ -1,0 +1,93 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Powerplant Dashboard — Wireframes</title>
+  <link rel="stylesheet" href="wireframe.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .index-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 48px; width: 560px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .index-card h1 { font-size: var(--fs-fleet-title); font-weight: 700; margin-bottom: 4px; color: var(--color-brand); }
+    .index-card .sub { font-size: var(--fs-body); color: var(--color-muted); margin-bottom: 28px; }
+    .wf-list { list-style: none; }
+    .wf-list li { margin-bottom: 6px; }
+    .wf-list a {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      text-decoration: none; color: var(--color-text); font-size: var(--fs-body); font-weight: 500;
+      transition: border-color 0.15s;
+    }
+    .wf-list a:hover { border-color: var(--color-accent); }
+    .wf-list .route { font-size: var(--fs-meta); color: var(--color-muted); font-family: monospace; }
+    .wf-list .arrow { color: var(--color-muted); }
+    .index-footer { font-size: var(--fs-meta); color: var(--color-muted); margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border); line-height: 1.7; }
+  </style>
+</head>
+<body>
+  <div class="index-card">
+    <h1>Powerplant Dashboard</h1>
+    <p class="sub">Interactive wireframes reflecting the current accepted application state</p>
+
+    <ul class="wf-list">
+      <li>
+        <a href="01-login.html">
+          <span>Login</span>
+          <span class="route">/ (unauthenticated)</span>
+          <span class="arrow">&rarr;</span>
+        </a>
+      </li>
+      <li>
+        <a href="02-global-shell.html">
+          <span>Global Shell &amp; Selector</span>
+          <span class="route">persistent architecture</span>
+          <span class="arrow">&rarr;</span>
+        </a>
+      </li>
+      <li>
+        <a href="03-fleet-overview.html">
+          <span>Fleet Overview</span>
+          <span class="route">/plants</span>
+          <span class="arrow">&rarr;</span>
+        </a>
+      </li>
+      <li>
+        <a href="04-plant-detail.html">
+          <span>Plant Detail</span>
+          <span class="route">/plants/&lt;plant_id&gt;</span>
+          <span class="arrow">&rarr;</span>
+        </a>
+      </li>
+      <li>
+        <a href="05-transformer-detail.html">
+          <span>Transformer Detail</span>
+          <span class="route">/plants/&lt;id&gt;/&lt;id&gt;</span>
+          <span class="arrow">&rarr;</span>
+        </a>
+      </li>
+      <li>
+        <a href="06-device-dashboard.html">
+          <span>Device Dashboard</span>
+          <span class="route">/devices/&lt;device_id&gt;</span>
+          <span class="arrow">&rarr;</span>
+        </a>
+      </li>
+      <li>
+        <a href="07-design-status.html">
+          <span>Design Status</span>
+          <span class="route">accepted / next / debt / future</span>
+          <span class="arrow">&rarr;</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="index-footer">
+      These wireframes reflect the current accepted state as of the main branch.<br>
+      Actual running UI + acceptance records remain the source of truth.<br>
+      Future concepts are explicitly labelled. Historical v1 wireframes are no longer authoritative.<br>
+      <br>
+      Key references: <code>HMI_UI_UX_SPEC.md</code>, <code>UI_SPEC.md</code>, <code>docs/UX_ACCEPTANCE_*.md</code>, <code>docs/UX_DEBT.md</code>
+    </div>
+  </div>
+</body>
+</html>

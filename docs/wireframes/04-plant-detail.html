@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe — Plant Detail</title>
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <div class="equipment-selector-bar">
+    <span class="equipment-selector-bar__label">Jump to equipment</span>
+    <div class="hierarchy-selector">
+      <select><option>Three Gorges Dam</option></select>
+      <select><option>Select…</option></select>
+      <select disabled><option>Select…</option></select>
+    </div>
+  </div>
+  <div class="app-header">
+    <div class="header__brand">Powerplant Dashboard</div>
+    <div class="header__breadcrumb">
+      <nav class="breadcrumb">
+        <a class="breadcrumb__link" href="03-fleet-overview.html">Fleet</a>
+        <span class="breadcrumb__sep">›</span>
+        <span class="breadcrumb__current">Three Gorges Dam</span>
+      </nav>
+    </div>
+    <div class="header__freshness">
+      <span class="header__freshness-label">Data:</span>
+      <span class="freshness-badge freshness-badge--stale">Stale</span>
+    </div>
+    <a href="#" class="header__logout">Logout</a>
+  </div>
+
+  <div class="page">
+    <h1>Three Gorges Dam</h1>
+    <p class="page__subtitle">Transformers in this plant, worst data first</p>
+
+    <!-- Plant-level KPIs — uses shared _health_summary, same wording as Fleet/Transformer -->
+    <div class="kpi-row kpi-row--fleet">
+      <div class="kpi-card">
+        <div class="kpi-card__label">Transformers</div>
+        <div class="kpi-card__value">4</div>
+        <div class="kpi-card__secondary">active</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Devices</div>
+        <div class="kpi-card__value">7</div>
+        <div class="kpi-card__secondary">active</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Data Health</div>
+        <div class="kpi-card__value">7 stale</div>
+        <div class="kpi-card__secondary">0 fresh</div>
+      </div>
+    </div>
+
+    <!-- Transformer table — 3 columns: Transformer, Status, Data -->
+    <div class="entity-table-wrapper">
+      <table class="entity-table">
+        <thead>
+          <tr>
+            <th>Transformer</th>
+            <th>Status</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="05-transformer-detail.html">aa12</a></td>
+            <td>Active</td>
+            <td><span class="freshness-badge freshness-badge--stale">Stale · 2 of 2</span></td>
+          </tr>
+          <tr>
+            <td><a href="05-transformer-detail.html">aa13</a></td>
+            <td>Active</td>
+            <td><span class="freshness-badge freshness-badge--stale">Stale · 2 of 2</span></td>
+          </tr>
+          <tr>
+            <td><a href="05-transformer-detail.html">aa14</a></td>
+            <td>Active</td>
+            <td><span class="freshness-badge freshness-badge--stale">Stale · 2 of 2</span></td>
+          </tr>
+          <tr>
+            <td><a href="05-transformer-detail.html">aa15</a></td>
+            <td>Active</td>
+            <td><span class="freshness-badge freshness-badge--stale">Stale · 1 of 1</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wf-annotation wf-annotation--implemented" style="margin-top:16px;">
+      CURRENT IMPLEMENTATION / NEXT CONSISTENCY SLICE
+    </div>
+    <!--
+      NOTE: Plant detail is functionally complete. Visual modernisation
+      to match Fleet/Device design language is the next consistency slice
+      (Phase UX-4). Do not claim future cards/panels are approved.
+    -->
+  </div>
+</body>
+</html>

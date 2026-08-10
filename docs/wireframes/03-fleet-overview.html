@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe — Fleet Overview</title>
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!-- Global shell -->
+  <div class="equipment-selector-bar">
+    <span class="equipment-selector-bar__label">Jump to equipment</span>
+    <div class="hierarchy-selector">
+      <select><option>Select plant…</option></select>
+      <select disabled><option>Select…</option></select>
+      <select disabled><option>Select…</option></select>
+    </div>
+  </div>
+  <div class="app-header">
+    <div class="header__brand">Powerplant Dashboard</div>
+    <div class="header__breadcrumb">
+      <nav class="breadcrumb">
+        <span class="breadcrumb__current">Fleet</span>
+      </nav>
+    </div>
+    <a href="#" class="header__logout">Logout</a>
+  </div>
+
+  <!-- Fleet uses monitoring width (max-width: 1550px), not reading width -->
+  <div class="page page--monitoring">
+    <h1>Fleet Overview</h1>
+    <p class="page__subtitle" id="fleet-subtitle">30 monitored plants across the active fleet</p>
+    <p class="page__meta" id="fleet-refreshed">Page refreshed 09 Aug 2026 11:24 UTC</p>
+
+    <!-- KPI row — 3 structural + 1 data-health (1.5fr) -->
+    <div class="kpi-row kpi-row--fleet">
+      <div class="kpi-card">
+        <div class="kpi-card__label">Plants</div>
+        <div class="kpi-card__value">30</div>
+        <div class="kpi-card__secondary">active</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Transformers</div>
+        <div class="kpi-card__value">71</div>
+        <div class="kpi-card__secondary">active</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Devices</div>
+        <div class="kpi-card__value">120</div>
+        <div class="kpi-card__secondary">active</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Data Health</div>
+        <div class="kpi-card__value">120 stale</div>
+        <div class="kpi-card__secondary">0 fresh</div>
+      </div>
+    </div>
+    <!--
+      Data Health rules (exception-led, worst-first):
+        NO DATA > STALE > FRESH
+      Examples:
+        120 stale, 0 fresh  → "120 stale" / "0 fresh"
+        3 no data, 102 fresh, 15 stale  → "3 no data" / "102 fresh · 15 stale"
+        120 fresh  → "120 fresh" / "No stale or missing feeds"
+        0 devices  → "No active devices" / "No data available"
+      No accent colour on the Data Health card — it's a neutral surface.
+    -->
+
+    <!-- Plant table — 7 columns, monitoring width -->
+    <div class="entity-table-wrapper">
+      <table class="entity-table">
+        <thead>
+          <tr>
+            <th>Plant</th>
+            <th>Country</th>
+            <th>Fuel</th>
+            <th class="num">Capacity (MW)</th>
+            <th class="num">Transformers</th>
+            <th class="num">Devices</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="plant-col"><a href="04-plant-detail.html">Three Gorges Dam</a></td>
+            <td class="country-col">China</td>
+            <td class="fuel-col">Hydro</td>
+            <td class="num">22,500</td>
+            <td class="num">4</td>
+            <td class="num">7</td>
+            <td class="data-col"><span class="freshness-badge freshness-badge--stale">Stale · 7 of 7 devices</span></td>
+          </tr>
+          <tr>
+            <td class="plant-col"><a href="04-plant-detail.html">Itaipu Binacional Dam (Paraguay part)</a></td>
+            <td class="country-col">Paraguay</td>
+            <td class="fuel-col">Hydro</td>
+            <td class="num">7,000</td>
+            <td class="num">1</td>
+            <td class="num">1</td>
+            <td class="data-col"><span class="freshness-badge freshness-badge--stale">Stale · 1 of 1 device</span></td>
+          </tr>
+          <tr>
+            <td class="plant-col"><a href="04-plant-detail.html">Grand Coulee</a></td>
+            <td class="country-col">United States of America</td>
+            <td class="fuel-col">Hydro</td>
+            <td class="num">6,809</td>
+            <td class="num">1</td>
+            <td class="num">1</td>
+            <td class="data-col"><span class="freshness-badge freshness-badge--stale">Stale · 1 of 1 device</span></td>
+          </tr>
+          <tr>
+            <td class="plant-col"><a href="04-plant-detail.html">Bełchatów</a></td>
+            <td class="country-col">Poland</td>
+            <td class="fuel-col">Coal</td>
+            <td class="num">5,472</td>
+            <td class="num">2</td>
+            <td class="num">3</td>
+            <td class="data-col"><span class="freshness-badge freshness-badge--stale">Stale · 3 of 3 devices</span></td>
+          </tr>
+          <tr>
+            <td class="plant-col"><a href="04-plant-detail.html">MONTALTO (Alessandro Volta)</a></td>
+            <td class="country-col">Italy</td>
+            <td class="fuel-col">Gas</td>
+            <td class="num">3,446</td>
+            <td class="num">2</td>
+            <td class="num">3</td>
+            <td class="data-col"><span class="freshness-badge freshness-badge--stale">Stale · 3 of 3 devices</span></td>
+          </tr>
+          <tr>
+            <td class="plant-col"><a href="04-plant-detail.html">Niederaussem power station</a></td>
+            <td class="country-col">Germany</td>
+            <td class="fuel-col">Coal</td>
+            <td class="num">3,430</td>
+            <td class="num">2</td>
+            <td class="num">3</td>
+            <td class="data-col"><span class="freshness-badge freshness-badge--stale">Stale · 3 of 3 devices</span></td>
+          </tr>
+          <tr>
+            <td class="plant-col"><a href="04-plant-detail.html">Bang Pakong</a></td>
+            <td class="country-col">Thailand</td>
+            <td class="fuel-col">Gas</td>
+            <td class="num">4,384</td>
+            <td class="num">2</td>
+            <td class="num">3</td>
+            <td class="data-col"><span class="freshness-badge freshness-badge--stale">Stale · 3 of 3 devices</span></td>
+          </tr>
+          <tr>
+            <td colspan="7" style="text-align:center;color:var(--color-muted);padding:16px;">
+              … 23 more plants (30 total) …
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wf-annotation wf-annotation--implemented" style="margin-top:16px;">
+      IMPLEMENTED — Fleet v2 accepted 2026-08-09
+    </div>
+  </div>
+</body>
+</html>

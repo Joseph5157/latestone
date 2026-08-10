@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe — Login</title>
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!-- Full-bleed hero background — not a split panel -->
+  <div class="login-page">
+    <div class="login-stage">
+      <!-- Column 1: floating white card -->
+      <div class="login-card">
+        <div class="login-logo-mark"></div>
+        <p class="login-eyebrow">Power Plant Monitoring</p>
+        <h1 class="login-heading">Welcome back</h1>
+        <p class="login-support">Sign in to access the monitoring workspace.</p>
+
+        <!-- Error region — reserved 40px height, never shifts layout -->
+        <div class="login-error" role="alert">
+          <!-- Empty when idle; callback fills on failed attempt -->
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="login-username">Username</label>
+          <input type="text" id="login-username" class="login-input" autocomplete="username">
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="login-password">Password</label>
+          <div class="login-password-row">
+            <input type="password" id="login-password" class="login-input" autocomplete="current-password">
+            <button type="button" class="toggle-password-btn">Show</button>
+          </div>
+        </div>
+
+        <button type="button" class="login-button">Sign in</button>
+      </div>
+
+      <!-- Column 2: hero panel (empty on purpose — photo is the background) -->
+      <div class="login-hero-panel">
+        <!-- The hero image is background-image on .login-page, not a child element -->
+      </div>
+    </div>
+  </div>
+
+  <div class="wf-annotation" style="position:fixed;bottom:16px;right:16px;">
+    IMPLEMENTED — Accepted 2026-08-09
+  </div>
+</body>
+</html>

@@ -1,0 +1,286 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe — Device Dashboard</title>
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <div class="equipment-selector-bar">
+    <span class="equipment-selector-bar__label">Jump to equipment</span>
+    <div class="hierarchy-selector">
+      <select><option>Three Gorges Dam</option></select>
+      <select><option>aa12</option></select>
+      <select><option>29017</option></select>
+    </div>
+  </div>
+  <div class="app-header">
+    <div class="header__brand">Powerplant Dashboard</div>
+    <div class="header__breadcrumb">
+      <nav class="breadcrumb">
+        <a class="breadcrumb__link" href="03-fleet-overview.html">Fleet</a>
+        <span class="breadcrumb__sep">&rsaquo;</span>
+        <a class="breadcrumb__link" href="04-plant-detail.html">Three Gorges Dam</a>
+        <span class="breadcrumb__sep">&rsaquo;</span>
+        <a class="breadcrumb__link" href="05-transformer-detail.html">aa12</a>
+        <span class="breadcrumb__sep">&rsaquo;</span>
+        <span class="breadcrumb__current">29017</span>
+      </nav>
+    </div>
+    <div class="header__freshness">
+      <span class="header__freshness-label">Data:</span>
+      <span class="freshness-badge freshness-badge--stale">Stale</span>
+    </div>
+    <a href="#" class="header__logout">Logout</a>
+  </div>
+
+  <div class="page">
+    <!-- Equipment context bar — UI_SPEC 6a -->
+    <div class="equipment-context">
+      <div class="equipment-context__item">
+        <span class="equipment-context__label">Plant</span>
+        <span class="equipment-context__value">Three Gorges Dam</span>
+      </div>
+      <div class="equipment-context__item">
+        <span class="equipment-context__label">Transformer</span>
+        <span class="equipment-context__value">aa12</span>
+      </div>
+      <div class="equipment-context__item">
+        <span class="equipment-context__label">Device</span>
+        <span class="equipment-context__value">29017</span>
+      </div>
+      <div class="equipment-context__item">
+        <span class="equipment-context__label">Status</span>
+        <span class="equipment-context__value">Active</span>
+      </div>
+      <div class="equipment-context__item">
+        <span class="equipment-context__label">Last data (UTC)</span>
+        <span class="equipment-context__value" id="equipment-last-data">08 Aug 2026 13:30</span>
+      </div>
+    </div>
+
+    <!-- 8-tile metric snapshot strip — one row at 1366, tiles ~138px each -->
+    <div class="metric-snapshot-strip">
+      <a class="snapshot-tile" href="#">
+        <div class="snapshot-tile__label">Temperature</div>
+        <div class="snapshot-tile__value">67.2 &deg;C</div>
+        <div class="snapshot-tile__direction">&mdash;</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+      <a class="snapshot-tile snapshot-tile--active" href="#">
+        <div class="snapshot-tile__label">Voltage</div>
+        <div class="snapshot-tile__value">11.02 kV</div>
+        <div class="snapshot-tile__direction">&uarr; +0.04 kV</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+      <a class="snapshot-tile" href="#">
+        <div class="snapshot-tile__label">Current</div>
+        <div class="snapshot-tile__value">82.7 A</div>
+        <div class="snapshot-tile__direction">&darr; -1.3 A</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+      <a class="snapshot-tile" href="#">
+        <div class="snapshot-tile__label">Active Power</div>
+        <div class="snapshot-tile__value">1.82 MW</div>
+        <div class="snapshot-tile__direction">&uarr; +0.03 MW</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+      <a class="snapshot-tile" href="#">
+        <div class="snapshot-tile__label">Reactive Power</div>
+        <div class="snapshot-tile__value">0.31 MVAr</div>
+        <div class="snapshot-tile__direction">&mdash;</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+      <a class="snapshot-tile" href="#">
+        <div class="snapshot-tile__label">Power Factor</div>
+        <div class="snapshot-tile__value">0.943</div>
+        <div class="snapshot-tile__direction">&darr; -0.002</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+      <a class="snapshot-tile" href="#">
+        <div class="snapshot-tile__label">Frequency</div>
+        <div class="snapshot-tile__value">50.01 Hz</div>
+        <div class="snapshot-tile__direction">&mdash;</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+      <a class="snapshot-tile" href="#">
+        <div class="snapshot-tile__label">Energy</div>
+        <div class="snapshot-tile__value">278.2 MWh</div>
+        <div class="snapshot-tile__direction">&uarr; +9.8 MWh</div>
+        <span class="freshness-badge freshness-badge--stale">Stale</span>
+      </a>
+    </div>
+
+    <!-- Metric controls -->
+    <div class="metric-controls">
+      <select id="metric-dropdown">
+        <option value="temperature">Temperature</option>
+        <option value="voltage" selected>Voltage</option>
+        <option value="current">Current</option>
+        <option value="active_power">Active Power</option>
+        <option value="reactive_power">Reactive Power</option>
+        <option value="power_factor">Power Factor</option>
+        <option value="frequency">Frequency</option>
+        <option value="energy">Energy</option>
+      </select>
+      <div class="period-radio">
+        <label><input type="radio" name="period" checked><span>24h</span></label>
+        <label><input type="radio" name="period"><span>7d</span></label>
+        <label><input type="radio" name="period"><span>30d</span></label>
+        <label><input type="radio" name="period"><span>Custom</span></label>
+      </div>
+    </div>
+
+    <!-- KPI row — aggregation-aware -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-card__label">Current</div>
+        <div class="kpi-card__value">11.02 kV</div>
+        <div class="kpi-card__secondary">14h 53m ago &middot; 08 Aug 2026 13:30 UTC</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Minimum</div>
+        <div class="kpi-card__value">10.94 kV</div>
+        <div class="kpi-card__secondary">at 03:30 UTC</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Maximum</div>
+        <div class="kpi-card__value">11.08 kV</div>
+        <div class="kpi-card__secondary">at 15:00 UTC</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card__label">Average</div>
+        <div class="kpi-card__value">11.01 kV</div>
+        <div class="kpi-card__secondary">48 readings</div>
+      </div>
+    </div>
+
+    <!-- Main chart — Plotly, height 340px -->
+    <div class="chart-container">
+      <div class="chart-header">
+        <div class="chart-title">Voltage (kV) &middot; Last 24 hours</div>
+        <div class="chart-period">UTC</div>
+      </div>
+      <div class="chart-placeholder">
+        [Plotly line chart: Voltage vs Timestamp (UTC)<br>
+        hovermode: x unified | scrollZoom | responsive<br>
+        modebar: zoom2d, pan2d, resetScale2d, toImage only]
+      </div>
+    </div>
+
+    <!-- Quick Trends — 8-cell mini-chart grid -->
+    <h2 class="section-heading">Quick Trends</h2>
+    <div class="trend-grid">
+      <a class="trend-cell" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Temperature</span>
+            <span class="trend-cell__value">67.2 &deg;C</span>
+          </div>
+          <div class="trend-cell__chart">[line]</div>
+        </div>
+      </a>
+      <a class="trend-cell trend-cell--selected" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Voltage</span>
+            <span class="trend-cell__value">11.02 kV</span>
+          </div>
+          <div class="trend-cell__chart">[line]</div>
+        </div>
+      </a>
+      <a class="trend-cell" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Current</span>
+            <span class="trend-cell__value">82.7 A</span>
+          </div>
+          <div class="trend-cell__chart">[line]</div>
+        </div>
+      </a>
+      <a class="trend-cell" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Active Power</span>
+            <span class="trend-cell__value">1.82 MW</span>
+          </div>
+          <div class="trend-cell__chart">[line]</div>
+        </div>
+      </a>
+      <a class="trend-cell" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Reactive Power</span>
+            <span class="trend-cell__value">0.31 MVAr</span>
+          </div>
+          <div class="trend-cell__chart">[line]</div>
+        </div>
+      </a>
+      <a class="trend-cell" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Power Factor</span>
+            <span class="trend-cell__value">0.943</span>
+          </div>
+          <div class="trend-cell__chart">[line]</div>
+        </div>
+      </a>
+      <a class="trend-cell" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Frequency</span>
+            <span class="trend-cell__value">50.01 Hz</span>
+          </div>
+          <div class="trend-cell__chart">[line]</div>
+        </div>
+      </a>
+      <a class="trend-cell" href="#">
+        <div class="trend-cell__link">
+          <div class="trend-cell__header">
+            <span class="trend-cell__label">Energy</span>
+            <span class="trend-cell__value">278.2 MWh</span>
+          </div>
+          <div class="trend-cell__chart">[bars]</div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Recent readings table -->
+    <h2 class="section-heading">Recent readings</h2>
+    <div class="readings-table-container">
+      <table class="readings-table">
+        <thead>
+          <tr><th>Timestamp (UTC)</th><th>Voltage (kV)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2026-08-08 13:30</td><td>11.02</td></tr>
+          <tr><td>2026-08-08 13:00</td><td>11.01</td></tr>
+          <tr><td>2026-08-08 12:30</td><td>10.98</td></tr>
+          <tr><td>2026-08-08 12:00</td><td>11.04</td></tr>
+          <tr><td>2026-08-08 11:30</td><td>11.06</td></tr>
+          <tr><td>2026-08-08 11:00</td><td>10.97</td></tr>
+          <tr><td>2026-08-08 10:30</td><td>11.03</td></tr>
+          <tr><td>2026-08-08 10:00</td><td>11.05</td></tr>
+          <tr><td>2026-08-08 09:30</td><td>10.99</td></tr>
+          <tr><td>2026-08-08 09:00</td><td>11.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wf-annotation wf-annotation--implemented">
+      IMPLEMENTED — Device reference accepted 2026-08-09
+    </div>
+    <!--
+      Device dashboard vertical budget at 1366x768:
+        Equipment context: ~50px
+        Snapshot strip:    ~93px
+        Metric controls:   ~40px
+        KPI row:           ~80px
+        Chart top:         406px from viewport top (budget: 420px)
+      Chart is fully visible at 768px viewport height.
+      Quick Trends below chart — does not affect budget.
+    -->
+  </div>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe — Global Shell</title>
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <!--
+    GLOBAL SHELL — actual architecture:
+    1. Equipment selector (global, in app.layout — always in DOM)
+    2. App header (per-page, rendered inside page layout)
+    3. Page content
+
+    UXD-1: The selector renders ABOVE the brand header because of
+    callback/layout architecture. This is accepted debt, not the
+    desired visual hierarchy. See docs/UX_DEBT.md.
+  -->
+
+  <!-- Equipment selector bar — mounted once in app.layout -->
+  <div class="equipment-selector-bar">
+    <span class="equipment-selector-bar__label">Jump to equipment</span>
+    <div class="hierarchy-selector">
+      <select><option>Plant...</option><option>Three Gorges Dam</option><option>Grand Coulee</option></select>
+      <select disabled><option>Transformer...</option></select>
+      <select disabled><option>Device...</option></select>
+    </div>
+  </div>
+  <div class="wf-annotation wf-annotation--debt" style="margin:4px 20px;">UXD-1: Selector above brand — accepted debt</div>
+
+  <!-- App header — rendered per-page inside page layout -->
+  <div class="app-header">
+    <div class="header__brand">Powerplant Dashboard</div>
+    <div class="header__breadcrumb">
+      <nav class="breadcrumb">
+        <a class="breadcrumb__link" href="03-fleet-overview.html">Fleet</a>
+        <span class="breadcrumb__sep">›</span>
+        <a class="breadcrumb__link" href="04-plant-detail.html">Three Gorges Dam</a>
+        <span class="breadcrumb__sep">›</span>
+        <a class="breadcrumb__link" href="05-transformer-detail.html">aa12</a>
+        <span class="breadcrumb__sep">›</span>
+        <span class="breadcrumb__current">29017</span>
+      </nav>
+    </div>
+    <div class="header__freshness">
+      <span class="header__freshness-label">Data:</span>
+      <span class="freshness-badge freshness-badge--stale">Stale</span>
+    </div>
+    <a href="#" class="header__logout">Logout</a>
+  </div>
+
+  <div class="page">
+    <div class="section-heading">Shell architecture</div>
+    <div class="entity-table-wrapper" style="margin-bottom:24px;">
+      <table class="entity-table">
+        <thead>
+          <tr><th>Layer</th><th>Component</th><th>Scope</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td><strong>Equipment selector</strong></td>
+            <td>Global (app.layout)</td>
+            <td>Always in DOM; hidden on login. Callbacks fire on every route. <span class="wf-annotation wf-annotation--debt">UXD-1</span></td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td><strong>App header</strong></td>
+            <td>Per-page</td>
+            <td>Brand + breadcrumb slot + freshness slot + logout. Rendered inside page layout.</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td><strong>Page content</strong></td>
+            <td>Per-route</td>
+            <td>Router swaps this div. Page-specific layout and components.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-heading">Breadcrumb rules</div>
+    <div class="entity-table-wrapper">
+      <table class="entity-table">
+        <thead>
+          <tr><th>Rule</th><th>Detail</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Root label</td><td><code>Fleet</code> at all four levels <span class="wf-annotation wf-annotation--implemented">Implemented</span></td></tr>
+          <tr><td>Parent crumbs</td><td>Linked when parent IDs are known; plain text when not</td></tr>
+          <tr><td>Current crumb</td><td>Plain text, not a link (<code>href=None</code>)</td></tr>
+          <tr><td>Separator</td><td>› (right single guillemet)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
