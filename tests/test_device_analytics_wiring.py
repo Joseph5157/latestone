@@ -108,6 +108,7 @@ class TestWindowAndPrimeReachTheView:
         series = [Reading(window_start + timedelta(minutes=30 * i), 1000.0 + i)
                   for i in range(4)]
 
+        monkeypatch.setattr(svc, "_now", lambda: NOW)
         monkeypatch.setattr(
             svc.repo, "get_latest_readings_for_device",
             lambda device_id: {"energy": type("R", (), {
@@ -137,6 +138,7 @@ class TestWindowAndPrimeReachTheView:
         series = [Reading(window_start + timedelta(minutes=30 * (i + 1)), 1000.0 + 2 * i)
                   for i in range(8)]
 
+        monkeypatch.setattr(svc, "_now", lambda: NOW)
         monkeypatch.setattr(
             svc.repo, "get_latest_readings_for_device",
             lambda device_id: {"energy": type("R", (), {
