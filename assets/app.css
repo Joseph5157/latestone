@@ -137,6 +137,7 @@ body {
    one screen, and a second name for a one-use value is the drift the token
    layer exists to prevent (§4.1 reasoning, applied in the other direction). */
 .login-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -202,17 +203,30 @@ body {
   padding: 56px 44px;
 }
 
-/* Decorative mark, not a logo asset: a data: URI so it recolours from
-   --color-accent in one place rather than shipping as a raster file that
-   would need re-exporting for every colour change. */
+/* Real brand asset now, not a decorative CSS mark — sized to roughly the
+   visual weight the old 44px square icon held, but the source is a
+   horizontal icon+wordmark lockup (250x64), not a square glyph, so height is
+   fixed and width follows the file's own ratio rather than being forced
+   square and distorted. */
 .login-logo-mark {
-  width: 44px;
-  height: 44px;
+  display: block;
+  height: 52px;
+  width: auto;
   margin-bottom: var(--sp-5);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 44px 44px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5.2c0 4.6-3 8.4-7 9.8-4-1.4-7-5.2-7-9.8V6l7-3z'/%3E%3Cpath d='M13 8l-3.3 4.6h2.4L10.8 17l4.1-5.6h-2.3L13 8z' fill='%232563eb' stroke='none'/%3E%3C/svg%3E");
+}
+
+/* The reversed/white file, placed over the photo rather than the card — a
+   fixed corner of .login-page itself so its position never depends on how
+   the grid's columns resolve, and stays clear of the card (left) and the
+   equipment mass the photo composition weights toward the lower right (see
+   the crop notes on .login-page). */
+.login-brand-mark {
+  position: absolute;
+  top: 40px;
+  right: 48px;
+  height: 44px;
+  width: auto;
+  z-index: 1;
 }
 
 /* Uppercase + tracking is the existing HMI label idiom (see
@@ -418,6 +432,9 @@ body {
   }
   .login-page { padding: var(--sp-6) var(--sp-5); }
   .login-card { padding: var(--sp-6) var(--sp-5); }
+  /* The card centres here rather than sitting left, so the fixed top-right
+     corner is closer to it — pulled in and shrunk to keep clear. */
+  .login-brand-mark { top: 20px; right: 20px; height: 30px; }
 }
 
 /* ---------- App Header ---------- */
@@ -434,10 +451,19 @@ body {
 }
 
 .header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
   font-weight: 700;
   font-size: 15px;
   color: var(--color-brand);
   margin-right: auto;
+}
+
+.header__logo {
+  height: 22px;
+  width: auto;
+  display: block;
 }
 
 .header__breadcrumb { font-size: 13px; }

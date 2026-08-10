@@ -23,6 +23,8 @@ from __future__ import annotations
 from dash import dcc, html
 
 HERO_ASSET = "login-powerplant-hero.jpg"
+LOGO_BLUE_ASSET = "eskom-logo-blue.webp"
+LOGO_WHITE_ASSET = "eskom-logo-white.png"
 
 
 def _field(label: str, field_id: str, control) -> html.Div:
@@ -42,6 +44,16 @@ def login_layout():
     return html.Div(
         className="login-page",
         children=[
+            # Sits over the photo, not the card — the blue logo inside the
+            # card below is for a white surface; this is the reversed/white
+            # file made for a dark one. Positioned independently of the grid
+            # (see .login-brand-mark in app.css) so it holds a fixed corner
+            # regardless of how the grid's columns resolve.
+            html.Img(
+                src=f"/assets/{LOGO_WHITE_ASSET}",
+                alt="Eskom",
+                className="login-brand-mark",
+            ),
             # A two-column grid, not an absolutely/flex-positioned card. The
             # card's own left offset previously had no relationship to
             # anything else on the page — this gives it one: column 1 is sized
@@ -54,11 +66,11 @@ def login_layout():
                     html.Div(
                         className="login-card",
                         children=[
-                            # Decorative mark, not a logo asset: CSS
-                            # background-image (see .login-logo-mark in
-                            # app.css) so it recolours from one token instead
-                            # of shipping as a raster file.
-                            html.Div(className="login-logo-mark"),
+                            html.Img(
+                                src=f"/assets/{LOGO_BLUE_ASSET}",
+                                alt="Eskom",
+                                className="login-logo-mark",
+                            ),
                             html.P(
                                 "Power Plant Monitoring",
                                 className="login-eyebrow",

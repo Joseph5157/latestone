@@ -19,7 +19,17 @@ def app_header(
     freshness: Freshness | None = None,
 ) -> html.Header:
     children = [
-        html.Div("Powerplant Dashboard", className="header__brand"),
+        html.Div(
+            [
+                html.Img(
+                    src="/assets/eskom-logo-blue.webp",
+                    alt="Eskom",
+                    className="header__logo",
+                ),
+                html.Span("Powerplant Dashboard"),
+            ],
+            className="header__brand",
+        ),
     ]
 
     if breadcrumb_children is not None:

@@ -165,13 +165,6 @@ class TestAccessibility:
         assert "input:focus-visible," in css
         assert "button:focus-visible," in css
 
-    def test_logo_mark_uses_the_system_accent(self, css):
-        """The new shield mark is a decorative data: URI, not a raster asset —
-        it must draw from the same --color-accent as the rest of the system
-        rather than hard-coding an unrelated brand blue."""
-        block = css.split(".login-logo-mark {")[1].split("}")[0]
-        assert "stroke='%232563eb'" in block
-
     def test_card_is_opaque_so_contrast_never_depends_on_the_photo(self, css):
         """The solid-card variant was chosen over a translucent one specifically
         so text contrast can never depend on which part of the background photo
@@ -230,6 +223,84 @@ class TestPasswordToggleIsInlineButUnchanged:
         btn = find_by_id(layout, "toggle-password-btn")
         assert isinstance(btn, html.Button)
         assert text_of(btn).strip() == "Show"
+
+
+class TestBrandLogos:
+    """Real client branding (Eskom), not a decorative mark — two placements on
+    the login page (blue on the white card, white on the dark photo) plus the
+    app header once authenticated. All three are meaningful images, not
+    decoration, so each needs alt text rather than an empty string."""
+
+    def test_both_login_assets_exist_in_project(self):
+        assert (PROJECT_ROOT / "assets" / login.LOGO_BLUE_ASSET).is_file()
+        assert (PROJECT_ROOT / "assets" / login.LOGO_WHITE_ASSET).is_file()
+
+    def test_no_sandbox_or_local_path_leaks_into_the_layout(self, layout):
+        """The source files were dropped in the repo root during authoring —
+        the rendered <img src> must point at /assets/, never a local
+        filesystem path or an upload-tool path like /mnt/data."""
+        rendered = str(layout)
+        assert "/mnt/data" not in rendered
+        assert "C:\\" not in rendered and "C:/" not in rendered
+
+    def test_card_logo_is_an_image_with_alt_text(self, layout):
+        """Not a <div> background icon any more — a real logo needs a real
+        <img> so screen readers and asset tooling both see it as content."""
+        node = find_by_exact_class(layout, "login-logo-mark")
+        assert len(node) == 1
+        img = node[0]
+        assert isinstance(img, html.Img)
+        assert img.src == f"/assets/{login.LOGO_BLUE_ASSET}"
+        assert img.alt.strip()
+
+    def test_hero_panel_logo_is_an_image_with_alt_text(self, layout):
+        node = find_by_exact_class(layout, "login-brand-mark")
+        assert len(node) == 1
+        img = node[0]
+        assert isinstance(img, html.Img)
+        assert img.src == f"/assets/{login.LOGO_WHITE_ASSET}"
+        assert img.alt.strip()
+
+    def test_card_and_hero_logos_use_different_assets(self):
+        """Blue-on-white and white-on-dark are not interchangeable — using
+        the same file in both spots would make one of them unreadable."""
+        assert login.LOGO_BLUE_ASSET != login.LOGO_WHITE_ASSET
+
+    def test_hero_logo_is_positioned_independently_of_the_grid(self, css):
+        """Sits over the photo at a fixed corner of .login-page, not inside
+        .login-stage — its position must not depend on how the grid's
+        columns resolve."""
+        block = css.split(".login-brand-mark {")[1].split("}")[0]
+        assert "position: absolute;" in block
+        page_block = css.split(".login-page {")[1].split("}")[0]
+        assert "position: relative;" in page_block
+
+    def test_neither_login_logo_is_forced_square(self, css):
+        """Both source files are horizontal icon+wordmark lockups, not square
+        glyphs — height is fixed and width must stay auto so the aspect ratio
+        holds rather than being squashed into the old icon's square slot."""
+        for selector in (".login-logo-mark {", ".login-brand-mark {"):
+            block = css.split(selector)[1].split("}")[0]
+            assert "width: auto;" in block
+
+    def test_header_logo_exists_and_carries_alt_text(self):
+        """Rendered after login, in the app header — same blue asset as the
+        card, since the header background is white too."""
+        from components.app_header import app_header
+
+        header = app_header()
+        imgs = [n for n in walk(header) if isinstance(n, html.Img)]
+        assert len(imgs) == 1
+        assert imgs[0].src == f"/assets/{login.LOGO_BLUE_ASSET}"
+        assert imgs[0].alt.strip()
+
+    def test_header_brand_text_is_unchanged(self):
+        """The logo is additive — the existing brand text must still render
+        exactly as before, just alongside the mark now."""
+        from components.app_header import app_header
+
+        header = app_header()
+        assert "Powerplant Dashboard" in text_of(header)
 
 
 class TestHeroAsset:
