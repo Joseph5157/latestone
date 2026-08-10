@@ -1,7 +1,7 @@
 # Power Plant Dashboard
 
 Primary development application: a dashboard visualising 8 metrics across a 30-plant
-hierarchy from a PostgreSQL database. See `CLAUDE.md`, `PROJECT_CONTEXT.md`,
+hierarchy from a PostgreSQL database. See `PROJECT_CONTEXT.md`,
 `REQUIREMENTS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `UI_SPEC.md` for
 full context.
 
