@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dash import dcc, html
 
-HERO_ASSET = "login-powerplant-hero.png"
+HERO_ASSET = "login-powerplant-hero.jpg"
 
 
 def _field(label: str, field_id: str, control) -> html.Div:

@@ -254,6 +254,26 @@ class TestHeroAsset:
         assert f'url("/assets/{login.HERO_ASSET}")' in block
         assert "background-size: cover;" in block
 
+    def test_asset_is_a_compressed_photo_format(self):
+        """PNG is lossless and roughly 9x larger than JPEG for this photo —
+        the difference between the image starting to render in the
+        low-tens-of-ms and it visibly popping in after the form. Guards
+        against a future replacement quietly reverting to PNG."""
+        assert login.HERO_ASSET.endswith((".jpg", ".jpeg", ".webp"))
+
+    def test_hero_is_preloaded_so_it_does_not_lag_the_form(self):
+        """The image is a CSS background-image on an element Dash renders
+        client-side, so the browser doesn't discover it until after the JS
+        bundle parses and paints `.login-page` — well after the form is
+        already visible (measured: ~400ms lag without this). The preload tag
+        lets fetching start in parallel with the JS bundle instead. Read from
+        the live app object, not app.py source text, since the tag is built
+        by a runtime .replace() rather than typed out literally in the file."""
+        import app as app_module
+
+        assert f'href="/assets/{login.HERO_ASSET}"' in app_module.app.index_string
+        assert 'rel="preload" as="image"' in app_module.app.index_string
+
     def test_no_overlay_copy_on_the_photo(self, layout):
         """The reference design has no headline/support text on the image
         itself — only the card carries copy now."""
