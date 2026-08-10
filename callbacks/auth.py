@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dash import Input, Output, State, no_update
 
+from pages.login import TOGGLE_ICON_HIDE_CLASS, TOGGLE_ICON_SHOW_CLASS
 from services import auth_service
 
 
@@ -17,6 +18,19 @@ def login_was_submitted(n_clicks, username_submits, password_submits) -> bool:
     before they had typed anything.
     """
     return any(bool(counter) for counter in (n_clicks, username_submits, password_submits))
+
+
+def password_toggle_state(n_clicks) -> tuple[str, str, str, str]:
+    """(field type, icon className, label, accessible name) for the current
+    click count.
+
+    One boolean drives all four so the glyph, the word and the accessible
+    name can never disagree with each other or with the field they describe.
+    """
+    showing = bool(n_clicks) and n_clicks % 2 == 1
+    if showing:
+        return "text", TOGGLE_ICON_HIDE_CLASS, "Hide", "Hide password"
+    return "password", TOGGLE_ICON_SHOW_CLASS, "Show", "Show password"
 
 
 def register(app) -> None:
@@ -48,13 +62,14 @@ def register(app) -> None:
 
     @app.callback(
         Output("login-password", "type"),
-        Output("toggle-password-btn", "children"),
+        Output("toggle-password-icon", "className"),
+        Output("toggle-password-label", "children"),
+        Output("toggle-password-btn", "aria-label"),
         Input("toggle-password-btn", "n_clicks"),
         prevent_initial_call=True,
     )
     def toggle_password_visibility(n_clicks):
-        showing = bool(n_clicks) and n_clicks % 2 == 1
-        return ("text", "Hide") if showing else ("password", "Show")
+        return password_toggle_state(n_clicks)
 
     # Logout is a plain `<a href="/logout">` (see components.app_header) rather
     # than a callback: a full page load resets the memory-backed auth-store,

@@ -5,7 +5,9 @@ Visual refinement only. Every `id` below is a callback contract in
 
     login-username  n_submit (Input), value (State)
     login-password  n_submit (Input), value (State), type (Output)
-    toggle-password-btn  n_clicks (Input), children (Output)
+    toggle-password-btn    n_clicks (Input), aria-label (Output)
+    toggle-password-icon   className (Output)
+    toggle-password-label  children (Output)
     login-button    n_clicks (Input)
     login-error     children (Output)
 
@@ -17,6 +19,14 @@ every visitor was greeted with "Invalid username or password." before typing.
 
 The password toggle's label is server-rendered ("Show"/"Hide" come from the
 callback), so it must stay a text button rather than becoming a CSS-only icon.
+The eye glyph is a plain `<span>` nested inside that same button, coloured via
+a local SVG used as a CSS mask (see `.toggle-password-icon` in app.css) rather
+than an inline image or remote icon font — no outbound request, so the login
+control never depends on network access working. Its className is keyed off
+the same `showing` boolean as the label and the field's `type` — the callback
+writes all three from one value, so they cannot drift apart. The icon carries
+`aria-hidden` because the button's accessible name comes from `aria-label`
+below, not from flattening the tree's text.
 """
 from __future__ import annotations
 
@@ -25,6 +35,14 @@ from dash import dcc, html
 HERO_ASSET = "login-powerplant-hero.jpg"
 LOGO_BLUE_ASSET = "eskom-logo-blue.webp"
 LOGO_WHITE_ASSET = "eskom-logo-white.png"
+
+# Single source for both the initial render and callbacks/auth.py's toggle —
+# importing these rather than re-typing the class names is what keeps the
+# glyph and the label from ever disagreeing. Each is the full className
+# (base + modifier) since the callback replaces `className` wholesale.
+TOGGLE_ICON_BASE_CLASS = "toggle-password-icon"
+TOGGLE_ICON_SHOW_CLASS = f"{TOGGLE_ICON_BASE_CLASS} {TOGGLE_ICON_BASE_CLASS}--eye"
+TOGGLE_ICON_HIDE_CLASS = f"{TOGGLE_ICON_BASE_CLASS} {TOGGLE_ICON_BASE_CLASS}--eye-off"
 
 
 def _field(label: str, field_id: str, control) -> html.Div:
@@ -105,10 +123,23 @@ def login_layout():
                                             n_submit=0,
                                         ),
                                         html.Button(
-                                            "Show",
+                                            [
+                                                html.Span(
+                                                    html.Span(
+                                                        id="toggle-password-icon",
+                                                        className=TOGGLE_ICON_SHOW_CLASS,
+                                                    ),
+                                                    **{"aria-hidden": "true"},
+                                                ),
+                                                html.Span(
+                                                    "Show",
+                                                    id="toggle-password-label",
+                                                ),
+                                            ],
                                             id="toggle-password-btn",
                                             className="toggle-password-btn",
                                             n_clicks=0,
+                                            **{"aria-label": "Show password"},
                                         ),
                                     ],
                                 ),

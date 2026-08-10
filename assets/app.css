@@ -328,27 +328,35 @@ body {
 
 .toggle-password-btn:hover { background: var(--color-accent-bg); }
 
-/* The icon tracks the field's own `type`, which is exactly what the callback
-   writes — so the eye and the label can never disagree, and no callback
-   contract changes to get a stateful icon. Stroke is the literal accent hex
-   because a data: URI cannot inherit currentColor; it is the same
-   --color-accent value, not a new colour. */
-.toggle-password-btn::before {
-  content: "";
+/* Locally-served SVGs (assets/icons/eye[-off].svg) used as a CSS mask rather
+   than a background-image or <img>, specifically so the glyph can inherit
+   `color` via currentColor from .toggle-password-btn above — a mask only
+   supplies the shape's alpha channel; background-color supplies the paint,
+   and that's an ordinary inherited CSS property. A background-image data:
+   URI can't do this (see the removed rule this replaced), and an <img> would
+   need its own colour. No network request: the file ships with the app. */
+.toggle-password-icon {
+  display: inline-block;
   flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 16px 16px;
+  width: 17px;
+  height: 17px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
-.login-input[type="password"] + .toggle-password-btn::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+.toggle-password-icon--eye {
+  -webkit-mask-image: url("/assets/icons/eye.svg");
+  mask-image: url("/assets/icons/eye.svg");
 }
 
-.login-input[type="text"] + .toggle-password-btn::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94'/%3E%3Cpath d='M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19'/%3E%3Cpath d='M14.12 14.12a3 3 0 1 1-4.24-4.24'/%3E%3Cline x1='1' y1='1' x2='23' y2='23'/%3E%3C/svg%3E");
+.toggle-password-icon--eye-off {
+  -webkit-mask-image: url("/assets/icons/eye-off.svg");
+  mask-image: url("/assets/icons/eye-off.svg");
 }
 
 .login-button {

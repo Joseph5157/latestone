@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 from dash import dcc, html
 
+from callbacks.auth import password_toggle_state
 from components import equipment_selector as sel
 from pages import login
 from tests.dash_tree import find_by_exact_class, find_by_id, text_of, walk
@@ -33,6 +34,8 @@ AUTH_CONTRACT_IDS = {
     "login-username",
     "login-password",
     "toggle-password-btn",
+    "toggle-password-icon",
+    "toggle-password-label",
     "login-button",
     "login-error",
 }
@@ -177,42 +180,8 @@ class TestAccessibility:
 
 
 class TestPasswordToggleIsInlineButUnchanged:
-    """The control moved inside the field in an earlier pass, and the full-bleed
-    rewrite must not have disturbed it. The icon is derived from the field's
-    `type` — the very property the callback writes — so the eye and the word
-    can never disagree."""
-
-    def test_icon_is_defined_for_both_states(self, css):
-        assert '.login-input[type="password"] + .toggle-password-btn::before' in css
-        assert '.login-input[type="text"] + .toggle-password-btn::before' in css
-
-    def test_icon_is_keyed_on_the_callback_written_property(self, css):
-        """`type` is what callbacks/auth.py writes. A state *class* would have to
-        be toggled by something, and nothing does — that would be a contract
-        change dressed up as styling."""
-        icon_rules = [
-            block.split("{")[0].strip()
-            for block in css.split("}")
-            if ".toggle-password-btn::before" in block and "background-image" in block
-        ]
-        assert len(icon_rules) == 2, icon_rules
-        for selector in icon_rules:
-            assert selector.startswith('.login-input[type='), selector
-
-        # No state class anywhere on the control — nothing would set it.
-        assert ".toggle-password-btn." not in css
-
-    def test_icon_uses_the_system_accent_not_a_new_colour(self, css):
-        """A data: URI cannot inherit currentColor, so the hex is literal — it
-        must be the --color-accent value, not a login-only colour. Scoped to the
-        toggle rules specifically: the logo mark also legitimately encodes the
-        same accent in its own data: URI, so a whole-file count would conflate
-        two different components sharing one design decision."""
-        accent = css.split("--color-accent:")[1].split(";")[0].strip()
-        assert accent == "#2563eb"
-        toggle_block = css.split(".login-input[type=\"password\"] + .toggle-password-btn::before")[1]
-        toggle_block = toggle_block.split(".login-button {")[0]
-        assert toggle_block.count("stroke='%232563eb'") == 2
+    """The control moved inside the field in an earlier pass, and neither the
+    full-bleed rewrite nor the local-icon swap must have disturbed it."""
 
     def test_field_reserves_space_for_the_control(self, css):
         """Without the reservation the value would run underneath the button."""
@@ -223,6 +192,122 @@ class TestPasswordToggleIsInlineButUnchanged:
         btn = find_by_id(layout, "toggle-password-btn")
         assert isinstance(btn, html.Button)
         assert text_of(btn).strip() == "Show"
+
+    def test_no_leftover_css_only_icon(self, css):
+        """The old data: URI eye/eye-off pseudo-elements (pre-dates even the
+        Iconify pass) must be gone, not left behind alongside the local mask
+        icon."""
+        assert "toggle-password-btn::before" not in css
+        assert "M1 12s4-8 11-8" not in css  # the old eye path data
+
+
+class TestPasswordToggleIconIsLocal:
+    """The eye glyph is a local SVG (assets/icons/eye[-off].svg) applied as a
+    CSS mask on a plain <span>, not a remote Iconify request — the login
+    control must render and toggle with zero network access. Both the glyph's
+    className and the visible label derive from the same `showing` boolean in
+    callbacks/auth.py so they cannot disagree."""
+
+    ICON_DIR = PROJECT_ROOT / "assets" / "icons"
+
+    def test_icon_assets_are_served_locally_from_the_repo(self):
+        assert (self.ICON_DIR / "eye.svg").is_file()
+        assert (self.ICON_DIR / "eye-off.svg").is_file()
+
+    def test_css_references_the_local_assets_not_a_remote_host(self, css):
+        assert 'url("/assets/icons/eye.svg")' in css
+        assert 'url("/assets/icons/eye-off.svg")' in css
+        assert "iconify" not in css.lower()
+        assert "http://" not in css.split(".toggle-password-icon")[1].split(".login-button {")[0]
+        assert "https://" not in css.split(".toggle-password-icon")[1].split(".login-button {")[0]
+
+    def test_no_iconify_import_remains_in_the_login_slice(self):
+        """Regression guard: nothing in the login page or its callback should
+        re-introduce the CDN-dependent component."""
+        login_src = (PROJECT_ROOT / "pages" / "login.py").read_text(encoding="utf-8")
+        auth_src = (PROJECT_ROOT / "callbacks" / "auth.py").read_text(encoding="utf-8")
+        assert "dash_iconify" not in login_src
+        assert "dash_iconify" not in auth_src
+
+    def test_icon_size_is_declared_in_css_not_a_component_prop(self, css):
+        """Sizing used to be DashIconify's width/height props; now it has to
+        live in CSS since the element is a plain span."""
+        block = css.split(".toggle-password-icon {")[1].split("}")[0]
+        assert "width: 17px;" in block
+        assert "height: 17px;" in block
+
+    def test_icon_inherits_currentcolor_not_a_hardcoded_accent(self, css):
+        """The mask supplies shape only; `background-color: currentColor` is
+        what lets it pick up `.toggle-password-btn { color: var(--color-accent) }`
+        without a second, independent colour declaration."""
+        block = css.split(".toggle-password-icon {")[1].split("}")[0]
+        assert "background-color: currentColor;" in block
+        assert "#2563eb" not in block
+        assert "var(--color-accent)" not in block
+
+    def test_icon_span_is_present_in_the_layout(self, layout):
+        icon = find_by_id(layout, "toggle-password-icon")
+        assert isinstance(icon, html.Span)
+
+    def test_icon_lives_inside_the_toggle_button(self, layout):
+        btn = find_by_id(layout, "toggle-password-btn")
+        assert find_by_id(btn, "toggle-password-icon") is not None
+
+    def test_icon_is_hidden_from_the_accessibility_tree(self, layout):
+        """The button's accessible name comes from its own aria-label, not
+        from flattened text — an unhidden icon span would otherwise risk a
+        second, competing accessible object."""
+        btn = find_by_id(layout, "toggle-password-btn")
+        icon_wrapper = next(
+            n for n in walk(btn)
+            if isinstance(n, html.Span)
+            and find_by_id(n, "toggle-password-icon") is not None
+        )
+        assert getattr(icon_wrapper, "aria-hidden") == "true"
+
+    def test_hidden_state_shows_the_eye_and_offers_show(self):
+        """n_clicks=0 (and every even count) is the masked state."""
+        field_type, icon_class, label, aria_label = password_toggle_state(0)
+        assert field_type == "password"
+        assert icon_class == login.TOGGLE_ICON_SHOW_CLASS
+        assert label == "Show"
+        assert aria_label == "Show password"
+
+    def test_visible_state_shows_the_eye_off_and_offers_hide(self):
+        """An odd click count is the revealed state."""
+        field_type, icon_class, label, aria_label = password_toggle_state(1)
+        assert field_type == "text"
+        assert icon_class == login.TOGGLE_ICON_HIDE_CLASS
+        assert label == "Hide"
+        assert aria_label == "Hide password"
+
+    def test_toggle_is_reversible(self):
+        """A second click must return exactly to the first state, not just to
+        *a* different one."""
+        assert password_toggle_state(2) == password_toggle_state(0)
+        assert password_toggle_state(3) == password_toggle_state(1)
+
+    def test_state_classes_both_carry_the_base_class(self):
+        """The callback replaces `className` wholesale, so each state's value
+        must still include the base class that carries the sizing/mask rules
+        — losing it would silently shrink the icon to nothing."""
+        assert login.TOGGLE_ICON_BASE_CLASS in login.TOGGLE_ICON_SHOW_CLASS.split()
+        assert login.TOGGLE_ICON_BASE_CLASS in login.TOGGLE_ICON_HIDE_CLASS.split()
+
+    def test_initial_layout_matches_the_hidden_state(self, layout):
+        """The server-rendered layout must agree with what n_clicks=0 produces
+        — nothing but the callback should ever set these props."""
+        _, icon_class, label, aria_label = password_toggle_state(0)
+        assert find_by_id(layout, "toggle-password-icon").className == icon_class
+        assert text_of(find_by_id(layout, "toggle-password-label")) == label
+        assert getattr(find_by_id(layout, "toggle-password-btn"), "aria-label") == aria_label
+
+    def test_accessible_name_contains_the_visible_word(self):
+        """WCAG 2.5.3 Label in Name: the aria-label must not diverge from the
+        word a sighted user actually reads on the button."""
+        for n_clicks in (0, 1):
+            _, _, label, aria_label = password_toggle_state(n_clicks)
+            assert label.lower() in aria_label.lower()
 
 
 class TestBrandLogos:
