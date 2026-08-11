@@ -10,6 +10,7 @@ __pycache__/
 # Agent/tooling scratch — never part of the application
 .claude/
 .playwright-mcp/
+scratch/
 
 # Internal engineering docs — not for client distribution
 CLAUDE.md
@@ -18,3 +19,4 @@ docs/superpowers/
 docs/CODE_AUDIT.md
 docs/CODE_AUDIT_SECOND_PASS.md
 docs/UX_DEBT.md
+docs/CLIENT_DELIVERY.md
