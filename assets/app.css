@@ -734,6 +734,78 @@ body {
 }
 .kpi-row--fleet .kpi-card__value { font-size: var(--fs-fleet-kpi); }
 
+/* ---------- Fleet Data Health Distribution ---------- */
+/* Supporting information beside the Data Health KPI card, not a replacement
+   — deliberately thin (10px) and compact so it reads as a restatement, not
+   a second dashboard. No Plotly, no gauge, no pie: a single flex row of
+   proportionally-widthed segments. */
+.health-distribution {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.health-distribution__bar {
+  display: flex;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.health-distribution__segment { height: 100%; }
+
+/* Fill uses the --state-*-text tokens (saturated, already proven >=8:1
+   legible as badge text), not --state-*-bg (pale, meant to sit behind dark
+   text): --state-none-bg (#f1f3f5) is close enough to --color-bg/
+   --color-border that a "No Data" segment filled with it would nearly
+   disappear against the page. Both are existing tokens; no new colour. */
+.health-distribution__segment--fresh { background: var(--state-fresh-text); }
+.health-distribution__segment--stale { background: var(--state-stale-text); }
+.health-distribution__segment--no_data { background: var(--state-none-text); }
+
+.health-distribution__empty {
+  height: 10px;
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}
+
+/* Unconditional: every state is named here even at zero width in the bar
+   above, so a zero-count state is never simply absent from the block. */
+.health-distribution__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  margin-top: var(--sp-2);
+}
+
+.health-distribution__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}
+
+.health-distribution__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.health-distribution__legend-item--fresh .health-distribution__swatch { background: var(--state-fresh-text); }
+.health-distribution__legend-item--stale .health-distribution__swatch { background: var(--state-stale-text); }
+.health-distribution__legend-item--no_data .health-distribution__swatch { background: var(--state-none-text); }
+
+.health-distribution__legend-count {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 /* ---------- Metric Controls ---------- */
 .metric-controls {
   display: flex;

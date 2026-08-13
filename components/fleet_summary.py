@@ -11,8 +11,13 @@ from datetime import datetime
 
 from dash import html
 
+from components.freshness_presentation import FRESHNESS_PRESENTATION
 from components.kpi_card import kpi_card
 from services.monitoring_service import FleetHealth, Freshness, severity_rank
+
+#: Bar/legend order — worst-reassuring last, matching the KPI card's own
+#: "fresh count always shown, worst state most prominent" convention.
+_DISTRIBUTION_ORDER = (Freshness.FRESH, Freshness.STALE, Freshness.NO_DATA)
 
 #: Display noun per state. Separate from the enum values so wording can change
 #: without touching the identity the styling layer joins on.
@@ -167,3 +172,66 @@ def plant_kpi_cards(
         counts=[("Transformers", transformers), ("Devices", devices)],
         health_counts=health.device_counts_for_plant(plant_id),
     )
+
+
+def fleet_health_distribution(counts: dict[Freshness, int]) -> html.Div:
+    """Compact segmented bar restating the fleet Data Health KPI's own counts.
+
+    Supporting information only — the KPI card stays the one authoritative
+    Data Health figure; this renders `counts` the callback already built for
+    that card, never a second computation and never a second query.
+
+    Segment width is exactly proportional to device count. A zero-count state
+    gets zero width rather than a minimum-visible sliver: a bar claiming a
+    state is present when it is not would be a small lie in exchange for a
+    tidier-looking bar. The legend row below is unconditional and always
+    lists all three states with their counts, so a zero-width segment is
+    still named in text rather than silently absent.
+
+    Fill colour comes from `--state-*-text` (the saturated tokens already
+    proven ≥8:1 legible, used elsewhere for badge text), not `--state-*-bg`
+    (the pale tokens meant to sit behind dark text): `--state-none-bg`
+    (#f1f3f5) is close enough to `--color-bg`/`--color-border` that a "No
+    Data" segment filled with it would nearly disappear against the page.
+    Both are existing tokens — no new colour is introduced.
+    """
+    total = sum(counts.get(state, 0) for state in _DISTRIBUTION_ORDER)
+
+    if total > 0:
+        bar_children = [
+            html.Div(
+                className=f"health-distribution__segment health-distribution__segment--{state.value}",
+                style={"width": f"{100 * counts.get(state, 0) / total}%"},
+            )
+            for state in _DISTRIBUTION_ORDER
+            if counts.get(state, 0) > 0
+        ]
+        bar = html.Div(className="health-distribution__bar", children=bar_children)
+    else:
+        # Explicit empty state, matching the KPI card's own zero-population
+        # wording — never a fake full-width "100% No Data" bar, which would
+        # assert evidence (a device reporting nothing) that does not exist.
+        bar = html.Div("No active devices", className="health-distribution__empty")
+
+    legend = html.Div(
+        className="health-distribution__legend",
+        children=[
+            html.Div(
+                className=f"health-distribution__legend-item health-distribution__legend-item--{state.value}",
+                children=[
+                    html.Span(className="health-distribution__swatch"),
+                    html.Span(
+                        FRESHNESS_PRESENTATION[state].label,
+                        className="health-distribution__legend-label",
+                    ),
+                    html.Span(
+                        str(counts.get(state, 0)),
+                        className="health-distribution__legend-count",
+                    ),
+                ],
+            )
+            for state in _DISTRIBUTION_ORDER
+        ],
+    )
+
+    return html.Div(className="health-distribution", children=[bar, legend])

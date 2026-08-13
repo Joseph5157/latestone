@@ -30,6 +30,9 @@ def layout() -> html.Div:
             # Filled by the same callback that fills the table, from the same
             # FleetHealth, so the card and the rows cannot disagree.
             html.Div(id="fleet-kpis"),
+            # Same FleetHealth.counts as the Data Health KPI card — a
+            # restatement, not a second computation.
+            html.Div(id="fleet-health-distribution"),
             entity_table(
                 table_id="plants-table",
                 # Deliberately duplicated from callbacks.listings.PLANT_COLUMNS

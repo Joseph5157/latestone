@@ -12,6 +12,7 @@ from dash import Input, Output, State, no_update
 
 from components.entity_context import entity_context
 from components.fleet_summary import (
+    fleet_health_distribution,
     fleet_kpi_cards,
     fleet_subtitle_text,
     format_render_stamp,
@@ -352,6 +353,7 @@ def register(app) -> None:
         Output("plants-table", "columns"),
         Output("plants-error", "children"),
         Output("fleet-kpis", "children"),
+        Output("fleet-health-distribution", "children"),
         Output("fleet-subtitle", "children"),
         Output("fleet-refreshed", "children"),
         Input("page-context", "data"),
@@ -359,7 +361,7 @@ def register(app) -> None:
     )
     def populate_overview(context):
         if not context or context.get("route") != "overview":
-            return no_update, no_update, no_update, no_update, no_update, no_update
+            return (no_update,) * 7
 
         # One instant for the whole render. Taken once here and passed to both
         # the freshness computation and the header, so the stamp cannot name a
@@ -367,10 +369,12 @@ def register(app) -> None:
         rendered_at = datetime.now(timezone.utc)
         subtitle = []
 
-        # One fetch, one FleetHealth, both outputs derived from it. Building the
-        # cards in a second callback would issue a second query and let the card
-        # and the table answer "which devices are stale?" differently.
+        # One fetch, one FleetHealth, every output derived from it. Building the
+        # cards (or the distribution bar) in a second callback would issue a
+        # second query and let two parts of the screen answer "which devices
+        # are stale?" differently.
         cards = []
+        distribution = []
 
         def build():
             plants = hierarchy_service.list_plants()
@@ -384,6 +388,9 @@ def register(app) -> None:
                     health=health,
                 )
             )
+            # Same health.counts the Data Health KPI card above already
+            # reads — a restatement, not a second computation.
+            distribution.append(fleet_health_distribution(health.counts))
             subtitle.append(fleet_subtitle_text(len(plants)))
             return sort_plant_rows_exception_first(
                 build_plant_rows(plants, counts, health)
@@ -392,17 +399,18 @@ def register(app) -> None:
         rows, columns, error = listing_outputs(
             build, PLANT_COLUMNS, "loading the plants overview"
         )
-        # On failure the cards and the plant count never got built, so the
-        # subtitle is left blank rather than lying about a count that was
-        # never read — the error panel is what explains the empty screen.
-        # The refresh stamp still reflects reality: the page itself rendered
-        # at `rendered_at` even though the table query underneath it failed,
-        # so it is not tied to `build()` succeeding.
+        # On failure the cards, distribution and plant count never got built,
+        # so they are left blank rather than lying about data that was never
+        # read — the error panel is what explains the empty screen. The
+        # refresh stamp still reflects reality: the page itself rendered at
+        # `rendered_at` even though the table query underneath it failed, so
+        # it is not tied to `build()` succeeding.
         return (
             rows,
             columns,
             error,
             (cards[0] if cards else None),
+            (distribution[0] if distribution else None),
             (subtitle[0] if subtitle else ""),
             format_render_stamp(rendered_at),
         )

@@ -287,6 +287,46 @@ class TestSingleSourceOfFreshness:
             "Stale · 1 of 2 devices", "Stale · 1 of 1 devices",
         ]
 
+    def test_health_distribution_adds_no_query_beyond_get_fleet_health(self, monkeypatch):
+        """fleet_health_distribution() renders health.counts, already built
+        for the KPI card - it must not be able to add a second round trip.
+        Fetch once, feed both the card and the distribution bar from it."""
+        from repositories import plant_monitoring_repository as repo
+        from services import monitoring_service
+
+        from components.fleet_summary import fleet_health_distribution
+
+        calls = []
+        monkeypatch.setattr(
+            repo, "latest_reading_times",
+            lambda metrics, include_inactive=False: calls.append(metrics) or [],
+        )
+        health = monitoring_service.get_fleet_health()
+        fleet_health_distribution(health.counts)
+        assert len(calls) == 1
+
+
+class TestFleetTableUnaffectedByTheDistributionBlock:
+    """The distribution bar is new; the table beside it must render exactly
+    as it did before, using the same PLANT_COLUMNS and the same exception-
+    first ordering."""
+
+    def test_plant_columns_are_unchanged(self):
+        assert [c["id"] for c in PLANT_COLUMNS] == [
+            "plant", "country", "fuel", "capacity_mw", "transformers", "devices", "freshness",
+        ]
+
+    def test_row_building_and_sorting_are_unaffected(self):
+        health = _health([
+            ("p_fresh", "d1", FRESH_TS), ("p_stale", "d2", STALE_TS), ("p_none", "d3", None),
+        ])
+        plants = [
+            _Plant("p_fresh", "Aaa"), _Plant("p_stale", "Zzz"), _Plant("p_none", "Mmm"),
+        ]
+        counts = {"p_fresh": (1, 1), "p_stale": (1, 1), "p_none": (1, 1)}
+        rows = sort_plant_rows_exception_first(build_plant_rows(plants, counts, health))
+        assert [r["id"] for r in rows] == ["p_none", "p_stale", "p_fresh"]
+
 
 class TestTableOverflow:
     """OBS-2 from the device acceptance pass: dash_table's default is
