@@ -17,14 +17,18 @@ from callbacks.listings import (
     build_plant_rows,
     sort_plant_rows_exception_first,
 )
-from components.fleet_summary import fleet_health_summary, fleet_kpi_cards
+from components.fleet_summary import (
+    entity_summary_block,
+    fleet_health_summary,
+    fleet_kpi_cards,
+)
 from services.monitoring_service import (
     Freshness,
     FreshnessRollup,
     fleet_health_from_rows,
     severity_rank,
 )
-from tests.dash_tree import find_by_class, text_of
+from tests.dash_tree import find_by_class, find_by_exact_class, text_of
 
 CSS_TEXT = (
     pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
@@ -193,6 +197,47 @@ class TestFleetKpiCards:
     def test_data_health_card_reports_the_rollup(self):
         values = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__value")]
         assert values[3] == "1 stale"
+
+
+class TestEntitySummaryBlockContract:
+    """`entity_summary_block` is what Fleet, Plant and Transformer cards now
+    share. These pin its own contract directly, independent of any one
+    page's wrapper."""
+
+    def test_wrapper_keeps_the_frozen_kpi_row_class(self):
+        block = entity_summary_block(counts=[("Devices", 5)], health_counts={})
+        assert block.className == "kpi-row kpi-row--fleet"
+
+    def test_count_cards_render_in_the_given_order_before_data_health(self):
+        block = entity_summary_block(
+            counts=[("Plants", 30), ("Transformers", 71), ("Devices", 120)],
+            health_counts={Freshness.FRESH: 1},
+        )
+        labels = [text_of(el) for el in find_by_class(block, "kpi-card__label")]
+        assert labels == ["Plants", "Transformers", "Devices", "Data Health"]
+
+    def test_a_single_count_card_still_composes_correctly(self):
+        """The transformer page's shape: one count card, then Data Health."""
+        block = entity_summary_block(counts=[("Devices", 2)], health_counts={})
+        labels = [text_of(el) for el in find_by_class(block, "kpi-card__label")]
+        assert labels == ["Devices", "Data Health"]
+
+    def test_data_health_card_is_never_accented(self):
+        """Locks the "no accent" rule the three call sites used to repeat."""
+        block = entity_summary_block(counts=[], health_counts={Freshness.FRESH: 1})
+        [health_card] = find_by_exact_class(block, "kpi-card")
+        assert "kpi-card--accent" not in health_card.className
+
+    def test_fleet_kpi_cards_delegates_to_entity_summary_block(self):
+        """The public wrappers exist for call-site clarity, not a second
+        implementation — same output either way."""
+        health = _health([("p1", "d1", FRESH_TS), ("p1", "d2", STALE_TS)])
+        via_wrapper = fleet_kpi_cards(plants=30, transformers=71, devices=120, health=health)
+        via_block = entity_summary_block(
+            counts=[("Plants", 30), ("Transformers", 71), ("Devices", 120)],
+            health_counts=health.counts,
+        )
+        assert repr(via_wrapper) == repr(via_block)
 
 
 class TestSingleSourceOfFreshness:

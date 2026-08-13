@@ -10,7 +10,7 @@ import pages.device_dashboard as device_dashboard
 import pages.plant_detail as plant_detail
 import pages.plants_overview as plants_overview
 import pages.transformer_detail as transformer_detail
-from tests.dash_tree import find_by_class, walk
+from tests.dash_tree import find_by_class, text_of, walk
 
 
 def _breadcrumb_labels(layout):
@@ -85,7 +85,18 @@ def test_the_route_is_still_plants():
 
 
 def test_the_plants_kpi_card_still_counts_plants():
-    """The card label is a domain noun, not the page name. It does not change."""
-    import components.fleet_summary as fleet_summary
-    source = open(fleet_summary.__file__, encoding="utf-8").read()
-    assert 'kpi_card("Plants"' in source
+    """The card label is a domain noun, not the page name. It does not change.
+
+    Asserted on the rendered output rather than on source text: the label
+    living inside a `counts=[("Plants", ...)]` list is exactly as valid a
+    place for it as a literal `kpi_card("Plants", ...)` call, so pinning the
+    source text would fail the moment the composition is refactored without
+    the label itself ever changing.
+    """
+    from services.monitoring_service import fleet_health_from_rows
+    from components.fleet_summary import fleet_kpi_cards
+
+    health = fleet_health_from_rows([])
+    cards = fleet_kpi_cards(plants=30, transformers=71, devices=120, health=health)
+    labels = [text_of(el) for el in find_by_class(cards, "kpi-card__label")]
+    assert "Plants" in labels

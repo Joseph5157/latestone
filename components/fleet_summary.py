@@ -70,6 +70,31 @@ def fleet_health_summary(health: FleetHealth) -> tuple[str, str]:
     return _health_summary(health.counts)
 
 
+def entity_summary_block(
+    counts: list[tuple[str, int]], health_counts: dict[Freshness, int]
+) -> html.Div:
+    """The shared kpi-row: N count cards, then one Data Health card.
+
+    Fleet, Plant and Transformer differ only in which counts they show and
+    which device population Data Health is scoped to — `counts` and
+    `health_counts` carry exactly that difference. Everything else (the
+    wrapper class, the card language, the "no accent" rule) is one
+    definition instead of three.
+    """
+    value, secondary = _health_summary(health_counts)
+    return html.Div(
+        className="kpi-row kpi-row--fleet",
+        children=[
+            *(kpi_card(label, str(n)) for label, n in counts),
+            # No accent: --color-accent is selection colour (app.css §tokens),
+            # and a permanently accented card spends the selection signal on
+            # something that is never selected. State reads from the dot and
+            # the wording instead.
+            kpi_card("Data Health", value, secondary=secondary),
+        ],
+    )
+
+
 def fleet_kpi_cards(
     plants: int, transformers: int, devices: int, health: FleetHealth
 ) -> html.Div:
@@ -79,19 +104,13 @@ def fleet_kpi_cards(
     from `health`, so the population shown here is the same one the plant table
     lists even if a device has no freshness row at all.
     """
-    value, secondary = fleet_health_summary(health)
-    return html.Div(
-        className="kpi-row kpi-row--fleet",
-        children=[
-            kpi_card("Plants", str(plants)),
-            kpi_card("Transformers", str(transformers)),
-            kpi_card("Devices", str(devices)),
-            # No accent: --color-accent is selection colour (app.css §tokens),
-            # and a permanently accented card spends the selection signal on
-            # something that is never selected. State reads from the dot and
-            # the wording instead.
-            kpi_card("Data Health", value, secondary=secondary),
+    return entity_summary_block(
+        counts=[
+            ("Plants", plants),
+            ("Transformers", transformers),
+            ("Devices", devices),
         ],
+        health_counts=health.counts,
     )
 
 
@@ -105,18 +124,7 @@ def transformer_kpi_cards(
     """
     rollup = health.transformers.get(transformer_id)
     counts = rollup.counts if rollup else {}
-    value, secondary = _health_summary(counts)
-    return html.Div(
-        className="kpi-row kpi-row--fleet",
-        children=[
-            kpi_card("Devices", str(devices)),
-            # No accent: --color-accent is selection colour (app.css §tokens),
-            # and a permanently accented card spends the selection signal on
-            # something that is never selected. State reads from the dot and
-            # the wording instead.
-            kpi_card("Data Health", value, secondary=secondary),
-        ],
-    )
+    return entity_summary_block(counts=[("Devices", devices)], health_counts=counts)
 
 
 def fleet_subtitle_text(plant_count: int) -> str:
@@ -155,16 +163,7 @@ def plant_kpi_cards(
     a plant page would be the same class of error as two independent freshness
     computations: numbers that are individually true and together misleading.
     """
-    value, secondary = _health_summary(health.device_counts_for_plant(plant_id))
-    return html.Div(
-        className="kpi-row kpi-row--fleet",
-        children=[
-            kpi_card("Transformers", str(transformers)),
-            kpi_card("Devices", str(devices)),
-            # No accent: --color-accent is selection colour (app.css §tokens),
-            # and a permanently accented card spends the selection signal on
-            # something that is never selected. State reads from the dot and
-            # the wording instead.
-            kpi_card("Data Health", value, secondary=secondary),
-        ],
+    return entity_summary_block(
+        counts=[("Transformers", transformers), ("Devices", devices)],
+        health_counts=health.device_counts_for_plant(plant_id),
     )

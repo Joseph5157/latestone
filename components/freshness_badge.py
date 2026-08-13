@@ -9,13 +9,11 @@ from __future__ import annotations
 
 from dash import html
 
+from components.freshness_presentation import FRESHNESS_PRESENTATION
 from services.monitoring_service import Freshness
 
-FRESHNESS_LABELS = {
-    Freshness.FRESH: "Fresh",
-    Freshness.STALE: "Stale",
-    Freshness.NO_DATA: "No data",
-}
+#: Kept as a public name: components.app_header imports it directly.
+FRESHNESS_LABELS = {state: p.label for state, p in FRESHNESS_PRESENTATION.items()}
 
 
 def freshness_class(freshness: Freshness) -> str:
