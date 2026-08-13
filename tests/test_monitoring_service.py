@@ -1,12 +1,17 @@
 """Unit tests for services.monitoring_service - no database required."""
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from config.metrics import get_metric
-from repositories.plant_monitoring_repository import RawReading
+from config.metrics import get_metric, ordered_metrics
+from repositories.plant_monitoring_repository import (
+    DeviceMetricReading,
+    LatestReadingRow,
+    RawReading,
+)
 from services import monitoring_service as svc
 from services.monitoring_service import (
     DeltaStatus,
@@ -18,6 +23,8 @@ from services.monitoring_service import (
 )
 
 NOW = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
+FRESH_TS = NOW - timedelta(minutes=10)
+STALE_TS = NOW - timedelta(days=2)
 DEVICE = "plant-01-t1-d1"
 
 
@@ -354,3 +361,236 @@ class TestMetricViewKpiProperties:
     def test_age_is_none_without_a_reading(self):
         view = self._view([], last_updated=None)
         assert view.age is None
+
+
+class TestMetricHealthFromRows:
+    """Per-metric reporting/freshness beneath one Plant or Transformer.
+
+    Not a value aggregate — this answers "how many devices are we hearing
+    from for this metric", built on the same evaluate_freshness /
+    aggregate_freshness chain the fleet rollup already uses. Phase 5,
+    Objective A.
+    """
+
+    def _row(self, plant, transformer, device, metric, ts):
+        return LatestReadingRow(plant, transformer, device, metric, ts)
+
+    def test_all_devices_fresh_reports_fresh(self):
+        rows = [
+            self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "p1-t1", "d2", "temperature", FRESH_TS),
+        ]
+        result = {h.metric.key: h for h in svc.metric_health_from_rows(rows, plant_id="p1", now=NOW)}
+        temp = result["temperature"]
+        assert temp.freshness is Freshness.FRESH
+        assert (temp.fresh_count, temp.stale_count, temp.no_data_count) == (2, 0, 0)
+        assert temp.total_devices == 2
+        assert temp.reporting_count == 2
+
+    def test_mixed_fresh_and_stale_reports_stale(self):
+        rows = [
+            self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "p1-t1", "d2", "temperature", STALE_TS),
+        ]
+        result = {h.metric.key: h for h in svc.metric_health_from_rows(rows, plant_id="p1", now=NOW)}
+        assert result["temperature"].freshness is Freshness.STALE
+
+    def test_any_no_data_wins_over_fresh_and_stale(self):
+        rows = [
+            self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "p1-t1", "d2", "temperature", STALE_TS),
+            self._row("p1", "p1-t1", "d3", "temperature", None),
+        ]
+        result = {h.metric.key: h for h in svc.metric_health_from_rows(rows, plant_id="p1", now=NOW)}
+        temp = result["temperature"]
+        assert temp.freshness is Freshness.NO_DATA
+        assert (temp.fresh_count, temp.stale_count, temp.no_data_count) == (1, 1, 1)
+
+    def test_metric_with_no_rows_at_all_is_still_reported(self):
+        """The registry drives the output, not the rows present."""
+        rows = [self._row("p1", "p1-t1", "d1", "voltage", FRESH_TS)]
+        result = {h.metric.key: h for h in svc.metric_health_from_rows(rows, plant_id="p1", now=NOW)}
+        temp = result["temperature"]
+        assert temp.freshness is Freshness.NO_DATA
+        assert temp.total_devices == 0
+
+    def test_one_missing_device_among_reporting_peers_is_no_data(self):
+        rows = [
+            self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "p1-t1", "d2", "temperature", FRESH_TS),
+            self._row("p1", "p1-t1", "d3", "temperature", None),
+        ]
+        result = {h.metric.key: h for h in svc.metric_health_from_rows(rows, plant_id="p1", now=NOW)}
+        temp = result["temperature"]
+        assert temp.total_devices == 3
+        assert temp.no_data_count == 1
+        assert temp.freshness is Freshness.NO_DATA
+
+    def test_zero_device_scope_follows_existing_empty_semantics(self):
+        """An unmatched plant_id must not invent a new status: NO_DATA is
+        exactly what aggregate_freshness([]) already returns for an empty
+        population."""
+        rows = [self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS)]
+        result = svc.metric_health_from_rows(rows, plant_id="unknown-plant", now=NOW)
+        assert all(h.freshness is Freshness.NO_DATA for h in result)
+        assert all(h.total_devices == 0 for h in result)
+
+    def test_all_eight_configured_metrics_are_returned(self):
+        result = svc.metric_health_from_rows([], plant_id="p1", now=NOW)
+        assert len(result) == 8
+
+    def test_registry_order_is_preserved(self):
+        result = svc.metric_health_from_rows([], plant_id="p1", now=NOW)
+        assert [h.metric.key for h in result] == [m.key for m in ordered_metrics()]
+
+    def test_plant_scope_excludes_other_plants(self):
+        rows = [
+            self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS),
+            self._row("p2", "p2-t1", "d2", "temperature", FRESH_TS),
+        ]
+        result = {h.metric.key: h for h in svc.metric_health_from_rows(rows, plant_id="p1", now=NOW)}
+        assert result["temperature"].total_devices == 1
+
+    def test_transformer_scope_excludes_other_transformers(self):
+        rows = [
+            self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "p1-t2", "d2", "temperature", FRESH_TS),
+        ]
+        result = {
+            h.metric.key: h
+            for h in svc.metric_health_from_rows(rows, transformer_id="p1-t1", now=NOW)
+        }
+        assert result["temperature"].total_devices == 1
+
+    def test_transformer_scope_wins_when_both_are_given(self):
+        """Matches repositories.latest_metric_readings's existing precedence."""
+        rows = [
+            self._row("p1", "p1-t1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "p1-t2", "d2", "temperature", FRESH_TS),
+        ]
+        result = {
+            h.metric.key: h
+            for h in svc.metric_health_from_rows(
+                rows, plant_id="p1", transformer_id="p1-t1", now=NOW
+            )
+        }
+        assert result["temperature"].total_devices == 1
+
+    def test_one_injected_timestamp_is_used_for_every_metric(self, monkeypatch):
+        """Proves the reference instant is resolved once, not once per metric
+        - _now() must be called at most once even across all 8 metrics."""
+        calls: list[int] = []
+        monkeypatch.setattr(svc, "_now", lambda: calls.append(1) or NOW)
+        rows = [self._row("p1", "p1-t1", "d1", m.key, FRESH_TS) for m in ordered_metrics()]
+        svc.metric_health_from_rows(rows, plant_id="p1")
+        assert len(calls) == 1
+
+    def test_requires_a_scope(self):
+        with pytest.raises(ValueError):
+            svc.metric_health_from_rows([], now=NOW)
+
+
+class TestHottestTemperature:
+    """Attribution, not aggregation: the value shown is one device's real
+    reading, selected by comparing latest-available values only. Phase 5,
+    Objective B.
+    """
+
+    def _reading(self, transformer_id, transformer_code, device_id, device_code, ts, value):
+        return DeviceMetricReading(
+            plant_id="p1", transformer_id=transformer_id, transformer_code=transformer_code,
+            device_id=device_id, device_code=device_code, metric="temperature",
+            reading_ts=ts, value=value,
+        )
+
+    def test_hottest_value_is_selected(self):
+        readings = [
+            self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 30.0),
+            self._reading("p1-t1", "ta01", "d2", "29002", FRESH_TS, 37.5),
+            self._reading("p1-t1", "ta01", "d3", "29003", FRESH_TS, 25.0),
+        ]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.value == pytest.approx(37.5)
+        assert result.device_id == "d2"
+
+    def test_a_stale_hottest_reading_is_still_eligible(self):
+        readings = [
+            self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 30.0),
+            self._reading("p1-t1", "ta01", "d2", "29002", STALE_TS, 40.0),
+        ]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.value == pytest.approx(40.0)
+        assert result.freshness is Freshness.STALE
+
+    def test_a_hotter_stale_reading_beats_a_cooler_fresh_one(self):
+        """The rule this feature exists for: freshness never substitutes for
+        value when selecting the maximum."""
+        readings = [
+            self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 22.0),
+            self._reading("p1-t1", "ta01", "d2", "29002", STALE_TS, 41.0),
+        ]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.device_id == "d2"
+        assert result.value == pytest.approx(41.0)
+
+    def test_selected_reading_carries_its_own_freshness(self):
+        readings = [self._reading("p1-t1", "ta01", "d1", "29001", STALE_TS, 40.0)]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.freshness is svc.evaluate_freshness(STALE_TS, NOW)
+
+    def test_carries_device_identity(self):
+        readings = [self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 40.0)]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert (result.device_id, result.device_code) == ("d1", "29001")
+
+    def test_carries_transformer_identity(self):
+        readings = [self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 40.0)]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert (result.transformer_id, result.transformer_code) == ("p1-t1", "ta01")
+
+    def test_reporting_count_excludes_devices_with_no_value(self):
+        readings = [
+            self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 30.0),
+            self._reading("p1-t1", "ta01", "d2", "29002", None, None),
+        ]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.reporting_count == 1
+
+    def test_total_devices_includes_devices_with_no_value(self):
+        readings = [
+            self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 30.0),
+            self._reading("p1-t1", "ta01", "d2", "29002", None, None),
+        ]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.total_devices == 2
+
+    def test_no_active_device_has_a_reading_returns_an_explicit_no_data_result(self):
+        readings = [
+            self._reading("p1-t1", "ta01", "d1", "29001", None, None),
+            self._reading("p1-t1", "ta01", "d2", "29002", None, None),
+        ]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.has_data is False
+        assert result.value is None
+        assert result.device_id is None
+        assert result.freshness is Freshness.NO_DATA
+        assert result.total_devices == 2
+        assert result.reporting_count == 0
+
+    def test_tie_is_broken_by_transformer_code_then_device_code_not_input_order(self):
+        a = self._reading("p1-t2", "ta02", "dA", "29010", FRESH_TS, 35.0)
+        b = self._reading("p1-t1", "ta01", "dB", "29005", FRESH_TS, 35.0)
+        winner_forward = svc.hottest_temperature([a, b], now=NOW)
+        winner_reversed = svc.hottest_temperature([b, a], now=NOW)
+        assert winner_forward.device_id == winner_reversed.device_id == "dB"
+
+    def test_readings_are_used_as_given_with_no_extra_status_filtering(self):
+        """DeviceMetricReading carries no status field: active-only filtering
+        is entirely repositories.latest_metric_readings's job (include_inactive
+        defaults False). This documents the boundary rather than re-testing
+        the repository's own filter."""
+        field_names = {f.name for f in dataclasses.fields(DeviceMetricReading)}
+        assert "status" not in field_names
+        readings = [self._reading("p1-t1", "ta01", "d1", "29001", FRESH_TS, 30.0)]
+        result = svc.hottest_temperature(readings, now=NOW)
+        assert result.total_devices == len(readings)

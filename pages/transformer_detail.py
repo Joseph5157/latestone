@@ -13,7 +13,9 @@ def layout(
     plant_name: str = "", transformer_code: str = "", plant_id: str = "", status: str = "",
 ) -> html.Div:
     return html.Div(
-        className="page page--transformer-detail",
+        # page--monitoring: Transformer is a hierarchy/dashboard screen like
+        # Fleet and Plant, not a reading-width page like Device (§11).
+        className="page page--monitoring page--transformer-detail",
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([
@@ -32,8 +34,15 @@ def layout(
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="devices-error", className="listing-error"),
+            # Plant, transformer, device count.
+            html.Div(id="transformer-context"),
             # Same callback, same FleetHealth as the table below it.
             html.Div(id="transformer-kpis"),
+            html.H2("Metric Health", className="section-heading"),
+            # One tile per configured metric, scoped to this transformer's devices.
+            html.Div(id="transformer-metric-health"),
+            # Hottest latest-available temperature, attributed to its device.
+            html.Div(id="transformer-attribution"),
             entity_table(
                 table_id="devices-table",
                 columns=[

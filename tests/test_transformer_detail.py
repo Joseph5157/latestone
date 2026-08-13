@@ -11,11 +11,13 @@ from datetime import datetime, timedelta, timezone
 from callbacks.listings import (
     DEVICE_COLUMNS,
     build_device_rows,
+    build_transformer_detail_view,
     sort_device_rows_exception_first,
 )
 from components.fleet_summary import transformer_kpi_cards
+from config.metrics import ATTRIBUTION_METRIC_KEY, ordered_metrics
 from services.monitoring_service import Freshness, fleet_health_from_rows
-from tests.dash_tree import find_by_class, text_of
+from tests.dash_tree import find_by_class, find_by_id, text_of
 
 NOW = datetime(2026, 8, 9, 12, 0, tzinfo=timezone.utc)
 FRESH_TS = NOW - timedelta(minutes=10)
@@ -141,3 +143,197 @@ class TestInvestigationChainConsistency:
         assert health.transformers["t2"].state is N
         assert health.plants["p1"].state is N
         assert health.counts[N] == 1
+
+
+# --------------------------------------------------------------------------
+# Phase 5 integration: build_transformer_detail_view
+# --------------------------------------------------------------------------
+
+def _stub_devices(monkeypatch, devices=()):
+    from repositories import plant_monitoring_repository as repo
+
+    monkeypatch.setattr(repo, "list_devices", lambda transformer_id: list(devices))
+
+
+class TestBuildTransformerDetailViewQueryCounts:
+    def test_fetches_latest_reading_rows_exactly_once(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_devices(monkeypatch, devices=[_Device("d1", "29017")])
+        calls = []
+        monkeypatch.setattr(
+            repo, "latest_reading_times",
+            lambda metrics, include_inactive=False: calls.append(metrics) or [],
+        )
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        assert len(calls) == 1
+
+    def test_fetches_latest_metric_readings_exactly_once_scoped_to_the_transformer(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_devices(monkeypatch, devices=[])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        calls = []
+        monkeypatch.setattr(
+            repo, "latest_metric_readings",
+            lambda metric, plant_id=None, transformer_id=None, include_inactive=False: (
+                calls.append((metric, plant_id, transformer_id)) or []
+            ),
+        )
+
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        assert calls == [(ATTRIBUTION_METRIC_KEY, None, "t1")]
+
+    def test_no_per_metric_query_loop(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_devices(monkeypatch, devices=[])
+        reading_calls = []
+        monkeypatch.setattr(
+            repo, "latest_reading_times",
+            lambda metrics, include_inactive=False: reading_calls.append(metrics) or [],
+        )
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        assert len(reading_calls) == 1
+        assert len(reading_calls[0]) == len(ordered_metrics())
+
+    def test_one_timestamp_feeds_data_health_metric_health_and_attribution(self, monkeypatch):
+        import services.monitoring_service as ms
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_devices(monkeypatch, devices=[])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        seen = {}
+        real_fleet, real_metric, real_hot = (
+            ms.fleet_health_from_rows, ms.metric_health_from_rows, ms.hottest_temperature,
+        )
+
+        def spy_fleet(rows, now=None):
+            seen["fleet"] = now
+            return real_fleet(rows, now)
+
+        def spy_metric(rows, **kw):
+            seen["metric"] = kw.get("now")
+            return real_metric(rows, **kw)
+
+        def spy_hot(readings, now=None):
+            seen["hot"] = now
+            return real_hot(readings, now=now)
+
+        monkeypatch.setattr(ms, "fleet_health_from_rows", spy_fleet)
+        monkeypatch.setattr(ms, "metric_health_from_rows", spy_metric)
+        monkeypatch.setattr(ms, "hottest_temperature", spy_hot)
+
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        assert seen["fleet"] == seen["metric"] == seen["hot"] == NOW
+
+
+class TestBuildTransformerDetailViewContent:
+    def test_context_carries_plant_transformer_and_device_count(self, monkeypatch):
+        _stub_devices(monkeypatch, devices=[_Device("d1", "29017"), _Device("d2", "29018")])
+        from repositories import plant_monitoring_repository as repo
+
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        assert result["context_fields"] == [
+            ("Plant", "Itaipu"),
+            ("Transformer", "aa12"),
+            ("Devices", 2),
+        ]
+
+    def test_metric_health_covers_all_eight_configured_metrics(self, monkeypatch):
+        _stub_devices(monkeypatch, devices=[])
+        from repositories import plant_monitoring_repository as repo
+
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        assert len(result["metric_health_items"]) == 8
+
+    def test_existing_device_table_rows_still_populate(self, monkeypatch):
+        _stub_devices(monkeypatch, devices=[_Device("d1", "29017")])
+        from repositories import plant_monitoring_repository as repo
+
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        assert [r["id"] for r in result["table_rows"]] == ["d1"]
+
+    def test_stale_attribution_reading_survives_into_the_view(self, monkeypatch):
+        from repositories.plant_monitoring_repository import DeviceMetricReading
+
+        stale_reading = DeviceMetricReading(
+            plant_id="p1", transformer_id="t1", transformer_code="aa12",
+            device_id="d1", device_code="29044", metric="temperature",
+            reading_ts=NOW - timedelta(days=2), value=41.0,
+        )
+        _stub_devices(monkeypatch, devices=[])
+        from repositories import plant_monitoring_repository as repo
+
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [stale_reading])
+
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        attribution = result["attribution"]
+        assert attribution.has_data is True
+        assert attribution.value == 41.0
+        assert attribution.freshness is Freshness.STALE
+
+    def test_attribution_omits_transformer_emphasis_for_transformer_scope(self, monkeypatch):
+        """Transformer scope: the page header already names this transformer,
+        so the card built from it must not repeat the transformer code."""
+        from components.temperature_attribution import temperature_attribution
+        from repositories.plant_monitoring_repository import DeviceMetricReading
+
+        reading = DeviceMetricReading(
+            plant_id="p1", transformer_id="t1", transformer_code="aa12",
+            device_id="d1", device_code="29044", metric="temperature",
+            reading_ts=NOW, value=30.0,
+        )
+        _stub_devices(monkeypatch, devices=[])
+        from repositories import plant_monitoring_repository as repo
+
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [reading])
+
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        card = temperature_attribution(result["attribution"], show_transformer=False)
+        assert "aa12" not in text_of(card)
+        assert "29044" in text_of(card)
+
+
+class TestTransformerPageLayout:
+    def test_uses_the_monitoring_width_class(self):
+        from pages import transformer_detail
+
+        layout = transformer_detail.layout("Plant", "T1", "p1")
+        assert "page--monitoring" in layout.className
+
+    def test_contains_the_new_container_ids(self):
+        from pages import transformer_detail
+
+        layout = transformer_detail.layout("Plant", "T1", "p1")
+        for container_id in (
+            "transformer-context", "transformer-metric-health", "transformer-attribution",
+        ):
+            assert find_by_id(layout, container_id) is not None, container_id
+
+    def test_new_containers_start_empty(self):
+        from pages import transformer_detail
+
+        layout = transformer_detail.layout("Plant", "T1", "p1")
+        for container_id in (
+            "transformer-context", "transformer-metric-health", "transformer-attribution",
+        ):
+            node = find_by_id(layout, container_id)
+            assert getattr(node, "children", None) is None

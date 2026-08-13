@@ -78,6 +78,16 @@ def test_pages_do_not_import_repositories():
 #: not decide what is stale" is exactly the rule that is easy to break while
 #: writing them. No component imports either today, so this costs nothing now
 #: and refuses the mistake later.
+#:
+#: `metric_health_from_rows`/`hottest_temperature` are the two Phase 5 service
+#: entry points that decide, respectively, which state a metric's rollup is in
+#: and which device's reading is hottest. `components.metric_health` and
+#: `components.temperature_attribution` render `MetricHealth`/
+#: `TemperatureAttribution` — the finished view models these functions
+#: return — never the rows or readings those functions take as input. Listing
+#: the functions themselves (not just `evaluate_freshness`/`aggregate_freshness`
+#: underneath them) closes the gap where a component could call the
+#: higher-level function directly and still end up deciding freshness.
 FORBIDDEN_SERVICE_SYMBOLS = {
     "bin_consumption",
     "choose_bin",
@@ -85,6 +95,8 @@ FORBIDDEN_SERVICE_SYMBOLS = {
     "series_context",
     "evaluate_freshness",
     "aggregate_freshness",
+    "metric_health_from_rows",
+    "hottest_temperature",
 }
 
 

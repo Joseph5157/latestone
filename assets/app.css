@@ -826,6 +826,119 @@ body {
 .readings-table-container { overflow-x: auto; }
 .readings-table-container .dash-table-container { max-width: 100%; }
 
+/* ---------- Entity Context ---------- */
+/* Sibling of .equipment-context (device_dashboard.py), not a reuse of it:
+   that layout is fixed at five specific fields and its CSS carries
+   positional rules (:nth-child(3), :last-child) tuned to that exact order,
+   which would misapply to a Plant/Transformer field list of different
+   length and order. Same base look (flex row, wrap, card, muted label). */
+.entity-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-6);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin-bottom: var(--sp-3);
+}
+
+.entity-context__item { display: flex; flex-direction: column; gap: 1px; }
+.entity-context__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.entity-context__value { font-size: var(--fs-body); font-weight: 500; color: var(--color-text); }
+
+/* ---------- Metric Health Overview ---------- */
+/* Data health only — never a metric-value panel. Same tile materials as
+   .kpi-card (surface/border/radius-sm/spacing), a 4-column grid rather than
+   the Snapshot Strip's 8-across: this grid carries two text lines per tile
+   (breakdown + coverage) in addition to the label and badge, so 8-across
+   would compress lines that must stay legible. */
+.metric-health-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.metric-health-tile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-4);
+}
+
+.metric-health-tile__label {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--sp-1);
+}
+
+/* Always rendered, empty when the population is a single state (all fresh,
+   all stale, or all no-data) — see components/metric_health.py
+   _breakdown_text. Reserved height so a suppressed line does not shrink that
+   one tile relative to its siblings, the same convention as
+   .kpi-card__secondary / .snapshot-tile__direction. */
+.metric-health-tile__breakdown {
+  font-size: var(--fs-body);
+  color: var(--color-text);
+  margin-top: var(--sp-1);
+  min-height: 18px;
+}
+
+.metric-health-tile__coverage {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+/* ---------- Temperature Attribution ---------- */
+.temperature-attribution {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.temperature-attribution__label {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--sp-1);
+}
+
+.temperature-attribution__value {
+  font-size: var(--fs-kpi);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+
+.temperature-attribution__identity {
+  font-size: var(--fs-body);
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
+.temperature-attribution__coverage,
+.temperature-attribution__timestamp {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}
+
+/* A stale selected reading renders exactly like a fresh one plus its badge —
+   no dimming, no separate colour path. Only the intentional no-data state
+   (has_data is False) gets different treatment. */
+.temperature-attribution--empty .temperature-attribution__empty-message {
+  font-size: var(--fs-body);
+  color: var(--color-muted);
+  margin: var(--sp-1) 0;
+}
+
 /* ---------- Pages ---------- */
 /* .page stays the default reading-width container: Device, Plant and
    Transformer are unaffected by anything below. */
@@ -884,6 +997,15 @@ body {
 
 @media (max-width: 560px) {
   .kpi-row { grid-template-columns: 1fr; }
+}
+
+/* ---------- Responsive: Metric Health Overview ---------- */
+@media (max-width: 1024px) {
+  .metric-health-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .metric-health-overview { grid-template-columns: 1fr; }
 }
 
 /* ---------- Responsive: Header ---------- */

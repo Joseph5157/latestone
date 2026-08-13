@@ -11,7 +11,9 @@ from components.status_panels import inactive_notice
 
 def layout(plant_name: str = "", status: str = "") -> html.Div:
     return html.Div(
-        className="page page--plant-detail",
+        # page--monitoring: Plant is a hierarchy/dashboard screen like Fleet,
+        # not a reading-width page like Device (§11).
+        className="page page--monitoring page--plant-detail",
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([
@@ -29,8 +31,15 @@ def layout(plant_name: str = "", status: str = "") -> html.Div:
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="transformers-error", className="listing-error"),
+            # Country, primary fuel, capacity, transformer/device counts.
+            html.Div(id="plant-context"),
             # Same callback, same FleetHealth as the table below it.
             html.Div(id="plant-kpis"),
+            html.H2("Metric Health", className="section-heading"),
+            # One tile per configured metric, scoped to this plant's devices.
+            html.Div(id="plant-metric-health"),
+            # Hottest latest-available temperature, attributed to its device.
+            html.Div(id="plant-attribution"),
             entity_table(
                 table_id="transformers-table",
                 columns=[

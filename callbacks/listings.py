@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from dash import Input, Output, State, no_update
 
+from components.entity_context import entity_context
 from components.fleet_summary import (
     fleet_kpi_cards,
     fleet_subtitle_text,
@@ -17,7 +18,10 @@ from components.fleet_summary import (
     plant_kpi_cards,
     transformer_kpi_cards,
 )
+from components.metric_health import metric_health_overview
 from components.status_panels import error_panel
+from components.temperature_attribution import temperature_attribution
+from config.metrics import ATTRIBUTION_METRIC_KEY
 from routes import device_href
 from services import hierarchy_service, monitoring_service
 from services.monitoring_service import aggregate_freshness, severity_rank
@@ -224,6 +228,122 @@ def listing_outputs(build_rows, columns: list[dict], context_msg: str) -> tuple:
         return [], columns, error_panel()
 
 
+# --------------------------------------------------------------------------
+# Plant / Transformer detail data (Phase 5)
+#
+# Named module-level functions rather than closures, matching the row
+# builders above: the query-count and one-render-timestamp behaviour these
+# depend on becomes directly testable without the Dash callback machinery.
+# --------------------------------------------------------------------------
+
+def _format_capacity_mw(value) -> str | None:
+    """Same raw figure the Fleet/Plant table's numeric "Capacity (MW)" column
+    carries, with the unit restated — Entity Context has no column header to
+    carry it.
+
+    `value` arrives as `decimal.Decimal` (the column is NUMERIC), not
+    `float`: `f"{Decimal('5805.0'):g}"` renders "5805.0", preserving the
+    column's stored scale, while `f"{5805.0:g}"` renders "5805" — the exact
+    trailing-zero-free form dash_table's own numeric renderer already shows
+    for this same value one screen away. Coercing to float first is what
+    "consistent with the existing Fleet table" actually requires.
+    """
+    if value is None:
+        return None
+    return f"{float(value):g} MW"
+
+
+def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
+    """Everything the Plant page needs, from one `latest_reading_rows()` fetch
+    and one `latest_metric_readings()` fetch — never one query per section.
+
+    `rendered_at` is threaded into every freshness-dependent piece (Data
+    Health, Metric Health, the attribution card's freshness) so the whole
+    render answers "as of one instant", the same rule `get_fleet_health`
+    already applies on the Fleet screen.
+    """
+    plant = hierarchy_service.get_plant_or_none(plant_id)
+    transformers = hierarchy_service.list_transformers(plant_id)
+    device_counts = {
+        t.transformer_id: len(hierarchy_service.list_devices(t.transformer_id))
+        for t in transformers
+    }
+    total_devices = sum(device_counts.values())
+
+    # One fetch, two derivations: fleet_health_from_rows and
+    # metric_health_from_rows both read this same result set rather than
+    # each issuing their own latest_reading_times() query.
+    rows = monitoring_service.latest_reading_rows()
+    health = monitoring_service.fleet_health_from_rows(rows, rendered_at)
+    metric_health_items = monitoring_service.metric_health_from_rows(
+        rows, plant_id=plant_id, now=rendered_at
+    )
+
+    temperature_readings = monitoring_service.latest_metric_readings(
+        ATTRIBUTION_METRIC_KEY, plant_id=plant_id
+    )
+    attribution = monitoring_service.hottest_temperature(temperature_readings, now=rendered_at)
+
+    context_fields = [
+        ("Country", plant.country if plant else None),
+        ("Primary fuel", plant.primary_fuel if plant else None),
+        ("Capacity", _format_capacity_mw(plant.capacity_mw) if plant else None),
+        ("Transformers", len(transformers)),
+        ("Devices", total_devices),
+    ]
+
+    return {
+        "table_rows": sort_transformer_rows_exception_first(
+            build_transformer_rows(transformers, device_counts, health)
+        ),
+        "kpi_cards": plant_kpi_cards(
+            plant_id=plant_id, transformers=len(transformers),
+            devices=total_devices, health=health,
+        ),
+        "context_fields": context_fields,
+        "metric_health_items": metric_health_items,
+        "attribution": attribution,
+    }
+
+
+def build_transformer_detail_view(
+    transformer_id: str, plant_name: str, transformer_code: str, rendered_at: datetime,
+) -> dict:
+    """Everything the Transformer page needs, from one `latest_reading_rows()`
+    fetch and one `latest_metric_readings()` fetch.
+
+    `plant_name`/`transformer_code` come from `page-context` (already resolved
+    by the router) rather than a repository call — they are the two Entity
+    Context fields that need no new query at all.
+    """
+    devices = hierarchy_service.list_devices(transformer_id)
+
+    rows = monitoring_service.latest_reading_rows()
+    health = monitoring_service.fleet_health_from_rows(rows, rendered_at)
+    metric_health_items = monitoring_service.metric_health_from_rows(
+        rows, transformer_id=transformer_id, now=rendered_at
+    )
+
+    temperature_readings = monitoring_service.latest_metric_readings(
+        ATTRIBUTION_METRIC_KEY, transformer_id=transformer_id
+    )
+    attribution = monitoring_service.hottest_temperature(temperature_readings, now=rendered_at)
+
+    context_fields = [
+        ("Plant", plant_name),
+        ("Transformer", transformer_code),
+        ("Devices", len(devices)),
+    ]
+
+    return {
+        "table_rows": sort_device_rows_exception_first(build_device_rows(devices, health)),
+        "kpi_cards": transformer_kpi_cards(transformer_id, len(devices), health),
+        "context_fields": context_fields,
+        "metric_health_items": metric_health_items,
+        "attribution": attribution,
+    }
+
+
 def register(app) -> None:
     """Register listing callbacks on the Dash app."""
 
@@ -292,71 +412,95 @@ def register(app) -> None:
         Output("transformers-table", "columns"),
         Output("transformers-error", "children"),
         Output("plant-kpis", "children"),
+        Output("plant-context", "children"),
+        Output("plant-metric-health", "children"),
+        Output("plant-attribution", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_plant_detail(context):
         if not context or context.get("route") != "plant":
-            return no_update, no_update, no_update, no_update
+            return (no_update,) * 7
         plant_id = context.get("plant_id")
 
-        cards = []
+        # One instant for the whole render (§2): Data Health, Metric Health
+        # and the attribution card's freshness must not disagree about which
+        # instant "now" was.
+        rendered_at = datetime.now(timezone.utc)
+        result: dict = {}
 
         def build():
-            transformers = hierarchy_service.list_transformers(plant_id)
-            device_counts = {
-                t.transformer_id: len(hierarchy_service.list_devices(t.transformer_id))
-                for t in transformers
-            }
-            # Same one-object rule as the fleet screen: one FleetHealth serves
-            # the plant's card and every transformer row beneath it.
-            health = monitoring_service.get_fleet_health()
-            cards.append(
-                plant_kpi_cards(
-                    plant_id=plant_id,
-                    transformers=len(transformers),
-                    devices=sum(device_counts.values()),
-                    health=health,
-                )
-            )
-            return sort_transformer_rows_exception_first(
-                build_transformer_rows(transformers, device_counts, health)
-            )
+            result.update(build_plant_detail_view(plant_id, rendered_at))
+            return result["table_rows"]
 
         rows, columns, error = listing_outputs(
             build, TRANSFORMER_COLUMNS, f"loading transformers for plant_id={plant_id!r}"
         )
-        return rows, columns, error, (cards[0] if cards else None)
+        # On failure `result` never got populated. The new sections render
+        # blank rather than a second copy of the error message — the single
+        # `transformers-error` slot above already says the page failed to
+        # load; the existing plant-kpis output already follows this rule.
+        return (
+            rows,
+            columns,
+            error,
+            result.get("kpi_cards"),
+            entity_context(result["context_fields"]) if result else None,
+            metric_health_overview(result["metric_health_items"]) if result else None,
+            (
+                temperature_attribution(result["attribution"], show_transformer=True)
+                if result else None
+            ),
+        )
 
     @app.callback(
         Output("devices-table", "data"),
         Output("devices-table", "columns"),
         Output("devices-error", "children"),
         Output("transformer-kpis", "children"),
+        Output("transformer-context", "children"),
+        Output("transformer-metric-health", "children"),
+        Output("transformer-attribution", "children"),
         Input("page-context", "data"),
         prevent_initial_call=True,
     )
     def populate_transformer_detail(context):
         if not context or context.get("route") != "transformer":
-            return no_update, no_update, no_update, no_update
+            return (no_update,) * 7
         transformer_id = context.get("transformer_id")
+        plant_name = context.get("plant_name", "")
+        transformer_code = context.get("transformer_code", "")
 
-        cards = []
+        rendered_at = datetime.now(timezone.utc)
+        result: dict = {}
 
         def build():
-            devices = hierarchy_service.list_devices(transformer_id)
-            health = monitoring_service.get_fleet_health()
-            cards.append(
-                transformer_kpi_cards(transformer_id, len(devices), health)
+            result.update(
+                build_transformer_detail_view(
+                    transformer_id, plant_name, transformer_code, rendered_at
+                )
             )
-            return sort_device_rows_exception_first(build_device_rows(devices, health))
+            return result["table_rows"]
 
         rows, columns, error = listing_outputs(
             build,
             DEVICE_COLUMNS,
             f"loading devices for transformer_id={transformer_id!r}",
         )
-        return rows, columns, error, (cards[0] if cards else None)
+        return (
+            rows,
+            columns,
+            error,
+            result.get("kpi_cards"),
+            entity_context(result["context_fields"]) if result else None,
+            metric_health_overview(result["metric_health_items"]) if result else None,
+            (
+                # Transformer scope: the page header already names this
+                # transformer, so the attribution card does not repeat it.
+                temperature_attribution(result["attribution"], show_transformer=False)
+                if result else None
+            ),
+        )
 
     # Row-click navigation. dash_table has no non-markdown way to render a cell
     # as a link, and markdown-presentation links are hardcoded by dash_table to

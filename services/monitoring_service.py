@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from config.metrics import (
+    ATTRIBUTION_METRIC_KEY,
     SOURCE_RESOLUTION_MINUTES,
     Aggregation,
     MetricConfig,
@@ -24,7 +25,7 @@ from config.metrics import (
 )
 from config.settings import monitoring
 from repositories import plant_monitoring_repository as repo
-from repositories.plant_monitoring_repository import RawReading
+from repositories.plant_monitoring_repository import DeviceMetricReading, RawReading
 
 
 class Freshness(str, Enum):
@@ -401,6 +402,199 @@ def latest_reading_rows() -> list[LatestReadingRow]:
     only device rollups.
     """
     return repo.latest_reading_times([m.key for m in ordered_metrics()])
+
+
+@dataclass(frozen=True)
+class MetricHealth:
+    """One metric's data-health rollup across the devices beneath one Plant
+    or Transformer.
+
+    Reporting/freshness only — never a value aggregate. Wraps a
+    `FreshnessRollup` the same way `FleetHealth` does at the device level, so
+    "worst-of" and the empty-population rule (`aggregate_freshness([])` ->
+    NO_DATA) stay defined in exactly one place rather than reimplemented per
+    axis.
+    """
+
+    metric: MetricConfig
+    rollup: FreshnessRollup
+
+    @property
+    def freshness(self) -> Freshness:
+        return self.rollup.state
+
+    @property
+    def fresh_count(self) -> int:
+        return self.rollup.counts[Freshness.FRESH]
+
+    @property
+    def stale_count(self) -> int:
+        return self.rollup.counts[Freshness.STALE]
+
+    @property
+    def no_data_count(self) -> int:
+        return self.rollup.counts[Freshness.NO_DATA]
+
+    @property
+    def reporting_count(self) -> int:
+        """Devices that have ever reported this metric, fresh or stale alike."""
+        return self.rollup.total - self.no_data_count
+
+    @property
+    def total_devices(self) -> int:
+        return self.rollup.total
+
+
+def metric_health_from_rows(
+    rows,
+    *,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+    now: datetime | None = None,
+) -> list[MetricHealth]:
+    """Per-metric reporting/freshness beneath one Plant or Transformer, from
+    an already-fetched `latest_reading_rows()` result.
+
+    Takes rows rather than querying: the fleet-wide fetch already carries
+    every active device x every configured metric (`latest_reading_times`'s
+    CROSS JOIN), so a Plant or Transformer screen filters the same result set
+    it already holds for `fleet_health_from_rows` rather than paying for a
+    second round trip. Device population comes from the filtered rows
+    themselves — a device that never reported a metric still has a row (NULL
+    `reading_ts`, from the repository's LEFT JOIN LATERAL), so grouping by
+    device already reflects the correct active population without a separate
+    hierarchy call.
+
+    `transformer_id` wins if both scope arguments are given, matching
+    `repositories.plant_monitoring_repository.latest_metric_readings`'s
+    existing convention.
+
+    Every configured metric is present in the result, in `ordered_metrics()`
+    order — including a metric with zero matching rows, or a scope with zero
+    matching devices, which reports the pre-existing empty-population rollup
+    (`aggregate_freshness([])` -> NO_DATA) rather than being omitted.
+    """
+    if plant_id is None and transformer_id is None:
+        raise ValueError(
+            "metric_health_from_rows requires either plant_id or transformer_id"
+        )
+
+    reference = now or _now()
+
+    if transformer_id is not None:
+        scoped = [r for r in rows if r.transformer_id == transformer_id]
+    else:
+        scoped = [r for r in rows if r.plant_id == plant_id]
+
+    states_by_metric: dict[str, list[Freshness]] = {m.key: [] for m in ordered_metrics()}
+    for row in scoped:
+        if row.metric in states_by_metric:
+            states_by_metric[row.metric].append(evaluate_freshness(row.reading_ts, reference))
+
+    return [
+        MetricHealth(metric=metric, rollup=aggregate_freshness(states_by_metric[metric.key]))
+        for metric in ordered_metrics()
+    ]
+
+
+def latest_metric_readings(
+    metric: str, *, plant_id: str | None = None, transformer_id: str | None = None
+) -> list[DeviceMetricReading]:
+    """The one attribution fetch for one Plant or Transformer render.
+
+    Thin delegation to the repository, mirroring `latest_reading_rows()`: the
+    service stays the one place a callback reaches for data, never the
+    repository directly, even where there is no aggregation to add on top of
+    what the repository already returns.
+    """
+    return repo.latest_metric_readings(metric, plant_id=plant_id, transformer_id=transformer_id)
+
+
+@dataclass(frozen=True)
+class TemperatureAttribution:
+    """The hottest latest-available temperature beneath one Plant or
+    Transformer, attributed to the device that recorded it.
+
+    `has_data` is False exactly when no active device beneath the entity has
+    ever reported the attribution metric — every identity/value field is then
+    None, so a component can render "No temperature data available" without
+    inspecting individual fields or catching an exception.
+    """
+
+    metric: MetricConfig
+    value: float | None
+    reading_ts: datetime | None
+    freshness: Freshness
+    device_id: str | None
+    device_code: str | None
+    transformer_id: str | None
+    transformer_code: str | None
+    reporting_count: int
+    total_devices: int
+    has_data: bool
+
+
+def hottest_temperature(
+    readings: list[DeviceMetricReading], now: datetime | None = None
+) -> TemperatureAttribution:
+    """Attribute the maximum latest-available temperature to its device.
+
+    `readings` is one `latest_metric_readings(ATTRIBUTION_METRIC_KEY, ...)`
+    result, already scoped to one Plant or Transformer and already
+    active-only — the repository call's default. This function does not
+    re-filter by status or entity; it only selects and attributes.
+
+    STALE READINGS ARE ELIGIBLE. Freshness and "hottest" are independent
+    questions: a device that stopped reporting yesterday at 40C is still the
+    hottest known reading today, and silently preferring a cooler FRESH
+    device over it would hide the more extreme condition. The selected
+    reading's own freshness is reported separately, so a component can still
+    show a staleness indicator beside the value.
+
+    Ties (identical maximum value) are broken by (transformer_code,
+    device_code) ascending — a fixed, human-stable rule, not the order
+    `readings` happens to arrive in. The repository returns rows in this same
+    order today, but that ordering is not relied on here.
+    """
+    metric = get_metric(ATTRIBUTION_METRIC_KEY)
+    reference = now or _now()
+    total_devices = len(readings)
+    reporting = [r for r in readings if r.value is not None]
+
+    if not reporting:
+        return TemperatureAttribution(
+            metric=metric,
+            value=None,
+            reading_ts=None,
+            freshness=Freshness.NO_DATA,
+            device_id=None,
+            device_code=None,
+            transformer_id=None,
+            transformer_code=None,
+            reporting_count=0,
+            total_devices=total_devices,
+            has_data=False,
+        )
+
+    max_value = max(r.value for r in reporting)
+    hottest = min(
+        (r for r in reporting if r.value == max_value),
+        key=lambda r: (r.transformer_code, r.device_code),
+    )
+
+    return TemperatureAttribution(
+        metric=metric,
+        value=hottest.value,
+        reading_ts=hottest.reading_ts,
+        freshness=evaluate_freshness(hottest.reading_ts, reference),
+        device_id=hottest.device_id,
+        device_code=hottest.device_code,
+        transformer_id=hottest.transformer_id,
+        transformer_code=hottest.transformer_code,
+        reporting_count=len(reporting),
+        total_devices=total_devices,
+        has_data=True,
+    )
 
 
 def reading_age(last_updated: datetime | None, now: datetime | None = None):

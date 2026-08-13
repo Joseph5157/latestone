@@ -10,12 +10,14 @@ from datetime import datetime, timedelta, timezone
 
 from callbacks.listings import (
     TRANSFORMER_COLUMNS,
+    build_plant_detail_view,
     build_transformer_rows,
     sort_transformer_rows_exception_first,
 )
 from components.fleet_summary import plant_kpi_cards
+from config.metrics import ATTRIBUTION_METRIC_KEY, ordered_metrics
 from services.monitoring_service import Freshness, fleet_health_from_rows
-from tests.dash_tree import find_by_class, text_of
+from tests.dash_tree import find_by_class, find_by_id, text_of
 
 NOW = datetime(2026, 8, 9, 12, 0, tzinfo=timezone.utc)
 FRESH_TS = NOW - timedelta(minutes=10)
@@ -168,3 +170,250 @@ class TestPlantKpiCards:
                                 health=_health([]))
         secondary = [text_of(el) for el in find_by_class(cards, "kpi-card__secondary")]
         assert secondary[2] == "No data available"
+
+
+# --------------------------------------------------------------------------
+# Phase 5 integration: build_plant_detail_view
+# --------------------------------------------------------------------------
+
+class _Device:
+    """Only `.status` matters to `hierarchy_service.list_devices`'s active
+    filter; the row-building code under test never reads device identity."""
+    def __init__(self, status="active"):
+        self.status = status
+
+
+class _PlantRecord:
+    def __init__(self, plant_id, name, country="Chile", primary_fuel="Hydro", capacity_mw=450.0):
+        self.plant_id = plant_id
+        self.name = name
+        self.country = country
+        self.primary_fuel = primary_fuel
+        self.capacity_mw = capacity_mw
+
+
+def _stub_hierarchy(monkeypatch, plant=None, transformers=(), devices_by_transformer=None):
+    from repositories import plant_monitoring_repository as repo
+
+    monkeypatch.setattr(repo, "get_plant", lambda plant_id: plant)
+    monkeypatch.setattr(repo, "list_transformers", lambda plant_id: list(transformers))
+    by_transformer = devices_by_transformer or {}
+    monkeypatch.setattr(
+        repo, "list_devices",
+        lambda transformer_id: list(by_transformer.get(transformer_id, [])),
+    )
+
+
+class TestBuildPlantDetailViewQueryCounts:
+    """The whole point of splitting latest_reading_rows() out: Data Health and
+    Metric Health must share one fetch, and attribution must not add a loop."""
+
+    def test_fetches_latest_reading_rows_exactly_once(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(
+            monkeypatch, plant=_PlantRecord("p1", "Itaipu"),
+            transformers=[_Transformer("t1", "aa12")],
+            devices_by_transformer={"t1": [_Device()]},
+        )
+        calls = []
+        monkeypatch.setattr(
+            repo, "latest_reading_times",
+            lambda metrics, include_inactive=False: calls.append(metrics) or [],
+        )
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        build_plant_detail_view("p1", NOW)
+        assert len(calls) == 1
+
+    def test_fetches_latest_metric_readings_exactly_once_scoped_to_the_plant(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(monkeypatch, plant=_PlantRecord("p1", "Itaipu"), transformers=[])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        calls = []
+        monkeypatch.setattr(
+            repo, "latest_metric_readings",
+            lambda metric, plant_id=None, transformer_id=None, include_inactive=False: (
+                calls.append((metric, plant_id, transformer_id)) or []
+            ),
+        )
+
+        build_plant_detail_view("p1", NOW)
+        assert calls == [(ATTRIBUTION_METRIC_KEY, "p1", None)]
+
+    def test_no_per_metric_query_loop(self, monkeypatch):
+        """One latest_reading_times() call covers all 8 metrics via its own
+        CROSS JOIN - metric_health_from_rows must not issue one per metric."""
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(monkeypatch, plant=_PlantRecord("p1", "Itaipu"), transformers=[])
+        reading_calls = []
+        monkeypatch.setattr(
+            repo, "latest_reading_times",
+            lambda metrics, include_inactive=False: reading_calls.append(metrics) or [],
+        )
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        build_plant_detail_view("p1", NOW)
+        assert len(reading_calls) == 1
+        assert len(reading_calls[0]) == len(ordered_metrics())
+
+    def test_one_timestamp_feeds_data_health_metric_health_and_attribution(self, monkeypatch):
+        import services.monitoring_service as ms
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(monkeypatch, plant=_PlantRecord("p1", "Itaipu"), transformers=[])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        seen = {}
+        real_fleet, real_metric, real_hot = (
+            ms.fleet_health_from_rows, ms.metric_health_from_rows, ms.hottest_temperature,
+        )
+
+        def spy_fleet(rows, now=None):
+            seen["fleet"] = now
+            return real_fleet(rows, now)
+
+        def spy_metric(rows, **kw):
+            seen["metric"] = kw.get("now")
+            return real_metric(rows, **kw)
+
+        def spy_hot(readings, now=None):
+            seen["hot"] = now
+            return real_hot(readings, now=now)
+
+        monkeypatch.setattr(ms, "fleet_health_from_rows", spy_fleet)
+        monkeypatch.setattr(ms, "metric_health_from_rows", spy_metric)
+        monkeypatch.setattr(ms, "hottest_temperature", spy_hot)
+
+        build_plant_detail_view("p1", NOW)
+        assert seen["fleet"] == seen["metric"] == seen["hot"] == NOW
+
+
+class TestBuildPlantDetailViewContent:
+    def test_context_carries_country_fuel_capacity_and_counts(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(
+            monkeypatch,
+            plant=_PlantRecord("p1", "Itaipu", country="Brazil", primary_fuel="Hydro", capacity_mw=450.0),
+            transformers=[_Transformer("t1", "aa12"), _Transformer("t2", "aa13")],
+            devices_by_transformer={"t1": [_Device()], "t2": [_Device(), _Device()]},
+        )
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_plant_detail_view("p1", NOW)
+        assert result["context_fields"] == [
+            ("Country", "Brazil"),
+            ("Primary fuel", "Hydro"),
+            ("Capacity", "450 MW"),
+            ("Transformers", 2),
+            ("Devices", 3),
+        ]
+
+    def test_metric_health_covers_all_eight_configured_metrics(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(monkeypatch, plant=_PlantRecord("p1", "Itaipu"), transformers=[])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_plant_detail_view("p1", NOW)
+        assert len(result["metric_health_items"]) == 8
+
+    def test_capacity_formats_a_decimal_column_value_without_a_trailing_zero(self, monkeypatch):
+        """`capacity_mw` is a NUMERIC column: psycopg2 hands back a
+        `decimal.Decimal`, not a `float`. `f"{Decimal('5805.0'):g}"` renders
+        "5805.0" (it preserves the column's stored scale); the Fleet table's
+        own numeric cell for this same value renders "5805" — this must
+        match that, not the Decimal's raw scale. Caught live in the browser,
+        not just reasoned about."""
+        from decimal import Decimal
+
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(
+            monkeypatch,
+            plant=_PlantRecord("p1", "Az Zour South CCGT", capacity_mw=Decimal("5805.0")),
+            transformers=[],
+        )
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_plant_detail_view("p1", NOW)
+        capacity_field = dict(result["context_fields"])["Capacity"]
+        assert capacity_field == "5805 MW"
+
+    def test_existing_transformer_table_rows_still_populate(self, monkeypatch):
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(
+            monkeypatch, plant=_PlantRecord("p1", "Itaipu"),
+            transformers=[_Transformer("t1", "aa12")],
+            devices_by_transformer={"t1": [_Device()]},
+        )
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_plant_detail_view("p1", NOW)
+        assert [r["id"] for r in result["table_rows"]] == ["t1"]
+
+    def test_stale_attribution_reading_survives_into_the_view(self, monkeypatch):
+        """A hotter stale reading must reach the component, not get filtered
+        out along the way."""
+        from repositories.plant_monitoring_repository import DeviceMetricReading
+
+        stale_reading = DeviceMetricReading(
+            plant_id="p1", transformer_id="t1", transformer_code="aa12",
+            device_id="d1", device_code="29044", metric="temperature",
+            reading_ts=NOW - timedelta(days=2), value=41.0,
+        )
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(monkeypatch, plant=_PlantRecord("p1", "Itaipu"), transformers=[])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [stale_reading])
+
+        result = build_plant_detail_view("p1", NOW)
+        attribution = result["attribution"]
+        assert attribution.has_data is True
+        assert attribution.value == 41.0
+        assert attribution.freshness is Freshness.STALE
+
+    def test_missing_plant_record_does_not_crash_the_context(self, monkeypatch):
+        """get_plant_or_none can return None (e.g. a race with deletion) -
+        context fields fall back to None rather than raising."""
+        from repositories import plant_monitoring_repository as repo
+
+        _stub_hierarchy(monkeypatch, plant=None, transformers=[])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
+
+        result = build_plant_detail_view("p1", NOW)
+        assert result["context_fields"][0] == ("Country", None)
+
+
+class TestPlantPageLayout:
+    def test_uses_the_monitoring_width_class(self):
+        from pages import plant_detail
+
+        assert "page--monitoring" in plant_detail.layout("Plant").className
+
+    def test_contains_the_new_container_ids(self):
+        from pages import plant_detail
+
+        layout = plant_detail.layout("Plant")
+        for container_id in ("plant-context", "plant-metric-health", "plant-attribution"):
+            assert find_by_id(layout, container_id) is not None, container_id
+
+    def test_new_containers_start_empty(self):
+        """Nothing renders until the callback fires."""
+        from pages import plant_detail
+
+        layout = plant_detail.layout("Plant")
+        for container_id in ("plant-context", "plant-metric-health", "plant-attribution"):
+            node = find_by_id(layout, container_id)
+            assert getattr(node, "children", None) is None
