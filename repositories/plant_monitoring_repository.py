@@ -288,6 +288,125 @@ def latest_reading_times(
     return [LatestReadingRow(r[0], r[1], r[2], r[3], r[4]) for r in rows]
 
 
+@dataclass(frozen=True)
+class DeviceMetricReading:
+    """One device's newest reading of one metric, with its place in the tree.
+
+    `reading_ts`/`value` are nullable: the query keeps a device that has never
+    reported, so a caller can say "3 of 7 devices reporting" rather than
+    silently narrowing the population it claims to describe.
+    """
+
+    plant_id: str
+    transformer_id: str
+    transformer_code: str
+    device_id: str
+    device_code: str
+    metric: str
+    reading_ts: datetime | None
+    value: float | None
+
+
+def _to_device_metric_reading(row) -> DeviceMetricReading:
+    """Deliberately not `_to_reading`, which does an unguarded `float(row[3])`.
+
+    A device with no reading of this metric arrives from the LEFT JOIN with
+    NULLs, and coercing those would raise rather than report the gap.
+    """
+    return DeviceMetricReading(
+        plant_id=row[0],
+        transformer_id=row[1],
+        transformer_code=row[2],
+        device_id=row[3],
+        device_code=row[4],
+        metric=row[5],
+        reading_ts=row[6],
+        value=float(row[7]) if row[7] is not None else None,
+    )
+
+
+def latest_metric_readings(
+    metric: str,
+    *,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+    include_inactive: bool = False,
+) -> list[DeviceMetricReading]:
+    """Newest reading of ONE metric for every device beneath one entity.
+
+    Deliberately single-metric and entity-scoped. Widening it to all eight
+    metrics fleet-wide would make every caller pay for 960 values to read one,
+    and `latest_reading_times` already covers the fleet-wide case by returning
+    timestamps alone.
+
+    Same `LEFT JOIN LATERAL (... ORDER BY reading_ts DESC LIMIT 1)` shape as
+    `latest_reading_times`, for the same reason: the predicate plus ordering is
+    an exact prefix of `ix_readings_device_metric_ts`, so each device costs one
+    bounded index seek. It is one round trip with N seeks, not N queries — and
+    emphatically not a range scan, which would read ~1,400 rows per device to
+    compute a single maximum.
+
+    The status filter is byte-identical to `latest_reading_times` so the
+    population here matches the freshness figures rendered beside it. Two
+    filters that drift would put two different device counts on one screen.
+
+    DEVELOPMENT ADAPTER. The client's final schema is unknown; when it lands,
+    this is reimplemented behind the same typed return contract, and nothing
+    above the repository changes.
+    """
+    if plant_id is None and transformer_id is None:
+        # Matches the module's no-unbounded-reading-query rule: without a scope
+        # this would seek every device in the fleet.
+        raise ValueError(
+            "latest_metric_readings requires either plant_id or transformer_id"
+        )
+
+    params: dict = {"metric": metric}
+
+    # Literal fragments, bound values — the same idiom as `latest_reading_times`
+    # and `count_hierarchy_by_plant`, so this file has one way of doing it.
+    if transformer_id is not None:
+        scope_sql = " AND d.transformer_id = :transformer_id"
+        params["transformer_id"] = transformer_id
+    else:
+        scope_sql = " AND t.plant_id = :plant_id"
+        params["plant_id"] = plant_id
+
+    status_filter = (
+        "" if include_inactive
+        else " AND d.status = :active AND t.status = :active"
+    )
+    if not include_inactive:
+        params["active"] = ACTIVE_STATUS
+
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT t.plant_id, t.transformer_id, t.transformer_code,
+                       d.device_id, d.device_code,
+                       :metric AS metric,
+                       latest.reading_ts, latest.value
+                FROM {_SCHEMA}.devices d
+                JOIN {_SCHEMA}.transformers t
+                  ON t.transformer_id = d.transformer_id
+                LEFT JOIN LATERAL (
+                    SELECT rr.reading_ts, rr.value
+                    FROM {_SCHEMA}.readings rr
+                    WHERE rr.device_id = d.device_id AND rr.metric = :metric
+                    ORDER BY rr.reading_ts DESC
+                    LIMIT 1
+                ) latest ON TRUE
+                WHERE TRUE{status_filter}{scope_sql}
+                ORDER BY t.transformer_code, d.device_code
+                """
+            ),
+            params,
+        ).all()
+
+    return [_to_device_metric_reading(r) for r in rows]
+
+
 # ---------------------------------------------------------------------------
 # Reading queries
 # ---------------------------------------------------------------------------

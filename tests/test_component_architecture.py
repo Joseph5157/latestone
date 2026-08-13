@@ -71,7 +71,21 @@ def test_pages_do_not_import_repositories():
 #: names Phase 4 moved kpi_card.py off of (onto MetricView properties that
 #: call them internally — the properties themselves are not banned, only a
 #: component importing the raw functions is).
-FORBIDDEN_SERVICE_SYMBOLS = {"bin_consumption", "choose_bin", "reading_age", "series_context"}
+#:
+#: `evaluate_freshness`/`aggregate_freshness` are listed pre-emptively rather
+#: than in response to a violation: the Phase 5 metric-health work introduces
+#: the first components that render freshness rollups, and "the component must
+#: not decide what is stale" is exactly the rule that is easy to break while
+#: writing them. No component imports either today, so this costs nothing now
+#: and refuses the mistake later.
+FORBIDDEN_SERVICE_SYMBOLS = {
+    "bin_consumption",
+    "choose_bin",
+    "reading_age",
+    "series_context",
+    "evaluate_freshness",
+    "aggregate_freshness",
+}
 
 
 def _imported_symbols_from_services(path: pathlib.Path) -> set[str]:

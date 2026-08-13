@@ -385,9 +385,22 @@ def get_fleet_health(now: datetime | None = None) -> FleetHealth:
     cannot claim to have refreshed at a moment different from the one its
     freshness column was computed at.
     """
-    return fleet_health_from_rows(
-        repo.latest_reading_times([m.key for m in ordered_metrics()]), now
-    )
+    return fleet_health_from_rows(latest_reading_rows(), now)
+
+
+def latest_reading_rows() -> list[LatestReadingRow]:
+    """The one fleet-wide freshness fetch, unaggregated.
+
+    Split out from `get_fleet_health` so a screen needing two different rollups
+    of the same facts pays one round trip rather than two. The plant and
+    transformer screens need exactly that: device rollups for the Data Health
+    card and per-metric rollups for the health grid, which must not be able to
+    disagree about which feeds are stale.
+
+    `get_fleet_health` remains the right entry point for a screen that needs
+    only device rollups.
+    """
+    return repo.latest_reading_times([m.key for m in ordered_metrics()])
 
 
 def reading_age(last_updated: datetime | None, now: datetime | None = None):

@@ -59,6 +59,25 @@ METRICS: tuple[MetricConfig, ...] = (
 #: DEVELOPMENT VALUE — replace when the real client cadence is known.
 SOURCE_RESOLUTION_MINUTES: int = 30
 
+#: The one metric whose VALUE may be shown above device level.
+#:
+#: Plant and transformer screens attribute a maximum to the device that
+#: recorded it — "hottest device: 29044, 37.5 °C" — rather than aggregating.
+#: A maximum with attribution is a real reading from a real device; an average
+#: voltage across a transformer's devices is a number nothing measured.
+#:
+#: Temperature is the only metric that survives that test today. A feasibility
+#: audit found the model has no device role/rating/voltage-level field, so
+#: summing current or power assumes a topology we cannot see, and frequency,
+#: voltage and power factor carry almost no cross-plant variation. Energy is
+#: roll-up-capable by summation (not by maximum) but its client semantics are
+#: unconfirmed, so it is deliberately excluded here.
+#:
+#: A constant rather than a `MetricConfig` field: one fact about one metric
+#: does not justify restating all eight constructions. When energy joins, this
+#: should become a `rollup:` field on MetricConfig instead.
+ATTRIBUTION_METRIC_KEY: str = "temperature"
+
 METRIC_KEYS: tuple[str, ...] = tuple(m.key for m in METRICS)
 DEFAULT_METRIC_KEY: str = METRICS[0].key
 
