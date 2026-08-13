@@ -13,10 +13,11 @@ from __future__ import annotations
 from dash import dcc, html
 import plotly.graph_objects as go
 
+from components.chart_presentation import TEMPLATE, grid_axis, hover_template, no_data_annotation
 from components.metric_chart import BAR_COLOR, LINE_COLOR
 from config.metrics import Aggregation, format_value, ordered_metrics
 from routes import device_href
-from services.monitoring_service import MetricView, bin_consumption, choose_bin
+from services.monitoring_service import ConsumptionBar, MetricView
 
 TREND_CELL_HEIGHT = 120
 """Fixed, and applied to empty cells too. A cell that collapsed when a metric
@@ -37,42 +38,38 @@ def _cell_layout() -> dict:
     return dict(
         margin=dict(l=36, r=8, t=6, b=22),
         height=TREND_CELL_HEIGHT,
-        template="plotly_white",
+        template=TEMPLATE,
         showlegend=False,
         dragmode=False,
+        # Deliberately not grid_axis(): a sparkline hides its x-gridlines,
+        # unlike the primary chart.
         xaxis=dict(showgrid=False, nticks=4, title=None),
-        yaxis=dict(showgrid=True, gridcolor="#eef0f3", nticks=3, title=None),
+        yaxis=grid_axis(nticks=3, title=None),
     )
 
 
-def _hover(metric) -> str:
-    return (
-        "%{x|%Y-%m-%d %H:%M} UTC<br>%{y:."
-        + str(metric.precision) + "f} " + metric.unit + "<extra></extra>"
-    )
-
-
-def cell_figure(view: MetricView) -> go.Figure:
+def cell_figure(view: MetricView, bars: list[ConsumptionBar]) -> go.Figure:
     """One sparse trace. Bars for a cumulative meter, a line for everything else
     — the same rule as the primary chart, so a metric never changes shape
-    between the cell and the chart above it."""
+    between the cell and the chart above it.
+
+    `bars` is already-binned data for a delta metric, prepared by
+    `monitoring_service.quick_trend_bars` and threaded down from the
+    callback — this function decides which shape to draw, never how the bars
+    were computed.
+    """
     metric = view.metric
     fig = go.Figure()
 
     if not view.series:
-        fig.add_annotation(
-            text="No readings in this period",
-            showarrow=False, font=dict(size=11, color="#6b7280"),
-        )
+        fig.add_annotation(**no_data_annotation("No readings in this period", size=11))
     elif metric.aggregation is Aggregation.DELTA:
-        start, end = view.series[0].timestamp, view.series[-1].timestamp
-        bars = bin_consumption(view.series, choose_bin(end - start), start, end)
         fig.add_trace(
             go.Bar(
                 x=[b.start for b in bars],
                 y=[b.result.value if b.result.is_known else None for b in bars],
                 marker_color=BAR_COLOR,
-                hovertemplate=_hover(metric),
+                hovertemplate=hover_template(metric),
             )
         )
     else:
@@ -82,7 +79,7 @@ def cell_figure(view: MetricView) -> go.Figure:
                 y=[r.value for r in view.series],
                 mode="lines",
                 line=dict(color=LINE_COLOR, width=1.5),
-                hovertemplate=_hover(metric),
+                hovertemplate=hover_template(metric),
             )
         )
 
@@ -92,6 +89,7 @@ def cell_figure(view: MetricView) -> go.Figure:
 
 def trend_cell(
     view: MetricView,
+    bars: list[ConsumptionBar],
     is_selected: bool,
     device_id: str,
     period: str | None = None,
@@ -125,7 +123,7 @@ def trend_cell(
                         ],
                     ),
                     dcc.Graph(
-                        figure=cell_figure(view),
+                        figure=cell_figure(view, bars),
                         config=TREND_CHART_CONFIG,
                         className="trend-cell__chart",
                     ),
@@ -137,18 +135,26 @@ def trend_cell(
 
 def trend_grid(
     views: dict,
+    quick_trend_bars: dict,
     active_metric_key: str,
     device_id: str,
     period: str | None = None,
     custom_start: str | None = None,
     custom_end: str | None = None,
 ) -> html.Div:
-    """Eight cells in display order. Always eight, always the same order."""
+    """Eight cells in display order. Always eight, always the same order.
+
+    `quick_trend_bars` carries already-binned data per delta metric, built by
+    `monitoring_service.quick_trend_bars` and passed in by the callback; a
+    metric with no entry (every statistics metric) simply gets an empty list,
+    which `cell_figure` never looks at for a non-delta metric.
+    """
     return html.Div(
         className="trend-grid",
         children=[
             trend_cell(
-                views[m.key], m.key == active_metric_key, device_id,
+                views[m.key], quick_trend_bars.get(m.key, []),
+                m.key == active_metric_key, device_id,
                 period=period, custom_start=custom_start, custom_end=custom_end,
             )
             for m in ordered_metrics() if m.key in views

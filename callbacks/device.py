@@ -204,8 +204,11 @@ def register(app) -> None:
                 view.last_updated, svc.reading_age(view.last_updated)
             )
 
+            # The service decides which metrics need bars and how to bin
+            # them; trend_grid only draws whatever it is handed.
+            quick_trend_bars = {key: svc.quick_trend_bars(v) for key, v in views.items()}
             grid = trend_grid(
-                views, metric_key, device_id,
+                views, quick_trend_bars, metric_key, device_id,
                 period=period_value, custom_start=custom_start, custom_end=custom_end,
             )
 

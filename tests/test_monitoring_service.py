@@ -9,7 +9,9 @@ from config.metrics import get_metric
 from repositories.plant_monitoring_repository import RawReading
 from services import monitoring_service as svc
 from services.monitoring_service import (
+    DeltaStatus,
     Freshness,
+    MetricView,
     MonitoringCondition,
     Period,
     Reading,
@@ -312,3 +314,43 @@ class TestGetDeviceFullView:
         assert len(views) == 8
         assert all(v.has_data is False for v in views.values())
         assert all(v.freshness is Freshness.NO_DATA for v in views.values())
+
+
+class TestMetricViewKpiProperties:
+    """Phase 4: kpi_card.py used to call `series_context`/`reading_age`
+    itself; it now reads `view.min_at`/`max_at`/`sample_count`/`age`. These
+    properties must reproduce exactly what those functions already produced
+    — same inputs, same output, just relocated onto the view model so
+    `series_context`/`reading_age` stay the one authoritative calculation."""
+
+    def _view(self, series, last_updated=None):
+        return MetricView(
+            metric=get_metric("temperature"), current=None, minimum=None,
+            maximum=None, average=None, period_change=None,
+            period_change_status=DeltaStatus.OK, series=series,
+            last_updated=last_updated, freshness=Freshness.FRESH,
+            condition=MonitoringCondition.UNKNOWN, has_data=bool(series),
+        )
+
+    def test_min_at_max_at_and_sample_count_match_series_context(self):
+        series = _series([5.0, 9.0, 3.0])
+        view = self._view(series)
+        expected = svc.series_context(series)
+        assert view.min_at == expected["min_at"]
+        assert view.max_at == expected["max_at"]
+        assert view.sample_count == expected["count"]
+
+    def test_empty_series_gives_no_extremes_and_zero_count(self):
+        view = self._view([])
+        assert view.min_at is None
+        assert view.max_at is None
+        assert view.sample_count == 0
+
+    def test_age_matches_reading_age_at_the_same_instant(self, monkeypatch):
+        monkeypatch.setattr(svc, "_now", lambda: NOW)
+        view = self._view(_series([1.0]), last_updated=NOW - timedelta(hours=2))
+        assert view.age == timedelta(hours=2)
+
+    def test_age_is_none_without_a_reading(self):
+        view = self._view([], last_updated=None)
+        assert view.age is None

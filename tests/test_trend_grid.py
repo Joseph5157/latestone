@@ -7,6 +7,7 @@ from components.trend_grid import TREND_CHART_CONFIG, trend_grid
 from config.metrics import ordered_metrics
 from services.monitoring_service import (
     DeltaResult, DeltaStatus, Freshness, MetricView, MonitoringCondition, Reading,
+    quick_trend_bars,
 )
 from tests.dash_tree import find_by_class, find_by_exact_class, links, walk
 
@@ -30,13 +31,21 @@ def _views(with_data=True):
     return out
 
 
+def _grid(views, *args, **kwargs):
+    """Wraps `trend_grid`, computing the prepared-bars dict the way
+    `callbacks.device.refresh_device_dashboard` does — trend_grid itself no
+    longer computes bars, so every test call site needs one."""
+    bars = {key: quick_trend_bars(v) for key, v in views.items()}
+    return trend_grid(views, bars, *args, **kwargs)
+
+
 def _figures(grid):
     return [n for n in walk(grid) if getattr(n, "figure", None) is not None]
 
 
 class TestGridShape:
     def test_renders_one_cell_per_configured_metric(self):
-        grid = trend_grid(_views(), "temperature", "dev-1")
+        grid = _grid(_views(), "temperature", "dev-1")
         assert len(find_by_exact_class(grid, "trend-cell")) == len(ordered_metrics())
 
     def test_cells_follow_display_order_and_do_not_reflow(self):
@@ -44,7 +53,7 @@ class TestGridShape:
         so it must not depend on which metric is selected."""
         expected = [m.label for m in ordered_metrics()]
         for active in ("temperature", "energy", "power_factor"):
-            grid = trend_grid(_views(), active, "dev-1")
+            grid = _grid(_views(), active, "dev-1")
             labels = [e.children for e in find_by_class(grid, "trend-cell__label")]
             assert labels == expected
 
@@ -53,13 +62,13 @@ class TestGridShape:
         assert TREND_CHART_CONFIG["displayModeBar"] is False
 
     def test_every_cell_carries_a_figure(self):
-        grid = trend_grid(_views(), "temperature", "dev-1")
+        grid = _grid(_views(), "temperature", "dev-1")
         assert len(_figures(grid)) == len(ordered_metrics())
 
 
 class TestSelection:
     def test_exactly_one_cell_is_selected(self):
-        grid = trend_grid(_views(), "voltage", "dev-1")
+        grid = _grid(_views(), "voltage", "dev-1")
         selected = [
             e for e in find_by_exact_class(grid, "trend-cell")
             if "trend-cell--selected" in e.className
@@ -69,7 +78,7 @@ class TestSelection:
     def test_selection_never_borrows_the_warning_or_freshness_classes(self):
         """"The one you are looking at" and "the one with a problem" are
         different statements and must not share styling."""
-        grid = trend_grid(_views(), "voltage", "dev-1")
+        grid = _grid(_views(), "voltage", "dev-1")
         selected = next(
             e for e in find_by_exact_class(grid, "trend-cell")
             if "trend-cell--selected" in e.className
@@ -81,14 +90,14 @@ class TestSelection:
 
 class TestPromotion:
     def test_every_cell_links_to_its_metric_preserving_period(self):
-        grid = trend_grid(_views(), "temperature", "dev-1", period="7d")
+        grid = _grid(_views(), "temperature", "dev-1", period="7d")
         hrefs = [href for _label, href in links(grid)]
         assert len(hrefs) == len(ordered_metrics())
         assert all("period=7d" in h for h in hrefs)
         assert any("metric=energy" in h for h in hrefs)
 
     def test_custom_bounds_survive_promotion(self):
-        grid = trend_grid(
+        grid = _grid(
             _views(), "temperature", "dev-1",
             period="custom", custom_start="2026-08-01", custom_end="2026-08-03",
         )
@@ -96,33 +105,33 @@ class TestPromotion:
         assert all("start=2026-08-01" in h and "end=2026-08-03" in h for h in hrefs)
 
     def test_links_point_at_the_same_device(self):
-        grid = trend_grid(_views(), "temperature", "dev-1")
+        grid = _grid(_views(), "temperature", "dev-1")
         assert all("dev-1" in href for _label, href in links(grid))
 
 
 class TestEmptyAndTypes:
     def test_empty_metric_keeps_full_cell_height(self):
         """A collapsed cell reads as a layout fault rather than absent data."""
-        grid = trend_grid(_views(with_data=False), "temperature", "dev-1")
+        grid = _grid(_views(with_data=False), "temperature", "dev-1")
         assert all(g.figure.layout.height for g in _figures(grid))
 
     def test_empty_metric_says_so(self):
-        grid = trend_grid(_views(with_data=False), "temperature", "dev-1")
+        grid = _grid(_views(with_data=False), "temperature", "dev-1")
         texts = [a.text for g in _figures(grid) for a in g.figure.layout.annotations]
         assert texts and all("No readings" in t for t in texts)
 
     def test_energy_cell_is_a_bar_chart(self):
-        grid = trend_grid(_views(), "temperature", "dev-1")
+        grid = _grid(_views(), "temperature", "dev-1")
         energy = _figures(grid)[-1]
         assert any(t.type == "bar" for t in energy.figure.data)
 
     def test_statistics_cells_are_line_charts(self):
-        grid = trend_grid(_views(), "temperature", "dev-1")
+        grid = _grid(_views(), "temperature", "dev-1")
         voltage = _figures(grid)[1]
         assert any(t.type == "scatter" for t in voltage.figure.data)
 
     def test_hover_states_utc(self):
-        grid = trend_grid(_views(), "temperature", "dev-1")
+        grid = _grid(_views(), "temperature", "dev-1")
         trace = _figures(grid)[0].figure.data[0]
         assert "UTC" in trace.hovertemplate
 

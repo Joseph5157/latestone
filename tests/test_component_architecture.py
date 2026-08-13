@@ -56,3 +56,45 @@ def test_pages_do_not_import_repositories():
         f"pages/ must compose components only, but found: {violations}. "
         "Fetch data in a callback and pass it in, not from a page module."
     )
+
+
+#: Service functions that decide how raw data is transformed (binning,
+#: aggregation, KPI-context derivation, ...). Components may still import
+#: *types* from services.monitoring_service (Freshness, MetricView, Reading,
+#: DeltaResult, ConsumptionBar, FleetHealth, ...) — that is a shared
+#: vocabulary, not a decision, and nearly every component legitimately does
+#: it. A blanket "components must not import services" rule would fail on
+#: that legitimate use, so this guard names the actual violations instead: a
+#: component computing derived data itself rather than rendering what the
+#: service already prepared. `bin_consumption`/`choose_bin` are the names
+#: Phase 3 moved trend_grid.py off of; `reading_age`/`series_context` are the
+#: names Phase 4 moved kpi_card.py off of (onto MetricView properties that
+#: call them internally — the properties themselves are not banned, only a
+#: component importing the raw functions is).
+FORBIDDEN_SERVICE_SYMBOLS = {"bin_consumption", "choose_bin", "reading_age", "series_context"}
+
+
+def _imported_symbols_from_services(path: pathlib.Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    symbols = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.split(".")[0] == "services"
+        ):
+            symbols.update(alias.name for alias in node.names)
+    return symbols
+
+
+def test_components_do_not_call_forbidden_service_functions_directly():
+    violations = {}
+    for path in sorted((REPO_ROOT / "components").glob("*.py")):
+        hit = _imported_symbols_from_services(path) & FORBIDDEN_SERVICE_SYMBOLS
+        if hit:
+            violations[path.name] = hit
+    assert not violations, (
+        f"components/ must render already-prepared data, but found: {violations}. "
+        "Move the computation into services/monitoring_service.py and pass the "
+        "prepared result in through the callback instead."
+    )

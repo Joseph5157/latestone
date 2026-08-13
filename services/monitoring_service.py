@@ -150,6 +150,35 @@ class MetricView:
     window_end: datetime | None = None
     prime: Reading | None = None
 
+    #: Presentation-ready KPI context, derived from `series`/`last_updated`
+    #: on access rather than stored: kpi_card.py used to compute these itself
+    #: by calling `series_context`/`reading_age` directly, which put a data
+    #: decision inside a "renders" layer. Properties keep `series_context`/
+    #: `reading_age` as the one authoritative implementation and require no
+    #: change to any existing `MetricView(...)` construction site — a stored
+    #: field would have needed one in every test that builds a view by hand.
+
+    @property
+    def min_at(self) -> datetime | None:
+        """When `minimum` occurred, for the KPI row's secondary line."""
+        return series_context(self.series)["min_at"]
+
+    @property
+    def max_at(self) -> datetime | None:
+        """When `maximum` occurred, for the KPI row's secondary line."""
+        return series_context(self.series)["max_at"]
+
+    @property
+    def sample_count(self) -> int:
+        """How many readings the Average KPI is drawn from."""
+        return series_context(self.series)["count"]
+
+    @property
+    def age(self) -> timedelta | None:
+        """How old `last_updated` is right now, for the Current KPI's
+        "X ago" text. Live clock, same as before this moved here."""
+        return reading_age(self.last_updated)
+
 
 def _now() -> datetime:
     """Indirection so tests can pin the clock."""
@@ -506,6 +535,28 @@ def bin_label(bin_width: timedelta) -> str:
     if seconds % 3600 == 0:
         return f"{seconds // 3600} h bars"
     return f"{seconds // 60} min bars"
+
+
+def quick_trend_bars(view: MetricView) -> list[ConsumptionBar]:
+    """Consumption bars for a delta metric's Quick Trend cell.
+
+    Returns an empty list for anything that is not a delta metric, or that
+    has no series — a statistics metric's Quick Trend cell plots
+    `view.series` directly and needs no bars at all, so it is safe for a
+    caller to request this for every metric unconditionally.
+
+    Binned over the span of the view's own series, not `window_start`/
+    `window_end`: unlike the primary chart's bars (built in
+    `callbacks.device.refresh_device_dashboard` from the requested window and
+    `view.prime`), a Quick Trend cell carries no Period Change KPI beside it,
+    so its bars are not required to sum to a period total. Relocated from
+    `components.trend_grid` verbatim — the binning algorithm itself
+    (`choose_bin`, `bin_consumption`) is unchanged.
+    """
+    if view.metric.aggregation is not Aggregation.DELTA or not view.series:
+        return []
+    start, end = view.series[0].timestamp, view.series[-1].timestamp
+    return bin_consumption(view.series, choose_bin(end - start), start, end)
 
 
 def period_start(period: Period, anchor: datetime) -> datetime | None:

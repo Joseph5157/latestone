@@ -11,9 +11,7 @@ from dash import html
 
 from components.freshness_badge import format_last_reading
 from config.metrics import Aggregation, format_value
-from services.monitoring_service import (
-    DeltaStatus, MetricView, reading_age, series_context,
-)
+from services.monitoring_service import DeltaStatus, MetricView
 
 
 def kpi_card(
@@ -77,12 +75,9 @@ def kpi_row(view: MetricView, period_label: str | None = None):
     latest reading. None of it is a threshold judgement.
     """
     metric = view.metric
-    context = series_context(view.series)
     dated = _spans_more_than_a_day(view.series)
 
-    current_secondary = format_last_reading(
-        view.last_updated, reading_age(view.last_updated)
-    )
+    current_secondary = format_last_reading(view.last_updated, view.age)
     cards = [
         kpi_card(
             "Current",
@@ -111,13 +106,13 @@ def kpi_row(view: MetricView, period_label: str | None = None):
     else:
         cards.append(
             kpi_card("Minimum", format_value(metric, view.minimum),
-                     secondary=_at(context["min_at"], dated))
+                     secondary=_at(view.min_at, dated))
         )
         cards.append(
             kpi_card("Maximum", format_value(metric, view.maximum),
-                     secondary=_at(context["max_at"], dated))
+                     secondary=_at(view.max_at, dated))
         )
-        count = context["count"]
+        count = view.sample_count
         cards.append(
             kpi_card("Average", format_value(metric, view.average),
                      secondary=f"{count} readings" if count else "")

@@ -4,6 +4,7 @@ from __future__ import annotations
 from dash import dcc
 import plotly.graph_objects as go
 
+from components.chart_presentation import TEMPLATE, grid_axis, hover_template, no_data_annotation
 from config.metrics import MetricConfig
 from services.monitoring_service import Reading
 
@@ -32,6 +33,34 @@ def _chart_title(metric: MetricConfig, period_label: str | None) -> str:
     if period_label:
         return f"{metric.label} ({metric.unit}) &#183; {period_label}" if metric.unit             else f"{metric.label} &#183; {period_label}"
     return f"{metric.label} ({metric.unit})" if metric.unit else metric.label
+
+
+def _apply_common_layout(
+    fig: go.Figure,
+    metric: MetricConfig,
+    title_text: str,
+    view_revision: str | None,
+    **extra,
+) -> None:
+    """Layout shared by `build_metric_figure` and `build_delta_figure`: same
+    margin/height budget, same title placement, same axis language. Only the
+    traces above and the title text differ between a line and a delta-bar
+    chart — `extra` carries the one further difference, `hovermode`, which
+    `build_delta_figure` does not set.
+    """
+    fig.update_layout(
+        margin=dict(l=56, r=20, t=44, b=48),
+        height=CHART_HEIGHT,
+        title=dict(text=title_text, x=0, xanchor="left", font=dict(size=14)),
+        xaxis_title="Time (UTC)",
+        yaxis_title=_axis_title(metric),
+        template=TEMPLATE,
+        showlegend=False,
+        xaxis=grid_axis(),
+        yaxis=grid_axis(),
+        uirevision=view_revision or metric.key,
+        **extra,
+    )
 
 
 def chart_revision(
@@ -76,37 +105,17 @@ def build_metric_figure(
                 mode="lines",
                 name=metric.label,
                 line=dict(color=LINE_COLOR, width=2),
-                hovertemplate=(
-                    "%{x|%Y-%m-%d %H:%M}<br>%{y:."
-                    + str(metric.precision)
-                    + "f} "
-                    + metric.unit
-                    + "<extra></extra>"
-                ),
+                hovertemplate=hover_template(metric),
             )
         )
     else:
-        fig.add_annotation(
-            text="No data available for the selected period",
-            showarrow=False,
-            font=dict(size=14, color="#6b7280"),
-        )
+        fig.add_annotation(**no_data_annotation("No data available for the selected period"))
 
-    fig.update_layout(
-        margin=dict(l=56, r=20, t=44, b=48),
-        height=CHART_HEIGHT,
-        title=dict(text=_chart_title(metric, period_label), x=0, xanchor="left",
-                   font=dict(size=14)),
-        xaxis_title="Time (UTC)",
-        yaxis_title=_axis_title(metric),
-        template="plotly_white",
+    # Preserve zoom/pan across the refresh interval; reset when the operator
+    # changes metric, period or custom bounds (uirevision, inside the helper).
+    _apply_common_layout(
+        fig, metric, _chart_title(metric, period_label), view_revision,
         hovermode="x unified",
-        showlegend=False,
-        xaxis=dict(showgrid=True, gridcolor="#eef0f3"),
-        yaxis=dict(showgrid=True, gridcolor="#eef0f3"),
-        # Preserve zoom/pan across the refresh interval; reset when the
-        # operator changes metric, period or custom bounds.
-        uirevision=view_revision or metric.key,
     )
     return fig
 
@@ -139,10 +148,7 @@ def build_delta_figure(
     """
     fig = go.Figure()
     if not bars:
-        fig.add_annotation(
-            text="No data available for the selected period",
-            showarrow=False, font=dict(size=14, color="#6b7280"),
-        )
+        fig.add_annotation(**no_data_annotation("No data available for the selected period"))
     else:
         fig.add_trace(
             go.Bar(
@@ -150,11 +156,7 @@ def build_delta_figure(
                 y=[b.result.value if b.result.is_known else None for b in bars],
                 marker_color=BAR_COLOR,
                 name=metric.label,
-                hovertemplate=(
-                    "%{x|%Y-%m-%d %H:%M} UTC<br>%{y:."
-                    + str(metric.precision) + "f} " + metric.unit
-                    + "<extra></extra>"
-                ),
+                hovertemplate=hover_template(metric),
             )
         )
         unknown = [b for b in bars if not b.result.is_known]
@@ -178,18 +180,7 @@ def build_delta_figure(
     if bin_label:
         title = f"{title} &#183; {bin_label}"
 
-    fig.update_layout(
-        margin=dict(l=56, r=20, t=44, b=48),
-        height=CHART_HEIGHT,
-        title=dict(text=title, x=0, xanchor="left", font=dict(size=14)),
-        xaxis_title="Time (UTC)",
-        yaxis_title=_axis_title(metric),
-        template="plotly_white",
-        showlegend=False,
-        xaxis=dict(showgrid=True, gridcolor="#eef0f3"),
-        yaxis=dict(showgrid=True, gridcolor="#eef0f3"),
-        uirevision=view_revision or metric.key,
-    )
+    _apply_common_layout(fig, metric, title, view_revision)
     return fig
 
 

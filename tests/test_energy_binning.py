@@ -10,9 +10,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from config.metrics import SOURCE_RESOLUTION_MINUTES
+from config.metrics import SOURCE_RESOLUTION_MINUTES, get_metric
 from services.monitoring_service import (
-    DeltaStatus, Reading, TARGET_BARS, bin_consumption, choose_bin, period_delta,
+    DeltaStatus, Freshness, MetricView, MonitoringCondition, Reading, TARGET_BARS,
+    bin_consumption, choose_bin, period_delta, quick_trend_bars,
 )
 
 DAY = datetime(2026, 8, 9, 0, 0, tzinfo=timezone.utc)
@@ -141,3 +142,43 @@ class TestBarArithmetic:
         assert bars[-1].end == end
         for earlier, later in zip(bars, bars[1:]):
             assert earlier.end == later.start
+
+
+def _view(metric_key, series):
+    return MetricView(
+        metric=get_metric(metric_key), current=None, minimum=None, maximum=None,
+        average=None, period_change=None, period_change_status=DeltaStatus.OK,
+        series=series, last_updated=None, freshness=Freshness.FRESH,
+        condition=MonitoringCondition.UNKNOWN, has_data=bool(series),
+    )
+
+
+class TestQuickTrendBars:
+    """`quick_trend_bars` relocates trend_grid's own binning call into the
+    service layer (Phase 3 boundary fix) without changing the algorithm:
+    same `choose_bin`/`bin_consumption`, same series-span basis, no `prime`."""
+
+    def test_non_delta_metric_never_gets_bars(self):
+        series = _meter(10.0, 1.0, 4)
+        assert quick_trend_bars(_view("temperature", series)) == []
+
+    def test_empty_series_yields_no_bars(self):
+        assert quick_trend_bars(_view("energy", [])) == []
+
+    def test_delta_metric_reproduces_calling_bin_consumption_directly(self):
+        """Same output as the pre-move call site: binned over the series'
+        own first/last timestamp, no `prime`."""
+        series = _meter(1000.0, 2.0, 8, first_ts=DAY)
+        start, end = series[0].timestamp, series[-1].timestamp
+        expected = bin_consumption(series, choose_bin(end - start), start, end)
+
+        assert quick_trend_bars(_view("energy", series)) == expected
+
+    def test_uses_the_series_own_span_not_a_wider_window(self):
+        """Unlike the primary chart's bars (window_start/window_end/prime,
+        see callbacks.device), a Quick Trend cell has no KPI beside it and
+        bins only over what its own series actually covers."""
+        series = _meter(1000.0, 2.0, 4, first_ts=DAY + timedelta(hours=2))
+        bars = quick_trend_bars(_view("energy", series))
+        assert bars[0].start == series[0].timestamp
+        assert bars[-1].end == series[-1].timestamp
