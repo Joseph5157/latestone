@@ -9,7 +9,8 @@ from __future__ import annotations
 import dash
 from dash import dcc, html
 
-from callbacks import auth, routing, listings, device, equipment_selector
+from callbacks import auth, routing, listings, device, equipment_selector, navigation
+from components.app_navigation import app_navigation_shell
 from components.equipment_selector import equipment_selector_shell
 from config.logging_config import configure_logging
 
@@ -40,6 +41,10 @@ app.layout = html.Div([
     # page: its callbacks fire on every route, so their targets must always
     # exist. See docs/CODE_AUDIT.md finding 2.
     equipment_selector_shell(),
+    # Same global-mount rule as the equipment selector, for the same reason.
+    # Rendered above it: application navigation is the primary top-level
+    # structure; the equipment jump tool is secondary to it.
+    app_navigation_shell(),
     html.Div(id="page-content"),
 ])
 
@@ -48,6 +53,7 @@ routing.register(app)
 listings.register(app)
 device.register(app)
 equipment_selector.register(app)
+navigation.register(app)
 
 if __name__ == "__main__":
     from config.settings import dash_settings

@@ -32,6 +32,28 @@ class TestParsePathname:
     def test_none_pathname_is_overview(self):
         assert parse_pathname(None).name == "overview"
 
+    def test_reports_route(self):
+        assert parse_pathname("/reports").name == "reports"
+        assert parse_pathname("/reports/").name == "reports"
+
+    def test_notifications_route(self):
+        assert parse_pathname("/notifications").name == "notifications"
+        assert parse_pathname("/notifications/").name == "notifications"
+
+    def test_admin_devices_route(self):
+        assert parse_pathname("/admin/devices").name == "admin_devices"
+        assert parse_pathname("/admin/devices/").name == "admin_devices"
+
+    def test_admin_users_route(self):
+        assert parse_pathname("/admin/users").name == "admin_users"
+        assert parse_pathname("/admin/users/").name == "admin_users"
+
+    def test_admin_with_unknown_child_is_unknown(self):
+        assert parse_pathname("/admin/whatever").name == "unknown"
+
+    def test_bare_admin_is_unknown(self):
+        assert parse_pathname("/admin").name == "unknown"
+
     def test_unrecognised_path_is_unknown(self):
         assert parse_pathname("/nope/nope/nope/nope").name == "unknown"
 

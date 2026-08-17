@@ -11,8 +11,32 @@ from dash import Input, Output, html
 
 from components.status_panels import error_panel, not_found_panel
 from pages import plants_overview, plant_detail, transformer_detail, device_dashboard
+from pages.placeholder import placeholder_layout
 from routes import Route, device_href, parse_custom_range, parse_pathname, parse_query
 from services import hierarchy_service
+
+#: Routes whose destination page is not built yet. Each renders the same
+#: minimal placeholder with its title and a one-sentence purpose. Purpose text
+#: stays neutral on purpose: no report types, notification behaviours, roles or
+#: device fields are asserted until the client approves the frontend scope.
+PLACEHOLDER_PAGES: dict[str, tuple[str, str]] = {
+    "admin_devices": (
+        "Device Administration",
+        "Manage the devices this application monitors.",
+    ),
+    "reports": (
+        "Reports",
+        "View and generate reports over plant monitoring data.",
+    ),
+    "notifications": (
+        "Notifications",
+        "View monitoring notifications and communication health.",
+    ),
+    "admin_users": (
+        "User Administration",
+        "Manage user accounts for this application.",
+    ),
+}
 
 __all__ = [
     "Route", "parse_pathname", "parse_query", "parse_custom_range",
@@ -131,6 +155,11 @@ def register(app) -> None:
                     ),
                     ctx,
                 )
+
+            if route.name in PLACEHOLDER_PAGES:
+                title, purpose = PLACEHOLDER_PAGES[route.name]
+                ctx = {"route": route.name}
+                return placeholder_layout(title, purpose), ctx
 
             return not_found_panel("page"), {"route": "unknown"}
 

@@ -1,0 +1,140 @@
+
+--- PAGE 1 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 1 of 44  
+ 
+ 
+Title: PAD 
+PAC 
+for 
+Remote 
+Temperature Logger 
+ 
+Unique Identifier: 
+ 
+Project Identifier: 
+DEM-2788828 
+Area of Applicability: 
+Eskom 
+Documentation Type: SP 
+Disclosure 
+Classification: 
+CONTROLLED DISCLOSURE 
+ 
+Project Stage Review 
+Lifecycle 
+Phase 
+Lifecycle Stage 
+Stage Gate 
+(after stage) 
+Deliverable 
+Appropriate 
+Lifecycle 
+Stage 
+Pre-Project 
+Planning 
+Define Need 
+ 
+Project Statement of Work 
+
+Project Context 
+CRA 
+Statement of Architecture 
+Work 
+
+Concept 
+Feasibility 
+ 
+ 
+
+Concept Design 
+DRA 
+Conceptual Architecture 
+Definition 
+
+Definition 
+Logical (Basic) Design 
+ERA 
+Logical Architecture 
+Definition 
+
+Execution Physical (Detailed) Design 
+IRA 
+Detailed Design 
+
+Finalization 
+Pre-Transfer Design 
+FRA 
+Pre-Transfer Design 
+
+ 
+Compiled By 
+Reviewed By 
+Reviewed By 
+Approved By 
+ 
+T Chicheko 
+J Marx 
+ 
+ 
+A Sigama 
+Initials and Surname  
+Solution Architect 
+Initials and Surname  
+Lead Architect 
+Initials and Surname  
+EAAB Chair 
+Initials and Surname  
+Enterprise Architecture  
+Manager 
+ 
+Date: ……………………… Date: ……………………… 
+ 
+Date:   ……………………… 
+ 
+Date:   ……………………… 
+
+--- PAGE 2 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 2 of 44  
+ 
+ 
+ 
+
+--- PAGE 3 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 3 of 44  
+ 
+Table of Contents 
+Document History ...................................................................................................... 6 
+1 
+INTRODUCTION ............................................................................................ 7 
+1.1 PROJECT Overview ................................................................................... 7 
+1.2 DOCUMENT SCOPE/PURPOSE ............................................................... 7 
+2 
+SUPPORTING CLAUSES .............................................................................. 8 
+2.1 SCOPE ....................................................................................................... 8 
+2.2 APPLICABILITY .......................................................................................... 8 
+2.3 NORMATIVE / INFORMATIVE REFERENCES .......................................... 8 
+2.3.1 Normative ............................................................................................ 8 
+2.3.2 Informative ............................................................................................ 8 
+3 
+Business Architecture ..................................................................................... 9 
+3.1 Business Stakeholders ............................................................................... 9 
+3.2 Project Stakeholder ..................................................................................... 9 
+3.3 TARGET STAKEHOLDER ANALYSIS DIAGRAM .................................... 10 

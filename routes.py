@@ -20,7 +20,9 @@ VALID_PERIODS = ("24h", "7d", "30d", "custom")
 
 @dataclass(frozen=True)
 class Route:
-    name: str                       # "overview" | "plant" | "transformer" | "device" | "unknown"
+    name: str  # "overview" | "plant" | "transformer" | "device" |
+               # "admin_devices" | "admin_users" | "reports" | "notifications" |
+               # "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
     device_id: str | None = None
@@ -35,6 +37,12 @@ def parse_pathname(pathname: str | None) -> Route:
     if len(parts) == 1 and parts[0] == "plants":
         return Route(name="overview")
 
+    if len(parts) == 1 and parts[0] == "reports":
+        return Route(name="reports")
+
+    if len(parts) == 1 and parts[0] == "notifications":
+        return Route(name="notifications")
+
     if len(parts) == 2 and parts[0] == "plants":
         return Route(name="plant", plant_id=parts[1])
 
@@ -47,6 +55,12 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 2 and parts[0] == "devices":
         return Route(name="device", device_id=parts[1])
+
+    if len(parts) == 2 and parts[0] == "admin":
+        if parts[1] == "devices":
+            return Route(name="admin_devices")
+        if parts[1] == "users":
+            return Route(name="admin_users")
 
     return Route(name="unknown")
 

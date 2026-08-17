@@ -1,0 +1,407 @@
+
+--- PAGE 1 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 1 of 44  
+ 
+ 
+Title: PAD 
+PAC 
+for 
+Remote 
+Temperature Logger 
+ 
+Unique Identifier: 
+ 
+Project Identifier: 
+DEM-2788828 
+Area of Applicability: 
+Eskom 
+Documentation Type: SP 
+Disclosure 
+Classification: 
+CONTROLLED DISCLOSURE 
+ 
+Project Stage Review 
+Lifecycle 
+Phase 
+Lifecycle Stage 
+Stage Gate 
+(after stage) 
+Deliverable 
+Appropriate 
+Lifecycle 
+Stage 
+Pre-Project 
+Planning 
+Define Need 
+ 
+Project Statement of Work 
+
+Project Context 
+CRA 
+Statement of Architecture 
+Work 
+
+Concept 
+Feasibility 
+ 
+ 
+
+Concept Design 
+DRA 
+Conceptual Architecture 
+Definition 
+
+Definition 
+Logical (Basic) Design 
+ERA 
+Logical Architecture 
+Definition 
+
+Execution Physical (Detailed) Design 
+IRA 
+Detailed Design 
+
+Finalization 
+Pre-Transfer Design 
+FRA 
+Pre-Transfer Design 
+
+ 
+Compiled By 
+Reviewed By 
+Reviewed By 
+Approved By 
+ 
+T Chicheko 
+J Marx 
+ 
+ 
+A Sigama 
+Initials and Surname  
+Solution Architect 
+Initials and Surname  
+Lead Architect 
+Initials and Surname  
+EAAB Chair 
+Initials and Surname  
+Enterprise Architecture  
+Manager 
+ 
+Date: ……………………… Date: ……………………… 
+ 
+Date:   ……………………… 
+ 
+Date:   ……………………… 
+
+--- PAGE 2 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 2 of 44  
+ 
+ 
+ 
+
+--- PAGE 3 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 3 of 44  
+ 
+Table of Contents 
+Document History ...................................................................................................... 6 
+1 
+INTRODUCTION ............................................................................................ 7 
+1.1 PROJECT Overview ................................................................................... 7 
+1.2 DOCUMENT SCOPE/PURPOSE ............................................................... 7 
+2 
+SUPPORTING CLAUSES .............................................................................. 8 
+2.1 SCOPE ....................................................................................................... 8 
+2.2 APPLICABILITY .......................................................................................... 8 
+2.3 NORMATIVE / INFORMATIVE REFERENCES .......................................... 8 
+2.3.1 Normative ............................................................................................ 8 
+2.3.2 Informative ............................................................................................ 8 
+3 
+Business Architecture ..................................................................................... 9 
+3.1 Business Stakeholders ............................................................................... 9 
+3.2 Project Stakeholder ..................................................................................... 9 
+3.3 TARGET STAKEHOLDER ANALYSIS DIAGRAM .................................... 10 
+3.4 Process flow ............................................................................................. 11 
+3.5 Target Application User Locations ............................................................ 12 
+4 
+Business Information Architecture ................................................................ 13 
+4.1 Business Information Flow & Inventory ..................................................... 13 
+4.1.1 Business Information Flow Diagram ................................................... 13 
+4.2 Information Related Business Continuity ................................................... 13 
+5 
+DATA ARCHITECTURE ............................................................................... 14 
+5.1 Data Models.............................................................................................. 14 
+5.2 Database Deployment Diagram ................................................................ 18 
+5.3 Data Migration .......................................................................................... 18 
+6 
+Application Architecture ................................................................................ 19 
+6.1 Systems affected by this implementation .................................................. 20 
+6.2 System use by the business ..................................................................... 20 
+6.3 Application Overview ................................................................................ 20 
+
+--- PAGE 4 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 4 of 44  
+ 
+6.3.1 Use cases that are met by the application: ......................................... 20 
+6.3.2 Application Functional Decomposition ................................................ 21 
+6.4 Application Strategy and Packaging .......................................................... 21 
+7 
+Integration Architecture ................................................................................. 22 
+7.1 Integration Interface Map .......................................................................... 22 
+7.2 INTERGRATION SEQUENCE DIAGRAMS .............................................. 25 
+7.2.1 Authentication Sequence Diagram ..................................................... 25 
+7.2.2 AssetDetails Sequence Diagram ........................................................ 26 
+7.2.3 EmailNotifications Sequence Diagram ............................................... 26 
+7.2.4 TemperatureAlert Sequence Diagram ................................................ 27 
+7.2.5 SMSNotification Sequence Diagram .................................................. 27 
+7.2.6 AssetCondition Sequence Diagram .................................................... 28 
+7.3 User experience ........................................................................................ 29 
+7.3.1 Proposed interface and its ease of use .............................................. 29 
+8 
+Technical Architecture .................................................................................. 29 
+8.1 Basic Infrastructure ................................................................................ 29 
+8.1.1 Infrastructure .................................................................................... 30 
+8.1.2 Application server............................................................................... 30 
+8.1.3 Database Server ................................................................................ 30 
+8.1.4 Web Server ........................................................................................ 31 
+8.2 Cloud ........................................................................................................ 31 
+8.2.1 Services provided by Cloud ................................................................ 31 
+8.2.2 Cloud to Eskom IT systems interfaces ............................................... 31 
+8.3 Network and Telecoms ............................................................................. 31 
+8.3.1 Applied Technologies ......................................................................... 31 
+8.4 Physical Design ........................................................................................ 32 
+8.4.1 Physical Design as depicted below. ................................................... 32 
+8.5 User base ................................................................................................. 32 
+8.5.1 User Base .......................................................................................... 32 
+8.6 Software and requirements ....................................................................... 32 
+
+--- PAGE 5 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 5 of 44  
+ 
+8.6.1 Servers (Software)) (DB/Web/App etc.), Platform, OS, Hardware and 
+Virtualisation  ........................................................................................................... 32 
+8.7 Licencing .................................................................................................. 33 
+8.8 Version Control ......................................................................................... 33 
+9 
+SECURITY ARCHITECTURE ....................................................................... 34 
+9.1 Security Architecture ................................................................................. 34 
+9.2 User Identification And Authentication....................................................... 35 
+9.3 Security Guard Rails ................................................................................. 36 
+9.4 Audit trails ................................................................................................. 36 
+10 
+APPENDIX A (Definitions) ............................................................................ 37 
+10.1 DEFINITIONS ........................................................................................... 37 
+10.1.1 
+Architecture Specific Definitions .................................................. 37 
+10.1.2 
+Other Definitions ......................................................................... 38 
+11 
+APPENDIX B (ABBREVIATIONS) ................................................................ 40 
+11.1 General Glossary Of Abbreviations ........................................................... 40 
+12 
+Eskom Documentation (Standards commonly used) ..................................... 43 
+ 
+ 
+ 
+
+--- PAGE 6 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 6 of 44  
+ 
+DOCUMENT HISTORY 
+Revision No Date 
+Author/s 
+Description 
+0.1 
+17 July 2024 
+Tawanda Chicheko 
+Draft 
+0.3 
+20 November 
+2024 
+Rajesh Ranjan 
+Draft 
+0.4 
+14 March 
+2025 
+Tawanda Chicheko 
+Draft 
+0.5 
+20 March 
+Johann Marx 
+Updates to draft version 
+0.6 
+3 April 2025 
+Tawanda Chicheko 
+Updates to final version 
+0.7 
+5 May 2025 
+Tawanda Chicheko 
+Security Architecture Updates 
+
+--- PAGE 7 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 7 of 44  
+ 
+1 INTRODUCTION 
+1.1 PROJECT OVERVIEW 
+In 2015 a temperature logging system for the detection of overloaded transformers was piloted in KZN 
+OU. The system was piloted as an improvement to thermal stickers which are an official Eskom 
+recommended method of detecting overloaded transformers. However, as more thermal stickers are 
+installed on transformer tanks, more effort is required to keep the transformer temperatures up to date as 
+this requires CNC staff or Plant Management area staff to make frequent site visits to record or verify 
+tank temperatures. The remote temperature logging system resolves these challenges by automating the 
+data collection and analysis thus eliminating frequent transformer visits and hours spent analysing the 
+collected data. 
+ 
+1.2 DOCUMENT SCOPE/PURPOSE 
+The Physical Architecture Definition (PAD)/Detailed Design contains content that is on a physical level of 
+detail where it is needed for development purposes of the RTL Application.  
+ 
+The PAD spans all relevant architecture domains (business, data & information, application and 
+technology) and examines all relevant states of the architecture (baseline, transition, and target). 
+ 
+ 
+
+--- PAGE 8 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 8 of 44  
+ 
+2 SUPPORTING CLAUSES 
+2.1 SCOPE 
+This document scope covers the following: 
+Applicability, normative/informative references, definitions, abbreviations and supporting 
+documentation of this document. 
+Scope and context of architecture development work 
+Architecture designs for the physical application component 
+ 
+2.2 APPLICABILITY 
+This document shall apply throughout Eskom Holdings Limited Divisions. 
+2.3 NORMATIVE / INFORMATIVE REFERENCES 
+2.3.1 Normative 
+Ref # Referenced Document 
+Description 
+1 
+Functional Specification Document 
+Digital Incubator- Remote Temperature Logger v1 
+ 
+2.3.2 Informative 
+Ref # Referenced Document 
+Description 
+1 
+ 
+ 
+
+--- PAGE 9 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 9 of 44  
+ 
+3 BUSINESS ARCHITECTURE 
+3.1 BUSINESS STAKEHOLDERS 
+Role  
+Name  
+Business Owner 
+Distribution (DX) 
+Business Requester 
+Peter Adigun  
+ 
+3.2 PROJECT STAKEHOLDER 
+Role  
+Name  
+Team Lead 
+Jabulani Bembe 
+Subject Matter Expert 
+Peter Adigun  
+Business Analyst 
+Ntsikelelo Mbekisa  
+Lead Architect 
+Johann Marx 
+Solution Architect 
+Tawanda Chicheko / Rajesh Ranjan 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+--- PAGE 10 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 10 of 44  
+ 
+3.3 TARGET STAKEHOLDER ANALYSIS DIAGRAM 
+ 
+
+--- PAGE 11 ---
+ 
+Physical Architecture Definition for a 
+Physical Application Component  
+Group IT: EA 
+ 
+ 
+Page 11 of 44  
+ 
+3.4 PROCESS FLOW 
+ 
+ 
