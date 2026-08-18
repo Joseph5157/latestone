@@ -1,4 +1,4 @@
-"""Tests for Report Center page — layout, form, cascade, mock reports, prototype generation.
+"""Tests for Report Center page — layout, form, preview, mock reports, prototype generation.
 
 All tests exercise pure logic (no Dash runtime, no database, no reporting service).
 """
@@ -12,8 +12,93 @@ from callbacks.report_center import (
     _device_options,
     _scope_label,
     _mock_recent_reports,
+    _build_preview,
+    _build_definition_status,
+)
+from config.reports import (
+    REPORTS,
+    get_report,
+    report_options,
+    all_report_keys,
 )
 from pages.report_center import layout
+
+
+# ---------------------------------------------------------------------------
+# Report definitions — config/reports.py
+# ---------------------------------------------------------------------------
+
+class TestReportDefinitions:
+    def test_exactly_three_reports(self):
+        assert len(REPORTS) == 3
+
+    def test_no_tbd_report(self):
+        for r in REPORTS:
+            assert "TBD" not in r.label
+            assert "tbd" not in r.key
+
+    def test_rtl_alarms_30d_columns(self):
+        report = get_report("rtl_alarms_30d")
+        assert report is not None
+        assert report.label == "RTL Alarms (30 Days)"
+        expected = [
+            "OU", "Zone", "Sector", "CNC", "Feeder", "Transformer",
+            "UID", "Battery(V)", "Alarm Date & Time",
+            "Temperature (\u00b0C)", "Alarm", "Firmware",
+        ]
+        assert list(report.columns) == expected
+
+    def test_installed_rtls_columns(self):
+        report = get_report("installed_rtls")
+        assert report is not None
+        assert report.label == "Installed RTLs"
+        expected = [
+            "OU", "Zone", "Sector", "CNC", "Feeder Name", "Transformer",
+            "UID", "Timestamp of Last Recorded Data",
+            "Last Recorded Temperature (\u00b0C)", "RTL Status",
+        ]
+        assert list(report.columns) == expected
+
+    def test_max_temperature_columns(self):
+        report = get_report("max_temperature")
+        assert report is not None
+        assert report.label == "Maximum Temperature"
+        expected = [
+            "OU", "Zone", "Sector", "CNC", "Feeder Name", "Transformer",
+            "Date Installed", "Date of Maximum Temperature",
+            "Maximum Temperature (\u00b0C)",
+        ]
+        assert list(report.columns) == expected
+
+    def test_rtl_alarms_date_fixed_to_30d(self):
+        report = get_report("rtl_alarms_30d")
+        assert report.date_range_fixed == "30d"
+
+    def test_installed_rtls_date_not_fixed(self):
+        report = get_report("installed_rtls")
+        assert report.date_range_fixed is None
+
+    def test_max_temperature_date_not_fixed(self):
+        report = get_report("max_temperature")
+        assert report.date_range_fixed is None
+
+    def test_report_options_count(self):
+        options = report_options()
+        assert len(options) == 3
+
+    def test_report_options_labels(self):
+        options = report_options()
+        labels = [o["label"] for o in options]
+        assert "RTL Alarms (30 Days)" in labels
+        assert "Installed RTLs" in labels
+        assert "Maximum Temperature" in labels
+
+    def test_all_report_keys(self):
+        keys = all_report_keys()
+        assert keys == ("rtl_alarms_30d", "installed_rtls", "max_temperature")
+
+    def test_get_report_unknown_returns_none(self):
+        assert get_report("nonexistent") is None
 
 
 # ---------------------------------------------------------------------------
@@ -89,11 +174,96 @@ class TestReportCenterLayout:
         ids = _collect_ids(lay)
         assert "recent-reports-table" in ids
 
-    def test_report_type_disabled_tbd(self):
+    def test_layout_has_preview_section(self):
+        lay = layout()
+        ids = _collect_ids(lay)
+        assert "report-preview" in ids
+
+    def test_layout_has_definition_status(self):
+        lay = layout()
+        ids = _collect_ids(lay)
+        assert "report-definition-status" in ids
+
+    def test_layout_has_period_notice(self):
+        lay = layout()
+        ids = _collect_ids(lay)
+        assert "report-period-notice" in ids
+
+    def test_layout_has_period_container(self):
+        lay = layout()
+        ids = _collect_ids(lay)
+        assert "report-period-container" in ids
+
+    def test_report_type_dropdown_not_disabled(self):
+        lay = layout()
+        ids = _collect_ids(lay)
+        assert "report-type" in ids
+        # Dropdown should NOT be disabled anymore
+        # (we check by absence of disabled=True in the page text)
+        text = str(lay)
+        assert "Client to confirm" not in text
+
+    def test_no_tbd_in_layout(self):
         lay = layout()
         text = str(lay)
-        assert "TBD" in text
-        assert "Client to confirm" in text
+        assert "TBD" not in text
+
+
+# ---------------------------------------------------------------------------
+# Preview builder
+# ---------------------------------------------------------------------------
+
+class TestBuildPreview:
+    def test_preview_for_valid_report(self):
+        preview = _build_preview("rtl_alarms_30d")
+        text = str(preview)
+        assert "RTL Alarms (30 Days)" in text
+        assert "OU" in text
+        assert "Firmware" in text
+
+    def test_preview_for_installed_rtls(self):
+        preview = _build_preview("installed_rtls")
+        text = str(preview)
+        assert "Installed RTLs" in text
+        assert "RTL Status" in text
+
+    def test_preview_for_max_temperature(self):
+        preview = _build_preview("max_temperature")
+        text = str(preview)
+        assert "Maximum Temperature" in text
+        assert "Date of Maximum Temperature" in text
+
+    def test_preview_for_unknown_returns_empty(self):
+        preview = _build_preview("nonexistent")
+        assert hasattr(preview, "style")
+        assert preview.style == {"display": "none"}
+
+    def test_preview_has_columns_list(self):
+        preview = _build_preview("rtl_alarms_30d")
+        text = str(preview)
+        assert "<li>" in text.lower() or "OU" in text
+
+    def test_preview_has_description(self):
+        preview = _build_preview("rtl_alarms_30d")
+        text = str(preview)
+        assert "Alarms triggered" in text
+
+
+# ---------------------------------------------------------------------------
+# Definition status builder
+# ---------------------------------------------------------------------------
+
+class TestBuildDefinitionStatus:
+    def test_status_for_valid_report(self):
+        status = _build_definition_status("rtl_alarms_30d")
+        text = str(status)
+        assert "Report definition confirmed" in text
+        assert "Production data mapping incomplete" in text
+
+    def test_status_for_unknown_returns_empty(self):
+        status = _build_definition_status("nonexistent")
+        assert hasattr(status, "style")
+        assert status.style == {"display": "none"}
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +275,6 @@ class TestScopeLabel:
         assert _scope_label("fleet") == "Entire Fleet"
 
     def test_plant(self):
-        # This will fall back to plant_id since no service in test
         result = _scope_label("plant", plant_id="p1")
         assert "Plant:" in result
 
@@ -144,9 +313,81 @@ class TestMockRecentReports:
     def test_mock_reports_is_list(self):
         assert isinstance(_mock_recent_reports, list)
 
-    def test_mock_reports_has_entries(self):
-        # Seeded by callbacks on import
-        assert len(_mock_recent_reports) >= 0
+    def test_mock_reports_use_confirmed_names(self):
+        _mock_recent_reports.clear()
+        from callbacks.report_center import _seed_mock_reports
+        _seed_mock_reports()
+        confirmed_names = {"RTL Alarms (30 Days)", "Installed RTLs", "Maximum Temperature"}
+        for entry in _mock_recent_reports:
+            assert entry["report"] in confirmed_names
+
+    def test_mock_reports_status_not_completed(self):
+        _mock_recent_reports.clear()
+        from callbacks.report_center import _seed_mock_reports
+        _seed_mock_reports()
+        for entry in _mock_recent_reports:
+            assert entry["status"] != "Completed"
+            assert entry["status"] == "Demo"
+
+    def test_mock_reports_no_action_column(self):
+        _mock_recent_reports.clear()
+        from callbacks.report_center import _seed_mock_reports
+        _seed_mock_reports()
+        for entry in _mock_recent_reports:
+            assert "action" not in entry
+
+    def test_mock_reports_no_invented_names(self):
+        _mock_recent_reports.clear()
+        from callbacks.report_center import _seed_mock_reports
+        _seed_mock_reports()
+        invented = {"Daily Temperature Summary", "Transformer Load Report", "Energy Consumption Export"}
+        for entry in _mock_recent_reports:
+            assert entry["report"] not in invented
+
+
+# ---------------------------------------------------------------------------
+# Architecture
+# ---------------------------------------------------------------------------
+
+class TestArchitecture:
+    def test_no_sql_in_page_module(self):
+        import pages.report_center as mod
+        import inspect
+        source = inspect.getsource(mod)
+        assert "text(" not in source
+        assert "session.execute" not in source
+
+    def test_no_sql_in_callback_module(self):
+        import callbacks.report_center as mod
+        import inspect
+        source = inspect.getsource(mod)
+        # Check for SQLAlchemy text() usage, not substring matches
+        assert "from sqlalchemy import text" not in source
+        assert "session.execute" not in source
+
+    def test_no_file_output_in_callbacks(self):
+        import callbacks.report_center as mod
+        import inspect
+        source = inspect.getsource(mod)
+        assert "open(" not in source
+        assert "write(" not in source
+        assert ".pdf" not in source
+        assert ".xlsx" not in source
+        assert ".csv" not in source
+
+    def test_report_definitions_independent_of_backend(self):
+        import config.reports as mod
+        import inspect
+        source = inspect.getsource(mod)
+        assert "repository" not in source.lower()
+        assert "database" not in source.lower()
+        assert "sql" not in source.lower()
+
+    def test_callback_module_uses_config_reports(self):
+        import callbacks.report_center as mod
+        import inspect
+        source = inspect.getsource(mod)
+        assert "from config.reports import" in source
 
 
 # ---------------------------------------------------------------------------

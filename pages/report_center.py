@@ -1,7 +1,8 @@
 """Report Center page — layout only, no queries.
 
-Frontend shell for report generation and history. Report types, formats,
-scheduling, and delivery are unresolved pending client confirmation.
+Frontend shell for report generation and history. Report types are confirmed
+by the RTL Functional Specification (§11). Report generation, formats,
+scheduling, and delivery remain prototype-only.
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from dash import dcc, html
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.entity_table import entity_table
+from config.reports import report_options
 
 
 def layout() -> html.Div:
@@ -54,19 +56,25 @@ def layout() -> html.Div:
                                     ),
                                     dcc.Dropdown(
                                         id="report-type",
-                                        options=[
-                                            {"label": "TBD — Client to confirm report types", "value": "tbd", "disabled": True},
-                                        ],
-                                        value="tbd",
-                                        disabled=True,
+                                        options=report_options(),
+                                        value=None,
                                         clearable=False,
+                                        placeholder="Select a report type...",
                                         className="report-form__dropdown",
                                     ),
-                                    html.P(
-                                        "Report types pending client confirmation.",
-                                        className="report-form__note",
-                                    ),
                                 ],
+                            ),
+                            # Report Definition Status
+                            html.Div(
+                                id="report-definition-status",
+                                className="report-form__status",
+                                style={"display": "none"},
+                            ),
+                            # Report Layout Preview
+                            html.Div(
+                                id="report-preview",
+                                className="report-preview",
+                                style={"display": "none"},
                             ),
                             # Asset Scope
                             html.Div(
@@ -155,6 +163,7 @@ def layout() -> html.Div:
                             ),
                             # Date Range
                             html.Div(
+                                id="report-period-container",
                                 className="report-form__field",
                                 children=[
                                     html.Label(
@@ -169,7 +178,7 @@ def layout() -> html.Div:
                                             {"label": " 30d", "value": "30d"},
                                             {"label": " Custom", "value": "custom"},
                                         ],
-                                        value="24h",
+                                        value="30d",
                                         inline=True,
                                         className="report-form__radio",
                                     ),
@@ -185,6 +194,11 @@ def layout() -> html.Div:
                                             ),
                                         ],
                                     ),
+                                    # Fixed period notice (for RTL Alarms 30 Days)
+                                    html.Div(
+                                        id="report-period-notice",
+                                        style={"display": "none", "marginTop": "4px"},
+                                    ),
                                 ],
                             ),
                             # Generate Button
@@ -195,6 +209,7 @@ def layout() -> html.Div:
                                         "Generate (Prototype)",
                                         id="report-generate-btn",
                                         n_clicks=0,
+                                        disabled=True,
                                         className="report-form__btn report-form__btn--primary",
                                     ),
                                 ],
@@ -233,7 +248,6 @@ def layout() -> html.Div:
                             {"name": "Scope", "id": "scope"},
                             {"name": "Requested", "id": "requested"},
                             {"name": "Status", "id": "status"},
-                            {"name": "Action", "id": "action", "presentation": "markdown"},
                         ],
                         rows=[],
                         link_column_id="report",

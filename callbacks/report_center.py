@@ -1,6 +1,7 @@
-"""Report Center callbacks — form handling, asset scope cascade, prototype generation.
+"""Report Center callbacks — form handling, preview, prototype generation.
 
-All operations are frontend-only. Report generation creates a clearly labeled
+All operations are frontend-only. Report types are confirmed by the RTL
+Functional Specification (§11). Report generation creates a clearly labeled
 prototype result; no files are produced or delivered. Recent reports table
 uses mock data explicitly marked as demo.
 """
@@ -11,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from dash import Input, Output, State, no_update, html
 
+from config.reports import get_report, REPORTS
 from services import hierarchy_service
 
 logger = logging.getLogger(__name__)
@@ -20,37 +22,34 @@ _mock_recent_reports: list[dict] = []
 
 
 def _seed_mock_reports() -> None:
-    """Seed demo reports if empty."""
+    """Seed demo reports using confirmed report names only."""
     if not _mock_recent_reports:
         now = datetime.now(timezone.utc)
         _mock_recent_reports.extend([
             {
                 "id": "demo-1",
-                "report": "Daily Temperature Summary",
+                "report": "RTL Alarms (30 Days)",
                 "scope": "Fleet",
                 "requested": (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M UTC"),
-                "status": "Completed",
-                "action": "[View](#)",
+                "status": "Demo",
                 "_state": "fresh",
                 "_severity": 0,
             },
             {
                 "id": "demo-2",
-                "report": "Transformer Load Report",
+                "report": "Installed RTLs",
                 "scope": "Plant: Itaipu",
                 "requested": (now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M UTC"),
-                "status": "Completed",
-                "action": "[View](#)",
+                "status": "Demo",
                 "_state": "fresh",
                 "_severity": 0,
             },
             {
                 "id": "demo-3",
-                "report": "Energy Consumption Export",
-                "scope": "Device: plant-01-t1-d1",
+                "report": "Maximum Temperature",
+                "scope": "Fleet",
                 "requested": (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M UTC"),
-                "status": "Completed",
-                "action": "[View](#)",
+                "status": "Demo",
                 "_state": "fresh",
                 "_severity": 0,
             },
@@ -102,11 +101,133 @@ def _scope_label(scope: str, plant_id: str = "", transformer_id: str = "", devic
     return scope.capitalize()
 
 
+def _build_preview(report_key: str) -> html.Div:
+    """Build the Report Layout Preview for a selected report."""
+    report = get_report(report_key)
+    if not report:
+        return html.Div(style={"display": "none"})
+
+    column_items = [html.Li(col) for col in report.columns]
+
+    return html.Div(
+        className="report-preview__content",
+        children=[
+            html.H4("Report Layout Preview"),
+            html.P(report.label, className="report-preview__title"),
+            html.P(report.description, className="report-preview__desc"),
+            html.Ul(column_items, className="report-preview__columns"),
+        ],
+    )
+
+
+def _build_definition_status(report_key: str) -> html.Div:
+    """Build data availability honesty notice for a selected report."""
+    report = get_report(report_key)
+    if not report:
+        return html.Div(style={"display": "none"})
+
+    return html.Div(
+        className="status-panel status-panel--inactive",
+        children=[
+            html.P(
+                html.Strong("Report definition confirmed. "),
+            ),
+            html.P(
+                "Production data mapping incomplete. "
+                "The columns above reflect the client-confirmed report layout. "
+                "Actual data availability depends on the backend report service."
+            ),
+        ],
+    )
+
+
 def register(app) -> None:
     """Register report center callbacks on the Dash app."""
 
     # Seed mock reports
     _seed_mock_reports()
+
+    # ---- Report type → preview + status + date-range behavior ----
+
+    @app.callback(
+        Output("report-preview", "style"),
+        Output("report-preview", "children"),
+        Output("report-definition-status", "style"),
+        Output("report-definition-status", "children"),
+        Output("report-generate-btn", "disabled"),
+        Output("report-period-container", "style"),
+        Output("report-period", "value"),
+        Output("report-period", "options"),
+        Output("report-period-notice", "style"),
+        Output("report-period-notice", "children"),
+        Input("report-type", "value"),
+        prevent_initial_call=True,
+    )
+    def on_report_type_change(report_key):
+        if not report_key:
+            return (
+                {"display": "none"}, no_update,
+                {"display": "none"}, no_update,
+                True,
+                {"display": "block"}, no_update, no_update,
+                {"display": "none"}, no_update,
+            )
+
+        report = get_report(report_key)
+        if not report:
+            return (
+                {"display": "none"}, no_update,
+                {"display": "none"}, no_update,
+                True,
+                {"display": "block"}, no_update, no_update,
+                {"display": "none"}, no_update,
+            )
+
+        preview = _build_preview(report_key)
+        status = _build_definition_status(report_key)
+
+        # Date-range behavior
+        if report.date_range_fixed == "30d":
+            # RTL Alarms (30 Days) — locked to 30 days
+            period_options = [
+                {"label": " 30d (fixed)", "value": "30d", "disabled": True},
+            ]
+            notice_style = {"display": "block", "marginTop": "4px"}
+            notice = html.Em(
+                "This report is defined as a 30-day period. "
+                "Date range selection is locked.",
+                className="report-form__note",
+            )
+            return (
+                {"display": "block"}, preview,
+                {"display": "block"}, status,
+                False,
+                {"display": "block"}, "30d", period_options,
+                notice_style, notice,
+            )
+        elif report.key == "installed_rtls":
+            # Installed RTLs — current-state report, no date range
+            return (
+                {"display": "block"}, preview,
+                {"display": "block"}, status,
+                False,
+                {"display": "none"}, no_update, no_update,
+                {"display": "none"}, no_update,
+            )
+        else:
+            # Maximum Temperature — period not defined by spec
+            notice_style = {"display": "block", "marginTop": "4px"}
+            notice = html.Em(
+                "The Functional Specification does not define a reporting period for this report.",
+                className="report-form__note",
+            )
+            return (
+                {"display": "block"}, preview,
+                {"display": "block"}, status,
+                False,
+                {"display": "none"}, no_update, no_update,
+                notice_style, notice,
+            )
 
     # ---- Asset scope cascade ----
 
@@ -201,7 +322,6 @@ def register(app) -> None:
                 {"name": "Scope", "id": "scope"},
                 {"name": "Requested", "id": "requested"},
                 {"name": "Status", "id": "status"},
-                {"name": "Action", "id": "action", "presentation": "markdown"},
             ]
             return rows, columns, None
         except Exception:
@@ -224,15 +344,22 @@ def register(app) -> None:
         State("report-custom-date-range", "end_date"),
         prevent_initial_call=True,
     )
-    def generate_report(n_clicks, report_type, asset_scope, plant_id, transformer_id, device_id, period, custom_start, custom_end):
+    def generate_report(n_clicks, report_key, asset_scope, plant_id, transformer_id, device_id, period, custom_start, custom_end):
         if not n_clicks:
             return no_update, no_update
+
+        report = get_report(report_key)
+        report_label = report.label if report else "Unknown"
 
         # Build scope description
         scope_desc = _scope_label(asset_scope, plant_id, transformer_id, device_id)
 
         # Build period description
-        if period == "custom" and custom_start and custom_end:
+        if report and report.date_range_fixed == "30d":
+            period_desc = "Last 30 days (fixed by report definition)"
+        elif period is None:
+            period_desc = "Not applicable (current-state report)"
+        elif period == "custom" and custom_start and custom_end:
             period_desc = f"Custom: {custom_start} to {custom_end} UTC"
         else:
             period_labels = {"24h": "Last 24 hours", "7d": "Last 7 days", "30d": "Last 30 days"}
@@ -242,14 +369,14 @@ def register(app) -> None:
         result = html.Div(
             className="status-panel status-panel--inactive",
             children=[
-                html.H4("Report Generated (Prototype)"),
-                html.P(f"No actual report was produced or delivered."),
+                html.H4("Prototype Only"),
+                html.P("No report file was generated or delivered."),
                 html.Div(
                     className="report-prototype-detail",
                     children=[
-                        html.P(f"<strong>Report Type:</strong> {report_type or 'TBD'}"),
-                        html.P(f"<strong>Asset Scope:</strong> {scope_desc}"),
-                        html.P(f"<strong>Date Range:</strong> {period_desc}"),
+                        html.P(html.Strong("Report: "), report_label),
+                        html.P(html.Strong("Scope: "), scope_desc),
+                        html.P(html.Strong("Period: "), period_desc),
                     ],
                 ),
             ],
