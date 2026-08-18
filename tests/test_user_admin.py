@@ -9,8 +9,12 @@ import pytest
 from callbacks.user_admin import (
     _build_user_rows,
     _validate_user_form,
-    clear_mock_users,
-    get_mock_users,
+    _format_role,
+)
+from services.prototype_users import (
+    clear_all_users,
+    get_all_users,
+    upsert_user,
     CONFIRMED_ROLES,
 )
 from components.user_form_drawer import user_form_drawer
@@ -59,7 +63,7 @@ class TestUserAdminLayout:
 
 class TestBuildUserRows:
     def setup_method(self):
-        clear_mock_users()
+        clear_all_users()
 
     def test_returns_rows_for_all_users(self):
         users = [
@@ -143,7 +147,7 @@ class TestBuildUserRows:
 
 class TestValidateUserForm:
     def setup_method(self):
-        clear_mock_users()
+        clear_all_users()
 
     def test_empty_username_fails(self):
         errors = _validate_user_form("")
@@ -154,9 +158,8 @@ class TestValidateUserForm:
         assert "username" in errors
 
     def test_duplicate_username_fails(self):
-        clear_mock_users()
-        import callbacks.user_admin as ua
-        ua._mock_users["alice"] = {"username": "alice", "identifier": "", "role": "general", "status": "active"}
+        clear_all_users()
+        upsert_user("alice", "", "general", "active")
 
         errors = _validate_user_form("alice")
         assert "username" in errors
@@ -172,14 +175,14 @@ class TestValidateUserForm:
 
 class TestMockUsers:
     def setup_method(self):
-        clear_mock_users()
+        clear_all_users()
 
-    def test_get_mock_users_returns_list(self):
-        users = get_mock_users()
+    def test_get_all_users_returns_list(self):
+        users = get_all_users()
         assert isinstance(users, list)
 
     def test_demo_user_seeded_when_configured(self):
-        users = get_mock_users()
+        users = get_all_users()
         assert len(users) >= 0
 
 

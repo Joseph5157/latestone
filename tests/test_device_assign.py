@@ -1,4 +1,4 @@
-"""Tests for device assignment drawer — layout, mock adapter, cascade logic.
+"""Tests for device assignment drawer — layout, mock adapter, cascade logic, technician assignment.
 
 All tests exercise pure logic (no Dash runtime, no database).
 """
@@ -10,10 +10,17 @@ from callbacks.device_assign import (
     _plant_options,
     _transformer_options,
     get_mock_assignment,
+    get_mock_technician_assignment,
     clear_mock_assignments,
     _mock_assignments,
+    _mock_technician_assignments,
 )
 from components.assign_device_drawer import assign_device_drawer
+from services.prototype_users import (
+    clear_all_users,
+    upsert_user,
+    get_technician_options,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +57,11 @@ class TestAssignDrawerLayout:
         ids = _collect_ids(drawer)
         assert "assign-transformer" in ids
 
+    def test_layout_has_technician_dropdown(self):
+        drawer = assign_device_drawer()
+        ids = _collect_ids(drawer)
+        assert "assign-technician" in ids
+
     def test_layout_has_confirm_button(self):
         drawer = assign_device_drawer()
         ids = _collect_ids(drawer)
@@ -70,9 +82,24 @@ class TestAssignDrawerLayout:
         text = str(drawer)
         assert "Prototype" in text or "prototype" in text
 
+    def test_layout_has_asset_assignment_section(self):
+        drawer = assign_device_drawer()
+        text = str(drawer)
+        assert "Asset Assignment" in text
+
+    def test_layout_has_technician_assignment_section(self):
+        drawer = assign_device_drawer()
+        text = str(drawer)
+        assert "Technician Assignment" in text
+
+    def test_layout_has_technician_empty_state(self):
+        drawer = assign_device_drawer()
+        ids = _collect_ids(drawer)
+        assert "assign-technician-empty" in ids
+
 
 # ---------------------------------------------------------------------------
-# Mock adapter
+# Mock adapter — asset assignment
 # ---------------------------------------------------------------------------
 
 class TestMockAssignment:
@@ -96,6 +123,54 @@ class TestMockAssignment:
         _mock_assignments["d2"] = "tx-2"
         assert get_mock_assignment("d1") == "tx-1"
         assert get_mock_assignment("d2") == "tx-2"
+
+
+# ---------------------------------------------------------------------------
+# Mock adapter — technician assignment
+# ---------------------------------------------------------------------------
+
+class TestMockTechnicianAssignment:
+    def setup_method(self):
+        clear_mock_assignments()
+
+    def test_no_technician_assignment_returns_none(self):
+        assert get_mock_technician_assignment("device-1") is None
+
+    def test_set_and_get_technician_assignment(self):
+        _mock_technician_assignments["device-1"] = "tech-bob"
+        assert get_mock_technician_assignment("device-1") == "tech-bob"
+
+    def test_clear_technician_assignments(self):
+        _mock_technician_assignments["device-1"] = "tech-bob"
+        clear_mock_assignments()
+        assert get_mock_technician_assignment("device-1") is None
+
+
+# ---------------------------------------------------------------------------
+# Technician options from prototype users
+# ---------------------------------------------------------------------------
+
+class TestTechnicianOptions:
+    def setup_method(self):
+        clear_all_users()
+        clear_mock_assignments()
+
+    def test_technician_options_include_only_technicians(self):
+        upsert_user("alice", "", "administrator", "active")
+        upsert_user("bob", "", "technician", "active")
+        upsert_user("charlie", "", "general", "active")
+        options = get_technician_options()
+        assert len(options) == 1
+        assert options[0]["value"] == "bob"
+
+    def test_technician_options_exclude_inactive(self):
+        upsert_user("bob", "", "technician", "inactive")
+        options = get_technician_options()
+        assert len(options) == 0
+
+    def test_technician_options_empty_when_no_technicians(self):
+        options = get_technician_options()
+        assert options == []
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ from dash import dcc, html
 from components.app_header import app_header
 from components.assign_device_drawer import assign_device_drawer
 from components.breadcrumb import breadcrumb
+from components.device_manage_drawer import device_manage_drawer
 from components.entity_table import entity_table
 
 
@@ -81,5 +82,7 @@ def layout() -> html.Div:
             ),
             # Assignment drawer (opens on Assign action)
             assign_device_drawer(),
+            # Device management drawer (opens on Manage action)
+            device_manage_drawer(),
         ],
     )

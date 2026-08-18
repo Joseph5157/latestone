@@ -7,6 +7,8 @@ Pins the contract that:
 - inactive records are rendered safely
 - empty state / error state are handled
 - no direct SQL import exists in the page module
+- Manage action opens device management drawer
+- View action still works correctly
 """
 from __future__ import annotations
 
@@ -106,6 +108,7 @@ class TestBuildDeviceAdminRows:
         assert rows[0]["id"] == "d1"
         assert "[View](#)" in rows[0]["actions"]
         assert "[Assign](#)" in rows[0]["actions"]
+        assert "[Manage](#)" in rows[0]["actions"]
 
     def test_plant_and_transformer_labels_present(self):
         health = _health([("p1", "d1", FRESH_TS)])
@@ -113,6 +116,13 @@ class TestBuildDeviceAdminRows:
         rows = build_device_admin_rows(devices, health)
         assert rows[0]["plant"] == "Itaipu"
         assert rows[0]["transformer"] == "aa12"
+
+    def test_actions_include_all_three_links(self):
+        health = _health([("p1", "d1", FRESH_TS)])
+        devices = [_Device("d1", "29017", "active", "aa12", "Itaipu")]
+        rows = build_device_admin_rows(devices, health)
+        actions = rows[0]["actions"]
+        assert actions.count("[") == 3  # View, Assign, Manage
 
 
 class TestDeviceRowTarget:
@@ -164,6 +174,20 @@ class TestDeviceAdminPageLayout:
         buttons = find_by_class(page, "device-admin-toolbar__register-btn")
         assert len(buttons) == 1
 
+    def test_page_has_assign_drawer(self):
+        from pages.device_admin import layout
+        page = layout()
+        from tests.dash_tree import find_by_id
+        drawer = find_by_id(page, "assign-device-drawer")
+        assert drawer is not None
+
+    def test_page_has_manage_drawer(self):
+        from pages.device_admin import layout
+        page = layout()
+        from tests.dash_tree import find_by_id
+        drawer = find_by_id(page, "device-manage-drawer")
+        assert drawer is not None
+
 
 class TestNoSQLInPageModule:
     def test_page_module_has_no_sql_imports(self):
@@ -178,3 +202,62 @@ class TestNoSQLInPageModule:
                 continue
             assert "text(" not in stripped, f"Raw SQL in page: {stripped}"
             assert "session.execute" not in stripped, f"Session in page: {stripped}"
+
+
+class TestDeviceManageDrawerLayout:
+    def test_drawer_returns_component(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        assert hasattr(drawer, "children")
+
+    def test_drawer_has_overlay(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        assert find_by_id(drawer, "manage-drawer-overlay") is not None
+
+    def test_drawer_has_action_menu(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        assert find_by_id(drawer, "manage-action-menu") is not None
+
+    def test_drawer_has_program_panel(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        assert find_by_id(drawer, "manage-program-panel") is not None
+
+    def test_drawer_has_forwarding_panel(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        assert find_by_id(drawer, "manage-forwarding-panel") is not None
+
+    def test_drawer_has_deactivate_panel(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        assert find_by_id(drawer, "manage-deactivate-panel") is not None
+
+    def test_program_rtl_fields_present(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        assert find_by_id(drawer, "program-rtl-uid") is not None
+        assert find_by_id(drawer, "program-rtl-transformer") is not None
+        assert find_by_id(drawer, "program-rtl-msisdn") is not None
+
+    def test_msisdn_field_is_disabled(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        msisdn = find_by_id(drawer, "program-rtl-msisdn")
+        assert msisdn is not None
+        assert msisdn.disabled is True
+
+    def test_has_prototype_notices(self):
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        text = str(drawer)
+        assert "Prototype" in text or "prototype" in text

@@ -1,7 +1,10 @@
-"""Device Assignment callbacks — open drawer, cascade, mock submit.
+"""Device Assignment callbacks — open drawer, cascade, technician selection, mock submit.
 
 All assignment actions are frontend-only. The mock adapter stores the
-latest assignment in a dcc.Store; it does not write to any database.
+latest assignment in memory; it does not write to any database.
+
+Technician assignment uses the shared prototype user store from
+services/prototype_users.py.
 """
 from __future__ import annotations
 
@@ -14,15 +17,20 @@ from components.assign_device_drawer import (
     ASSIGN_DEVICE_ID,
     ASSIGN_PLANT_ID,
     ASSIGN_TRANSFORMER_ID,
+    ASSIGN_TECHNICIAN_ID,
     ASSIGN_CONFIRM_BTN,
     ASSIGN_CANCEL_BTN,
 )
 from services import hierarchy_service
+from services.prototype_users import get_technician_options
 
 logger = logging.getLogger(__name__)
 
 # In-memory store for prototype assignments: device_id -> transformer_id
 _mock_assignments: dict[str, str] = {}
+
+# In-memory store for prototype technician assignments: device_id -> technician_username
+_mock_technician_assignments: dict[str, str] = {}
 
 
 def get_mock_assignment(device_id: str) -> str | None:
@@ -30,9 +38,15 @@ def get_mock_assignment(device_id: str) -> str | None:
     return _mock_assignments.get(device_id)
 
 
+def get_mock_technician_assignment(device_id: str) -> str | None:
+    """Read the mock technician assignment for a device (for testing)."""
+    return _mock_technician_assignments.get(device_id)
+
+
 def clear_mock_assignments() -> None:
-    """Reset the mock store (for testing)."""
+    """Reset the mock stores (for testing)."""
     _mock_assignments.clear()
+    _mock_technician_assignments.clear()
 
 
 def _plant_options() -> list[dict]:
@@ -60,6 +74,10 @@ def register(app) -> None:
         Output("assign-drawer-device-code", "children"),
         Output("assign-drawer-current-transformer", "children"),
         Output("assign-drawer-current-plant", "children"),
+        Output(ASSIGN_TECHNICIAN_ID, "options"),
+        Output(ASSIGN_TECHNICIAN_ID, "value"),
+        Output("assign-technician-empty", "children"),
+        Output("assign-technician-empty", "style"),
         Input("device-admin-table", "active_cell"),
         State("device-admin-table", "data"),
         prevent_initial_call=True,
@@ -67,23 +85,43 @@ def register(app) -> None:
     def open_assign_drawer(active_cell, table_data):
         """Open the assignment drawer when Assign is clicked."""
         if not active_cell or active_cell.get("column_id") != "actions":
-            return no_update, no_update, no_update, no_update, no_update
+            return (no_update,) * 9
 
         row_id = active_cell.get("row_id")
         if not row_id:
-            return no_update, no_update, no_update, no_update, no_update
+            return (no_update,) * 9
 
-        # Find the row data
+        # Check if this is an Assign action (not View or Manage)
         row = next((r for r in (table_data or []) if r.get("id") == row_id), None)
         if not row:
-            return no_update, no_update, no_update, no_update, no_update
+            return (no_update,) * 9
+
+        actions_text = row.get("actions", "")
+        if "Assign" not in actions_text:
+            return (no_update,) * 9
+
+        # Get technician options from shared prototype user store
+        tech_options = get_technician_options()
+        current_technician = _mock_technician_assignments.get(row_id)
+
+        # Show honest empty state when no technicians exist
+        if not tech_options:
+            empty_text = "No technicians available. Add a technician in User Administration."
+            empty_style = {"display": "block", "color": "var(--color-muted)", "fontStyle": "italic", "fontSize": "var(--fs-meta)"}
+        else:
+            empty_text = ""
+            empty_style = {"display": "none"}
 
         return (
-            {"display": "block"},  # show drawer
-            row_id,                # store device_id
-            row.get("device", "—"),
-            row.get("transformer", "—"),
-            row.get("plant", "—"),
+            {"display": "block"},           # show drawer
+            row_id,                          # store device_id
+            row.get("device", "—"),          # device code
+            row.get("transformer", "—"),     # transformer
+            row.get("plant", "—"),           # plant
+            tech_options,                    # technician dropdown options
+            current_technician,              # pre-select current technician
+            empty_text,                      # empty state text
+            empty_style,                     # empty state visibility
         )
 
     @app.callback(
@@ -118,20 +156,36 @@ def register(app) -> None:
         State(ASSIGN_DEVICE_ID, "data"),
         State(ASSIGN_PLANT_ID, "value"),
         State(ASSIGN_TRANSFORMER_ID, "value"),
+        State(ASSIGN_TECHNICIAN_ID, "value"),
         prevent_initial_call=True,
     )
-    def confirm_assignment(n_clicks, device_id, plant_id, transformer_id):
+    def confirm_assignment(n_clicks, device_id, plant_id, transformer_id, technician):
         """Prototype confirm — stores in memory, no database write."""
-        if not n_clicks or not device_id or not transformer_id:
+        if not n_clicks or not device_id:
             return no_update, no_update
 
-        # Mock assignment: store the mapping
-        _mock_assignments[device_id] = transformer_id
+        # Store asset assignment if transformer selected
+        if transformer_id:
+            _mock_assignments[device_id] = transformer_id
+            logger.info(
+                "Prototype asset assignment: device %s -> transformer %s",
+                device_id, transformer_id,
+            )
 
-        logger.info(
-            "Prototype assignment: device %s -> transformer %s",
-            device_id, transformer_id,
-        )
+        # Store technician assignment
+        if technician:
+            _mock_technician_assignments[device_id] = technician
+            logger.info(
+                "Prototype technician assignment: device %s -> technician %s",
+                device_id, technician,
+            )
+        elif device_id in _mock_technician_assignments:
+            # Clear technician assignment if none selected
+            del _mock_technician_assignments[device_id]
+            logger.info(
+                "Prototype technician assignment cleared: device %s",
+                device_id,
+            )
 
         # Close the drawer
         return {"display": "none"}, device_id

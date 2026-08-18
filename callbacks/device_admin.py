@@ -27,11 +27,10 @@ DEVICE_ADMIN_COLUMNS = [
     {"name": "Actions", "id": "actions", "presentation": "markdown"},
 ]
 
-# Markdown for the View Device action link — dash_table renders markdown cells
-# as target="_blank", but we override navigation via a separate click callback
-# keyed on active_cell, matching the fleet/plant/transformer table pattern.
+# Markdown action links — dash_table renders markdown cells
 _VIEW_LINK = "[View](#)"
 _ASSIGN_LINK = "[Assign](#)"
+_MANAGE_LINK = "[Manage](#)"
 
 
 def _format_status(status: str) -> str:
@@ -40,15 +39,17 @@ def _format_status(status: str) -> str:
 
 
 def build_device_admin_rows(devices, health) -> list[dict]:
-    """One row per device, with freshness and a View Device action link.
+    """One row per device, with freshness and action links.
+
+    Actions:
+    - View: navigates to device dashboard
+    - Assign: opens assignment drawer (asset + technician)
+    - Manage: opens device management drawer (Program RTL, Forwarding, Deactivate)
 
     Freshness is derived from the shared `FleetHealth` object — the same
     definition the Fleet overview card uses — so the admin table's freshness
     labels cannot disagree with the plant table's. One fleet-wide fetch, not
     one per device.
-
-    An inactive device still appears in the table (marked rather than hidden)
-    so its historical readings remain inspectable.
     """
     rows = []
     for d in devices:
@@ -62,7 +63,7 @@ def build_device_admin_rows(devices, health) -> list[dict]:
             "transformer": d.transformer_code,
             "status": _format_status(d.status),
             "freshness": freshness_label,
-            "actions": f"{_VIEW_LINK} {_ASSIGN_LINK}",
+            "actions": f"{_VIEW_LINK} {_ASSIGN_LINK} {_MANAGE_LINK}",
             "_state": state_value,
             "_severity": severity_rank(rollup.state) if rollup else 2,
         })
@@ -77,6 +78,13 @@ def device_row_target(active_cell) -> str | None:
     if not device_id:
         return None
     return device_href(device_id)
+
+
+def _is_view_action(active_cell) -> bool:
+    """True if the clicked action is View."""
+    if not active_cell or active_cell.get("column_id") != "actions":
+        return False
+    return True  # handled by specific callback dispatch
 
 
 def register(app) -> None:
@@ -125,6 +133,9 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def navigate_from_device_admin_table(active_cell):
+        """Navigate to device dashboard when View is clicked."""
+        if not active_cell or active_cell.get("column_id") != "device":
+            return no_update
         target = device_row_target(active_cell)
         return target or no_update
 

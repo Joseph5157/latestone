@@ -1,8 +1,8 @@
 """User Administration callbacks — populate table, search/filter, prototype add/edit.
 
 All operations are frontend-only. The user list is a prototype in-memory view
-model; it does not persist to any identity system. Role assignment uses
-confirmed runtime roles from the client Functional Specification.
+model; it does not persist to any identity system. User state is shared via
+services/prototype_users.py so device workflows can access technician data.
 """
 from __future__ import annotations
 
@@ -20,38 +20,16 @@ from components.user_form_drawer import (
     USER_CONFIRM_BTN,
     USER_CANCEL_BTN,
 )
+from services.prototype_users import (
+    get_all_users,
+    get_user,
+    upsert_user,
+    clear_all_users,
+    seed_demo_user,
+    CONFIRMED_ROLES,
+)
 
 logger = logging.getLogger(__name__)
-
-# In-memory prototype user store: username -> {username, identifier, role, status}
-# Starts with the demo user from config
-_mock_users: dict[str, dict] = {}
-
-# Confirmed runtime roles from Functional Specification
-CONFIRMED_ROLES = ("administrator", "technician", "general")
-
-
-def _seed_mock_users() -> None:
-    """Initialize mock users with the demo credential from config."""
-    from config.settings import demo_auth
-    if demo_auth.is_configured and demo_auth.username not in _mock_users:
-        _mock_users[demo_auth.username] = {
-            "username": demo_auth.username,
-            "identifier": "demo@local",
-            "role": "general",  # default prototype role for demo user
-            "status": "active",
-        }
-
-
-def get_mock_users() -> list[dict]:
-    """Return all mock users as a list."""
-    _seed_mock_users()
-    return list(_mock_users.values())
-
-
-def clear_mock_users() -> None:
-    """Reset mock store (for testing)."""
-    _mock_users.clear()
 
 
 def _validate_user_form(username: str) -> dict[str, str]:
@@ -59,7 +37,7 @@ def _validate_user_form(username: str) -> dict[str, str]:
     errors = {}
     if not username or not username.strip():
         errors["username"] = "Username is required."
-    elif username.strip() in _mock_users:
+    elif get_user(username.strip()) is not None:
         errors["username"] = "Username already exists."
     return errors
 
@@ -118,7 +96,7 @@ def register(app) -> None:
     """Register user administration callbacks on the Dash app."""
 
     # Initialize mock users on first load
-    _seed_mock_users()
+    seed_demo_user()
 
     @app.callback(
         Output("user-admin-table", "data"),
@@ -135,7 +113,7 @@ def register(app) -> None:
             return (no_update,) * 4
 
         try:
-            users = get_mock_users()
+            users = get_all_users()
             rows = _build_user_rows(users, search_term or "", status_filter or "all")
 
             active_count = sum(1 for u in users if u.get("status") == "active")
@@ -172,9 +150,9 @@ def register(app) -> None:
     )
     def open_user_drawer(add_clicks, active_cell, table_data):
         """Open drawer for Add User or Edit action."""
-        ctx = dash.callback_context
+        ctx = __import__("dash").callback_context
         if not ctx.triggered:
-            return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+            return (no_update,) * 8
 
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
@@ -195,16 +173,16 @@ def register(app) -> None:
             # Edit action
             row_id = active_cell.get("row_id")
             if not row_id:
-                return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+                return (no_update,) * 8
 
             row = next((r for r in (table_data or []) if r.get("id") == row_id), None)
             if not row:
-                return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+                return (no_update,) * 8
 
-            # Find the full user data
-            user = _mock_users.get(row_id)
+            # Find the full user data from shared store
+            user = get_user(row_id)
             if not user:
-                return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+                return (no_update,) * 8
 
             return (
                 {"display": "block"},
@@ -217,7 +195,7 @@ def register(app) -> None:
                 "Save Changes (Prototype)",
             )
 
-        return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+        return (no_update,) * 8
 
     @app.callback(
         Output(USER_DRAWER_ID, "style", allow_duplicate=True),
@@ -257,20 +235,12 @@ def register(app) -> None:
 
         if existing_username and existing_username != username:
             # Renaming: remove old, add new
-            _mock_users.pop(existing_username, None)
+            from services.prototype_users import remove_user
+            remove_user(existing_username)
 
-        _mock_users[username] = {
-            "username": username,
-            "identifier": identifier,
-            "role": role,
-            "status": status or "active",
-        }
+        upsert_user(username, identifier, role, status or "active")
 
         logger.info("Prototype user %s: %s (role=%s)", "updated" if existing_username else "added", username, role)
 
         # Close drawer
         return "", {"display": "none"}, username
-
-
-# Need to import dash for callback_context
-from dash import callback_context as dash
