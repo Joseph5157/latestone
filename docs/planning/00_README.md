@@ -81,15 +81,21 @@ Do not rewrite these areas unless a phase explicitly requires a narrow change.
 | Phase 4A | Device Workflow Alignment | COMPLETE |
 | Phase 6A | Report Definition Alignment | COMPLETE |
 | Phase 7R | Revised Notification Center | COMPLETE |
-
-### Upcoming phases
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| Phase 8 | Metric / Vibration Readiness | NOT STARTED |
-| Phase 9 | Client Review Gate | NOT STARTED |
+| Phase 8 | Metric / Vibration Readiness | COMPLETE |
+| Phase 9 | Client Review Gate | COMPLETE |
 
 **Note:** The original Phase 7 plan (Notification Center shell) was superseded by Phase 7R, because the client Functional Specification later confirmed formal notification requirements that differed from the original freshness-based approach.
+
+## Current status
+
+**CLIENT REVIEW / IMPLEMENTATION GATE**
+
+Phases 0–9 are complete. The current planning cycle is closed at the Phase 9 client
+review gate (`docs/RTL_CLIENT_REVIEW_GATE.md`).
+
+There is no Phase 10 planned. Further production implementation is gated on client/
+backend/data-contract decisions. Do not start new implementation until those decisions
+are provided.
 
 ## Execution order
 

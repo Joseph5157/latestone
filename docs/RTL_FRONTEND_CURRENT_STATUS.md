@@ -5,7 +5,7 @@
 Frontend planning now uses:
 
 - **PAD Sections 1–3.4** for the currently approved architecture/business-flow scope
-- **docs/specs/RTL_FUNCTIONAL_SPEC_EXTRACT.md** for newly confirmed functional requirements
+- **docs/RTL_FUNCTIONAL_SPEC_EXTRACT.md** for newly confirmed functional requirements
 
 Do not use later PAD technical sections to expand implementation scope automatically.
 
@@ -14,11 +14,13 @@ Do not use later PAD technical sections to expand implementation scope automatic
 ## Current Checkpoint
 
 ```
-57c068c  checkpoint after Phases 0–6
-3504d1b  Phase 5A role alignment
-e83472e  Phase 4A device workflow alignment
-9e83856  Phase 6A report alignment
+553d142  Phase 8 vibration-ready metric UI
+9fdabd4  docs: update RTL frontend status through Phase 7R
 78af1e3  Phase 7R notification center
+9e83856  Phase 6A report alignment
+e83472e  Phase 4A device workflow alignment
+3504d1b  Phase 5A role alignment
+57c068c  checkpoint after Phases 0–6
 ```
 
 Working tree: clean
@@ -26,6 +28,31 @@ Working tree: clean
 ---
 
 ## Completed Alignment Phases
+
+### Phase 8 — Metric / Vibration Readiness — COMPLETE
+
+Metric registry remains 8 metrics; UI is now configuration-driven (`ordered_metrics()`)
+with no fixed-8 assumptions. Vibration is **not activated** — its data contract is
+unresolved (`docs/VIBRATION_METRIC_CONTRACT_TBD.md`). No fabrication, no DB/schema changes.
+
+Latest Phase 8 test baseline (2026-08-18 fast suite):
+
+```
+1085 passed (non-DB)
+63 deselected (DB)
+1148 total
+```
+
+### Phase 9 — Client Review Gate — COMPLETE
+
+Deliverable: `docs/RTL_CLIENT_REVIEW_GATE.md`. Closes the frontend planning cycle with an
+audit (complete / prototype / backend-blocked), prioritized client decisions, data/API
+contract checklist, demo flow, and Go/No-Go gates.
+
+**Next state: CLIENT / BACKEND REVIEW REQUIRED.**
+
+There is no Phase 10 planned automatically. Further production implementation is gated on
+client/backend/data-contract decisions.
 
 ### Phase 5A — Role Alignment — COMPLETE
 
@@ -186,19 +213,13 @@ The following production/current frontend data fields are not available. Do not 
 
 ## Current Test Baseline
 
-Latest confirmed non-DB result:
+Latest confirmed non-DB result (Phase 8 baseline, verified during Phase 9):
 
 ```
-1129 passed
+1085 passed
 0 failures
-```
-
-Latest confirmed full DB suite (Phase 7R DB tests were not run):
-
-```
-971 passed
-1 failed (timing budget)
-63 deselected
+63 deselected (DB)
+1148 total
 ```
 
 Run the full DB suite again before major implementation if required.
@@ -209,27 +230,23 @@ Known test issue: `test_batched_latest_returns_all_eight_metrics` may exceed the
 
 ## Git Checkpoint
 
-Current checkpoint: `78af1e3`
+Current checkpoint: `553d142`
 
 Working tree: clean
 
 ---
 
-## Next Phase
+## Next State
 
-Phase 8 — Metric / Vibration Readiness
+**CLIENT / BACKEND REVIEW REQUIRED**
 
-Then:
+There is no Phase 10 planned automatically.
 
-Phase 9 — Client Review Gate
-
-**DO NOT START PHASE 8 AUTOMATICALLY.**
-
-Before Phase 8:
+Further production implementation is gated on client/backend/data-contract decisions. Before any further implementation:
 
 1. Verify Git working tree is clean.
-2. Read this status document.
-3. Read the relevant Phase 8 plan.
-4. Read `docs/specs/RTL_FUNCTIONAL_SPEC_EXTRACT.md`.
-5. Inspect current metric registry and current data model.
-6. Wait for explicit approval.
+2. Read `docs/RTL_CLIENT_REVIEW_GATE.md`.
+3. Review the Priority 1–2 client decisions (backend/data ownership, authentication/roles).
+4. Obtain the production/current database schema or API contract.
+5. Confirm the vibration data contract (`docs/VIBRATION_METRIC_CONTRACT_TBD.md`).
+6. Wait for explicit client/backend approval.
