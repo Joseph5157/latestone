@@ -700,12 +700,11 @@ body {
 .equipment-context__item:last-child .equipment-context__value { white-space: nowrap; }
 
 /* ---------- Metric Snapshot Strip ---------- */
-/* Eight across on desktop. Validated at 1366 px: 138 px per tile, no label or
-   value wraps, uniform 77 px height. This is the single largest saving against
-   the §6.8 chart-top budget — 196 px as a 4x2 grid, 77 px as one row. */
+/* Auto-fill grid: adapts to however many metrics the registry defines.
+   Desktop: all tiles in one row. Tablet: wraps to 4. Mobile: wraps to 2. */
 .metric-snapshot-strip {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: var(--sp-2);
   margin-bottom: var(--sp-3);
 }
@@ -1264,8 +1263,8 @@ body {
 .page__meta     { font-size: var(--fs-meta);       color: var(--color-muted); margin: 0 0 20px 0; }
 
 /* ---------- Responsive: Snapshot Strip ----------
-   8 across is validated at >=1200 px only (§24). Below that it steps down
-   rather than squeezing labels past the point they stay on one line. */
+   Auto-fill wraps tiles based on available width.
+   Below 1199px: steps down to 2 columns. Below 640px: horizontal scroll. */
 @media (max-width: 1199px) {
   .metric-snapshot-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

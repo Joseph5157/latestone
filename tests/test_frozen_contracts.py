@@ -48,16 +48,16 @@ class TestChartContract:
 
 
 class TestSnapshotStripContract:
-    def test_eight_tiles_in_one_row_on_desktop(self):
-        """Validated at 1366 px: 138 px per tile, no wrapping, 196 -> 77 px.
-        The single largest saving against the chart-top budget."""
+    def test_auto_fill_grid_for_dynamic_metrics(self):
+        """Auto-fill grid adapts to however many metrics the registry defines.
+        Desktop: all tiles in one row. Tablet: wraps to 4. Mobile: wraps to 2."""
         assert re.search(
-            r"\.metric-snapshot-strip\s*\{[^}]*grid-template-columns:\s*repeat\(8,",
+            r"\.metric-snapshot-strip\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,",
             CSS_TEXT, re.S,
-        ), "snapshot strip must be 8 across on desktop"
+        ), "snapshot strip must use auto-fill for dynamic metric count"
 
     def test_steps_down_below_the_validated_width(self):
-        """8 across is only validated at >=1200 px."""
+        """Auto-fill wraps based on available width."""
         assert re.search(r"@media \(max-width: 1199px\)\s*\{[^}]*repeat\(4,", CSS_TEXT, re.S)
 
 
