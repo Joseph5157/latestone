@@ -1,8 +1,8 @@
 """User Administration callbacks — populate table, search/filter, prototype add/edit.
 
 All operations are frontend-only. The user list is a prototype in-memory view
-model; it does not persist to any identity system. Role assignment is
-explicitly disabled pending client role model.
+model; it does not persist to any identity system. Role assignment uses
+confirmed runtime roles from the client Functional Specification.
 """
 from __future__ import annotations
 
@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 # Starts with the demo user from config
 _mock_users: dict[str, dict] = {}
 
+# Confirmed runtime roles from Functional Specification
+CONFIRMED_ROLES = ("administrator", "technician", "general")
+
 
 def _seed_mock_users() -> None:
     """Initialize mock users with the demo credential from config."""
@@ -35,7 +38,7 @@ def _seed_mock_users() -> None:
         _mock_users[demo_auth.username] = {
             "username": demo_auth.username,
             "identifier": "demo@local",
-            "role": "tbd",
+            "role": "general",  # default prototype role for demo user
             "status": "active",
         }
 
@@ -66,6 +69,19 @@ def _format_status(status: str) -> str:
     return status.capitalize() if status else "—"
 
 
+def _format_role(role: str) -> str:
+    """Human-readable role label for table display."""
+    if role == "administrator":
+        return "Administrator"
+    if role == "technician":
+        return "Technician"
+    if role == "general":
+        return "General User"
+    if role == "tbd":
+        return "Unassigned"  # legacy mock users without explicit role
+    return role.capitalize()
+
+
 def _build_user_rows(users: list[dict], search_term: str = "", status_filter: str = "all") -> list[dict]:
     """Build table rows from user list with search/filter applied."""
     rows = []
@@ -82,7 +98,7 @@ def _build_user_rows(users: list[dict], search_term: str = "", status_filter: st
         if status_filter != "all" and u.get("status") != status_filter:
             continue
 
-        role_label = "TBD" if u.get("role") == "tbd" else (u.get("role", "TBD").capitalize())
+        role_label = _format_role(u.get("role", "tbd"))
         actions = "[Edit](#)"
 
         rows.append({
@@ -170,7 +186,7 @@ def register(app) -> None:
                 "Add User",
                 "",  # empty username
                 "",  # empty identifier
-                "tbd",  # role TBD
+                "general",  # default role
                 "active",  # default status
                 "Add User (Prototype)",
             )
@@ -196,7 +212,7 @@ def register(app) -> None:
                 "Edit User",
                 user["username"],
                 user.get("identifier", ""),
-                "tbd",
+                user.get("role", "general"),  # existing role or default
                 user.get("status", "active"),
                 "Save Changes (Prototype)",
             )
@@ -221,10 +237,11 @@ def register(app) -> None:
         State(USER_HIDDEN_ID, "data"),
         State(USER_USERNAME_ID, "value"),
         State(USER_IDENTIFIER_ID, "value"),
+        State(USER_ROLE_ID, "value"),
         State(USER_STATUS_ID, "value"),
         prevent_initial_call=True,
     )
-    def confirm_user_form(n_clicks, existing_username, username, identifier, status):
+    def confirm_user_form(n_clicks, existing_username, username, identifier, role, status):
         """Prototype confirm — stores in memory, no identity system write."""
         if not n_clicks:
             return no_update, no_update, no_update
@@ -236,6 +253,7 @@ def register(app) -> None:
 
         username = username.strip()
         identifier = identifier.strip() if identifier else ""
+        role = role if role in CONFIRMED_ROLES else "general"
 
         if existing_username and existing_username != username:
             # Renaming: remove old, add new
@@ -244,11 +262,11 @@ def register(app) -> None:
         _mock_users[username] = {
             "username": username,
             "identifier": identifier,
-            "role": "tbd",
+            "role": role,
             "status": status or "active",
         }
 
-        logger.info("Prototype user %s: %s", "updated" if existing_username else "added", username)
+        logger.info("Prototype user %s: %s (role=%s)", "updated" if existing_username else "added", username, role)
 
         # Close drawer
         return "", {"display": "none"}, username

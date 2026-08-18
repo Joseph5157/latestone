@@ -11,6 +11,7 @@ from callbacks.user_admin import (
     _validate_user_form,
     clear_mock_users,
     get_mock_users,
+    CONFIRMED_ROLES,
 )
 from components.user_form_drawer import user_form_drawer
 from pages.user_admin import layout
@@ -62,8 +63,8 @@ class TestBuildUserRows:
 
     def test_returns_rows_for_all_users(self):
         users = [
-            {"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"},
-            {"username": "bob", "identifier": "bob@example.com", "role": "tbd", "status": "inactive"},
+            {"username": "alice", "identifier": "alice@example.com", "role": "administrator", "status": "active"},
+            {"username": "bob", "identifier": "bob@example.com", "role": "technician", "status": "inactive"},
         ]
         rows = _build_user_rows(users)
         assert len(rows) == 2
@@ -72,8 +73,8 @@ class TestBuildUserRows:
 
     def test_filters_by_search_term(self):
         users = [
-            {"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"},
-            {"username": "bob", "identifier": "bob@example.com", "role": "tbd", "status": "active"},
+            {"username": "alice", "identifier": "alice@example.com", "role": "general", "status": "active"},
+            {"username": "bob", "identifier": "bob@example.com", "role": "general", "status": "active"},
         ]
         rows = _build_user_rows(users, search_term="alice")
         assert len(rows) == 1
@@ -81,8 +82,8 @@ class TestBuildUserRows:
 
     def test_filters_by_status_active(self):
         users = [
-            {"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"},
-            {"username": "bob", "identifier": "bob@example.com", "role": "tbd", "status": "inactive"},
+            {"username": "alice", "identifier": "alice@example.com", "role": "general", "status": "active"},
+            {"username": "bob", "identifier": "bob@example.com", "role": "general", "status": "inactive"},
         ]
         rows = _build_user_rows(users, status_filter="active")
         assert len(rows) == 1
@@ -90,8 +91,8 @@ class TestBuildUserRows:
 
     def test_filters_by_status_inactive(self):
         users = [
-            {"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"},
-            {"username": "bob", "identifier": "bob@example.com", "role": "tbd", "status": "inactive"},
+            {"username": "alice", "identifier": "alice@example.com", "role": "general", "status": "active"},
+            {"username": "bob", "identifier": "bob@example.com", "role": "general", "status": "inactive"},
         ]
         rows = _build_user_rows(users, status_filter="inactive")
         assert len(rows) == 1
@@ -99,24 +100,39 @@ class TestBuildUserRows:
 
     def test_shows_all_when_filter_all(self):
         users = [
-            {"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"},
-            {"username": "bob", "identifier": "bob@example.com", "role": "tbd", "status": "inactive"},
+            {"username": "alice", "identifier": "alice@example.com", "role": "general", "status": "active"},
+            {"username": "bob", "identifier": "bob@example.com", "role": "general", "status": "inactive"},
         ]
         rows = _build_user_rows(users, status_filter="all")
         assert len(rows) == 2
 
-    def test_role_shows_tbd_when_tbd(self):
-        users = [{"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"}]
+    def test_role_administrator_displayed(self):
+        users = [{"username": "alice", "identifier": "", "role": "administrator", "status": "active"}]
         rows = _build_user_rows(users)
-        assert rows[0]["role"] == "TBD"
+        assert rows[0]["role"] == "Administrator"
+
+    def test_role_technician_displayed(self):
+        users = [{"username": "alice", "identifier": "", "role": "technician", "status": "active"}]
+        rows = _build_user_rows(users)
+        assert rows[0]["role"] == "Technician"
+
+    def test_role_general_displayed(self):
+        users = [{"username": "alice", "identifier": "", "role": "general", "status": "active"}]
+        rows = _build_user_rows(users)
+        assert rows[0]["role"] == "General User"
+
+    def test_role_legacy_tbd_shows_unassigned(self):
+        users = [{"username": "alice", "identifier": "", "role": "tbd", "status": "active"}]
+        rows = _build_user_rows(users)
+        assert rows[0]["role"] == "Unassigned"
 
     def test_status_formatted(self):
-        users = [{"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"}]
+        users = [{"username": "alice", "identifier": "", "role": "general", "status": "active"}]
         rows = _build_user_rows(users)
         assert rows[0]["status"] == "Active"
 
     def test_actions_column_has_edit(self):
-        users = [{"username": "alice", "identifier": "alice@example.com", "role": "tbd", "status": "active"}]
+        users = [{"username": "alice", "identifier": "", "role": "general", "status": "active"}]
         rows = _build_user_rows(users)
         assert "[Edit](#)" in rows[0]["actions"]
 
@@ -139,10 +155,8 @@ class TestValidateUserForm:
 
     def test_duplicate_username_fails(self):
         clear_mock_users()
-        _mock_users = {"alice": {"username": "alice", "identifier": "", "role": "tbd", "status": "active"}}
-        # Manually inject into module
         import callbacks.user_admin as ua
-        ua._mock_users["alice"] = {"username": "alice", "identifier": "", "role": "tbd", "status": "active"}
+        ua._mock_users["alice"] = {"username": "alice", "identifier": "", "role": "general", "status": "active"}
 
         errors = _validate_user_form("alice")
         assert "username" in errors
@@ -165,7 +179,6 @@ class TestMockUsers:
         assert isinstance(users, list)
 
     def test_demo_user_seeded_when_configured(self):
-        # This depends on demo_auth config; at minimum returns a list
         users = get_mock_users()
         assert len(users) >= 0
 
@@ -196,11 +209,25 @@ class TestUserFormDrawer:
         assert "user-form-role" in ids
         assert "user-form-status" in ids
 
-    def test_role_disabled_with_tbd(self):
+    def test_role_dropdown_has_three_confirmed_roles(self):
+        drawer = user_form_drawer()
+        ids = _collect_ids(drawer)
+        assert "user-form-role" in ids
+        text = str(drawer)
+        assert "Administrator" in text
+        assert "Technician" in text
+        assert "General User" in text
+
+    def test_role_dropdown_not_disabled(self):
+        drawer = user_form_drawer()
+        text = str(drawer).lower()
+        # Role dropdown should be enabled (not disabled)
+        assert "disabled" not in text or "role" not in text
+
+    def test_has_role_description_help_text(self):
         drawer = user_form_drawer()
         text = str(drawer)
-        assert "Client role model required" in text
-        assert "disabled" in text.lower()
+        assert "broader RTL management" in text or "Technician" in text
 
     def test_has_confirm_and_cancel(self):
         drawer = user_form_drawer()
@@ -212,6 +239,24 @@ class TestUserFormDrawer:
         drawer = user_form_drawer()
         text = str(drawer)
         assert "Prototype" in text or "prototype" in text
+
+
+# ---------------------------------------------------------------------------
+# Confirmed roles constant
+# ---------------------------------------------------------------------------
+
+class TestConfirmedRoles:
+    def test_three_roles_defined(self):
+        assert len(CONFIRMED_ROLES) == 3
+
+    def test_administrator_role(self):
+        assert "administrator" in CONFIRMED_ROLES
+
+    def test_technician_role(self):
+        assert "technician" in CONFIRMED_ROLES
+
+    def test_general_role(self):
+        assert "general" in CONFIRMED_ROLES
 
 
 # ---------------------------------------------------------------------------

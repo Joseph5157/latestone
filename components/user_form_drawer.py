@@ -1,7 +1,7 @@
 """User form drawer — modal for adding/editing a user.
 
-Prototype only: does not persist to any identity system. Role selector is
-disabled with explicit 'Client role model required' label.
+Prototype only: does not persist to any identity system. Role selector now uses
+confirmed runtime roles from the client Functional Specification.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def user_form_drawer() -> html.Div:
     Contains:
     - Username (required)
     - Identifier/Email (optional, prototype)
-    - Role (disabled — 'Client role model required')
+    - Role (Administrator / Technician / General User)
     - Status (Active/Inactive)
     - Confirm / Cancel actions
 
@@ -106,15 +106,18 @@ def user_form_drawer() -> html.Div:
                                     dcc.Dropdown(
                                         id=USER_ROLE_ID,
                                         options=[
-                                            {"label": "Client role model required", "value": "tbd", "disabled": True},
+                                            {"label": "Administrator", "value": "administrator"},
+                                            {"label": "Technician", "value": "technician"},
+                                            {"label": "General User", "value": "general"},
                                         ],
-                                        value="tbd",
-                                        disabled=True,
+                                        value="general",
                                         clearable=False,
                                         className="user-form-drawer__dropdown",
                                     ),
                                     html.P(
-                                        "Role assignment pending client role model confirmation.",
+                                        "Administrator: broader RTL management, may upload/program settings for RTLs. "
+                                        "Technician: works with assigned RTL devices, may program assigned RTLs. "
+                                        "General User: view transformer data, export data only.",
                                         className="user-form-drawer__role-note",
                                     ),
                                 ],
