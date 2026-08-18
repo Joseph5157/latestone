@@ -1,75 +1,150 @@
 # RTL Frontend Current Status
 
-→ Plant
-→ Transformer
-→ Device
+## Current Source Basis
 
+Frontend planning now uses:
 
-The global equipment selector remains:
+- **PAD Sections 1–3.4** for the currently approved architecture/business-flow scope
+- **docs/specs/RTL_FUNCTIONAL_SPEC_EXTRACT.md** for newly confirmed functional requirements
 
-
-Plant
-→ Transformer
-→ Device
-
-
-During Plant / Transformer / Device drill-down:
-
-
-Overview remains highlighted.
-
-
-Files changed:
-
-
-- components/app_navigation.py
-- callbacks/navigation.py
-- tests/test_app_navigation.py
-
-
-Verification:
-
-
-- Full non-DB suite: 789 passed
-- 63 DB tests deselected
-- No failures
-- Navigation smoke test: PASS
-
+Do not use later PAD technical sections to expand implementation scope automatically.
 
 ---
 
+## Current Checkpoint
 
-# Current Architecture
+```
+57c068c  checkpoint after Phases 0–6
+3504d1b  Phase 5A role alignment
+e83472e  Phase 4A device workflow alignment
+9e83856  Phase 6A report alignment
+78af1e3  Phase 7R notification center
+```
 
+Working tree: clean
 
-Application-level navigation:
+---
 
+## Completed Alignment Phases
 
+### Phase 5A — Role Alignment — COMPLETE
+
+Confirmed roles:
+
+- Administrator
+- Technician
+- General User
+
+Implemented:
+
+- Real prototype role selector (3 options, not disabled TBD)
+- Prototype role storage/display
+- Legacy users safely shown as Unassigned
+
+Still not production authorization.
+
+### Phase 4A — Device Workflow Alignment — COMPLETE
+
+Implemented prototype frontend workflows:
+
+- View Device
+- Asset Assignment (Plant → Transformer)
+- Technician Assignment (separate from asset assignment)
+- Program RTL
+- Message Forwarding
+- Deactivate RTL
+
+Architecture:
+
+- Shared prototype users in `services/prototype_users.py`
+- Permission helpers in `services/prototype_access.py`
+
+Important:
+
+- Technician assignment is separate from Plant/Transformer assignment
+- Active-list state is not assumed to equal administrative device status
+- No production commands or persistence
+
+### Phase 6A — Report Definition Alignment — COMPLETE
+
+Confirmed reports:
+
+- RTL Alarms (30 Days)
+- Installed RTLs
+- Maximum Temperature
+
+Report definitions live in: `config/reports.py`
+
+Date semantics:
+
+- RTL Alarms (30 Days) → fixed 30 days
+- Installed RTLs → no date-period control
+- Maximum Temperature → reporting period not defined by Functional Specification
+
+Report generation remains prototype-only.
+
+### Phase 7R — Revised Notification Center — COMPLETE
+
+Route: `/notifications`
+
+Notification definitions live in: `config/notifications.py`
+
+Current derivable formal notification:
+
+- Active RTL whose latest reading is more than 24 hours old
+
+Important:
+
+- Formal >24h notification is separate from existing STALE freshness
+- STALE remains approximately the existing configurable freshness policy
+- Never-reported RTLs are excluded from the formal >24h notification because activation timestamp is unavailable
+
+Confirmed but backend/data-dependent categories (no fake rows generated):
+
+- Battery Alarm
+- Power Down
+- Sensor Error
+- Startup / Check-In
+- Message Forwarding
+
+---
+
+## Current Application Structure
+
+```
 Overview
-├── existing Fleet / Plant / Transformer / Device monitoring
+└── Fleet → Plant → Transformer → Device
+
 Devices
 ├── Device Administration
-├── Register Device prototype
-└── Assign/Reassign prototype
+├── Register Device
+├── Asset Assignment
+├── Technician Assignment
+└── Manage
+    ├── Program RTL
+    ├── Message Forwarding
+    └── Deactivate RTL
+
 Reports
-├── Generate Report prototype
-└── Recent Reports shell
+├── RTL Alarms (30 Days)
+├── Installed RTLs
+└── Maximum Temperature
+
 Notifications
+└── Formal >24h data-loss notification center
+
 Administration
-└── User Administration prototype
+└── User Administration
+    ├── Administrator
+    ├── Technician
+    └── General User
+```
 
-
-Equipment navigation remains separate:
-
-
-Plant → Transformer → Device
-
+Several actions remain prototype-only.
 
 ---
 
-
-# Important Decisions
-
+## Current Architecture Rules
 
 1. Existing monitoring architecture must be preserved.
 2. Top-level application navigation and equipment navigation are separate concepts.
@@ -79,84 +154,82 @@ Plant → Transformer → Device
 6. No production database assumptions should be introduced.
 7. No later PAD sections should expand current scope.
 8. Existing service/repository boundaries should remain intact.
-
+9. Functional Specification confirmed roles must not be confused with PAD project stakeholder roles.
+10. Current freshness and formal business notifications are different domains.
+11. Prototype user state is centralized; callback modules must not become cross-module data stores.
+12. Technician assignment is independent of asset assignment.
+13. Report definitions are confirmed, but report data generation remains backend-dependent.
+14. Notification definitions may exist even when event data required to generate rows is unavailable.
 
 ---
 
+## Current Known Data Gaps
 
-# Current Test Baseline
+The following production/current frontend data fields are not available. Do not fabricate any of them:
 
+- OU
+- Zone
+- Sector
+- CNC
+- Feeder / Feeder Name
+- Battery(V)
+- Firmware
+- Operational RTL Status
+- Date Installed
+- Alarm/event history
+- Sensor-error state
+- Activation timestamp
+- Notification history
+- RTL Master MSISDN
+
+---
+
+## Current Test Baseline
 
 Latest confirmed non-DB result:
 
-
-909 passed
-63 deselected
+```
+1129 passed
 0 failures
+```
 
+Latest confirmed full DB suite (Phase 7R DB tests were not run):
 
-Latest confirmed full DB suite:
-
-
+```
 971 passed
 1 failed (timing budget)
 63 deselected
-
+```
 
 Run the full DB suite again before major implementation if required.
 
+Known test issue: `test_batched_latest_returns_all_eight_metrics` may exceed the 80 ms performance budget. Not a functional regression.
 
 ---
 
+## Git Checkpoint
 
-# NEXT PHASE
+Current checkpoint: `78af1e3`
 
-
-Phase 7 — Notification Center
-
-
-Plan file:
-
-
-08_PHASE_7_NOTIFICATIONS.md
-
-
-DO NOT START AUTOMATICALLY.
-
-
-Before Phase 7:
-
-
-1. Read this current-status document.
-2. Read 00_README.md.
-3. Read 08_PHASE_7_NOTIFICATIONS.md.
-4. Inspect current repository state.
-5. Confirm Phase 6 remains intact.
-6. Implement Phase 7 only.
-
-
-Phase 7 goal:
-
-
-Create a Notification Center shell at /notifications using existing freshness/event patterns.
-
+Working tree: clean
 
 ---
 
-## Latest verification
+## Next Phase
 
+Phase 8 — Metric / Vibration Readiness
 
-Local verification completed successfully.
+Then:
 
+Phase 9 — Client Review Gate
 
-- Non-DB suite: 909 passed, 63 deselected
-- Full suite: 971 passed, 1 timing-budget failure
-- Functional DB-backed tests: passed
-- Local application startup: passed
-- All current routes returned HTTP 200
-- Authentication/navigation/Overview/device administration/device registration/assignment/user administration/reports verified manually
-- Notifications remains the Phase 1 placeholder
+**DO NOT START PHASE 8 AUTOMATICALLY.**
 
+Before Phase 8:
 
-Known test issue:
-`test_batched_latest_returns_all_eight_metrics` exceeded the 80 ms performance budget at 104.2 ms during verification. Not a functional regression.
+1. Verify Git working tree is clean.
+2. Read this status document.
+3. Read the relevant Phase 8 plan.
+4. Read `docs/specs/RTL_FUNCTIONAL_SPEC_EXTRACT.md`.
+5. Inspect current metric registry and current data model.
+6. Wait for explicit approval.

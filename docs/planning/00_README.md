@@ -13,6 +13,7 @@ The existing monitoring application is already strong. The goal of these phases 
 1. Client PAD: `DEM-2788838 Digital Incubator - RTL PAD v0.7`
 2. Repository audit: `PAD_SECTIONS_1_TO_3_4_AUDIT.md`
 3. Existing repository code and tests
+4. RTL Functional Specification: `docs/specs/RTL_FUNCTIONAL_SPEC_EXTRACT.md`
 
 If the repository conflicts with an assumption in these plans, OpenCode must report the conflict before implementing it.
 
@@ -57,22 +58,44 @@ The audit identifies these as strong and reusable:
 
 Do not rewrite these areas unless a phase explicitly requires a narrow change.
 
-## Recommended execution order
+## Phase Status
 
-1. Phase 0 — Baseline and guardrails
-2. Phase 1 — Application shell and information architecture
-3. Phase 2 — Overview / Needs Attention
-4. Phase 3 — Device Administration
-5. Phase 4 — Device Registration and Assignment UX
-6. Phase 5 — User Administration
-7. Phase 6 — Reports
-8. Phase 7 — Notifications
-9. Phase 8 — Vibration-ready frontend design
-10. Phase 9 — Client review and implementation gate
+### Core phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 0 | Baseline and guardrails | COMPLETE |
+| Phase 1 | Application shell and information architecture | COMPLETE |
+| Phase 1A | Navigation refinement | COMPLETE |
+| Phase 2 | Overview / Needs Attention | COMPLETE |
+| Phase 3 | Device Administration | COMPLETE |
+| Phase 4 | Device Registration and Assignment UX | COMPLETE |
+| Phase 5 | User Administration | COMPLETE |
+| Phase 6 | Reports | COMPLETE |
+
+### Requirements-alignment phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 5A | Role Alignment | COMPLETE |
+| Phase 4A | Device Workflow Alignment | COMPLETE |
+| Phase 6A | Report Definition Alignment | COMPLETE |
+| Phase 7R | Revised Notification Center | COMPLETE |
+
+### Upcoming phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 8 | Metric / Vibration Readiness | NOT STARTED |
+| Phase 9 | Client Review Gate | NOT STARTED |
+
+**Note:** The original Phase 7 plan (Notification Center shell) was superseded by Phase 7R, because the client Functional Specification later confirmed formal notification requirements that differed from the original freshness-based approach.
+
+## Execution order
 
 Run one phase at a time.
 
-Do not give OpenCode the whole pack and say “implement everything.”
+Do not give OpenCode the whole pack and say "implement everything."
 
 For each phase:
 
@@ -92,8 +115,8 @@ At the end of the current scope, the project should remain a frontend-focused RT
 - improved overview/exception visibility
 - frontend designs/workflows for device operations
 - frontend designs/workflows for users
-- report center shell
-- notification center shell
+- report center with confirmed RTL report definitions
+- notification center with confirmed business notification categories
 - vibration-ready UI structure without fabricating unsupported backend/data behavior
 
 The implementation must remain compatible with later client-provided database/backend decisions.
