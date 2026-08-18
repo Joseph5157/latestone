@@ -14,13 +14,13 @@ Do not use later PAD technical sections to expand implementation scope automatic
 ## Current Checkpoint
 
 ```
+009828f  docs: complete RTL client review and implementation gate
 553d142  Phase 8 vibration-ready metric UI
 9fdabd4  docs: update RTL frontend status through Phase 7R
 78af1e3  Phase 7R notification center
 9e83856  Phase 6A report alignment
 e83472e  Phase 4A device workflow alignment
 3504d1b  Phase 5A role alignment
-57c068c  checkpoint after Phases 0–6
 ```
 
 Working tree: clean
@@ -230,7 +230,7 @@ Known test issue: `test_batched_latest_returns_all_eight_metrics` may exceed the
 
 ## Git Checkpoint
 
-Current checkpoint: `553d142`
+Current checkpoint: `009828f`
 
 Working tree: clean
 

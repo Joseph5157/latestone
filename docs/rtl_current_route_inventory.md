@@ -68,7 +68,7 @@ Status meanings:
 | Purpose | Primary operator workspace: equipment context, 8-metric snapshot strip, metric selector, period filter + custom range, aggregation-aware KPI row, Plotly chart, quick-trend grid, readings table, freshness badge, auto-refresh. URL state is shareable. |
 | Main callback(s) | `callbacks/routing.py` `route_to_page` (builds device context); `callbacks/device.py` `refresh_device_dashboard`, `sync_query_string`, `toggle_custom_range` |
 | Main service(s) | `services/hierarchy_service.py` (`get_device_context`); `services/monitoring_service.py` (`get_device_full_view`, `choose_bin`, `bin_consumption`, `quick_trend_bars`) |
-| Status | **preserve** — reference implementation (audit §6). Phase 8 keeps it as the base for a vibration-ready structure, but no change is planned to its behaviour. |
+| Status | **preserve** — reference implementation (audit §6). Phase 8 (complete) kept it as the base for a vibration-ready structure; metric UI is now configuration-driven with no behaviour change. |
 
 ### 6. Global Equipment Selector (app-level, not a route)
 

@@ -4,6 +4,13 @@
 *Scope: PAD Sections 1 through 3.4 only (Business Architecture)*
 *Purpose: Planning and audit — no implementation was performed.*
 
+> **Status note (2026-08-18).** This is the Phase 0 baseline audit. The gaps it
+> listed in sections 9–10 (Needs Attention panel, Device/User Administration,
+> reports, notification center, vertical budget, role model) have since been
+> addressed through Phases 1–9, and the frontend planning cycle is now closed at
+> the client review gate. For current status see
+> `docs/RTL_FRONTEND_CURRENT_STATUS.md` and `docs/RTL_CLIENT_REVIEW_GATE.md`.
+
 ---
 
 ## 1. Current Application Map
