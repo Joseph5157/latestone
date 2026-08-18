@@ -284,6 +284,13 @@ class FleetHealth:
     #: transformer_id -> plant_id, so a plant screen can select its own subtree
     #: without a second query or a second definition of the hierarchy.
     _transformer_plant: dict[str, str]
+    #: plant_id -> newest reading timestamp seen for that plant (any metric,
+    #: any device). Absent plants are None via `.get`. Freshness state and
+    #: "how old" are separate questions — the rollups above answer the first,
+    #: this answers the second, and both are derived from the same one query so
+    #: a stale plant's age can never disagree with its label about which moment
+    #: "now" was.
+    plant_last_updated: dict[str, datetime | None]
 
     @property
     def device_count(self) -> int:
@@ -328,6 +335,7 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
     device_plant: dict[str, str] = {}
     device_transformer: dict[str, str] = {}
     transformer_plant: dict[str, str] = {}
+    plant_last_updated: dict[str, datetime | None] = {}
     for row in rows:
         device_metric_states.setdefault(row.device_id, []).append(
             evaluate_freshness(row.reading_ts, reference)
@@ -337,6 +345,14 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
         if transformer_id is not None:
             device_transformer[row.device_id] = transformer_id
             transformer_plant[transformer_id] = row.plant_id
+
+        # A row exists for every (device, metric) pair even when the device
+        # never reported (reading_ts is None); those rows say nothing about
+        # when the plant last delivered data and are skipped.
+        if row.reading_ts is not None:
+            current = plant_last_updated.get(row.plant_id)
+            if current is None or row.reading_ts > current:
+                plant_last_updated[row.plant_id] = row.reading_ts
 
     devices = {
         device_id: aggregate_freshness(states)
@@ -366,6 +382,7 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
         plants=plants,
         counts=counts,
         _transformer_plant=transformer_plant,
+        plant_last_updated=plant_last_updated,
     )
 
 

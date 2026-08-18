@@ -871,6 +871,160 @@ body {
   color: var(--color-text);
 }
 
+/* ---------- Needs Attention panel ---------- */
+/* Compact exception list sitting between the distribution bar and the plants
+   table. Surface + border + radius matches every other card-shaped block on
+   the Fleet screen; the heading uses --fs-section like any other content
+   section. Each row is one exception — not a full DataTable, not a gauge,
+   just the facts the operator needs to decide which plant to inspect. */
+.needs-attention {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.needs-attention__title {
+  font-size: var(--fs-section);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 var(--sp-2);
+}
+
+.needs-attention__empty {
+  font-size: var(--fs-body);
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.needs-attention__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--color-border);
+  font-size: var(--fs-body);
+}
+
+.needs-attention__row:first-of-type {
+  border-top: 0;
+}
+
+/* Exception state text colour follows the same --state-*-text tokens as
+   every other freshness indicator on the screen. The badge uses filled
+   background + white-ish text; the entity/detail/age use neutral text
+   colour. No new colours — only existing tokens. */
+.needs-attention__badge {
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.needs-attention__badge--no_data {
+  background: var(--state-none-bg);
+  color: var(--state-none-text);
+}
+.needs-attention__badge--stale {
+  background: var(--state-stale-bg);
+  color: var(--state-stale-text);
+}
+
+.needs-attention__entity {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.needs-attention__type {
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.needs-attention__detail {
+  color: var(--color-muted);
+}
+
+.needs-attention__age {
+  margin-left: auto;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.needs-attention__link {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.needs-attention__link:hover { text-decoration: underline; }
+.needs-attention__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Device Administration toolbar ---------- */
+/* Search + filter + action button, sitting between the page subtitle and the
+   entity table. Layout is a horizontal flex row that wraps on narrow viewports.
+   Tokens and spacing follow the existing metric-controls pattern. */
+.device-admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.device-admin-toolbar__search {
+  flex: 1 1 220px;
+  min-width: 180px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-body);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.device-admin-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.device-admin-toolbar__label {
+  font-size: var(--fs-body);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.device-admin-toolbar__dropdown {
+  min-width: 120px;
+}
+
+.device-admin-toolbar__register-btn {
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.device-admin-toolbar__register-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* ---------- Metric Controls ---------- */
 .metric-controls {
   display: flex;
@@ -1231,4 +1385,543 @@ body {
 
 @media (max-width: 1023px) {
   .trend-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+}
+
+/* ==========================================================================
+   Device Registration Form (Phase 4)
+   ========================================================================== */
+
+.device-register-form {
+  max-width: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: var(--sp-6);
+}
+
+.device-register-form__field {
+  margin-bottom: var(--sp-4);
+}
+
+.device-register-form__label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
+.device-register-form__input {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-body);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.device-register-form__input:focus {
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.device-register-form__dropdown {
+  font-size: var(--fs-body);
+}
+
+.device-register-form__error {
+  font-size: var(--fs-meta);
+  color: var(--state-error-text);
+  margin: var(--sp-1) 0 0;
+  min-height: 16px;
+}
+
+.device-register-form__actions {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+.device-register-form__btn {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+
+.device-register-form__btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.device-register-form__btn--primary:hover {
+  opacity: 0.9;
+}
+
+.device-register-form__btn--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.device-register-form__btn--secondary:hover {
+  background: var(--color-bg);
+}
+
+/* Review summary */
+.device-register-review {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.device-register-review__row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.device-register-review__row:last-child {
+  border-bottom: none;
+}
+
+.device-register-review__label {
+  font-size: var(--fs-body);
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.device-register-review__value {
+  font-size: var(--fs-body);
+  color: var(--color-text);
+}
+
+/* Success detail */
+.device-register-success-detail {
+  margin: var(--sp-3) 0;
+}
+
+.device-register-success-detail p {
+  margin: var(--sp-1) 0;
+  font-size: var(--fs-body);
+}
+
+/* ==========================================================================
+   Assignment Drawer (Phase 4)
+   ========================================================================== */
+
+.assign-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.assign-drawer__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.assign-drawer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 100%;
+  height: 100%;
+  background: var(--color-surface);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  overflow-y: auto;
+  padding: var(--sp-6);
+}
+
+.assign-drawer__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-5);
+}
+
+.assign-drawer__header h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+}
+
+.assign-drawer__close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--color-muted);
+  padding: 0 var(--sp-2);
+}
+
+.assign-drawer__close:hover {
+  color: var(--color-text);
+}
+
+.assign-drawer__device-info {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.assign-drawer__row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--sp-2) 0;
+}
+
+.assign-drawer__label {
+  font-size: var(--fs-body);
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.assign-drawer__value {
+  font-size: var(--fs-body);
+  color: var(--color-text);
+}
+
+.assign-drawer__divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--sp-4) 0;
+}
+
+.assign-drawer__fields {
+  margin: var(--sp-4) 0;
+}
+
+.assign-drawer__field {
+  margin-bottom: var(--sp-4);
+}
+
+.assign-drawer__field-label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
+.assign-drawer__dropdown {
+  font-size: var(--fs-body);
+}
+
+.assign-drawer__actions {
+  margin-top: var(--sp-5);
+}
+
+.assign-drawer__btn {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.assign-drawer__btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.assign-drawer__btn--primary:hover {
+  opacity: 0.9;
+}
+
+/* ==========================================================================
+   User Administration (Phase 5)
+   ========================================================================== */
+
+.user-admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.user-admin-toolbar__search {
+  flex: 1;
+  min-width: 200px;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-body);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.user-admin-toolbar__search:focus {
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.user-admin-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.user-admin-toolbar__label {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.user-admin-toolbar__dropdown {
+  min-width: 140px;
+  font-size: var(--fs-body);
+}
+
+.user-admin-toolbar__add-btn {
+  margin-left: auto;
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.user-admin-toolbar__add-btn:hover {
+  opacity: 0.9;
+}
+
+/* User Form Drawer */
+.user-form-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.user-form-drawer__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.user-form-drawer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 100%;
+  height: 100%;
+  background: var(--color-surface);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  overflow-y: auto;
+  padding: var(--sp-6);
+}
+
+.user-form-drawer__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-5);
+}
+
+.user-form-drawer__header h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+}
+
+.user-form-drawer__close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--color-muted);
+  padding: 0 var(--sp-2);
+}
+
+.user-form-drawer__close:hover {
+  color: var(--color-text);
+}
+
+.user-form-drawer__fields {
+  margin: var(--sp-4) 0;
+}
+
+.user-form-drawer__field {
+  margin-bottom: var(--sp-4);
+}
+
+.user-form-drawer__field-label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600,
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
+.user-form-drawer__input {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-body);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.user-form-drawer__input:focus {
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.user-form-drawer__dropdown {
+  font-size: var(--fs-body);
+}
+
+.user-form-drawer__error {
+  font-size: var(--fs-meta);
+  color: var(--state-error-text);
+  margin: var(--sp-1) 0 0;
+  min-height: 16px;
+}
+
+.user-form-drawer__role-note {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  margin: var(--sp-1) 0 0;
+}
+
+.user-form-drawer__actions {
+  margin-top: var(--sp-5);
+}
+
+.user-form-drawer__btn {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.user-form-drawer__btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.user-form-drawer__btn--primary:hover {
+  opacity: 0.9;
+}
+
+/* ==========================================================================
+   Report Center (Phase 6)
+   ========================================================================== */
+
+.report-section {
+  margin-bottom: var(--sp-8);
+}
+
+.report-form {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: var(--sp-6);
+}
+
+.report-form__field {
+  margin-bottom: var(--sp-5);
+}
+
+.report-form__label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
+.report-form__dropdown {
+  font-size: var(--fs-body);
+}
+
+.report-form__note {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  margin: var(--sp-1) 0 0;
+}
+
+.report-form__radio {
+  margin-top: var(--sp-1);
+}
+
+.report-form__actions {
+  margin-top: var(--sp-6);
+}
+
+.report-form__btn {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.report-form__btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.report-form__btn--primary:hover {
+  opacity: 0.9;
+}
+
+.report-generation-result {
+  animation: fadeIn 0.2s ease;
+}
+
+.report-prototype-detail {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+
+.report-prototype-detail p {
+  margin: var(--sp-1) 0;
+  font-size: var(--fs-body);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }

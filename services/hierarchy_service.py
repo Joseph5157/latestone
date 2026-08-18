@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from repositories import plant_monitoring_repository as repo
 from repositories.plant_monitoring_repository import (
+    AdminDeviceRow,
     DevicePath,
     DeviceRecord,
     PlantRecord,
@@ -63,6 +64,15 @@ def get_plant_hierarchy_counts(include_inactive: bool = False) -> dict[str, tupl
     overview row will disagree with the page it opens.
     """
     return repo.count_hierarchy_by_plant(include_inactive=include_inactive)
+
+
+def list_all_devices(include_inactive: bool = False) -> list[AdminDeviceRow]:
+    """Every device in the fleet with its plant/transformer path.
+
+    Follows the same active-only default as `list_devices`. The admin page
+    owns the view; this service function owns the data boundary.
+    """
+    return repo.list_all_devices(include_inactive=include_inactive)
 
 
 def is_active(record) -> bool:

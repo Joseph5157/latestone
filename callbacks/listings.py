@@ -20,12 +20,14 @@ from components.fleet_summary import (
     transformer_kpi_cards,
 )
 from components.metric_health import metric_health_overview
+from components.needs_attention import needs_attention
 from components.status_panels import error_panel
 from components.temperature_attribution import temperature_attribution
 from config.metrics import ATTRIBUTION_METRIC_KEY
+from components.freshness_badge import format_last_reading
 from routes import device_href
 from services import hierarchy_service, monitoring_service
-from services.monitoring_service import aggregate_freshness, severity_rank
+from services.monitoring_service import Freshness, aggregate_freshness, reading_age, severity_rank
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +170,59 @@ def build_device_rows(devices, health) -> list[dict]:
 def sort_device_rows_exception_first(rows: list[dict]) -> list[dict]:
     """Exceptions first, then device code — same rule as the tables above it."""
     return sorted(rows, key=lambda r: (-r["_severity"], r["device"]))
+
+
+# --------------------------------------------------------------------------
+# Needs Attention row builder
+# --------------------------------------------------------------------------
+
+#: Entity type label for the panel's "Type" column. Only plants are listed;
+#: transformers and devices roll up through the same FleetHealth.plants tree.
+_NEEDS_ATTENTION_TYPE = "Plant"
+
+
+def build_needs_attention_rows(
+    plants, health, rendered_at,
+) -> list[dict]:
+    """Plants whose rollup is NO_DATA or STALE, exception-first, formatted.
+
+    FRESH plants are the *absence* of an exception and are excluded — this is
+    an exceptions list, not a summary. The KPI cards and distribution bar
+    already summarise the full fleet.
+
+    A plant missing from the health tree is NO_DATA over zero devices, the
+    same rule the fleet table applies (``build_plant_rows``).
+
+    ``rendered_at`` is the same ``datetime.now(timezone.utc)`` taken once at
+    the start of ``populate_overview`` — the age column and the freshness
+    labels agree about which moment "now" was.
+    """
+    rows: list[dict] = []
+    for p in plants:
+        rollup = health.plants.get(p.plant_id) or aggregate_freshness([])
+        if rollup.state is Freshness.FRESH:
+            continue
+        last_updated = health.plant_last_updated.get(p.plant_id)
+        last_update_text = format_last_reading(
+            last_updated, reading_age(last_updated, rendered_at)
+        )
+        rows.append({
+            "id": p.plant_id,
+            "entity": p.name,
+            "type": _NEEDS_ATTENTION_TYPE,
+            "issue": rollup.label("devices"),
+            "last_update": last_update_text,
+            "href": f"/plants/{p.plant_id}",
+            "_state": rollup.state.value,
+            "_severity": severity_rank(rollup.state),
+        })
+    return sort_needs_attention_rows(rows)
+
+
+def sort_needs_attention_rows(rows: list[dict]) -> list[dict]:
+    """NO_DATA before STALE before FRESH (if any), then alphabetical by
+    entity name — same exception-first rule as every other listing."""
+    return sorted(rows, key=lambda r: (-r["_severity"], r["entity"]))
 
 
 # --------------------------------------------------------------------------
@@ -354,6 +409,7 @@ def register(app) -> None:
         Output("plants-error", "children"),
         Output("fleet-kpis", "children"),
         Output("fleet-health-distribution", "children"),
+        Output("needs-attention", "children"),
         Output("fleet-subtitle", "children"),
         Output("fleet-refreshed", "children"),
         Input("page-context", "data"),
@@ -361,7 +417,7 @@ def register(app) -> None:
     )
     def populate_overview(context):
         if not context or context.get("route") != "overview":
-            return (no_update,) * 7
+            return (no_update,) * 8
 
         # One instant for the whole render. Taken once here and passed to both
         # the freshness computation and the header, so the stamp cannot name a
@@ -375,6 +431,7 @@ def register(app) -> None:
         # are stale?" differently.
         cards = []
         distribution = []
+        attention = []
 
         def build():
             plants = hierarchy_service.list_plants()
@@ -391,6 +448,11 @@ def register(app) -> None:
             # Same health.counts the Data Health KPI card above already
             # reads — a restatement, not a second computation.
             distribution.append(fleet_health_distribution(health.counts))
+            attention.append(
+                needs_attention(
+                    build_needs_attention_rows(plants, health, rendered_at)
+                )
+            )
             subtitle.append(fleet_subtitle_text(len(plants)))
             return sort_plant_rows_exception_first(
                 build_plant_rows(plants, counts, health)
@@ -411,6 +473,7 @@ def register(app) -> None:
             error,
             (cards[0] if cards else None),
             (distribution[0] if distribution else None),
+            (attention[0] if attention else None),
             (subtitle[0] if subtitle else ""),
             format_render_stamp(rendered_at),
         )

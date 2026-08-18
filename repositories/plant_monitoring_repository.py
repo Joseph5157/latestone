@@ -206,6 +206,54 @@ def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[
 
 
 @dataclass(frozen=True)
+class AdminDeviceRow:
+    """Fleet-wide device row for the admin table.
+
+    Carries the full path context so the admin page never issues N+1 queries
+    to resolve which plant/transformer a device belongs to. All fields come
+    from existing tables — no new columns are required.
+    """
+
+    device_id: str
+    device_code: str
+    status: str
+    transformer_id: str
+    transformer_code: str
+    plant_id: str
+    plant_name: str
+
+
+def list_all_devices(include_inactive: bool = False) -> list[AdminDeviceRow]:
+    """Every device in the fleet with its plant/transformer context.
+
+    One query, one result set. The admin page needs the full hierarchy path
+    for every device; issuing per-transformer queries would be N+1 against
+    the 71-transformer fleet.
+
+    `include_inactive` follows the same convention as `list_devices`:
+    active-only by default.
+    """
+    status_filter = "" if include_inactive else " AND d.status = :active"
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT d.device_id, d.device_code, d.status,
+                       t.transformer_id, t.transformer_code,
+                       p.plant_id, p.name
+                FROM {_SCHEMA}.devices d
+                JOIN {_SCHEMA}.transformers t ON t.transformer_id = d.transformer_id
+                JOIN {_SCHEMA}.plants p       ON p.plant_id = t.plant_id
+                WHERE 1=1{status_filter}
+                ORDER BY p.name, t.transformer_code, d.device_code
+                """
+            ),
+            {"active": ACTIVE_STATUS},
+        ).all()
+    return [AdminDeviceRow(*r) for r in rows]
+
+
+@dataclass(frozen=True)
 class LatestReadingRow:
     """Newest reading time for one (device, metric), with its place in the tree.
 

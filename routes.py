@@ -62,6 +62,9 @@ def parse_pathname(pathname: str | None) -> Route:
         if parts[1] == "users":
             return Route(name="admin_users")
 
+    if len(parts) == 3 and parts[0] == "admin" and parts[1] == "devices" and parts[2] == "new":
+        return Route(name="device_register")
+
     return Route(name="unknown")
 
 

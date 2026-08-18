@@ -17,7 +17,9 @@ from dash.development.base_component import Component
 
 import app as app_module
 from callbacks import equipment_selector as sel
-from pages import device_dashboard, login, plant_detail, plants_overview, transformer_detail
+from components.assign_device_drawer import assign_device_drawer
+from components.user_form_drawer import user_form_drawer
+from pages import device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center
 
 
 # --------------------------------------------------------------------------
@@ -72,6 +74,12 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(plant_detail.layout("Plant"))
     | collect_ids(transformer_detail.layout("Plant", "T1", "p1"))
     | collect_ids(device_dashboard.layout("Plant", "T1", "D1"))
+    | collect_ids(device_admin.layout())
+    | collect_ids(device_register.layout())
+    | collect_ids(assign_device_drawer())
+    | collect_ids(user_admin.layout())
+    | collect_ids(user_form_drawer())
+    | collect_ids(report_center.layout())
 )
 
 MOUNTABLE_IDS = GLOBAL_LAYOUT_IDS | PAGE_LAYOUT_IDS

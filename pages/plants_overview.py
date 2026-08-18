@@ -33,6 +33,11 @@ def layout() -> html.Div:
             # Same FleetHealth.counts as the Data Health KPI card — a
             # restatement, not a second computation.
             html.Div(id="fleet-health-distribution"),
+            # Filled by the listing callback with freshness-only exceptions
+            # (NO_DATA / STALE plants) from the same FleetHealth. No panel
+            # means "not yet loaded"; an error path leaves this blank while the
+            # error panel explains the failure.
+            html.Div(id="needs-attention"),
             entity_table(
                 table_id="plants-table",
                 # Deliberately duplicated from callbacks.listings.PLANT_COLUMNS
