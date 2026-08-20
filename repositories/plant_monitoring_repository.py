@@ -238,6 +238,11 @@ def get_device_breadcrumb(device_id: str) -> DevicePath | None:
 def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[int, int]]:
     """Returns {plant_id: (transformer_count, device_count)}.
 
+    Counts **Monitoring Devices** — active devices under active transformers.
+    Administration figures count Managed RTLs instead (see the ADMIN-1 section
+    header), so this device total and the administration total may legitimately
+    differ; neither is wrong and they must not be swapped.
+
     Counts the same population the drill-down pages list. Without the status
     filters an overview row could claim 4 transformers and then show 3 once
     opened, because `list_transformers`/`list_devices` exclude inactive
@@ -288,7 +293,11 @@ class AdminDeviceRow:
 
 
 def list_all_devices(include_inactive: bool = False) -> list[AdminDeviceRow]:
-    """Every device in the fleet with its plant/transformer context.
+    """Every **Managed RTL** in the fleet with its plant/transformer context.
+
+    Administratively active devices, whatever their transformer's status —
+    the administration population, not the Monitoring Devices one the Fleet
+    Overview counts. See the ADMIN-1 section header for why they differ.
 
     One query, one result set. The admin page needs the full hierarchy path
     for every device; issuing per-transformer queries would be N+1 against
@@ -336,6 +345,10 @@ def latest_reading_times(
     metrics: list[str], include_inactive: bool = False
 ) -> list[LatestReadingRow]:
     """Newest reading per (device, metric) across the whole fleet, in one query.
+
+    Covers **Monitoring Devices** — active devices under active transformers.
+    A device under a decommissioned transformer delivers nothing to monitor,
+    so it is absent here even though administration still manages it.
 
     Feeds both the fleet Data Health card and the per-plant freshness column —
     counting the rows gives one, grouping by plant_id gives the other. Issuing
@@ -445,6 +458,10 @@ def latest_metric_readings(
     include_inactive: bool = False,
 ) -> list[DeviceMetricReading]:
     """Newest reading of ONE metric for every device beneath one entity.
+
+    Covers **Monitoring Devices** — active devices under active transformers,
+    the same population as `latest_reading_times`, so attribution and
+    freshness always describe the same set.
 
     Deliberately single-metric and entity-scoped. Widening it to all eight
     metrics fleet-wide would make every caller pay for 960 values to read one,
@@ -924,6 +941,229 @@ def delete_all_assignments() -> None:
     """Test/prototype support only — mirrors delete_all_users()."""
     with session_scope() as session:
         session.execute(text(f"DELETE FROM {_SCHEMA}.user_device_assignments"))
+
+
+# ---------------------------------------------------------------------------
+# Administration summary queries (ADMIN-1: backs
+# services/admin_overview_service.py)
+#
+# Reporting only — these never write, and they never compute freshness or any
+# monitoring condition. The Fleet Overview already owns that axis via
+# `latest_reading_times` / `FleetHealth`; duplicating it here would create a
+# second opinion about which devices are healthy.
+#
+# DEVICE POPULATIONS. Two exist, and they are not interchangeable:
+#
+#   Monitoring Devices — active devices under active transformers
+#       (`d.status = active AND t.status = active`). What is being monitored:
+#       a device hanging off a decommissioned transformer delivers nothing to
+#       monitor. Used by `count_hierarchy_by_plant`, `latest_reading_times`
+#       and `latest_metric_readings`.
+#
+#   Managed RTLs — administratively active devices, regardless of transformer
+#       status (`d.status = active`). What is being administered: an RTL under
+#       a decommissioned transformer is still a real unit somebody owns,
+#       assigns and eventually recovers. Used by `list_all_devices` and by
+#       every query in this section.
+#
+# Administration answers "what do we manage", monitoring answers "what
+# reports", so the two counts may legitimately differ and must never be
+# swapped to make a screen add up. On the current development data both
+# populations are the same 120 devices — nothing is deactivated — so the
+# difference is invisible until it is not. tests/test_admin_overview.py
+# ::TestDevicePopulations pins it.
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class DeviceAssignmentCounts:
+    """Device totals split by whether a technician currently holds them.
+
+    One dataclass rather than three separate count functions because the
+    three numbers are only meaningful together: `unassigned` is defined as
+    the complement of `assigned` within `total`, so computing them in
+    separate queries would let a concurrent assignment land between two
+    round trips and produce a summary whose parts do not add up.
+    """
+
+    total_devices: int
+    assigned_devices: int
+    unassigned_devices: int
+
+
+def count_device_assignments(include_inactive: bool = False) -> DeviceAssignmentCounts:
+    """Total / assigned / unassigned device counts, from one aggregate query.
+
+    Counts **Managed RTLs** (see the section header): administratively active
+    devices, whatever their transformer's status. Matches `list_all_devices`
+    exactly, so the administration summary and the Device Management table
+    can never describe different fleets. This is deliberately NOT the
+    Monitoring Devices population the Fleet Overview counts — an RTL under a
+    decommissioned transformer still needs a technician.
+
+    The transformer/plant joins `list_all_devices` performs are omitted here:
+    they exist there to carry hierarchy context, and being inner joins over
+    NOT NULL foreign keys they can neither add nor drop a device.
+
+    "Assigned" means an active row (`ended_at IS NULL`) in
+    `user_device_assignments`. Ended history rows are ignored, so a device
+    whose technician was removed counts as unassigned again.
+
+    COUNT(DISTINCT ...) rather than COUNT(*): the LEFT JOIN cannot currently
+    fan out, because `ux_user_device_assignments_active_device` permits at
+    most one active row per device — but stating the intent in the query
+    keeps it correct on its own terms rather than only by virtue of an index
+    defined in another file.
+    """
+    status_filter = "" if include_inactive else " AND d.status = :active"
+    params: dict = {}
+    if not include_inactive:
+        params["active"] = ACTIVE_STATUS
+
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                SELECT COUNT(DISTINCT d.device_id) AS total,
+                       COUNT(DISTINCT a.device_id) AS assigned
+                FROM {_SCHEMA}.devices d
+                LEFT JOIN {_SCHEMA}.user_device_assignments a
+                       ON a.device_id = d.device_id AND a.ended_at IS NULL
+                WHERE TRUE{status_filter}
+                """
+            ),
+            params,
+        ).first()
+
+    total, assigned = int(row[0]), int(row[1])
+    return DeviceAssignmentCounts(
+        total_devices=total,
+        assigned_devices=assigned,
+        unassigned_devices=total - assigned,
+    )
+
+
+def count_active_technicians() -> int:
+    """How many users are active technicians (`role='technician'` and
+    `status='active'`) — the same population
+    `services.prototype_users.get_technician_options()` offers for assignment.
+
+    Counted in SQL rather than by reusing that service for two reasons:
+    it materialises every user row only to filter and discard most of them,
+    and `get_technicians()` calls `seed_demo_user()` first — a write. A
+    read-only dashboard figure must not insert a row as a side effect of
+    being displayed.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"SELECT COUNT(*) FROM {_SCHEMA}.users "
+                f"WHERE role = :role AND status = :active"
+            ),
+            {"role": "technician", "active": ACTIVE_STATUS},
+        ).first()
+    return int(row[0])
+
+
+def count_devices_registered_between(
+    start: datetime, end: datetime, include_inactive: bool = False
+) -> int:
+    """How many **Managed RTLs** were registered within a closed `[start, end]`
+    window, read from `devices.created_at`.
+
+    Takes explicit bounds rather than a "recent" duration: how long "recently"
+    lasts is a dashboard policy and lives in
+    `services.admin_overview_service`, while this layer only answers the
+    question it is given. Both ends are inclusive, matching the `>= start AND
+    <= end` convention `get_readings_in_range` already established for time
+    windows.
+
+    The upper bound is real, not decorative: `created_at` is defaulted by the
+    database, but clock skew or hand-edited data can still produce a
+    future-dated row, and "the last seven days" must not silently become
+    "anything newer than seven days ago".
+    """
+    status_filter = "" if include_inactive else " AND d.status = :active"
+    params: dict = {"start": start, "end": end}
+    if not include_inactive:
+        params["active"] = ACTIVE_STATUS
+
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                SELECT COUNT(*)
+                FROM {_SCHEMA}.devices d
+                WHERE d.created_at >= :start
+                  AND d.created_at <= :end{status_filter}
+                """
+            ),
+            params,
+        ).first()
+    return int(row[0])
+
+
+def list_unassigned_devices(
+    limit: int | None = None, include_inactive: bool = False
+) -> list[AdminDeviceRow]:
+    """**Managed RTLs** with no active technician assignment, with hierarchy
+    context.
+
+    An RTL under an inactive transformer is included: it is still a unit
+    nobody is responsible for, and dropping it from the exception list is
+    how it would be forgotten.
+
+    Returns `AdminDeviceRow` — the shape the Device Management table already
+    consumes — rather than a near-identical administration-only row type. Every
+    field the exception list needs is already on it, and a second contract
+    carrying the same seven columns would be one more place for the two
+    screens to drift apart. The assigned technician is deliberately not a
+    field: on this list it is None by construction, and a column that is
+    always None carries no information.
+
+    A LEFT JOIN ... IS NULL anti-join, not a NOT IN subquery: one pass over
+    the same index the assignment lookups already use, and no N+1.
+
+    Ordering is plant name, transformer code, device code — matching
+    `list_all_devices` so an operator sees the same sequence on both screens —
+    with `device_id` as a final tiebreaker, because plant names carry no
+    uniqueness constraint and `limit` makes ties observable as missing rows.
+
+    Deliberately carries no freshness/monitoring column. The Fleet Overview
+    already builds `FleetHealth` for the whole fleet in one query; a callback
+    that wants freshness beside these rows should join against that, not pay
+    for a second, independently-computed opinion.
+    """
+    if limit is not None and limit < 0:
+        raise ValueError(f"limit must be zero or greater, got {limit!r}")
+
+    status_filter = "" if include_inactive else " AND d.status = :active"
+    limit_clause = "" if limit is None else " LIMIT :limit"
+    params: dict = {}
+    if not include_inactive:
+        params["active"] = ACTIVE_STATUS
+    if limit is not None:
+        params["limit"] = limit
+
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT d.device_id, d.device_code, d.status,
+                       t.transformer_id, t.transformer_code,
+                       p.plant_id, p.name
+                FROM {_SCHEMA}.devices d
+                JOIN {_SCHEMA}.transformers t ON t.transformer_id = d.transformer_id
+                JOIN {_SCHEMA}.plants p       ON p.plant_id = t.plant_id
+                LEFT JOIN {_SCHEMA}.user_device_assignments a
+                       ON a.device_id = d.device_id AND a.ended_at IS NULL
+                WHERE a.device_id IS NULL{status_filter}
+                ORDER BY p.name, t.transformer_code, d.device_code, d.device_id
+                {limit_clause}
+                """
+            ),
+            params,
+        ).all()
+    return [AdminDeviceRow(*r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
