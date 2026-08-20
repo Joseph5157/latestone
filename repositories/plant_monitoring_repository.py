@@ -71,6 +71,19 @@ class RawReading:
     value: float
 
 
+@dataclass(frozen=True)
+class UserRecord:
+    user_id: int
+    username: str
+    full_name: str
+    email_address: str | None
+    mobile_number: str | None
+    role: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
 def _to_plant(row) -> PlantRecord:
     return PlantRecord(*row)
 
@@ -85,6 +98,16 @@ def _to_device(row) -> DeviceRecord:
 
 def _to_reading(row) -> RawReading:
     return RawReading(row[0], row[1], row[2], float(row[3]))
+
+
+def _to_user(row) -> UserRecord:
+    return UserRecord(*row)
+
+
+_USER_COLUMNS = (
+    "user_id, username, full_name, email_address, mobile_number, "
+    "role, status, created_at, updated_at"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -575,3 +598,93 @@ def get_readings_for_device_in_range(
     for row in rows:
         result[row[1]].append(_to_reading(row))
     return result
+
+
+# ---------------------------------------------------------------------------
+# User queries (DB-2: backs services/prototype_users.py)
+# ---------------------------------------------------------------------------
+
+def list_users() -> list[UserRecord]:
+    """All users, ordered by creation (user_id) — the DB analogue of the
+    insertion-order iteration the prototype's in-memory dict gave for free.
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            text(f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users ORDER BY user_id")
+        ).all()
+    return [_to_user(r) for r in rows]
+
+
+def get_user_by_username(username: str) -> UserRecord | None:
+    with session_scope() as session:
+        row = session.execute(
+            text(f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users WHERE username = :username"),
+            {"username": username},
+        ).first()
+    return _to_user(row) if row else None
+
+
+def create_or_update_user(
+    username: str,
+    full_name: str,
+    role: str,
+    status: str,
+    email_address: str | None = None,
+    mobile_number: str | None = None,
+) -> UserRecord:
+    """Insert a new user, or update the existing row for that username.
+
+    A native ``INSERT ... ON CONFLICT (username) DO UPDATE`` rather than a
+    check-then-write: atomic, and matches ``users.username``'s UNIQUE
+    constraint as the single source of truth for "does this user exist".
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                INSERT INTO {_SCHEMA}.users
+                    (username, full_name, email_address, mobile_number, role, status)
+                VALUES
+                    (:username, :full_name, :email_address, :mobile_number, :role, :status)
+                ON CONFLICT (username) DO UPDATE SET
+                    full_name = EXCLUDED.full_name,
+                    email_address = EXCLUDED.email_address,
+                    mobile_number = EXCLUDED.mobile_number,
+                    role = EXCLUDED.role,
+                    status = EXCLUDED.status,
+                    updated_at = now()
+                RETURNING {_USER_COLUMNS}
+                """
+            ),
+            {
+                "username": username,
+                "full_name": full_name,
+                "email_address": email_address,
+                "mobile_number": mobile_number,
+                "role": role,
+                "status": status,
+            },
+        ).first()
+    return _to_user(row)
+
+
+def delete_user_by_username(username: str) -> None:
+    """No-op if the username does not exist — matches the current service
+    contract's remove_user(), which is a silent no-op for a missing user.
+    """
+    with session_scope() as session:
+        session.execute(
+            text(f"DELETE FROM {_SCHEMA}.users WHERE username = :username"),
+            {"username": username},
+        )
+
+
+def delete_all_users() -> None:
+    """Test/prototype support only. No ON DELETE CASCADE exists from the
+    DB-1 workflow tables (user_device_assignments, rtl_programming_requests,
+    message_forwarding, audit_log) that FK to users.user_id — this will
+    raise IntegrityError once those are populated by a later phase. At DB-2
+    none of them are wired yet, so an unconditional DELETE is safe today.
+    """
+    with session_scope() as session:
+        session.execute(text(f"DELETE FROM {_SCHEMA}.users"))

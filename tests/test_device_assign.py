@@ -151,6 +151,10 @@ class TestMockTechnicianAssignment:
 # ---------------------------------------------------------------------------
 
 class TestTechnicianOptions:
+    # clear_all_users()/upsert_user() are database-backed (DB-2); runs against
+    # the isolated test schema (tests/conftest.py), never the real users table.
+    pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
+
     def setup_method(self):
         clear_all_users()
         clear_mock_assignments()

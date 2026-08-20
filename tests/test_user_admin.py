@@ -62,6 +62,10 @@ class TestUserAdminLayout:
 # ---------------------------------------------------------------------------
 
 class TestBuildUserRows:
+    # clear_all_users() is database-backed (DB-2); runs against the isolated
+    # test schema (tests/conftest.py), never the developer's real users table.
+    pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
+
     def setup_method(self):
         clear_all_users()
 
@@ -146,6 +150,9 @@ class TestBuildUserRows:
 # ---------------------------------------------------------------------------
 
 class TestValidateUserForm:
+    # clear_all_users()/upsert_user() are database-backed (DB-2); isolated schema, see above.
+    pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
+
     def setup_method(self):
         clear_all_users()
 
@@ -174,6 +181,9 @@ class TestValidateUserForm:
 # ---------------------------------------------------------------------------
 
 class TestMockUsers:
+    # clear_all_users()/get_all_users() are database-backed (DB-2); isolated schema, see above.
+    pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
+
     def setup_method(self):
         clear_all_users()
 
