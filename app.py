@@ -34,21 +34,28 @@ app.index_string = app.index_string.replace(
     'href="/assets/login-powerplant-hero.jpg">',
 )
 
-app.layout = html.Div([
-    dcc.Location(id="url", refresh=False),
-    dcc.Store(id="auth-store", storage_type="memory", data={"authenticated": False}),
-    dcc.Store(id="page-context", storage_type="memory", data={}),
-    # Mounted globally and hidden on the login route rather than rendered per
-    # page: its callbacks fire on every route, so their targets must always
-    # exist. See docs/CODE_AUDIT.md finding 2.
-    equipment_selector_shell(),
-    # The sidebar is the primary application navigation (replaces the former
-    # horizontal app-navigation bar). It and page-content are wrapped in the
-    # app-shell so the content region's width — and therefore where
-    # .page/.page--monitoring center themselves — reserves the sidebar's
-    # width without any page needing to know the sidebar exists.
-    app_shell(app_sidebar_shell(), html.Div(id="page-content")),
-])
+# className="app-root" (ADMIN-0P): a one-column flex ancestor of
+# [equipment-selector bar, app shell] so the shell can claim "the rest of
+# the viewport" via CSS flex sizing without hard-coding the equipment bar's
+# height anywhere — see .app-root in assets/app.css.
+app.layout = html.Div(
+    className="app-root",
+    children=[
+        dcc.Location(id="url", refresh=False),
+        dcc.Store(id="auth-store", storage_type="memory", data={"authenticated": False}),
+        dcc.Store(id="page-context", storage_type="memory", data={}),
+        # Mounted globally and hidden on the login route rather than rendered per
+        # page: its callbacks fire on every route, so their targets must always
+        # exist. See docs/CODE_AUDIT.md finding 2.
+        equipment_selector_shell(),
+        # The sidebar is the primary application navigation (replaces the former
+        # horizontal app-navigation bar). It and page-content are wrapped in the
+        # app-shell so the content region's width — and therefore where
+        # .page/.page--monitoring center themselves — reserves the sidebar's
+        # width without any page needing to know the sidebar exists.
+        app_shell(app_sidebar_shell(), html.Div(id="page-content")),
+    ],
+)
 
 auth.register(app)
 routing.register(app)

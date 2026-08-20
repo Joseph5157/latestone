@@ -1,0 +1,7 @@
+<!-- Local sidebar nav icon: Users (two people). Same stroke/mask convention as eye.svg. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="9" cy="8" r="3.25"/>
+  <path d="M2.75 20v-1a6.25 6.25 0 0 1 12.5 0v1"/>
+  <circle cx="17.5" cy="8.5" r="2.5"/>
+  <path d="M16.75 13.1a5 5 0 0 1 4.5 4.9v2"/>
+</svg>

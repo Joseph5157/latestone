@@ -8,6 +8,7 @@ sidebar's width without touching each page's own max-width CSS.
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 
 import pytest
 from dash import html
@@ -28,7 +29,7 @@ from components.app_sidebar import (
     app_sidebar_shell,
 )
 from pages import login
-from tests.dash_tree import find_by_class, find_by_id, links, text_of
+from tests.dash_tree import find_by_class, find_by_exact_class, find_by_id, links, text_of
 
 
 def _walk(node):
@@ -65,7 +66,7 @@ LOGIN_LAYOUT_IDS = collect_ids(login.login_layout())
 
 
 def _all_items():
-    """Flatten SIDEBAR_SECTIONS into (key, label, href, abbr) tuples."""
+    """Flatten SIDEBAR_SECTIONS into (key, label, href, icon) tuples."""
     items = []
     for _section_title, section_items in SIDEBAR_SECTIONS:
         items.extend(section_items)
@@ -74,7 +75,7 @@ def _all_items():
 
 class TestSidebarItems:
     def test_information_architecture_in_order(self):
-        labels = [label for _key, label, _href, _abbr in _all_items()]
+        labels = [label for _key, label, _href, _icon in _all_items()]
         assert labels == [
             "Overview",
             "Devices", "Assignments", "Registration",
@@ -87,18 +88,18 @@ class TestSidebarItems:
 
     def test_every_routable_item_resolves_to_a_known_active_key(self):
         """Every item with a real href must highlight when its own route is active."""
-        for key, _label, href, _abbr in _all_items():
+        for key, _label, href, _icon in _all_items():
             if href is None:
                 continue
             assert nav.active_nav_key(href) == key, href
 
     def test_assignments_has_no_standalone_route(self):
         """ADMIN-0 explicitly does not build an Assignments page."""
-        items = {label: href for _key, label, href, _abbr in _all_items()}
+        items = {label: href for _key, label, href, _icon in _all_items()}
         assert items["Assignments"] is None
 
     def test_existing_routes_are_reused_not_reinvented(self):
-        items = {label: href for _key, label, href, _abbr in _all_items()}
+        items = {label: href for _key, label, href, _icon in _all_items()}
         assert items["Overview"] == "/plants"
         assert items["Devices"] == "/admin/devices"
         assert items["Registration"] == "/admin/devices/new"
@@ -154,8 +155,9 @@ class TestSidebarVisibility:
 
 class TestSidebarRendering:
     def test_renders_all_routable_destinations_in_order(self):
-        """Each link's rendered text carries its label (plus a collapsed-view
-        abbreviation prefix) and its href, in information-architecture order."""
+        """Each link's rendered text carries its label (the icon glyph itself
+        renders no text — see TestSidebarIcons) and its href, in
+        information-architecture order."""
         rendered = app_sidebar("devices")
         expected = [(label, href) for _k, label, href, _a in _all_items() if href is not None]
         rendered_links = links(rendered)
@@ -181,9 +183,28 @@ class TestSidebarRendering:
         assert "Reports" in text_of(current[0])
 
     def test_inactive_items_carry_no_aria_current(self):
+        """Every navigable item other than the active one must have no
+        `aria-current` at all — not `aria-current="false"`, absent entirely."""
         rendered = app_sidebar("reports")
         current = [n for n in _walk(rendered) if getattr(n, "aria-current", None) == "page"]
         assert len(current) == 1, "exactly one item may claim the page"
+        items = find_by_exact_class(rendered, "app-sidebar__item")
+        inactive_items = [n for n in items if "Reports" not in text_of(n)]
+        assert len(inactive_items) == len(items) - 1
+        for item in inactive_items:
+            assert getattr(item, "aria-current", None) is None
+
+    def test_disabled_assignments_never_carries_aria_current(self):
+        """Assignments has no route and can never be the active key — it must
+        never pick up `aria-current` regardless of which real item is active."""
+        for active_key in (None, "overview", "devices", "registration", "reports"):
+            rendered = app_sidebar(active_key)
+            disabled = find_by_class(rendered, "app-sidebar__link--disabled")
+            assert len(disabled) == 1
+            assert getattr(disabled[0], "aria-current", None) is None
+            wrapping_items = find_by_exact_class(rendered, "app-sidebar__item")
+            assignments_item = next(n for n in wrapping_items if "Assignments" in text_of(n))
+            assert getattr(assignments_item, "aria-current", None) is None
 
     def test_assignments_renders_disabled_not_as_a_dead_link(self):
         rendered = app_sidebar(None)
@@ -201,6 +222,62 @@ class TestSidebarRendering:
     def test_toggle_control_is_present(self):
         rendered = app_sidebar(None)
         assert find_by_id(rendered, TOGGLE_ID) is not None
+
+
+class TestSidebarIcons:
+    """ADMIN-0P: every destination — including the disabled Assignments item
+    — carries a local SVG icon (assets/icons/nav-{icon}.svg) rendered via a
+    CSS mask, replacing the old two-letter collapsed-rail abbreviation."""
+
+    ICONS_DIR = Path(__file__).resolve().parent.parent / "assets" / "icons"
+
+    def test_every_sidebar_destination_has_an_icon_class(self):
+        """Every item, including the disabled one with no href, must map to
+        a non-empty icon slug — that's what class the collapsed rail (and
+        the expanded row) render as its glyph."""
+        for _key, label, _href, icon in _all_items():
+            assert icon, f"{label} has no icon slug"
+
+    def test_icon_slugs_are_unique_per_destination(self):
+        icons = [icon for _key, _label, _href, icon in _all_items()]
+        assert len(icons) == len(set(icons)), icons
+
+    def test_icon_asset_file_exists_for_every_destination(self):
+        """Guards against a CSS mask silently pointing at a file that was
+        never added — the icon would render as nothing, with no error."""
+        for _key, label, _href, icon in _all_items():
+            svg_path = self.ICONS_DIR / f"nav-{icon}.svg"
+            assert svg_path.is_file(), f"{label}: missing {svg_path}"
+
+    def test_rendered_links_carry_an_icon_span(self):
+        rendered = app_sidebar("devices")
+        for _key, label, href, icon in _all_items():
+            if href is None:
+                continue
+            icon_spans = find_by_exact_class(rendered, f"app-sidebar__icon--{icon}")
+            assert len(icon_spans) == 1, label
+            assert "app-sidebar__icon" in icon_spans[0].className.split()
+
+    def test_disabled_item_also_carries_an_icon_span(self):
+        rendered = app_sidebar(None)
+        icon_spans = find_by_exact_class(rendered, "app-sidebar__icon--assignments")
+        assert len(icon_spans) == 1
+        assert "app-sidebar__icon" in icon_spans[0].className.split()
+
+    def test_icon_span_is_hidden_from_assistive_technology(self):
+        """The link's accessible name is its text label; the icon is
+        decorative and must not be announced twice."""
+        rendered = app_sidebar("devices")
+        icon_spans = find_by_class(rendered, "app-sidebar__icon")
+        assert icon_spans
+        for span in icon_spans:
+            assert getattr(span, "aria-hidden", None) == "true"
+
+    def test_abbreviation_class_no_longer_renders(self):
+        """The old collapsed-rail abbreviation ("OV", "NO", ...) is fully
+        retired in favour of the icon — it must not still be in the tree."""
+        rendered = app_sidebar("devices")
+        assert find_by_class(rendered, "app-sidebar__abbr") == []
 
 
 class TestCollapseBehavior:

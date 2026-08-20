@@ -17,11 +17,20 @@ one — see callbacks.navigation.NAV_KEY_BY_ROUTE and the ADMIN-0 report for
 the reasoning). It renders as a disabled, non-destructive item rather than a
 dead link or an invented page.
 
-No icon library exists anywhere in this codebase (the one precedent,
-pages/login.py's eye toggle, is a local SVG used as a CSS mask for a single
-control). Rather than introduce a new icon dependency for seven nav items,
-the collapsed state uses a two-letter text abbreviation plus a native
-`title` tooltip on each link — no images, no emoji, no external font.
+ADMIN-0P (sidebar polish): each item carries a local SVG icon, rendered in
+front of the label in both expanded and collapsed states — the collapsed
+rail used to fall back to a two-letter abbreviation ("NO" for Notifications
+read as the word "no" in review), which read as a placeholder rather than
+finished chrome. The icon reuses the same technique as pages/login.py's eye
+toggle: an empty `<span>` whose shape comes from a local SVG loaded as a CSS
+mask (`.app-sidebar__icon` in app.css) and whose colour comes from
+`background-color: currentColor`, so every existing text-colour state
+(default/hover/active/disabled/focus) paints the icon for free with no extra
+state logic. No icon library, no CDN, no emoji — the files live in
+assets/icons/ alongside eye.svg/eye-off.svg. The icon is `aria-hidden`; the
+link's accessible name is still its text label, and each link keeps its
+native `title` tooltip (useful when collapsed, where the label is visually
+hidden but still in the DOM).
 """
 from __future__ import annotations
 
@@ -35,33 +44,36 @@ COLLAPSE_STORE_ID = "sidebar-collapse-store"
 
 HIDDEN_STYLE = {"display": "none"}
 
-#: (key, label, href, abbr). `key` is the identity the active-state logic
-#: joins on (None for items with no route of their own); `abbr` is what
-#: renders in place of `label` when the sidebar is collapsed.
+#: (key, label, href, icon). `key` is the identity the active-state logic
+#: joins on (None for items with no route of their own); `icon` is the
+#: assets/icons/nav-{icon}.svg slug rendered before `label` in every state.
 SidebarItem = tuple[str | None, str, str | None, str]
 
 #: (section_title, items). The first section has no title (Overview stands
 #: alone, matching the fleet overview's status as the operator landing page).
 SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
     (None, (
-        ("overview", "Overview", "/plants", "OV"),
+        ("overview", "Overview", "/plants", "overview"),
     )),
     ("Operations", (
-        ("devices", "Devices", "/admin/devices", "DE"),
-        (None, "Assignments", None, "AS"),
-        ("registration", "Registration", "/admin/devices/new", "RE"),
+        ("devices", "Devices", "/admin/devices", "devices"),
+        (None, "Assignments", None, "assignments"),
+        ("registration", "Registration", "/admin/devices/new", "registration"),
     )),
     ("System", (
-        ("notifications", "Notifications", "/notifications", "NO"),
-        ("reports", "Reports", "/reports", "RP"),
-        ("users", "Users", "/admin/users", "US"),
+        ("notifications", "Notifications", "/notifications", "notifications"),
+        ("reports", "Reports", "/reports", "reports"),
+        ("users", "Users", "/admin/users", "users"),
     )),
 )
 
 
-def _item_content(label: str, abbr: str) -> list:
+def _item_content(label: str, icon: str) -> list:
     return [
-        html.Span(abbr, className="app-sidebar__abbr", **{"aria-hidden": "true"}),
+        html.Span(
+            className=f"app-sidebar__icon app-sidebar__icon--{icon}",
+            **{"aria-hidden": "true"},
+        ),
         html.Span(label, className="app-sidebar__label"),
     ]
 
@@ -81,12 +93,12 @@ def sidebar_nav(active_key: str | None) -> html.Ul:
             items.append(
                 html.Li(section_title, className="app-sidebar__section-label")
             )
-        for key, label, href, abbr in section_items:
+        for key, label, href, icon in section_items:
             if href is None:
                 items.append(
                     html.Li(
                         html.Span(
-                            _item_content(label, abbr),
+                            _item_content(label, icon),
                             className="app-sidebar__link app-sidebar__link--disabled",
                             title=f"{label} — manage from Devices",
                             **{"aria-disabled": "true"},
@@ -105,7 +117,7 @@ def sidebar_nav(active_key: str | None) -> html.Ul:
             items.append(
                 html.Li(
                     dcc.Link(
-                        _item_content(label, abbr),
+                        _item_content(label, icon),
                         href=href,
                         className=className,
                         title=label,

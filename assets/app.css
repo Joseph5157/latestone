@@ -498,6 +498,19 @@ body {
    white / --color-surface over --color-brand (both >= 10:1 contrast), reusing
    existing tokens rather than introducing new colours. Keyboard focus is
    covered by the global :focus-visible rule at the top of this file. */
+/* ---------- App Root ----------
+   ADMIN-0P: a one-column flex ancestor of [equipment-selector bar, app
+   shell], so `.app-shell` can claim "the rest of the viewport" via `flex: 1`
+   without ever hard-coding the equipment bar's height (which itself changes
+   — it wraps to two lines at <=768px, see the responsive block below). This
+   is what makes `.app-shell { min-height: ... }` resolve to "100vh minus
+   whatever the equipment bar actually rendered at" for free. */
+.app-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 /* ---------- Application Shell ----------
    ADMIN-0: the sidebar is the one primary navigation system (replaces the
    former horizontal app-nav bar entirely, not alongside it). `.app-shell` is
@@ -507,10 +520,19 @@ body {
    and every page's own CSS are untouched by this. `min-width: 0` is required
    on the flex content child or a wide table/chart inside it will refuse to
    shrink below its intrinsic width and force the row (and the sidebar with
-   it) wider than the viewport. */
+   it) wider than the viewport.
+
+   ADMIN-0P: `flex: 1 1 auto` (inside `.app-root` above) makes this row claim
+   the rest of the viewport after the equipment-selector bar, and
+   `min-height: 0` is the standard flex fix that lets it actually shrink to
+   that instead of being floored by its own content's intrinsic height. That
+   minimum height is what lets the sidebar's own navy fill (below) reach the
+   bottom of the viewport even on short pages. */
 .app-shell {
   display: flex;
   align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .app-shell__content {
@@ -519,25 +541,59 @@ body {
   overflow-x: hidden;
 }
 
+/* Sidebar-adjacent gutter: `.page`/`.page--monitoring` centre themselves
+   with `margin: 0 auto`, which is correct when there is no sidebar to sit
+   next to, but inside the shell that symmetric auto-margin grows the
+   sidebar-side gap from ~24px (the page's own left padding) up to ~58px at
+   1920px — an accidental side effect of centring, not an intentional
+   gutter. Anchoring the page to the content region's left edge instead
+   keeps that gap constant at every width; `.page`'s own max-width and
+   padding tokens (untouched here) still cap the reading width and still
+   keep it off the *right* edge, so any leftover space beyond max-width
+   simply collects there instead of splitting both sides. */
+.app-shell__content .page {
+  margin-left: 0;
+  margin-right: auto;
+}
+
 /* ---------- Sidebar ----------
    Vertical counterpart of the former .app-nav-shell: same brand surface and
    contrast ratios, reusing existing tokens rather than introducing new
-   colours. Not `position: fixed` — a plain flex child stretches to the
-   content column's height (via the shell's default `align-items: stretch`
-   would apply were it not overridden above for scroll independence) and,
-   critically, sits in normal stacking order *below* the two existing
-   `z-index: 1000` drawers (assign-drawer, device-manage drawer) with zero
-   extra coordination. */
+   colours.
+
+   ADMIN-0P: `align-self: stretch` overrides the shell's `align-items:
+   flex-start` for this one child, so the navy fill matches the row's full
+   height (>= the viewport, via `.app-shell`'s min-height above; taller still
+   on pages whose content exceeds one viewport) instead of stopping at the
+   nav list's own ~376px content height. The nav itself (`.app-sidebar`
+   below) is the part that scrolls with the operator via `position: sticky`
+   — this outer element stays a plain flow box so its background can span
+   the whole column without needing to be fixed/sticky itself, and it still
+   sits in normal stacking order *below* the two existing `z-index: 1000`
+   drawers (assign-drawer, device-manage drawer) with zero extra
+   coordination, since neither it nor its sticky child set a z-index. */
 .app-sidebar-shell {
   flex: 0 0 auto;
+  align-self: stretch;
   background: var(--color-brand);
   border-right: 1px solid var(--color-border);
 }
 
+/* `position: sticky; top: 0` with no hard-coded offset: the browser pins it
+   the instant its own normal-flow position would scroll above the viewport
+   top, whatever that position happens to be (it shifts if the equipment bar
+   ever changes height, e.g. the <=768px wrap below — no coordination
+   needed). `max-height` + `overflow-y: auto` is a safety net so the nav list
+   scrolls internally rather than clipping on a viewport shorter than its own
+   content, which is not expected at any tested size but costs nothing. */
 .app-sidebar {
   display: flex;
   flex-direction: column;
   width: 232px;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
   transition: width 0.15s ease;
 }
 
@@ -635,27 +691,54 @@ body {
 
 .app-sidebar__link--disabled:hover { background: transparent; }
 
-.app-sidebar__abbr {
-  display: none;
+/* ADMIN-0P: locally-served SVGs (assets/icons/nav-*.svg) used as a CSS mask,
+   same technique as .toggle-password-icon (pages/login.py) — the mask
+   supplies only the glyph's shape, `background-color: currentColor` supplies
+   the paint, so the icon inherits whatever colour the surrounding link
+   already has in every state (default/hover/active/disabled/focus) with no
+   extra state logic. Visible in both expanded and collapsed rails; only the
+   label next to it is what collapses away below. */
+.app-sidebar__icon {
+  display: inline-block;
   flex: 0 0 auto;
-  width: 24px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
+.app-sidebar__icon--overview      { -webkit-mask-image: url("/assets/icons/nav-overview.svg");      mask-image: url("/assets/icons/nav-overview.svg"); }
+.app-sidebar__icon--devices       { -webkit-mask-image: url("/assets/icons/nav-devices.svg");       mask-image: url("/assets/icons/nav-devices.svg"); }
+.app-sidebar__icon--assignments   { -webkit-mask-image: url("/assets/icons/nav-assignments.svg");   mask-image: url("/assets/icons/nav-assignments.svg"); }
+.app-sidebar__icon--registration  { -webkit-mask-image: url("/assets/icons/nav-registration.svg");  mask-image: url("/assets/icons/nav-registration.svg"); }
+.app-sidebar__icon--notifications { -webkit-mask-image: url("/assets/icons/nav-notifications.svg"); mask-image: url("/assets/icons/nav-notifications.svg"); }
+.app-sidebar__icon--reports       { -webkit-mask-image: url("/assets/icons/nav-reports.svg");       mask-image: url("/assets/icons/nav-reports.svg"); }
+.app-sidebar__icon--users         { -webkit-mask-image: url("/assets/icons/nav-users.svg");         mask-image: url("/assets/icons/nav-users.svg"); }
+
 /* Collapsed: label text is dropped (width: 0, not display: none — an
-   abruptly vanishing inline child would jump the abbreviation sideways
-   mid-transition) and the two-letter abbreviation takes its place. Every
-   link keeps its native `title` attribute as the identifying tooltip. */
+   abruptly vanishing inline child would jump the icon sideways mid-
+   transition). The icon above needs no override here — it is already
+   visible in both states. Every link keeps its native `title` attribute as
+   the identifying tooltip once the label is visually gone. */
 .app-sidebar--collapsed .app-sidebar__label {
   width: 0;
   overflow: hidden;
 }
 
-.app-sidebar--collapsed .app-sidebar__abbr { display: block; }
-.app-sidebar--collapsed .app-sidebar__section-label { overflow: hidden; text-indent: -9999px; }
+.app-sidebar--collapsed .app-sidebar__section-label {
+  overflow: hidden;
+  text-indent: -9999px;
+  /* The label text is hidden but its padding box remains, reserving a gap
+     between the Operations/System icon groups; a hairline there turns that
+     bare gap into an intentional divider instead of looking like a stray
+     blank spot in the rail. */
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
 
 /* Content region shifts nothing itself — the flex row already reserves
    exactly the sidebar's current width — so no rule is needed here keyed off
@@ -672,8 +755,11 @@ body {
 @media (max-width: 860px) {
   .app-sidebar { width: 60px; }
   .app-sidebar__label { width: 0; overflow: hidden; }
-  .app-sidebar__abbr { display: block; }
-  .app-sidebar__section-label { overflow: hidden; text-indent: -9999px; }
+  .app-sidebar__section-label {
+    overflow: hidden;
+    text-indent: -9999px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
   .app-sidebar__toggle { display: none; }
 }
 
@@ -691,6 +777,9 @@ body {
   padding: var(--sp-1) var(--sp-5);
   background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
+  /* Now a flex item of .app-root (ADMIN-0P): natural height, never
+     stretched or shrunk by the column it sits in. */
+  flex: 0 0 auto;
 }
 
 .equipment-selector-bar__label {

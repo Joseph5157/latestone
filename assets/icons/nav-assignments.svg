@@ -1,0 +1,6 @@
+<!-- Local sidebar nav icon: Assignments (user-check). Same stroke/mask convention as eye.svg. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="9.5" cy="8" r="4"/>
+  <path d="M2.5 21v-1.5a6 6 0 0 1 6-6h2a6 6 0 0 1 1.5.19"/>
+  <path d="m15.5 15.5 2 2 4-4"/>
+</svg>
