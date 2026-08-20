@@ -10,7 +10,8 @@ import dash
 from dash import dcc, html
 
 from callbacks import auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, user_admin, report_center, notifications
-from components.app_navigation import app_navigation_shell
+from components.app_shell import app_shell
+from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
 from config.logging_config import configure_logging
 
@@ -41,11 +42,12 @@ app.layout = html.Div([
     # page: its callbacks fire on every route, so their targets must always
     # exist. See docs/CODE_AUDIT.md finding 2.
     equipment_selector_shell(),
-    # Same global-mount rule as the equipment selector, for the same reason.
-    # Rendered above it: application navigation is the primary top-level
-    # structure; the equipment jump tool is secondary to it.
-    app_navigation_shell(),
-    html.Div(id="page-content"),
+    # The sidebar is the primary application navigation (replaces the former
+    # horizontal app-navigation bar). It and page-content are wrapped in the
+    # app-shell so the content region's width — and therefore where
+    # .page/.page--monitoring center themselves — reserves the sidebar's
+    # width without any page needing to know the sidebar exists.
+    app_shell(app_sidebar_shell(), html.Div(id="page-content")),
 ])
 
 auth.register(app)

@@ -498,28 +498,108 @@ body {
    white / --color-surface over --color-brand (both >= 10:1 contrast), reusing
    existing tokens rather than introducing new colours. Keyboard focus is
    covered by the global :focus-visible rule at the top of this file. */
-.app-nav-shell {
+/* ---------- Application Shell ----------
+   ADMIN-0: the sidebar is the one primary navigation system (replaces the
+   former horizontal app-nav bar entirely, not alongside it). `.app-shell` is
+   a flex row of [sidebar, content region]; `.app-shell__content` is what
+   `.page` / `.page--monitoring` centre themselves within via their existing
+   `margin: 0 auto` — their max-width tokens (--w-reading / --w-monitoring)
+   and every page's own CSS are untouched by this. `min-width: 0` is required
+   on the flex content child or a wide table/chart inside it will refuse to
+   shrink below its intrinsic width and force the row (and the sidebar with
+   it) wider than the viewport. */
+.app-shell {
   display: flex;
-  align-items: center;
-  padding: 0 var(--sp-5);
-  background: var(--color-brand);
-  border-bottom: 1px solid var(--color-border);
+  align-items: flex-start;
 }
 
-.app-nav {
+.app-shell__content {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+/* ---------- Sidebar ----------
+   Vertical counterpart of the former .app-nav-shell: same brand surface and
+   contrast ratios, reusing existing tokens rather than introducing new
+   colours. Not `position: fixed` — a plain flex child stretches to the
+   content column's height (via the shell's default `align-items: stretch`
+   would apply were it not overridden above for scroll independence) and,
+   critically, sits in normal stacking order *below* the two existing
+   `z-index: 1000` drawers (assign-drawer, device-manage drawer) with zero
+   extra coordination. */
+.app-sidebar-shell {
+  flex: 0 0 auto;
+  background: var(--color-brand);
+  border-right: 1px solid var(--color-border);
+}
+
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 232px;
+  transition: width 0.15s ease;
+}
+
+.app-sidebar--collapsed { width: 60px; }
+
+.app-sidebar__toggle {
   display: flex;
   align-items: center;
+  justify-content: center;
+  align-self: flex-end;
+  width: 32px;
+  height: 32px;
+  margin: var(--sp-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.app-sidebar__toggle:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* CSS-only chevron (border technique) — no icon asset, no icon font, no
+   emoji. Points left when expanded ("collapse me"), flips to point right
+   when collapsed ("expand me"). */
+.app-sidebar__toggle-icon {
+  width: 8px;
+  height: 8px;
+  border-style: solid;
+  border-color: #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(135deg);
+}
+
+.app-sidebar--collapsed .app-sidebar__toggle-icon { transform: rotate(-45deg); }
+
+.app-sidebar__nav {
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-1);
-  flex-wrap: wrap;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 var(--sp-2) var(--sp-4) var(--sp-2);
 }
 
-.app-nav__item { display: flex; }
+.app-sidebar__item { display: flex; }
 
-.app-nav__link {
-  display: inline-block;
+.app-sidebar__section-label {
+  padding: var(--sp-3) var(--sp-2) var(--sp-1) var(--sp-2);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
   padding: var(--sp-2) var(--sp-3);
   color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
@@ -527,29 +607,74 @@ body {
   font-weight: 600;
   line-height: 1.2;
   border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.app-nav__link:hover {
+.app-sidebar__link:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 
 /* Exactly one link carries this: the active-page indicator, the same pill the
-   operator will see on every route. White pill, brand text. */
-.app-nav__link--active {
+   operator saw on the former horizontal bar. White pill, brand text. */
+.app-sidebar__link--active {
   background: var(--color-surface);
   color: var(--color-brand);
 }
 
-.app-nav__link--active:hover {
+.app-sidebar__link--active:hover {
   background: var(--color-surface);
   color: var(--color-brand);
 }
 
-/* Narrow: links wrap instead of overflowing; gutters and padding tighten. */
-@media (max-width: 640px) {
-  .app-nav-shell { padding: 0 var(--sp-3); }
-  .app-nav__link { padding: var(--sp-2) var(--sp-2); font-size: 12px; }
+.app-sidebar__link--disabled {
+  cursor: default;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.app-sidebar__link--disabled:hover { background: transparent; }
+
+.app-sidebar__abbr {
+  display: none;
+  flex: 0 0 auto;
+  width: 24px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Collapsed: label text is dropped (width: 0, not display: none — an
+   abruptly vanishing inline child would jump the abbreviation sideways
+   mid-transition) and the two-letter abbreviation takes its place. Every
+   link keeps its native `title` attribute as the identifying tooltip. */
+.app-sidebar--collapsed .app-sidebar__label {
+  width: 0;
+  overflow: hidden;
+}
+
+.app-sidebar--collapsed .app-sidebar__abbr { display: block; }
+.app-sidebar--collapsed .app-sidebar__section-label { overflow: hidden; text-indent: -9999px; }
+
+/* Content region shifts nothing itself — the flex row already reserves
+   exactly the sidebar's current width — so no rule is needed here keyed off
+   `.app-shell__content--sidebar-collapsed`. The class exists as a reliable
+   test/JS hook for "is the sidebar currently collapsed" without inspecting
+   the sidebar's own class from elsewhere. */
+
+/* Narrow viewports: force the collapsed rail regardless of the operator's
+   toggle choice, and drop the toggle control — there is no room to expand
+   into. Equal specificity to the base .app-sidebar rule, so source order
+   (this block is later in the file) makes it win while this media query is
+   active; ".app-sidebar--collapsed" still wins over both, being more
+   specific, so an operator's explicit collapse persists too. */
+@media (max-width: 860px) {
+  .app-sidebar { width: 60px; }
+  .app-sidebar__label { width: 0; overflow: hidden; }
+  .app-sidebar__abbr { display: block; }
+  .app-sidebar__section-label { overflow: hidden; text-indent: -9999px; }
+  .app-sidebar__toggle { display: none; }
 }
 
 /* ---------- Equipment Selector ----------
