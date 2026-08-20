@@ -101,22 +101,30 @@ def _column_names(schema: str, table: str) -> set[str]:
     return set(rows)
 
 
+# 001_baseline (4 tables) plus DB-1 (7 additive tables): users,
+# user_device_assignments, rtl_programming_requests, message_forwarding,
+# rtl_active_state, device_events, audit_log. Updated here as each migration
+# extends "head" — this constant describes what `alembic upgrade head`
+# produces today, not just the original baseline.
 EXPECTED_UPGRADE_TABLES = {
-    "plants", "transformers", "devices", "readings", "alembic_version",
+    "plants", "transformers", "devices", "readings",
+    "users", "user_device_assignments", "rtl_programming_requests",
+    "message_forwarding", "rtl_active_state", "device_events", "audit_log",
+    "alembic_version",
 }
 
 
 class TestFreshDatabaseUpgrade:
-    """alembic upgrade head must create the full baseline from nothing."""
+    """alembic upgrade head must create the full schema (baseline + DB-1) from nothing."""
 
-    def test_upgrade_creates_all_four_tables(self):
+    def test_upgrade_creates_all_application_tables(self):
         result = _run_alembic("upgrade", "head")
         assert result.returncode == 0, result.stderr
         # alembic_version is expected: it lives inside the configured schema
-        # (version_table_schema), alongside the four application tables.
+        # (version_table_schema), alongside the eleven application tables.
         assert _table_names(TEST_SCHEMA) == EXPECTED_UPGRADE_TABLES
 
-    def test_upgrade_creates_expected_columns(self):
+    def test_upgrade_creates_expected_baseline_columns(self):
         _run_alembic("upgrade", "head")
         assert _column_names(TEST_SCHEMA, "plants") == {
             "plant_id", "name", "country", "latitude", "longitude",
@@ -125,8 +133,12 @@ class TestFreshDatabaseUpgrade:
         assert _column_names(TEST_SCHEMA, "transformers") == {
             "transformer_id", "plant_id", "transformer_code", "status",
         }
+        # devices carries the 002_device_metadata additive columns on top of
+        # the original four (device_id, transformer_id, device_code, status).
         assert _column_names(TEST_SCHEMA, "devices") == {
             "device_id", "transformer_id", "device_code", "status",
+            "msisdn", "hardware_version", "firmware_version",
+            "installed_at", "created_at", "updated_at",
         }
         assert _column_names(TEST_SCHEMA, "readings") == {
             "id", "device_id", "metric", "reading_ts", "value",
@@ -246,15 +258,36 @@ class TestExistingDatabaseStamp:
         assert result.returncode == 0, result.stderr
         assert "001_baseline" in result.stdout
 
-    def test_stamp_then_upgrade_adds_nothing_new(self):
-        """Stamp + upgrade on a schema with only the version table = no-op."""
+    def test_upgrade_from_stamped_baseline_adds_only_db1_objects(self):
+        """The real "existing seeded DB" path: baseline tables already exist
+        (physically), the DB is stamped at 001_baseline, and `upgrade head`
+        must add the DB-1 tables/columns on top without re-touching or
+        recreating the baseline tables.
+
+        `alembic upgrade 001_baseline` is used here (not raw stamp) purely to
+        get physical baseline tables into the test schema — it has the same
+        end state as "docker-entrypoint-initdb.d created these tables, then
+        somebody ran `alembic stamp 001_baseline`" from the perspective of
+        everything that runs afterward.
+        """
         _drop_test_schema()
-        _run_alembic("stamp", "001_baseline")
+        bootstrap = _run_alembic("upgrade", "001_baseline")
+        assert bootstrap.returncode == 0, bootstrap.stderr
+        assert _table_names(TEST_SCHEMA) == {
+            "plants", "transformers", "devices", "readings", "alembic_version",
+        }
+
         result = _run_alembic("upgrade", "head")
         assert result.returncode == 0, result.stderr
-        # Stamping said "this revision is current", so upgrade must not create
-        # the application tables.
-        assert _table_names(TEST_SCHEMA) == {"alembic_version"}
+
+        # Baseline tables/columns are exactly as before — DB-1 never touches them.
+        assert _column_names(TEST_SCHEMA, "devices") == {
+            "device_id", "transformer_id", "device_code", "status",
+            "msisdn", "hardware_version", "firmware_version",
+            "installed_at", "created_at", "updated_at",
+        }
+        # Full DB-1 table set is now present alongside the untouched baseline.
+        assert _table_names(TEST_SCHEMA) == EXPECTED_UPGRADE_TABLES
 
 
 class TestSchemaFromSettings:
