@@ -46,10 +46,24 @@ class TransformerRecord:
 
 @dataclass(frozen=True)
 class DeviceRecord:
+    """device_id/transformer_id/device_code/status are the DB-M0 baseline.
+
+    The six trailing fields are DB-1's additive metadata columns (all
+    nullable in the schema). They default to None so DeviceRecord(*row)
+    keeps working unchanged wherever a query only ever selected the
+    original four columns (list_devices/get_device now select all ten;
+    this default only matters if a future caller selects fewer).
+    """
     device_id: str
     transformer_id: str
     device_code: str
     status: str
+    msisdn: str | None = None
+    hardware_version: str | None = None
+    firmware_version: str | None = None
+    installed_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -130,6 +144,12 @@ _USER_COLUMNS = (
     "role, status, created_at, updated_at"
 )
 
+_DEVICE_COLUMNS = (
+    "device_id, transformer_id, device_code, status, "
+    "msisdn, hardware_version, firmware_version, installed_at, "
+    "created_at, updated_at"
+)
+
 
 # ---------------------------------------------------------------------------
 # Hierarchy queries
@@ -179,7 +199,7 @@ def get_transformer(transformer_id: str) -> TransformerRecord | None:
 def list_devices(transformer_id: str) -> list[DeviceRecord]:
     with session_scope() as session:
         rows = session.execute(
-            text(f"SELECT device_id, transformer_id, device_code, status "
+            text(f"SELECT {_DEVICE_COLUMNS} "
                  f"FROM {_SCHEMA}.devices WHERE transformer_id = :transformer_id "
                  f"ORDER BY device_code"),
             {"transformer_id": transformer_id},
@@ -190,7 +210,7 @@ def list_devices(transformer_id: str) -> list[DeviceRecord]:
 def get_device(device_id: str) -> DeviceRecord | None:
     with session_scope() as session:
         row = session.execute(
-            text(f"SELECT device_id, transformer_id, device_code, status "
+            text(f"SELECT {_DEVICE_COLUMNS} "
                  f"FROM {_SCHEMA}.devices WHERE device_id = :device_id"),
             {"device_id": device_id},
         ).first()
@@ -904,3 +924,167 @@ def delete_all_assignments() -> None:
     """Test/prototype support only — mirrors delete_all_users()."""
     with session_scope() as session:
         session.execute(text(f"DELETE FROM {_SCHEMA}.user_device_assignments"))
+
+
+# ---------------------------------------------------------------------------
+# Device registration (DB-4: backs services/device_registration.py)
+# ---------------------------------------------------------------------------
+
+def create_device(
+    transformer_id: str, device_code: str, status: str = "active"
+) -> DeviceRecord:
+    """Register a new device under a transformer. Create-only — there is no
+    ON CONFLICT/upsert path; a duplicate is always an error, never a merge.
+
+    One transaction: validate the transformer exists, pre-check the
+    (transformer_id, device_code) pair for a friendlier error than a raw
+    constraint violation, generate device_id, then insert.
+
+    device_id follows the existing seed-time convention from
+    db/hierarchy.py: ``{transformer_id}-d{n}``. ``n`` is one more than the
+    highest existing numeric ``-dN`` suffix among this transformer's
+    devices — MAX, not COUNT, so a gap left by a deleted device (e.g.
+    -d1, -d2, -d4) is never reused and never collides with -d4 (a COUNT+1
+    scheme would compute -d4 again here and collide).
+
+    Concurrency is not trusted to this MAX-based computation alone: the
+    devices PK (device_id) and the baseline (transformer_id, device_code)
+    unique constraint are the final guards. A race between two concurrent
+    registrations under the same transformer surfaces as IntegrityError
+    from the INSERT itself, not as a silently wrong device_id.
+
+    Raises ValueError if transformer_id does not exist, or if
+    (transformer_id, device_code) is already registered (the common,
+    non-racing case — a friendly pre-check, not the only enforcement).
+    Raises sqlalchemy.exc.IntegrityError for the rare concurrent-write race
+    that the pre-check could not see.
+    """
+    with session_scope() as session:
+        transformer_row = session.execute(
+            text(f"SELECT 1 FROM {_SCHEMA}.transformers WHERE transformer_id = :transformer_id"),
+            {"transformer_id": transformer_id},
+        ).first()
+        if transformer_row is None:
+            raise ValueError(f"Unknown transformer_id: {transformer_id!r}")
+
+        duplicate_row = session.execute(
+            text(
+                f"SELECT 1 FROM {_SCHEMA}.devices "
+                f"WHERE transformer_id = :transformer_id AND device_code = :device_code"
+            ),
+            {"transformer_id": transformer_id, "device_code": device_code},
+        ).first()
+        if duplicate_row is not None:
+            raise ValueError(
+                f"Device code {device_code!r} is already registered under "
+                f"transformer {transformer_id!r}"
+            )
+
+        next_index = session.execute(
+            text(
+                f"""
+                SELECT COALESCE(
+                    MAX(substring(device_id from '-d(\\d+)$')::int),
+                    0
+                ) + 1
+                FROM {_SCHEMA}.devices
+                WHERE transformer_id = :transformer_id
+                """
+            ),
+            {"transformer_id": transformer_id},
+        ).scalar_one()
+        device_id = f"{transformer_id}-d{next_index}"
+
+        row = session.execute(
+            text(
+                f"""
+                INSERT INTO {_SCHEMA}.devices (device_id, transformer_id, device_code, status)
+                VALUES (:device_id, :transformer_id, :device_code, :status)
+                RETURNING {_DEVICE_COLUMNS}
+                """
+            ),
+            {
+                "device_id": device_id,
+                "transformer_id": transformer_id,
+                "device_code": device_code,
+                "status": status,
+            },
+        ).first()
+
+    return _to_device(row)
+
+
+class _Unset:
+    """Sentinel for update_device_metadata()'s defaults.
+
+    Distinguishes "argument omitted, leave this column unchanged" from
+    "argument explicitly passed as None, clear this column to NULL" — a
+    plain `= None` default cannot make that distinction, and silently
+    treating omitted as NULL would erase existing metadata on any partial
+    update (e.g. updating only firmware_version would NULL out msisdn,
+    hardware_version and installed_at).
+    """
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = _Unset()
+
+
+def update_device_metadata(
+    device_id: str,
+    *,
+    msisdn: str | None | _Unset = UNSET,
+    hardware_version: str | None | _Unset = UNSET,
+    firmware_version: str | None | _Unset = UNSET,
+    installed_at: datetime | None | _Unset = UNSET,
+) -> DeviceRecord | None:
+    """Update a device's operational metadata columns, updating updated_at.
+
+    Partial update: a parameter left at its default (UNSET) is left
+    unchanged in the database. To deliberately clear a field to NULL, pass
+    it explicitly as None — that is a distinct, deliberate call, not the
+    default behavior of omitting it.
+
+    No callback wires this yet — it is DB-4's persistence contract for a
+    later commissioning/programming phase (services/device_registration.py
+    does not call this from the registration flow; newly registered
+    devices keep all four fields NULL).
+
+    Returns None if device_id does not exist. If no field is supplied at
+    all, this is a no-op read (updated_at is not touched — there is
+    nothing to update).
+    """
+    fields = {
+        "msisdn": msisdn,
+        "hardware_version": hardware_version,
+        "firmware_version": firmware_version,
+        "installed_at": installed_at,
+    }
+    provided = {name: value for name, value in fields.items() if value is not UNSET}
+
+    if not provided:
+        with session_scope() as session:
+            row = session.execute(
+                text(f"SELECT {_DEVICE_COLUMNS} FROM {_SCHEMA}.devices WHERE device_id = :device_id"),
+                {"device_id": device_id},
+            ).first()
+        return _to_device(row) if row else None
+
+    # Column names come from the fixed dict above, never from caller input,
+    # so this f-string is not an injection surface.
+    set_clause = ", ".join(f"{column} = :{column}" for column in provided)
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                UPDATE {_SCHEMA}.devices
+                SET {set_clause}, updated_at = now()
+                WHERE device_id = :device_id
+                RETURNING {_DEVICE_COLUMNS}
+                """
+            ),
+            {"device_id": device_id, **provided},
+        ).first()
+    return _to_device(row) if row else None

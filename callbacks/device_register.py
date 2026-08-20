@@ -1,7 +1,11 @@
-"""Device Registration callbacks — form validation, review, prototype submit.
+"""Device Registration callbacks — form validation, review, submit.
 
-All operations are frontend-only. The "submit" action stores the registered
-device in a dcc.Store (in-memory); it does not write to any database.
+Form validation and review are pure frontend logic. Submit persists the
+device via services/device_registration.py (DB-4), backed by
+plant_monitoring.devices. Registration is create-only and attempts exactly
+once per Submit click; a failure (unknown transformer, duplicate device
+code, or a rare concurrent-registration race) is shown as a friendly error
+on the review step rather than a stack trace or raw SQL.
 """
 from __future__ import annotations
 
@@ -9,7 +13,9 @@ import logging
 
 from dash import Input, Output, State, no_update, html
 
+from components.status_panels import error_panel
 from services import hierarchy_service
+from services.device_registration import RegistrationError, register_device
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +56,7 @@ def _validate_form(code: str, plant_id: str, transformer_id: str) -> dict[str, s
 
 
 def _review_summary(code: str, plant_label: str, transformer_label: str, status: str) -> html.Div:
-    """Render the review summary before prototype submit."""
+    """Render the review summary before submit."""
     return html.Div(
         className="device-register-review",
         children=[
@@ -121,6 +127,8 @@ def register(app) -> None:
         Output("device-register-form", "style"),
         Output("device-register-review", "style"),
         Output("device-register-review-summary", "children"),
+        Output("device-register-error", "style"),
+        Output("device-register-error", "children"),
         Input("device-register-review-btn", "n_clicks"),
         State("device-register-code", "value"),
         State("device-register-plant", "value"),
@@ -137,6 +145,8 @@ def register(app) -> None:
                 errors.get("transformer", ""),
                 no_update,  # form stays visible
                 no_update,  # review stays hidden
+                no_update,
+                no_update,
                 no_update,
             )
         # Look up labels for review
@@ -157,22 +167,28 @@ def register(app) -> None:
             {"display": "none"},   # hide form
             {"display": "block"},   # show review
             summary,
+            {"display": "none"},   # hide any stale error from a previous attempt
+            "",
         )
 
     @app.callback(
         Output("device-register-form", "style", allow_duplicate=True),
         Output("device-register-review", "style", allow_duplicate=True),
+        Output("device-register-error", "style", allow_duplicate=True),
+        Output("device-register-error", "children", allow_duplicate=True),
         Input("device-register-edit-btn", "n_clicks"),
         prevent_initial_call=True,
     )
     def _back_to_form(n_clicks):
-        return {"display": "block"}, {"display": "none"}
+        return {"display": "block"}, {"display": "none"}, {"display": "none"}, ""
 
     @app.callback(
         Output("device-register-form", "style", allow_duplicate=True),
         Output("device-register-review", "style", allow_duplicate=True),
         Output("device-register-success", "style"),
         Output("device-register-success-detail", "children"),
+        Output("device-register-error", "style", allow_duplicate=True),
+        Output("device-register-error", "children", allow_duplicate=True),
         Input("device-register-submit-btn", "n_clicks"),
         State("device-register-code", "value"),
         State("device-register-plant", "value"),
@@ -180,10 +196,10 @@ def register(app) -> None:
         State("device-register-status", "value"),
         prevent_initial_call=True,
     )
-    def _prototype_submit(n_clicks, code, plant_id, transformer_id, status):
-        """Prototype submit — no real persistence."""
+    def _submit_registration(n_clicks, code, plant_id, transformer_id, status):
+        """Submit — exactly one registration attempt per click."""
         if not n_clicks:
-            return no_update, no_update, no_update, no_update
+            return (no_update,) * 6
 
         plant_label = next(
             (p.name for p in hierarchy_service.list_plants() if p.plant_id == plant_id),
@@ -194,6 +210,32 @@ def register(app) -> None:
              if t.transformer_id == transformer_id),
             transformer_id or "—",
         )
+
+        try:
+            register_device(transformer_id, code.strip(), status or "active")
+        except RegistrationError as exc:
+            logger.info("Device registration failed: %s", exc)
+            return (
+                no_update,               # form stays hidden (still on review)
+                no_update,               # review stays visible
+                no_update,               # success stays hidden
+                no_update,
+                {"display": "block"},    # error visible
+                error_panel(str(exc)),
+            )
+        except Exception:
+            logger.exception(
+                "Unexpected device registration failure: transformer=%s code=%s",
+                transformer_id, code,
+            )
+            return (
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                {"display": "block"},
+                error_panel("Registration failed. Please try again."),
+            )
 
         detail = html.Div(
             className="device-register-success-detail",
@@ -210,4 +252,6 @@ def register(app) -> None:
             {"display": "none"},   # review hidden
             {"display": "block"},  # success visible
             detail,
+            {"display": "none"},   # error hidden
+            "",                     # error cleared
         )

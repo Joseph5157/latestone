@@ -1,8 +1,9 @@
 """Device Registration page — layout only, no queries.
 
-Frontend-only workflow for registering a new device. This is a prototype
-form: the submit action does not persist to any database. The success
-message explicitly states this.
+Registers a new device into plant_monitoring.devices (DB-4). Only device
+identity/hierarchy placement (device code, transformer, status) is
+collected here; operational metadata (MSISDN, hardware/firmware version,
+install date) is out of scope until a commissioning workflow exists.
 """
 from __future__ import annotations
 
@@ -27,15 +28,16 @@ def layout() -> html.Div:
                 "Add a new device to the monitoring hierarchy.",
                 className="page__subtitle",
             ),
-            # Prototype notice
+            # Scope notice
             html.Div(
                 className="status-panel status-panel--inactive",
                 children=[
-                    html.Strong("Prototype workflow. "),
+                    html.Strong("Registers device identity only. "),
                     html.Span(
-                        "This form does not persist data to the production "
-                        "database. It demonstrates the registration UX for "
-                        "client review."
+                        "This adds the device to the monitoring hierarchy. "
+                        "Operational metadata (MSISDN, hardware/firmware "
+                        "version, install date) and RTL programming are "
+                        "handled separately and are not set here."
                     ),
                 ],
             ),
@@ -163,7 +165,7 @@ def layout() -> html.Div:
                         className="device-register-form__actions",
                         children=[
                             html.Button(
-                                "Submit (Prototype)",
+                                "Submit",
                                 id="device-register-submit-btn",
                                 n_clicks=0,
                                 className="device-register-form__btn device-register-form__btn--primary",
@@ -176,6 +178,7 @@ def layout() -> html.Div:
                             ),
                         ],
                     ),
+                    html.Div(id="device-register-error", style={"display": "none"}),
                 ],
             ),
             # Success state (hidden initially)
@@ -187,11 +190,10 @@ def layout() -> html.Div:
                     html.Div(
                         className="status-panel status-panel--success",
                         children=[
-                            html.H3("Device Registered (Prototype)"),
+                            html.H3("Device Registered"),
                             html.P(
-                                "The device has been registered in the "
-                                "frontend session. No data was persisted to "
-                                "the production database."
+                                "The device has been added to the "
+                                "monitoring hierarchy."
                             ),
                             html.Div(id="device-register-success-detail"),
                         ],
