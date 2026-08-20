@@ -84,6 +84,17 @@ class UserRecord:
     updated_at: datetime
 
 
+@dataclass(frozen=True)
+class AssignmentRecord:
+    assignment_id: int
+    device_id: str
+    user_id: int
+    username: str
+    assigned_at: datetime
+    assigned_by: int | None
+    ended_at: datetime | None
+
+
 def _to_plant(row) -> PlantRecord:
     return PlantRecord(*row)
 
@@ -102,6 +113,16 @@ def _to_reading(row) -> RawReading:
 
 def _to_user(row) -> UserRecord:
     return UserRecord(*row)
+
+
+def _to_assignment(row) -> AssignmentRecord:
+    return AssignmentRecord(*row)
+
+
+_ASSIGNMENT_COLUMNS = (
+    "a.assignment_id, a.device_id, a.user_id, u.username, "
+    "a.assigned_at, a.assigned_by, a.ended_at"
+)
 
 
 _USER_COLUMNS = (
@@ -688,3 +709,198 @@ def delete_all_users() -> None:
     """
     with session_scope() as session:
         session.execute(text(f"DELETE FROM {_SCHEMA}.users"))
+
+
+# ---------------------------------------------------------------------------
+# Technician/device assignment queries (DB-3: backs
+# services/prototype_assignments.py)
+# ---------------------------------------------------------------------------
+
+def get_active_device_assignment(device_id: str) -> AssignmentRecord | None:
+    """The current (``ended_at IS NULL``) assignment for a device, if any.
+
+    At most one row can match — enforced by
+    ``ux_user_device_assignments_active_device``.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                SELECT {_ASSIGNMENT_COLUMNS}
+                FROM {_SCHEMA}.user_device_assignments a
+                JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                WHERE a.device_id = :device_id AND a.ended_at IS NULL
+                """
+            ),
+            {"device_id": device_id},
+        ).first()
+    return _to_assignment(row) if row else None
+
+
+def list_assignment_history(device_id: str) -> list[AssignmentRecord]:
+    """Every assignment ever made for a device, oldest first — including the
+    currently active one (``ended_at IS NULL``), if any.
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT {_ASSIGNMENT_COLUMNS}
+                FROM {_SCHEMA}.user_device_assignments a
+                JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                WHERE a.device_id = :device_id
+                ORDER BY a.assigned_at ASC, a.assignment_id ASC
+                """
+            ),
+            {"device_id": device_id},
+        ).all()
+    return [_to_assignment(r) for r in rows]
+
+
+def list_devices_for_technician(username: str) -> list[str]:
+    """Device ids currently (actively) assigned to a technician."""
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT a.device_id
+                FROM {_SCHEMA}.user_device_assignments a
+                JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                WHERE u.username = :username AND a.ended_at IS NULL
+                ORDER BY a.device_id
+                """
+            ),
+            {"username": username},
+        ).all()
+    return [r[0] for r in rows]
+
+
+def assign_device_to_user(
+    device_id: str,
+    technician_username: str,
+    assigned_by_username: str | None = None,
+) -> AssignmentRecord:
+    """Atomically (re)assign a device to a technician, preserving history.
+
+    One transaction: resolve the technician (and, if given, the actor)
+    username to a user_id, validate the technician's role, lock the
+    device's current active row (``SELECT ... FOR UPDATE``), then either
+    leave it alone (same technician — no duplicate history row), or close
+    it and insert a new active row.
+
+    The partial unique index ``ux_user_device_assignments_active_device``
+    remains the final concurrency guard; the row lock here narrows the
+    race window but this function does not rely on application logic alone
+    to enforce "one active assignment per device".
+
+    Raises ValueError if the username does not exist or is not an active
+    technician.
+    """
+    with session_scope() as session:
+        tech_row = session.execute(
+            text(
+                f"SELECT user_id, role FROM {_SCHEMA}.users "
+                f"WHERE username = :username"
+            ),
+            {"username": technician_username},
+        ).first()
+        if tech_row is None:
+            raise ValueError(f"Unknown technician username: {technician_username!r}")
+        tech_user_id, role = tech_row
+        if role != "technician":
+            raise ValueError(
+                f"User {technician_username!r} has role {role!r}, not 'technician'"
+            )
+
+        assigned_by_id = None
+        if assigned_by_username is not None:
+            actor_row = session.execute(
+                text(f"SELECT user_id FROM {_SCHEMA}.users WHERE username = :username"),
+                {"username": assigned_by_username},
+            ).first()
+            assigned_by_id = actor_row[0] if actor_row else None
+
+        current = session.execute(
+            text(
+                f"SELECT assignment_id, user_id FROM {_SCHEMA}.user_device_assignments "
+                f"WHERE device_id = :device_id AND ended_at IS NULL FOR UPDATE"
+            ),
+            {"device_id": device_id},
+        ).first()
+
+        if current is not None and current[1] == tech_user_id:
+            # Already assigned to this technician — externally-visible state
+            # is unchanged, and closing+reinserting would create a
+            # duplicate history row for no behavioral difference.
+            row = session.execute(
+                text(
+                    f"""
+                    SELECT {_ASSIGNMENT_COLUMNS}
+                    FROM {_SCHEMA}.user_device_assignments a
+                    JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                    WHERE a.assignment_id = :assignment_id
+                    """
+                ),
+                {"assignment_id": current[0]},
+            ).first()
+            return _to_assignment(row)
+
+        if current is not None:
+            session.execute(
+                text(
+                    f"UPDATE {_SCHEMA}.user_device_assignments "
+                    f"SET ended_at = now() WHERE assignment_id = :assignment_id"
+                ),
+                {"assignment_id": current[0]},
+            )
+
+        new_row = session.execute(
+            text(
+                f"""
+                INSERT INTO {_SCHEMA}.user_device_assignments
+                    (device_id, user_id, assigned_by)
+                VALUES
+                    (:device_id, :user_id, :assigned_by)
+                RETURNING assignment_id, device_id, user_id, assigned_at, assigned_by, ended_at
+                """
+            ),
+            {
+                "device_id": device_id,
+                "user_id": tech_user_id,
+                "assigned_by": assigned_by_id,
+            },
+        ).first()
+
+    return AssignmentRecord(
+        assignment_id=new_row[0],
+        device_id=new_row[1],
+        user_id=new_row[2],
+        username=technician_username,
+        assigned_at=new_row[3],
+        assigned_by=new_row[4],
+        ended_at=new_row[5],
+    )
+
+
+def end_active_device_assignment(
+    device_id: str, ended_at: datetime | None = None
+) -> None:
+    """Close the active assignment for a device, if any. No-op otherwise —
+    matches the current UI's "clear technician" behavior for a device that
+    has no assignment.
+    """
+    with session_scope() as session:
+        session.execute(
+            text(
+                f"UPDATE {_SCHEMA}.user_device_assignments "
+                f"SET ended_at = COALESCE(:ended_at, now()) "
+                f"WHERE device_id = :device_id AND ended_at IS NULL"
+            ),
+            {"device_id": device_id, "ended_at": ended_at},
+        )
+
+
+def delete_all_assignments() -> None:
+    """Test/prototype support only — mirrors delete_all_users()."""
+    with session_scope() as session:
+        session.execute(text(f"DELETE FROM {_SCHEMA}.user_device_assignments"))

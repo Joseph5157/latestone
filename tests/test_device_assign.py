@@ -10,10 +10,8 @@ from callbacks.device_assign import (
     _plant_options,
     _transformer_options,
     get_mock_assignment,
-    get_mock_technician_assignment,
     clear_mock_assignments,
     _mock_assignments,
-    _mock_technician_assignments,
 )
 from components.assign_device_drawer import assign_device_drawer
 from services.prototype_users import (
@@ -21,6 +19,49 @@ from services.prototype_users import (
     upsert_user,
     get_technician_options,
 )
+from services.prototype_assignments import (
+    assign_technician,
+    unassign_technician,
+    get_assigned_technician,
+    list_devices_for_technician,
+    clear_all_assignments,
+)
+from repositories.plant_monitoring_repository import list_assignment_history
+from repositories import plant_monitoring_repository as repo
+from db.engine import session_scope
+from sqlalchemy import text
+
+
+def _seed_device(device_id: str, plant_id: str = "test-p1", transformer_id: str = "test-p1-t1") -> None:
+    """Insert a minimal plant/transformer/device row so device_id satisfies
+    user_device_assignments' FK to devices. Idempotent — safe to call once
+    per test against the module-shared isolated_schema.
+    """
+    with session_scope() as session:
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.plants (plant_id, name, country, latitude, longitude) "
+                f"VALUES (:plant_id, 'Test Plant', 'Testland', 0, 0) "
+                f"ON CONFLICT (plant_id) DO NOTHING"
+            ),
+            {"plant_id": plant_id},
+        )
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.transformers (transformer_id, plant_id, transformer_code) "
+                f"VALUES (:transformer_id, :plant_id, 't1') "
+                f"ON CONFLICT (transformer_id) DO NOTHING"
+            ),
+            {"transformer_id": transformer_id, "plant_id": plant_id},
+        )
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.devices (device_id, transformer_id, device_code) "
+                f"VALUES (:device_id, :transformer_id, :device_id) "
+                f"ON CONFLICT (device_id) DO NOTHING"
+            ),
+            {"device_id": device_id, "transformer_id": transformer_id},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -126,24 +167,90 @@ class TestMockAssignment:
 
 
 # ---------------------------------------------------------------------------
-# Mock adapter — technician assignment
+# Persistent technician assignment (DB-3)
 # ---------------------------------------------------------------------------
 
-class TestMockTechnicianAssignment:
+class TestTechnicianAssignmentPersistence:
+    # assign_technician()/unassign_technician()/etc are database-backed
+    # (DB-3); run against the isolated test schema (tests/conftest.py),
+    # never the real user_device_assignments table.
+    pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
+
     def setup_method(self):
+        clear_all_assignments()
+        clear_all_users()
+        upsert_user("bob", "bob@example.com", "technician", "active")
+        upsert_user("carol", "carol@example.com", "technician", "active")
+        upsert_user("dave", "dave@example.com", "general", "active")
+        _seed_device("device-1")
+        _seed_device("device-2")
+
+    def test_no_assignment_returns_none(self):
+        assert get_assigned_technician("device-1") is None
+
+    def test_assignment_persists_across_calls(self):
+        assign_technician("device-1", "bob")
+        assert get_assigned_technician("device-1") == "bob"
+
+    def test_assignment_survives_a_separate_process(self, isolated_schema):
+        import os
+        import subprocess
+        import sys
+
+        assign_technician("device-1", "bob")
+
+        env = dict(os.environ)
+        env["PLANT_MONITORING_SCHEMA"] = isolated_schema
+        result = subprocess.run(
+            [sys.executable, "-c",
+             "from services.prototype_assignments import get_assigned_technician; "
+             "print(get_assigned_technician('device-1') or 'MISSING')"],
+            cwd=os.getcwd(), env=env, capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "bob"
+
+    def test_one_technician_can_own_multiple_devices(self):
+        assign_technician("device-1", "bob")
+        assign_technician("device-2", "bob")
+        assert sorted(list_devices_for_technician("bob")) == ["device-1", "device-2"]
+
+    def test_reassignment_closes_old_and_creates_new_active_row(self):
+        assign_technician("device-1", "bob")
+        assign_technician("device-1", "carol")
+        assert get_assigned_technician("device-1") == "carol"
+
+        history = list_assignment_history("device-1")
+        assert [h.username for h in history] == ["bob", "carol"]
+        assert history[0].ended_at is not None
+        assert history[1].ended_at is None
+
+    def test_assigning_same_technician_twice_does_not_duplicate_history(self):
+        assign_technician("device-1", "bob")
+        assign_technician("device-1", "bob")
+        history = list_assignment_history("device-1")
+        assert len(history) == 1
+        assert history[0].ended_at is None
+
+    def test_non_technician_cannot_be_assigned(self):
+        with pytest.raises(ValueError):
+            assign_technician("device-1", "dave")
+        assert get_assigned_technician("device-1") is None
+
+    def test_unassign_clears_active_assignment(self):
+        assign_technician("device-1", "bob")
+        unassign_technician("device-1")
+        assert get_assigned_technician("device-1") is None
+
+    def test_unassign_when_nothing_assigned_is_a_safe_no_op(self):
+        unassign_technician("device-1")
+        assert get_assigned_technician("device-1") is None
+
+    def test_device_to_transformer_relationship_is_unchanged(self):
+        # Technician assignment must never touch the asset-assignment mock.
         clear_mock_assignments()
-
-    def test_no_technician_assignment_returns_none(self):
-        assert get_mock_technician_assignment("device-1") is None
-
-    def test_set_and_get_technician_assignment(self):
-        _mock_technician_assignments["device-1"] = "tech-bob"
-        assert get_mock_technician_assignment("device-1") == "tech-bob"
-
-    def test_clear_technician_assignments(self):
-        _mock_technician_assignments["device-1"] = "tech-bob"
-        clear_mock_assignments()
-        assert get_mock_technician_assignment("device-1") is None
+        assign_technician("device-1", "bob")
+        assert get_mock_assignment("device-1") is None
 
 
 # ---------------------------------------------------------------------------
@@ -153,9 +260,14 @@ class TestMockTechnicianAssignment:
 class TestTechnicianOptions:
     # clear_all_users()/upsert_user() are database-backed (DB-2); runs against
     # the isolated test schema (tests/conftest.py), never the real users table.
+    # This class shares that schema (module-scoped) with
+    # TestTechnicianAssignmentPersistence below, so assignment rows left by
+    # that class's tests must be cleared first — user_device_assignments FKs
+    # to users.user_id, and clear_all_users() alone would violate it (DB-3).
     pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
 
     def setup_method(self):
+        clear_all_assignments()
         clear_all_users()
         clear_mock_assignments()
 

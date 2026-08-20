@@ -1,10 +1,14 @@
 """Device Assignment callbacks — open drawer, cascade, technician selection, mock submit.
 
-All assignment actions are frontend-only. The mock adapter stores the
-latest assignment in memory; it does not write to any database.
+Asset (device -> transformer) assignment is frontend-only: the mock adapter
+stores the latest assignment in memory and does not write to any database.
+It is intentionally not persisted — it is redundant with
+devices.transformer_id, which this callback does not touch.
 
-Technician assignment uses the shared prototype user store from
-services/prototype_users.py.
+Technician assignment is persisted (DB-3) via
+services/prototype_assignments.py, backed by
+plant_monitoring.user_device_assignments. Technician *options* come from
+the shared prototype user store, services/prototype_users.py.
 """
 from __future__ import annotations
 
@@ -21,32 +25,23 @@ from components.assign_device_drawer import (
     ASSIGN_CONFIRM_BTN,
     ASSIGN_CANCEL_BTN,
 )
-from services import hierarchy_service
+from services import hierarchy_service, prototype_assignments
 from services.prototype_users import get_technician_options
 
 logger = logging.getLogger(__name__)
 
-# In-memory store for prototype assignments: device_id -> transformer_id
+# In-memory store for prototype asset assignments: device_id -> transformer_id
 _mock_assignments: dict[str, str] = {}
-
-# In-memory store for prototype technician assignments: device_id -> technician_username
-_mock_technician_assignments: dict[str, str] = {}
 
 
 def get_mock_assignment(device_id: str) -> str | None:
-    """Read the mock assignment for a device (for testing)."""
+    """Read the mock asset assignment for a device (for testing)."""
     return _mock_assignments.get(device_id)
 
 
-def get_mock_technician_assignment(device_id: str) -> str | None:
-    """Read the mock technician assignment for a device (for testing)."""
-    return _mock_technician_assignments.get(device_id)
-
-
 def clear_mock_assignments() -> None:
-    """Reset the mock stores (for testing)."""
+    """Reset the mock asset assignment store (for testing)."""
     _mock_assignments.clear()
-    _mock_technician_assignments.clear()
 
 
 def _plant_options() -> list[dict]:
@@ -102,7 +97,7 @@ def register(app) -> None:
 
         # Get technician options from shared prototype user store
         tech_options = get_technician_options()
-        current_technician = _mock_technician_assignments.get(row_id)
+        current_technician = prototype_assignments.get_assigned_technician(row_id)
 
         # Show honest empty state when no technicians exist
         if not tech_options:
@@ -172,18 +167,24 @@ def register(app) -> None:
                 device_id, transformer_id,
             )
 
-        # Store technician assignment
+        # Store technician assignment (persisted, DB-3)
         if technician:
-            _mock_technician_assignments[device_id] = technician
-            logger.info(
-                "Prototype technician assignment: device %s -> technician %s",
-                device_id, technician,
-            )
-        elif device_id in _mock_technician_assignments:
+            try:
+                prototype_assignments.assign_technician(device_id, technician)
+                logger.info(
+                    "Technician assignment: device %s -> technician %s",
+                    device_id, technician,
+                )
+            except ValueError:
+                logger.exception(
+                    "Failed to assign technician %s to device %s",
+                    technician, device_id,
+                )
+        elif prototype_assignments.get_assigned_technician(device_id) is not None:
             # Clear technician assignment if none selected
-            del _mock_technician_assignments[device_id]
+            prototype_assignments.unassign_technician(device_id)
             logger.info(
-                "Prototype technician assignment cleared: device %s",
+                "Technician assignment cleared: device %s",
                 device_id,
             )
 
