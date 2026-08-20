@@ -1,7 +1,7 @@
 """Unit tests for URL parsing/building - pure functions, no Dash runtime."""
 from __future__ import annotations
 
-from callbacks.routing import device_href, parse_pathname, parse_query
+from callbacks.routing import PLACEHOLDER_PAGES, device_href, parse_pathname, parse_query
 from config.metrics import DEFAULT_METRIC_KEY
 
 
@@ -78,6 +78,14 @@ class TestParseQuery:
     def test_unknown_period_falls_back_to_24h(self):
         _, period = parse_query("?period=xyz")
         assert period == "24h"
+
+
+class TestPlaceholderPages:
+    def test_notifications_is_no_longer_a_placeholder(self):
+        """The Notifications page (pages/notifications.py) is implemented —
+        route_to_page must dispatch to it directly rather than falling
+        through to the generic placeholder shell."""
+        assert "notifications" not in PLACEHOLDER_PAGES
 
 
 class TestDeviceHref:

@@ -10,7 +10,7 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, not_found_panel
-from pages import plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, user_admin, report_center
+from pages import plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, notifications, user_admin, report_center
 from pages.placeholder import placeholder_layout
 from routes import Route, device_href, parse_custom_range, parse_pathname, parse_query
 from services import hierarchy_service
@@ -19,12 +19,7 @@ from services import hierarchy_service
 #: minimal placeholder with its title and a one-sentence purpose. Purpose text
 #: stays neutral on purpose: no report types, notification behaviours, roles or
 #: device fields are asserted until the client approves the frontend scope.
-PLACEHOLDER_PAGES: dict[str, tuple[str, str]] = {
-    "notifications": (
-        "Notifications",
-        "View monitoring notifications and communication health.",
-    ),
-}
+PLACEHOLDER_PAGES: dict[str, tuple[str, str]] = {}
 
 __all__ = [
     "Route", "parse_pathname", "parse_query", "parse_custom_range",
@@ -159,6 +154,10 @@ def register(app) -> None:
             if route.name == "reports":
                 ctx = {"route": "reports"}
                 return report_center.layout(), ctx
+
+            if route.name == "notifications":
+                ctx = {"route": "notifications"}
+                return notifications.layout(), ctx
 
             if route.name in PLACEHOLDER_PAGES:
                 title, purpose = PLACEHOLDER_PAGES[route.name]
