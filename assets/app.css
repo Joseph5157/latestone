@@ -1012,6 +1012,32 @@ body {
 }
 .kpi-row--fleet .kpi-card__value { font-size: var(--fs-fleet-kpi); }
 
+/* ---------- Administration summary ---------- */
+/* Three cards, so the row overrides .kpi-row's 4-column default rather than
+   leaving a phantom fourth column. Deliberately declared BEFORE the
+   "Responsive: KPI Row" media queries below: those carry equal specificity
+   and must keep winning at narrow widths, exactly as .kpi-row--fleet relies
+   on. The card values keep --fs-kpi rather than --fs-fleet-kpi — these are
+   administration figures sitting under the fleet's own numbers, and matching
+   the larger fleet size would read as a second headline row. */
+.kpi-row--admin {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Separates administration from the monitoring figures above it without a
+   panel or a rule: the two axes are distinct (Managed RTLs vs Monitoring
+   Devices) and the heading is what stops the cards reading as one seven-card
+   row. Same --fs-section weight as .needs-attention__title, so the Fleet page
+   has one section-heading language rather than two. */
+.admin-summary { margin-bottom: var(--sp-3); }
+
+.admin-summary__heading {
+  font-size: var(--fs-section);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 var(--sp-2);
+}
+
 /* ---------- Fleet Data Health Distribution ---------- */
 /* Supporting information beside the Data Health KPI card, not a replacement
    — deliberately thin (10px) and compact so it reads as a restatement, not

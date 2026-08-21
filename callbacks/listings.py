@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from dash import Input, Output, State, no_update
 
+from components.admin_summary import admin_summary_cards
 from components.entity_context import entity_context
 from components.fleet_summary import (
     fleet_health_distribution,
@@ -26,7 +27,7 @@ from components.temperature_attribution import temperature_attribution
 from config.metrics import ATTRIBUTION_METRIC_KEY
 from components.freshness_badge import format_last_reading
 from routes import device_href
-from services import hierarchy_service, monitoring_service
+from services import admin_overview_service, hierarchy_service, monitoring_service
 from services.monitoring_service import Freshness, aggregate_freshness, reading_age, severity_rank
 
 logger = logging.getLogger(__name__)
@@ -284,6 +285,32 @@ def listing_outputs(build_rows, columns: list[dict], context_msg: str) -> tuple:
         return [], columns, error_panel()
 
 
+def admin_summary_output(now: datetime):
+    """The administration card row for the Fleet Overview, or None.
+
+    Wrapped in its own boundary rather than sharing the listing's. Adminis-
+    tration is a secondary axis on this page: an operator opens the Fleet
+    Overview for the plant table and the freshness figures, and a failure to
+    read assignment counts must not cost them any of that. So this fails to
+    *nothing* — the row does not render — instead of raising through
+    `listing_outputs` and blanking the table.
+
+    It also fails quietly rather than to a second error panel. The listing
+    already owns the one panel on this page; a competing panel for a
+    supporting card row would imply the page as a whole is broken when only
+    its administration half is. The cause is logged in full either way.
+
+    `now` is the caller's render instant, threaded through so the registration
+    window is evaluated against the same moment as the freshness figures
+    beside it — not a second clock read a few milliseconds later.
+    """
+    try:
+        return admin_summary_cards(admin_overview_service.get_admin_overview(now=now))
+    except Exception:
+        logger.exception("Administration summary unavailable for the Fleet Overview")
+        return None
+
+
 # --------------------------------------------------------------------------
 # Plant / Transformer detail data (Phase 5)
 #
@@ -409,6 +436,7 @@ def register(app) -> None:
         Output("plants-error", "children"),
         Output("fleet-kpis", "children"),
         Output("fleet-health-distribution", "children"),
+        Output("admin-summary", "children"),
         Output("needs-attention", "children"),
         Output("fleet-subtitle", "children"),
         Output("fleet-refreshed", "children"),
@@ -417,7 +445,7 @@ def register(app) -> None:
     )
     def populate_overview(context):
         if not context or context.get("route") != "overview":
-            return (no_update,) * 8
+            return (no_update,) * 9
 
         # One instant for the whole render. Taken once here and passed to both
         # the freshness computation and the header, so the stamp cannot name a
@@ -431,6 +459,7 @@ def register(app) -> None:
         # are stale?" differently.
         cards = []
         distribution = []
+        admin = []
         attention = []
 
         def build():
@@ -448,6 +477,11 @@ def register(app) -> None:
             # Same health.counts the Data Health KPI card above already
             # reads — a restatement, not a second computation.
             distribution.append(fleet_health_distribution(health.counts))
+            # Administration figures, on `rendered_at` like everything else on
+            # this page. These count Managed RTLs — a different population from
+            # the Devices card built above, which counts Monitoring Devices.
+            # The two are labelled, never reconciled; see admin_overview_service.
+            admin.append(admin_summary_output(rendered_at))
             attention.append(
                 needs_attention(
                     build_needs_attention_rows(plants, health, rendered_at)
@@ -473,6 +507,7 @@ def register(app) -> None:
             error,
             (cards[0] if cards else None),
             (distribution[0] if distribution else None),
+            (admin[0] if admin else None),
             (attention[0] if attention else None),
             (subtitle[0] if subtitle else ""),
             format_render_stamp(rendered_at),

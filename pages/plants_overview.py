@@ -33,6 +33,14 @@ def layout() -> html.Div:
             # Same FleetHealth.counts as the Data Health KPI card — a
             # restatement, not a second computation.
             html.Div(id="fleet-health-distribution"),
+            # Filled by the same callback from one AdminOverviewSummary, at the
+            # same instant as the freshness figures above. Administration is a
+            # separate axis from monitoring: these cards count Managed RTLs,
+            # the Devices card above counts Monitoring Devices, and the two
+            # populations are labelled rather than reconciled. The section
+            # heading is supplied by the component, not this layout, so a
+            # failed read drops the heading with the cards.
+            html.Div(id="admin-summary"),
             # Filled by the listing callback with freshness-only exceptions
             # (NO_DATA / STALE plants) from the same FleetHealth. No panel
             # means "not yet loaded"; an error path leaves this blank while the
