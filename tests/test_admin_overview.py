@@ -44,6 +44,20 @@ def _reset_hierarchy() -> None:
         session.execute(text(f"DELETE FROM {repo._SCHEMA}.users"))
 
 
+def _database_now() -> datetime:
+    """The database's clock, not the host's.
+
+    `devices.created_at` is defaulted by PostgreSQL, so a window built from
+    `datetime.now()` on the host compares two different clock domains. They
+    are not the same clock: the container has been measured running several
+    milliseconds ahead of the host, which is enough for a row to land outside
+    the closed interval that was supposed to contain it. Any assertion about
+    a database-generated timestamp takes its bounds from here.
+    """
+    with session_scope() as session:
+        return session.execute(text("SELECT now()")).scalar()
+
+
 def _seed_plant(plant_id: str, name: str) -> None:
     with session_scope() as session:
         session.execute(
@@ -509,14 +523,22 @@ class TestCountDevicesRegisteredBetween:
         # created_at is defaulted by the database, not by application code;
         # this proves the column the window reads is the one registration
         # actually populates.
+        #
+        # The window is taken from the DATABASE clock for the same reason.
+        # Bounding a database-generated timestamp with `datetime.now()` on the
+        # host compares two clocks: when the container runs a few milliseconds
+        # ahead, the row falls outside the interval that was meant to contain
+        # it and this test fails intermittently. One clock domain, no tolerance
+        # window — widening the bound would hide the mismatch rather than
+        # remove it.
         from services.device_registration import register_device
 
         device = register_device("p-alpha-t1", "40009")
+        db_now = _database_now()
 
         assert repo.get_device(device.device_id) is not None
         assert repo.count_devices_registered_between(
-            datetime.now(timezone.utc) - timedelta(days=7),
-            datetime.now(timezone.utc),
+            db_now - timedelta(days=7), db_now
         ) == 1
 
 
