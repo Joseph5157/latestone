@@ -40,6 +40,11 @@ def layout() -> html.Div:
             # populations are labelled rather than reconciled. The section
             # heading is supplied by the component, not this layout, so a
             # failed read drops the heading with the cards.
+            #
+            # Holds the whole Administration section: the three cards and the
+            # Unassigned RTLs panel beneath them (ADMIN-3), both built from
+            # the same summary in the same error boundary. One slot, so a
+            # failed read cannot leave half a section standing.
             html.Div(id="admin-summary"),
             # Filled by the listing callback with freshness-only exceptions
             # (NO_DATA / STALE plants) from the same FleetHealth. No panel

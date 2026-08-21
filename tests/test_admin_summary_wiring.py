@@ -11,20 +11,39 @@ from datetime import datetime, timezone
 
 from callbacks import listings
 from pages import plants_overview
+from repositories.plant_monitoring_repository import AdminDeviceRow
 from services.admin_overview_service import AdminOverviewSummary
-from tests.dash_tree import find_by_exact_class, find_by_id, text_of
+from tests.dash_tree import (
+    find_by_class,
+    find_by_exact_class,
+    find_by_id,
+    links,
+    text_of,
+)
 
 NOW = datetime(2026, 8, 21, 12, 0, tzinfo=timezone.utc)
 
 
-def _summary() -> AdminOverviewSummary:
+def _row(n: int = 1) -> AdminDeviceRow:
+    return AdminDeviceRow(
+        device_id=f"plant-0{n}-t1-d1",
+        device_code=f"2901{n}",
+        status="active",
+        transformer_id=f"plant-0{n}-t1",
+        transformer_code="t1",
+        plant_id=f"plant-0{n}",
+        plant_name=f"Plant {n}",
+    )
+
+
+def _summary(rows: tuple[AdminDeviceRow, ...] = ()) -> AdminOverviewSummary:
     return AdminOverviewSummary(
         total_devices=120,
         assigned_devices=115,
         unassigned_devices=5,
         active_technicians=4,
         recently_registered_devices=2,
-        unassigned_rows=(),
+        unassigned_rows=rows,
     )
 
 
@@ -170,3 +189,112 @@ class TestPopulationsStayApartOnThePage:
         ]
         assert "120" not in values
         assert "115 of 120 RTLs assigned" in text_of(block)
+
+
+class TestUnassignedPanelInTheSlot:
+    """ADMIN-3: the exception list ships in the same slot as the cards."""
+
+    def _rendered(self, monkeypatch, rows=()):
+        monkeypatch.setattr(
+            listings.admin_overview_service,
+            "get_admin_overview",
+            lambda now=None: _summary(rows),
+        )
+        return listings.admin_summary_output(NOW)
+
+    def test_panel_renders_below_the_cards(self, monkeypatch):
+        block = self._rendered(monkeypatch, (_row(1),))
+        assert "Unassigned RTLs" in text_of(block)
+
+    def test_cards_come_first(self, monkeypatch):
+        """Counts, then the list they summarise — the same order the page
+        already reads in."""
+        block = self._rendered(monkeypatch, (_row(1),))
+        rendered = text_of(block)
+        assert rendered.index("Administration") < rendered.index("Unassigned RTLs")
+
+    def test_panel_shows_the_rows_the_service_supplied(self, monkeypatch):
+        block = self._rendered(monkeypatch, (_row(1), _row(2)))
+        assert len(find_by_exact_class(block, "unassigned-rtls__row")) == 2
+
+    def test_panel_and_cards_read_one_summary(self, monkeypatch):
+        """One `AdminOverviewSummary` per render feeds both. A second call
+        would be a second set of queries, and the card's count could disagree
+        with the list beneath it."""
+        calls = []
+
+        def once(now=None):
+            calls.append(now)
+            return _summary((_row(1),))
+
+        monkeypatch.setattr(
+            listings.admin_overview_service, "get_admin_overview", once
+        )
+        listings.admin_summary_output(NOW)
+        assert calls == [NOW]
+
+    def test_assign_action_targets_the_existing_workflow(self, monkeypatch):
+        block = self._rendered(monkeypatch, (_row(1),))
+        hrefs = dict(links(block))
+        assert hrefs["Assign"] == "/admin/devices?assign=plant-01-t1-d1"
+
+    def test_view_all_devices_targets_the_existing_route(self, monkeypatch):
+        block = self._rendered(monkeypatch, (_row(1),))
+        hrefs = dict(links(block))
+        assert hrefs["View all devices"] == "/admin/devices"
+
+    def test_panel_disappears_with_the_cards_on_failure(self, monkeypatch):
+        """One boundary, one outcome. A panel surviving a failed read would
+        stand alone under no heading and no counts."""
+
+        def boom(now=None):
+            raise RuntimeError("connection refused")
+
+        monkeypatch.setattr(
+            listings.admin_overview_service, "get_admin_overview", boom
+        )
+        assert listings.admin_summary_output(NOW) is None
+
+    def test_panel_failure_does_not_blank_the_plant_table(self, monkeypatch):
+        def boom(now=None):
+            raise RuntimeError("admin down")
+
+        monkeypatch.setattr(
+            listings.admin_overview_service, "get_admin_overview", boom
+        )
+
+        def build():
+            listings.admin_summary_output(NOW)
+            return [{"id": "plant-01", "plant": "Alpha"}]
+
+        rows, _columns, error = listings.listing_outputs(
+            build, listings.PLANT_COLUMNS, "ctx"
+        )
+        assert rows == [{"id": "plant-01", "plant": "Alpha"}]
+        assert error is None
+
+    def test_panel_failure_renders_no_competing_error_panel(self, monkeypatch):
+        def boom(now=None):
+            raise RuntimeError("down")
+
+        monkeypatch.setattr(
+            listings.admin_overview_service, "get_admin_overview", boom
+        )
+        block = listings.admin_summary_output(NOW)
+        assert find_by_class(block or [], "listing-error") == []
+
+    def test_empty_exception_list_still_renders_the_neutral_state(self, monkeypatch):
+        monkeypatch.setattr(
+            listings.admin_overview_service,
+            "get_admin_overview",
+            lambda now=None: AdminOverviewSummary(
+                total_devices=120,
+                assigned_devices=120,
+                unassigned_devices=0,
+                active_technicians=4,
+                recently_registered_devices=2,
+                unassigned_rows=(),
+            ),
+        )
+        block = listings.admin_summary_output(NOW)
+        assert "All managed RTLs are currently assigned." in text_of(block)

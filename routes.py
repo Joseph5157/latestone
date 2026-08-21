@@ -10,12 +10,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote
 
 from config.metrics import DEFAULT_METRIC_KEY, METRIC_KEYS
 
 DEFAULT_PERIOD = "24h"
 VALID_PERIODS = ("24h", "7d", "30d", "custom")
+
+#: Device Management. Named once here because two screens now link to it.
+ADMIN_DEVICES_PATH = "/admin/devices"
+
+#: Query parameter naming the device whose assignment drawer should open on
+#: arrival at Device Management. A query parameter rather than a route: the
+#: destination is the existing page in its existing state, with one drawer
+#: already open. A `/admin/assignments` route would be a second place
+#: assignment lives, and the drawer is not a page.
+ASSIGN_PARAM = "assign"
 
 
 @dataclass(frozen=True)
@@ -110,6 +120,36 @@ def parse_custom_range(search: str | None) -> tuple[str | None, str | None]:
         return raw
 
     return _valid("start"), _valid("end")
+
+
+def device_assign_href(device_id: str) -> str:
+    """Device Management, with this device's assignment drawer opened.
+
+    The Unassigned RTLs panel on the Fleet Overview does not own an assignment
+    workflow; it hands a device to the one Device Management already has. This
+    link is the whole handoff, which is why the format lives here beside
+    `device_href` rather than being spelled out in a component.
+
+    The identifier is percent-encoded. It is validated on arrival — only a
+    device already listed on the destination page can open the drawer — but
+    encoding it first means a value carrying `&` or `?` cannot append
+    parameters of its own on the way there.
+    """
+    return f"{ADMIN_DEVICES_PATH}?{ASSIGN_PARAM}={quote(str(device_id), safe='')}"
+
+
+def parse_assign_request(search: str | None) -> str | None:
+    """The device id an `?assign=` link names, or None.
+
+    Returns the raw value. It is a browser-supplied string and this function
+    makes no claim that it names a real device — the caller resolves it against
+    rows already on the page, and an unknown value simply opens nothing.
+    """
+    if not search:
+        return None
+    params = parse_qs(search.lstrip("?"))
+    value = params.get(ASSIGN_PARAM, [None])[0]
+    return value or None
 
 
 def device_href(

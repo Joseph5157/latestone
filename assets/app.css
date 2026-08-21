@@ -1028,14 +1028,125 @@ body {
    panel or a rule: the two axes are distinct (Managed RTLs vs Monitoring
    Devices) and the heading is what stops the cards reading as one seven-card
    row. Same --fs-section weight as .needs-attention__title, so the Fleet page
-   has one section-heading language rather than two. */
-.admin-summary { margin-bottom: var(--sp-3); }
+   has one section-heading language rather than two.
+
+   The bottom margin is one step tighter than the page's section rhythm
+   because the Unassigned RTLs panel below belongs to this section: the cards
+   and the list they summarise should group visually rather than read as two
+   independent blocks. */
+.admin-summary { margin-bottom: var(--sp-2); }
 
 .admin-summary__heading {
   font-size: var(--fs-section);
   font-weight: 700;
   color: var(--color-text);
   margin: 0 0 var(--sp-2);
+}
+
+/* ---------- Unassigned RTLs (ADMIN-3) ---------- */
+/* The actionable half of the Administration block: the cards say how many
+   RTLs nobody is responsible for, this says which. Same surface / border /
+   radius language as .needs-attention, so the Fleet page has one exception
+   panel look rather than two. Its heading is an <h3> under the section's
+   <h2> — it is nested inside Administration, not a fourth top-level section,
+   and the type scale is what says so. No new colours, no new card style. */
+.unassigned-rtls {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.unassigned-rtls__title {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 var(--sp-1);
+}
+
+.unassigned-rtls__summary {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  margin: 0 0 var(--sp-2);
+}
+
+/* A safety valve, not the layout: five short columns fit every supported
+   width, but a long plant name on a narrow phone should scroll this table
+   rather than the page. */
+.unassigned-rtls__table-wrap { overflow-x: auto; }
+
+.unassigned-rtls__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+}
+
+.unassigned-rtls__th {
+  text-align: left;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+  padding: 0 var(--sp-3) var(--sp-1) 0;
+  white-space: nowrap;
+}
+
+.unassigned-rtls__cell {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+.unassigned-rtls__cell--uid { font-weight: 600; white-space: nowrap; }
+
+/* Administrative status, in the same muted secondary colour every other
+   non-freshness label uses. Deliberately not a coloured state badge: those
+   are reserved for data freshness, and active/inactive is a different axis. */
+.unassigned-rtls__cell--status { color: var(--color-muted); white-space: nowrap; }
+
+.unassigned-rtls__cell--action {
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.unassigned-rtls__assign,
+.unassigned-rtls__all {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.unassigned-rtls__assign:hover,
+.unassigned-rtls__all:hover { text-decoration: underline; }
+.unassigned-rtls__assign:focus-visible,
+.unassigned-rtls__all:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+.unassigned-rtls__all {
+  display: inline-block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-meta);
+}
+
+/* Narrow viewports: tighten the gutters and let a long plant name wrap rather
+   than set the table's minimum width. Measured at 390px with the longest plant
+   name in the fleet ("Ekibastuz-1 power station") — the table fits its
+   container exactly, so the overflow guard above stays a guard. */
+@media (max-width: 640px) {
+  .unassigned-rtls { padding: var(--sp-3); }
+  .unassigned-rtls__table { font-size: var(--fs-meta); }
+  .unassigned-rtls__th { padding: 0 var(--sp-1) var(--sp-1) 0; }
+  .unassigned-rtls__cell {
+    padding: var(--sp-1) var(--sp-1) var(--sp-1) 0;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* ---------- Fleet Data Health Distribution ---------- */

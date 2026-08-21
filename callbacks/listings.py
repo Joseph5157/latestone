@@ -24,6 +24,7 @@ from components.metric_health import metric_health_overview
 from components.needs_attention import needs_attention
 from components.status_panels import error_panel
 from components.temperature_attribution import temperature_attribution
+from components.unassigned_rtls import unassigned_rtl_panel
 from config.metrics import ATTRIBUTION_METRIC_KEY
 from components.freshness_badge import format_last_reading
 from routes import device_href
@@ -286,7 +287,7 @@ def listing_outputs(build_rows, columns: list[dict], context_msg: str) -> tuple:
 
 
 def admin_summary_output(now: datetime):
-    """The administration card row for the Fleet Overview, or None.
+    """The administration block for the Fleet Overview, or None.
 
     Wrapped in its own boundary rather than sharing the listing's. Adminis-
     tration is a secondary axis on this page: an operator opens the Fleet
@@ -303,9 +304,17 @@ def admin_summary_output(now: datetime):
     `now` is the caller's render instant, threaded through so the registration
     window is evaluated against the same moment as the freshness figures
     beside it — not a second clock read a few milliseconds later.
+
+    The cards and the Unassigned RTLs panel (ADMIN-3) are built from ONE
+    `AdminOverviewSummary`. The exception list is already inside it, so the
+    panel costs no extra query, and the card's unassigned count cannot
+    disagree with the list rendered underneath it. They also share this one
+    boundary: a failed read drops both, rather than leaving a list standing
+    under no heading and no counts.
     """
     try:
-        return admin_summary_cards(admin_overview_service.get_admin_overview(now=now))
+        summary = admin_overview_service.get_admin_overview(now=now)
+        return [admin_summary_cards(summary), unassigned_rtl_panel(summary)]
     except Exception:
         logger.exception("Administration summary unavailable for the Fleet Overview")
         return None

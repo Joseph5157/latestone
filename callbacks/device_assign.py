@@ -25,10 +25,23 @@ from components.assign_device_drawer import (
     ASSIGN_CONFIRM_BTN,
     ASSIGN_CANCEL_BTN,
 )
+from routes import parse_assign_request
 from services import hierarchy_service, prototype_assignments
 from services.prototype_users import get_technician_options
 
 logger = logging.getLogger(__name__)
+
+#: Empty-state styling for the technician dropdown, kept beside the text it
+#: goes with so the two cannot drift apart between trigger paths.
+_NO_TECHNICIANS_TEXT = (
+    "No technicians available. Add a technician in User Administration."
+)
+_NO_TECHNICIANS_STYLE = {
+    "display": "block",
+    "color": "var(--color-muted)",
+    "fontStyle": "italic",
+    "fontSize": "var(--fs-meta)",
+}
 
 # In-memory store for prototype asset assignments: device_id -> transformer_id
 _mock_assignments: dict[str, str] = {}
@@ -42,6 +55,64 @@ def get_mock_assignment(device_id: str) -> str | None:
 def clear_mock_assignments() -> None:
     """Reset the mock asset assignment store (for testing)."""
     _mock_assignments.clear()
+
+
+def find_device_row(table_data, device_id: str | None) -> dict | None:
+    """The Device Management row for `device_id`, or None.
+
+    The resolution step for an identifier that arrived from the browser. It is
+    matched against rows already rendered on this page rather than trusted:
+    an `?assign=` value naming something that is not in the table opens
+    nothing, so a hand-edited URL cannot address a device the page is not
+    showing. No SQL is reached for here — the row the drawer needs is already
+    on screen.
+    """
+    if not device_id:
+        return None
+    return next(
+        (r for r in (table_data or []) if r.get("id") == device_id), None
+    )
+
+
+def assign_drawer_open_state(row: dict | None):
+    """The assignment drawer's nine outputs for `row`, or None to open nothing.
+
+    THE one place the drawer's opening state is built. Both trigger paths —
+    clicking Assign in the Device Management table, and arriving from the
+    Fleet Overview's Unassigned RTLs panel via `?assign=` — go through here,
+    so the deep link cannot become a second, subtly different assignment
+    workflow: same technician options, same pre-selected technician, same
+    empty state, same device context.
+
+    Returns None when there is nothing to open — no row, or a row whose
+    actions do not include Assign — which each caller turns into `no_update`.
+    """
+    if not row:
+        return None
+    if "Assign" not in (row.get("actions") or ""):
+        return None
+
+    tech_options = get_technician_options()
+    current_technician = prototype_assignments.get_assigned_technician(row.get("id"))
+
+    if tech_options:
+        empty_text = ""
+        empty_style = {"display": "none"}
+    else:
+        empty_text = _NO_TECHNICIANS_TEXT
+        empty_style = _NO_TECHNICIANS_STYLE
+
+    return (
+        {"display": "block"},            # show drawer
+        row.get("id"),                   # store device_id
+        row.get("device", "—"),          # device code
+        row.get("transformer", "—"),     # transformer
+        row.get("plant", "—"),           # plant
+        tech_options,                    # technician dropdown options
+        current_technician,              # pre-select current technician
+        empty_text,                      # empty state text
+        empty_style,                     # empty state visibility
+    )
 
 
 def _plant_options() -> list[dict]:
@@ -82,42 +153,39 @@ def register(app) -> None:
         if not active_cell or active_cell.get("column_id") != "actions":
             return (no_update,) * 9
 
-        row_id = active_cell.get("row_id")
-        if not row_id:
-            return (no_update,) * 9
+        row = find_device_row(table_data, active_cell.get("row_id"))
+        return assign_drawer_open_state(row) or (no_update,) * 9
 
-        # Check if this is an Assign action (not View or Manage)
-        row = next((r for r in (table_data or []) if r.get("id") == row_id), None)
-        if not row:
-            return (no_update,) * 9
+    @app.callback(
+        Output(ASSIGN_DRAWER_ID, "style", allow_duplicate=True),
+        Output(ASSIGN_DEVICE_ID, "data", allow_duplicate=True),
+        Output("assign-drawer-device-code", "children", allow_duplicate=True),
+        Output("assign-drawer-current-transformer", "children", allow_duplicate=True),
+        Output("assign-drawer-current-plant", "children", allow_duplicate=True),
+        Output(ASSIGN_TECHNICIAN_ID, "options", allow_duplicate=True),
+        Output(ASSIGN_TECHNICIAN_ID, "value", allow_duplicate=True),
+        Output("assign-technician-empty", "children", allow_duplicate=True),
+        Output("assign-technician-empty", "style", allow_duplicate=True),
+        Input("device-admin-table", "data"),
+        State("url", "search"),
+        prevent_initial_call=True,
+    )
+    def open_assign_drawer_from_url(table_data, search):
+        """Open the drawer for a device named by an `?assign=` deep link.
 
-        actions_text = row.get("actions", "")
-        if "Assign" not in actions_text:
-            return (no_update,) * 9
+        The Fleet Overview's Unassigned RTLs panel (ADMIN-3) links here rather
+        than carrying its own drawer. This is the arrival half of that handoff,
+        and it shares `assign_drawer_open_state` with the click path above, so
+        there is one assignment workflow rather than two.
 
-        # Get technician options from shared prototype user store
-        tech_options = get_technician_options()
-        current_technician = prototype_assignments.get_assigned_technician(row_id)
-
-        # Show honest empty state when no technicians exist
-        if not tech_options:
-            empty_text = "No technicians available. Add a technician in User Administration."
-            empty_style = {"display": "block", "color": "var(--color-muted)", "fontStyle": "italic", "fontSize": "var(--fs-meta)"}
-        else:
-            empty_text = ""
-            empty_style = {"display": "none"}
-
-        return (
-            {"display": "block"},           # show drawer
-            row_id,                          # store device_id
-            row.get("device", "—"),          # device code
-            row.get("transformer", "—"),     # transformer
-            row.get("plant", "—"),           # plant
-            tech_options,                    # technician dropdown options
-            current_technician,              # pre-select current technician
-            empty_text,                      # empty state text
-            empty_style,                     # empty state visibility
-        )
+        Triggered by the table's `data` rather than by the URL directly: the
+        drawer and the row it describes both belong to this page, and firing
+        once the table has populated is what guarantees they exist. The device
+        is then resolved against those rows, so an unknown identifier opens
+        nothing.
+        """
+        row = find_device_row(table_data, parse_assign_request(search))
+        return assign_drawer_open_state(row) or (no_update,) * 9
 
     @app.callback(
         Output(ASSIGN_DRAWER_ID, "style", allow_duplicate=True),
