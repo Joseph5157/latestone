@@ -10,6 +10,7 @@ device/metric/time-range filtering.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -941,6 +942,38 @@ def delete_all_assignments() -> None:
     """Test/prototype support only — mirrors delete_all_users()."""
     with session_scope() as session:
         session.execute(text(f"DELETE FROM {_SCHEMA}.user_device_assignments"))
+
+
+def delete_assignments_for_usernames(usernames: Sequence[str]) -> int:
+    """Delete every assignment row (open or closed) held by these users.
+
+    Scoped deliberately narrowly. `delete_all_assignments()` is the blunt
+    test-support version; this exists so the administration demo seed
+    (`db/seed_admin_demo.py`) can undo exactly its own rows and leave every
+    other assignment — including history belonging to real users — intact.
+
+    Matches on `user_id`, not on `assigned_by`: an assignment made BY a demo
+    account but held by someone else is that other person's row, and deleting
+    it would remove data this function does not own.
+
+    Returns the number of rows removed. An empty `usernames` deletes nothing
+    rather than everything — the difference matters, because a bug that let an
+    empty list through would otherwise wipe the table.
+    """
+    if not usernames:
+        return 0
+    with session_scope() as session:
+        result = session.execute(
+            text(
+                f"DELETE FROM {_SCHEMA}.user_device_assignments "
+                f"WHERE user_id IN ("
+                f"    SELECT user_id FROM {_SCHEMA}.users "
+                f"    WHERE username = ANY(:usernames)"
+                f")"
+            ),
+            {"usernames": list(usernames)},
+        )
+        return result.rowcount or 0
 
 
 # ---------------------------------------------------------------------------

@@ -66,6 +66,28 @@ generated registration history. That is deliberate: a `DO UPDATE` would also
 overwrite the genuine registration timestamp of any device registered through
 the app.
 
+### Administration demo data (optional)
+
+The monitoring seed above creates equipment only — no users, no assignments.
+To demonstrate the Administrator screens against representative state rather
+than an empty fleet:
+
+```bash
+python -m db.seed_admin_demo --reset
+```
+
+That creates five synthetic technicians and assigns 96 of the 120 RTLs,
+leaving 24 unassigned so the exception workflow has something to show.
+Development data only — never run it against production. It touches only the
+identities it creates (`demo.tech01`..`demo.tech05`): `--reset` removes just
+those users and the assignments they hold, a username collision with a real
+account is refused rather than overwritten, and a device already assigned
+outside the seed keeps its technician.
+
+The two seeds are deliberately separate. The monitoring seed describes
+equipment; this one describes people and responsibilities, and refreshing
+readings should never silently create a staff list.
+
 ## Running tests
 
 Pure-logic tests (no Docker required):

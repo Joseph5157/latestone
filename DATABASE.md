@@ -111,6 +111,24 @@ CREATE INDEX IF NOT EXISTS ix_readings_device_metric_ts ON plant_monitoring.read
 python -m db.seed_plant_monitoring --reset
 ```
 
+Equipment only: plants, transformers, devices, readings. It never writes to
+`users` or `user_device_assignments`.
+
+Administration demo data is a separate, opt-in seed:
+
+```bash
+python -m db.seed_admin_demo --reset
+```
+
+Five synthetic technicians (`demo.tech01`..`demo.tech05`, `.invalid`
+addresses) and a deterministic 96/24 assignment split across the 120 Managed
+RTLs, giving 80% assignment coverage. Assignments go through
+`assign_device_to_user`, so the one-active-assignment-per-device rule and
+assignment history semantics apply exactly as they do in the app. Loads are
+uneven (24/22/20/16/14) for realism only — no workload, territory, skills or
+availability model is implied, and none of those are confirmed client
+concepts. DEVELOPMENT/DEMO DATA: never run against production.
+
 Verification:
 
 ```bash
