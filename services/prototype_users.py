@@ -55,6 +55,17 @@ def seed_demo_user() -> None:
     """Ensure the demo user from config exists. Idempotent: never overwrites
     an existing row (an admin may have since edited it via the UI), and does
     nothing when no demo credential is configured.
+
+    Seeded as `administrator` (ROLE-1). The configured demo credential is the
+    only login this application has, and the workflows being built and
+    validated on it are Administrator ones — Device Management, RTL
+    assignment, the administration summary. Seeding it as `general` created an
+    artificial lockout the moment a role meant anything.
+
+    This changes what a NEW row gets, not what an existing one holds. A
+    database seeded before this change keeps whatever role it has; correcting
+    that is an explicit development-data change, never something this function
+    does behind the caller's back.
     """
     from config.settings import demo_auth
     if not demo_auth.is_configured:
@@ -64,7 +75,7 @@ def seed_demo_user() -> None:
     repo.create_or_update_user(
         username=demo_auth.username,
         full_name=demo_auth.username,
-        role="general",
+        role="administrator",
         status="active",
         email_address="demo@local",
     )

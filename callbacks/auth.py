@@ -20,6 +20,29 @@ def login_was_submitted(n_clicks, username_submits, password_submits) -> bool:
     return any(bool(counter) for counter in (n_clicks, username_submits, password_submits))
 
 
+#: One message for every refusal. `auth_service.authenticate` already returns
+#: the same None whether the password was wrong, the account was deactivated or
+#: no such user exists; repeating that discipline here keeps the form from
+#: leaking the difference through its wording.
+LOGIN_FAILED_MESSAGE = "Invalid username or password."
+
+
+def login_outputs(username, password) -> tuple[str, object]:
+    """(error message, auth-store payload) for one submitted login.
+
+    The callback body as a pure function, so the identity written into the
+    session is testable without a Dash runtime — the same shape
+    `callbacks.listings` uses for its row builders.
+
+    On failure the store is left alone rather than reset: a failed attempt
+    should not sign out a session that is already open in another tab.
+    """
+    user = auth_service.authenticate(username, password)
+    if user is None:
+        return LOGIN_FAILED_MESSAGE, no_update
+    return "", auth_service.to_session(user)
+
+
 def password_toggle_state(n_clicks) -> tuple[str, str, str, str]:
     """(field type, icon className, label, accessible name) for the current
     click count.
@@ -54,11 +77,11 @@ def register(app) -> None:
         # declared n_submit but nothing listened to it.
         if not login_was_submitted(n_clicks, username_submits, password_submits):
             return no_update, no_update
-        # Credential checking stays behind auth_service so swapping in the
-        # client's real authentication needs no change to callback code.
-        if auth_service.verify_credentials(username, password):
-            return "", {"authenticated": True}
-        return "Invalid username or password.", no_update
+        # Credential checking AND identity resolution stay behind auth_service
+        # so swapping in the client's real authentication needs no change to
+        # callback code. The store now carries the full identity (ROLE-1); the
+        # `authenticated` flag other callbacks read is unchanged.
+        return login_outputs(username, password)
 
     @app.callback(
         Output("login-password", "type"),

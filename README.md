@@ -53,6 +53,29 @@ Open http://localhost:8050 and log in with the credentials you set as
 `DEMO_USERNAME` / `DEMO_PASSWORD` in `.env`. There is no fallback credential:
 if they are unset, every login is refused.
 
+The credential pair is checked by `services/auth_service.py`; the identity
+behind it — `user_id`, `full_name` and `role` — is loaded from the
+`plant_monitoring.users` row with that username. A first login on an empty
+database creates that row with the `administrator` role, because the
+workflows this application is built around are Administrator ones.
+
+**If your database predates this** (its demo row was seeded as `general`),
+correct it once, explicitly — nothing changes it for you at runtime. Either
+edit the user in the User Administration screen, or:
+
+```bash
+python -c "from config.settings import demo_auth; \
+from repositories import plant_monitoring_repository as repo; \
+u = repo.get_user_by_username(demo_auth.username); \
+repo.create_or_update_user(username=u.username, full_name=u.full_name, \
+role='administrator', status=u.status, email_address=u.email_address, \
+mobile_number=u.mobile_number)"
+```
+
+Note that the session is held in a browser-side store and the data callbacks
+do not verify it independently. This establishes a consistent identity, not a
+secure authorization boundary — see `docs/CODE_AUDIT.md`, "Security posture".
+
 ## Reseeding
 
 ```bash
