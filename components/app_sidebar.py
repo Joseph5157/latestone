@@ -13,9 +13,14 @@ are the workflow. The drill-down pages render under Overview, so the
 Overview item stays highlighted while an operator works through them.
 
 Assignments has no standalone route yet (ADMIN-0 explicitly does not build
-one — see callbacks.navigation.NAV_KEY_BY_ROUTE and the ADMIN-0 report for
-the reasoning). It renders as a disabled, non-destructive item rather than a
-dead link or an invented page.
+one — see routes.NAV_KEY_BY_ROUTE and the ADMIN-0 report for the reasoning).
+It renders as a disabled, non-destructive item rather than a dead link or an
+invented page.
+
+ROLE-2: the item set is filtered by the signed-in role, derived from the route
+policy in services.authorization. Hiding is not enforcement — callbacks.routing
+refuses the route itself; this only stops the sidebar advertising somewhere the
+operator cannot go.
 
 ADMIN-0P (sidebar polish): each item carries a local SVG icon, rendered in
 front of the label in both expanded and collapsed states — the collapsed
@@ -35,6 +40,8 @@ hidden but still in the DOM).
 from __future__ import annotations
 
 from dash import dcc, html
+
+from services.authorization import visible_nav_keys
 
 SHELL_ID = "app-sidebar-shell"
 SIDEBAR_ID = "app-sidebar"
@@ -78,7 +85,29 @@ def _item_content(label: str, icon: str) -> list:
     ]
 
 
-def sidebar_nav(active_key: str | None) -> html.Ul:
+def _permitted_items(section_items, role: str | None) -> tuple[SidebarItem, ...]:
+    """The items in this section `role` may see (ROLE-2).
+
+    Visibility is derived from the route policy, never restated here — an item
+    shows exactly when the role may open the route behind it, so a visible
+    item that refuses to open is not expressible.
+
+    The routeless placeholder (Assignments, `key is None`) has no route for
+    the policy to speak about. It travels with its section: kept when anything
+    else in that section is visible, dropped with it otherwise. It describes
+    an Operations concept, and showing it alone to someone who can reach none
+    of Operations would advertise a capability they do not have.
+    """
+    visible = visible_nav_keys(role)
+    keyed = tuple(item for item in section_items if item[0] in visible)
+    if not keyed:
+        return ()
+    return tuple(
+        item for item in section_items if item[0] is None or item[0] in visible
+    )
+
+
+def sidebar_nav(active_key: str | None, role: str | None = None) -> html.Ul:
     """Render the sidebar's item list with at most one active link.
 
     Mirrors the retired app_navigation's convention: the active link carries
@@ -86,9 +115,22 @@ def sidebar_nav(active_key: str | None) -> html.Ul:
     wrapping `<li>` (dcc.Link has a fixed prop set and does not accept
     wildcard `aria-*` keywords; the `<li>` is the nav item, so "current page"
     is correctly announced from it).
+
+    `role` filters the items (ROLE-2). It defaults to None — no role, no
+    navigation — so the pre-authentication shell renders an empty nav rather
+    than the full one behind a hidden container. A section whose items are all
+    filtered out loses its heading too; a standing "Operations" title over
+    nothing reads as a section that failed to load.
+
+    Hiding is not the enforcement. `callbacks.routing` refuses the route
+    itself; this only stops the sidebar advertising somewhere the operator
+    cannot go.
     """
     items = []
     for section_title, section_items in SIDEBAR_SECTIONS:
+        section_items = _permitted_items(section_items, role)
+        if not section_items:
+            continue
         if section_title is not None:
             items.append(
                 html.Li(section_title, className="app-sidebar__section-label")
@@ -129,7 +171,7 @@ def sidebar_nav(active_key: str | None) -> html.Ul:
     return html.Ul(children=items, className="app-sidebar__nav")
 
 
-def app_sidebar(active_key: str | None = None) -> html.Aside:
+def app_sidebar(active_key: str | None = None, role: str | None = None) -> html.Aside:
     return html.Aside(
         id=SIDEBAR_ID,
         className="app-sidebar",
@@ -141,7 +183,7 @@ def app_sidebar(active_key: str | None = None) -> html.Aside:
                 className="app-sidebar__toggle",
                 **{"aria-expanded": "true", "aria-label": "Collapse sidebar"},
             ),
-            html.Nav(children=sidebar_nav(active_key), id=NAV_ID),
+            html.Nav(children=sidebar_nav(active_key, role), id=NAV_ID),
         ],
     )
 

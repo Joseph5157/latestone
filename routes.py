@@ -20,6 +20,29 @@ VALID_PERIODS = ("24h", "7d", "30d", "custom")
 #: Device Management. Named once here because two screens now link to it.
 ADMIN_DEVICES_PATH = "/admin/devices"
 
+#: `Route.name` -> sidebar item key. A routing fact, shared by the sidebar
+#: (which highlights the current item) and by `services.authorization` (which
+#: derives visible navigation from the route policy). It lives here rather
+#: than in `callbacks/navigation.py` for the same reason `device_href` does:
+#: a service reaching into `callbacks/` to borrow it would invert the layering.
+#:
+#: "unknown" deliberately has no entry: no page rendered, no item highlighted.
+#: The monitoring drill-down (plant, transformer, device) has no top-level
+#: destination of its own — it is the workflow that lives inside Overview — so
+#: those routes keep the Overview item highlighted. Assignments has no entry
+#: because it has no route, so it can never become active.
+NAV_KEY_BY_ROUTE: dict[str, str] = {
+    "overview": "overview",
+    "plant": "overview",
+    "transformer": "overview",
+    "device": "overview",
+    "admin_devices": "devices",
+    "device_register": "registration",
+    "notifications": "notifications",
+    "reports": "reports",
+    "admin_users": "users",
+}
+
 #: Query parameter naming the device whose assignment drawer should open on
 #: arrival at Device Management. A query parameter rather than a route: the
 #: destination is the existing page in its existing state, with one drawer

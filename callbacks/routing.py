@@ -9,11 +9,18 @@ import logging
 
 from dash import Input, Output, html
 
-from components.status_panels import error_panel, not_found_panel
+from components.status_panels import error_panel, forbidden_panel, not_found_panel
 from pages import plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, notifications, user_admin, report_center
 from pages.placeholder import placeholder_layout
 from routes import Route, device_href, parse_custom_range, parse_pathname, parse_query
 from services import hierarchy_service
+from services.auth_service import from_session
+from services.authorization import ROUTE_POLICY, may_access_route
+
+#: What the router should do with a request, decided before anything renders.
+DECISION_LOGIN = "login"
+DECISION_FORBIDDEN = "forbidden"
+DECISION_ALLOW = "allow"
 
 #: Routes whose destination page is not built yet. Each renders the same
 #: minimal placeholder with its title and a one-sentence purpose. Purpose text
@@ -51,6 +58,47 @@ def build_device_context(device_path, metric_key: str, period_value: str) -> dic
     }
 
 
+def route_decision(auth_data, route_name: str) -> str:
+    """Login, forbidden, or allow — decided before any page is built (ROLE-2).
+
+    THREE OUTCOMES, KEPT APART ON PURPOSE:
+
+    * Not signed in -> login. A visitor with no session has not been refused
+      anything; they have not asked yet. "No access" would be both wrong and
+      alarming.
+    * Signed in, route not permitted -> forbidden. Explicit, per the ROLE-1
+      decision that an authenticated user reaching for a resource they are not
+      entitled to must never be folded into the same silent outcome as a bad
+      identifier.
+    * Anything else -> allow, including `unknown`. A route the policy does not
+      mention is not the policy's business here: `unknown` means no such page,
+      and refusing it would make every typo'd URL imply something exists behind
+      it. Application routes are all in `ROUTE_POLICY`, and one missing from it
+      is denied — the test suite fails when a route ships without an entry, so
+      the omission is caught before it can widen access.
+
+    A session that is authenticated but carries no usable identity (the
+    pre-ROLE-1 `{"authenticated": True}` payload, or a tampered role) reaches
+    the routes nobody may have: `from_session` returns None and every policied
+    route is refused.
+    """
+    if not auth_data or not auth_data.get("authenticated"):
+        return DECISION_LOGIN
+    if route_name not in ROUTE_POLICY:
+        return DECISION_ALLOW
+
+    user = from_session(auth_data)
+    if user is not None and may_access_route(user.role, route_name):
+        return DECISION_ALLOW
+
+    logger.warning(
+        "Route %r refused for session role %r",
+        route_name,
+        user.role if user else None,
+    )
+    return DECISION_FORBIDDEN
+
+
 def register(app) -> None:
     """Register the top-level router callback on the Dash app."""
 
@@ -62,12 +110,23 @@ def register(app) -> None:
         Input("auth-store", "data"),
     )
     def route_to_page(pathname, search, auth_data):
-        if not auth_data or not auth_data.get("authenticated"):
-            from pages.login import login_layout
-            return login_layout(), {}
-
         try:
             route = parse_pathname(pathname)
+
+            # Authorization runs here, BEFORE any hierarchy lookup below. A
+            # refused page must do no data work on the way to being refused:
+            # queries run on behalf of someone not entitled to ask are each a
+            # place a partial result can reach a log or an error message.
+            decision = route_decision(auth_data, route.name)
+            if decision == DECISION_LOGIN:
+                from pages.login import login_layout
+                return login_layout(), {}
+            if decision == DECISION_FORBIDDEN:
+                # `{"route": "forbidden"}` rather than the real route name, so
+                # every listing callback — all of which branch on this key —
+                # simply never fires for a page that was refused.
+                return forbidden_panel(), {"route": "forbidden"}
+
             metric_key, period_value = parse_query(search)
             custom_start, custom_end = parse_custom_range(search)
 

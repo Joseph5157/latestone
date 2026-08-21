@@ -28,7 +28,14 @@ from components.app_sidebar import (
     TOGGLE_ID,
     sidebar_nav,
 )
-from routes import parse_pathname
+from routes import NAV_KEY_BY_ROUTE, parse_pathname
+from services.auth_service import from_session
+from services.authorization import visible_nav_keys
+
+#: Re-exported for existing callers. The map itself moved to `routes` when
+#: ROLE-2 made `services.authorization` derive visible navigation from it —
+#: a service importing from `callbacks/` would invert the layering.
+__all__ = ["NAV_KEY_BY_ROUTE", "register", "session_role"]
 
 VISIBLE_STYLE: dict = {}
 
@@ -37,23 +44,17 @@ COLLAPSED_SIDEBAR_CLASS = "app-sidebar app-sidebar--collapsed"
 EXPANDED_CONTENT_CLASS = "app-shell__content"
 COLLAPSED_CONTENT_CLASS = "app-shell__content app-shell__content--sidebar-collapsed"
 
-#: route.name -> sidebar item key. "unknown" deliberately has no entry: no
-#: page rendered, no item highlighted. The monitoring drill-down (plant,
-#: transformer, device) has no top-level destination of its own — it is the
-#: monitoring workflow that lives inside Overview — so those routes keep the
-#: Overview item highlighted. Assignments has no entry: it has no route in
-#: ADMIN-0, so it can never become active.
-NAV_KEY_BY_ROUTE: dict[str, str] = {
-    "overview": "overview",
-    "plant": "overview",
-    "transformer": "overview",
-    "device": "overview",
-    "admin_devices": "devices",
-    "device_register": "registration",
-    "notifications": "notifications",
-    "reports": "reports",
-    "admin_users": "users",
-}
+def session_role(auth_data) -> str | None:
+    """The signed-in role, or None when there is no usable identity.
+
+    Goes through `auth_service.from_session`, so a session that is
+    unauthenticated, pre-ROLE-1 shaped, or carrying a role outside the
+    confirmed vocabulary all come back the same: no role, and therefore no
+    navigation. Structure validation only — `from_session` issues no query,
+    and this runs on every render of the sidebar.
+    """
+    user = from_session(auth_data)
+    return user.role if user else None
 
 
 def _is_authenticated(auth_data) -> bool:
@@ -121,9 +122,13 @@ def register(app) -> None:
     @app.callback(
         Output(NAV_ID, "children"),
         Input("url", "pathname"),
+        Input("auth-store", "data"),
     )
-    def _render_active_state(pathname):
-        return sidebar_nav(active_nav_key(pathname))
+    def _render_active_state(pathname, auth_data):
+        """Re-renders on navigation AND on session change, so the item set
+        follows the signed-in role rather than whatever the first render
+        happened to see."""
+        return sidebar_nav(active_nav_key(pathname), session_role(auth_data))
 
     @app.callback(
         Output(COLLAPSE_STORE_ID, "data"),

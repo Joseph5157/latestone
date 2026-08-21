@@ -17,6 +17,7 @@ from dash.development.base_component import Component
 import app as app_module
 from callbacks import navigation as nav
 from components.app_shell import CONTENT_ID, app_shell
+from services.authorization import ADMINISTRATOR
 from components.app_sidebar import (
     COLLAPSE_STORE_ID,
     HIDDEN_STYLE,
@@ -153,12 +154,23 @@ class TestSidebarVisibility:
         assert SIDEBAR_ID not in LOGIN_LAYOUT_IDS
 
 
+def _admin_sidebar(active_key=None):
+    """The full item set, which since ROLE-2 is the administrator's.
+
+    These tests describe how the sidebar renders — order, icons, active state,
+    section labels — not who may see what. Role filtering has its own file
+    (tests/test_route_enforcement.py); passing the administrator here keeps
+    these assertions about rendering.
+    """
+    return app_sidebar(active_key, ADMINISTRATOR)
+
+
 class TestSidebarRendering:
     def test_renders_all_routable_destinations_in_order(self):
         """Each link's rendered text carries its label (the icon glyph itself
         renders no text — see TestSidebarIcons) and its href, in
         information-architecture order."""
-        rendered = app_sidebar("devices")
+        rendered = _admin_sidebar("devices")
         expected = [(label, href) for _k, label, href, _a in _all_items() if href is not None]
         rendered_links = links(rendered)
         assert len(rendered_links) == len(expected)
@@ -167,17 +179,17 @@ class TestSidebarRendering:
             assert href == expected_href
 
     def test_exactly_one_link_is_active_when_a_key_is_given(self):
-        rendered = app_sidebar("devices")
+        rendered = _admin_sidebar("devices")
         active = find_by_class(rendered, "app-sidebar__link--active")
         assert len(active) == 1
         assert "Devices" in text_of(active[0])
 
     def test_no_link_is_active_without_a_key(self):
-        rendered = app_sidebar(None)
+        rendered = _admin_sidebar(None)
         assert find_by_class(rendered, "app-sidebar__link--active") == []
 
     def test_active_link_is_announced_to_assistive_technology(self):
-        rendered = app_sidebar("reports")
+        rendered = _admin_sidebar("reports")
         current = [n for n in _walk(rendered) if getattr(n, "aria-current", None) == "page"]
         assert len(current) == 1
         assert "Reports" in text_of(current[0])
@@ -185,7 +197,7 @@ class TestSidebarRendering:
     def test_inactive_items_carry_no_aria_current(self):
         """Every navigable item other than the active one must have no
         `aria-current` at all — not `aria-current="false"`, absent entirely."""
-        rendered = app_sidebar("reports")
+        rendered = _admin_sidebar("reports")
         current = [n for n in _walk(rendered) if getattr(n, "aria-current", None) == "page"]
         assert len(current) == 1, "exactly one item may claim the page"
         items = find_by_exact_class(rendered, "app-sidebar__item")
@@ -198,7 +210,7 @@ class TestSidebarRendering:
         """Assignments has no route and can never be the active key — it must
         never pick up `aria-current` regardless of which real item is active."""
         for active_key in (None, "overview", "devices", "registration", "reports"):
-            rendered = app_sidebar(active_key)
+            rendered = _admin_sidebar(active_key)
             disabled = find_by_class(rendered, "app-sidebar__link--disabled")
             assert len(disabled) == 1
             assert getattr(disabled[0], "aria-current", None) is None
@@ -207,7 +219,7 @@ class TestSidebarRendering:
             assert getattr(assignments_item, "aria-current", None) is None
 
     def test_assignments_renders_disabled_not_as_a_dead_link(self):
-        rendered = app_sidebar(None)
+        rendered = _admin_sidebar(None)
         assert "Assignments" in text_of(rendered)
         disabled = find_by_class(rendered, "app-sidebar__link--disabled")
         assert len(disabled) == 1
@@ -215,12 +227,12 @@ class TestSidebarRendering:
         assert "Assignments" not in [label for label, _href in links(rendered)]
 
     def test_section_labels_render(self):
-        rendered = app_sidebar(None)
+        rendered = _admin_sidebar(None)
         assert "Operations" in text_of(rendered)
         assert "System" in text_of(rendered)
 
     def test_toggle_control_is_present(self):
-        rendered = app_sidebar(None)
+        rendered = _admin_sidebar(None)
         assert find_by_id(rendered, TOGGLE_ID) is not None
 
 
@@ -250,7 +262,7 @@ class TestSidebarIcons:
             assert svg_path.is_file(), f"{label}: missing {svg_path}"
 
     def test_rendered_links_carry_an_icon_span(self):
-        rendered = app_sidebar("devices")
+        rendered = _admin_sidebar("devices")
         for _key, label, href, icon in _all_items():
             if href is None:
                 continue
@@ -259,7 +271,7 @@ class TestSidebarIcons:
             assert "app-sidebar__icon" in icon_spans[0].className.split()
 
     def test_disabled_item_also_carries_an_icon_span(self):
-        rendered = app_sidebar(None)
+        rendered = _admin_sidebar(None)
         icon_spans = find_by_exact_class(rendered, "app-sidebar__icon--assignments")
         assert len(icon_spans) == 1
         assert "app-sidebar__icon" in icon_spans[0].className.split()
@@ -267,7 +279,7 @@ class TestSidebarIcons:
     def test_icon_span_is_hidden_from_assistive_technology(self):
         """The link's accessible name is its text label; the icon is
         decorative and must not be announced twice."""
-        rendered = app_sidebar("devices")
+        rendered = _admin_sidebar("devices")
         icon_spans = find_by_class(rendered, "app-sidebar__icon")
         assert icon_spans
         for span in icon_spans:
@@ -276,7 +288,7 @@ class TestSidebarIcons:
     def test_abbreviation_class_no_longer_renders(self):
         """The old collapsed-rail abbreviation ("OV", "NO", ...) is fully
         retired in favour of the icon — it must not still be in the tree."""
-        rendered = app_sidebar("devices")
+        rendered = _admin_sidebar("devices")
         assert find_by_class(rendered, "app-sidebar__abbr") == []
 
 
