@@ -98,6 +98,12 @@ CREATE INDEX IF NOT EXISTS ix_readings_device_metric_ts ON plant_monitoring.read
 - 120 devices × 1,441 timestamps × 8 metrics = 1,383,360 rows.
 - Deterministic generation using device index as random seed.
 - Daily temperature swing, load-correlated current, power-factor stability.
+- `devices.created_at` carries ~18 months of generated registration history,
+  spread deterministically by `device_id`. This is SYNTHETIC DEVELOPMENT SEED
+  HISTORY, not a client registration record — the client has supplied no device
+  registration dates. Registration is an administrative event and is
+  independent of the 30-day reading window, so a device may hold readings that
+  predate its own registration.
 
 ### Seeding
 

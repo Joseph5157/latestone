@@ -1,9 +1,10 @@
 """
-Deterministic development measurement generation.
+Deterministic development measurement and registration-history generation.
 
-SYNTHETIC DEVELOPMENT DATA standing in for client measurements, which are
-not yet available. These are NOT client-provided readings and the metric
-set is NOT a client-confirmed measurement definition.
+SYNTHETIC DEVELOPMENT DATA standing in for client measurements and client
+device registration records, neither of which is available yet. These are NOT
+client-provided readings, the metric set is NOT a client-confirmed measurement
+definition, and the registration dates are NOT a client equipment record.
 
 All values are expressed in DEVELOPMENT DISPLAY UNITS (see config/metrics.py).
 Real client units and metric definitions must be mapped when the client
@@ -28,6 +29,11 @@ from config.metrics import METRIC_KEYS
 INTERVAL_MINUTES = 30
 DAYS_OF_HISTORY = 30
 
+#: Span of synthetic registration history (~18 months). A development value:
+#: no client rule defines how far back RTL registration records reach.
+REGISTRATION_HISTORY_DAYS = 540
+_REGISTRATION_SPAN_MINUTES = REGISTRATION_HISTORY_DAYS * 24 * 60
+
 NOMINAL_VOLTAGE_KV = 11.0
 NOMINAL_FREQUENCY_HZ = 50.0
 SQRT3 = math.sqrt(3.0)
@@ -42,6 +48,37 @@ def build_timestamps(anchor: datetime) -> list[datetime]:
 
 def _seed_for(device_id: str) -> int:
     return int(hashlib.sha256(device_id.encode("utf-8")).hexdigest()[:12], 16)
+
+
+def registration_timestamp(device_id: str, anchor: datetime) -> datetime:
+    """When this device was administratively registered — synthetic.
+
+    SYNTHETIC DEVELOPMENT SEED HISTORY. These are NOT client-derived
+    registration dates. The client has supplied no device registration history
+    of any kind, and no client record states when any RTL entered management.
+    The value is a stable hash of `device_id` and nothing else, in exactly the
+    same spirit as the synthetic transformer/device counts in `db.hierarchy` —
+    do not present it, or anything computed from it, as a client-provided fact.
+
+    Registration is an ADMINISTRATIVE event and is deliberately independent of
+    the measurement window: `build_timestamps` gives every device the same 30
+    days of readings regardless of the date returned here, so a device may
+    carry readings that predate its registration. That is not a defect being
+    papered over — a fleet reporting before the management records catch up is
+    the ordinary case — but it does mean this timestamp must never be used to
+    reason about when a device started producing data.
+
+    The offset depends on `device_id` alone, never on `anchor`. Which devices
+    fall inside a recency window is therefore a fixed property of the
+    hierarchy rather than an accident of when the seed was run, so the figure
+    reproduces across reseeds.
+
+    This exists because the seed previously left `created_at` to migration
+    002's `now()` server default, which handed all 120 devices one identical
+    registration instant and made any recency metric read the whole fleet.
+    """
+    offset = _seed_for(device_id) % _REGISTRATION_SPAN_MINUTES
+    return anchor - timedelta(minutes=offset)
 
 
 def _base_temp_for_latitude(latitude: float) -> float:

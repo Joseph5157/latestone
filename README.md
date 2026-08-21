@@ -59,6 +59,13 @@ if they are unset, every login is refused.
 python -m db.seed_plant_monitoring --reset
 ```
 
+`--reset` is required, not optional. Without it the device insert's
+`ON CONFLICT DO NOTHING` skips rows that already exist, so an existing database
+keeps whatever `devices.created_at` it was first given and never picks up the
+generated registration history. That is deliberate: a `DO UPDATE` would also
+overwrite the genuine registration timestamp of any device registered through
+the app.
+
 ## Running tests
 
 Pure-logic tests (no Docker required):

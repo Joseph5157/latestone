@@ -6,9 +6,12 @@ from datetime import datetime, timedelta, timezone
 from db.generators import (
     DAYS_OF_HISTORY,
     INTERVAL_MINUTES,
+    REGISTRATION_HISTORY_DAYS,
     build_timestamps,
     generate_device_series,
+    registration_timestamp,
 )
+from db.hierarchy import build_hierarchy
 
 ANCHOR = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
 EXPECTED_METRICS = {
@@ -81,3 +84,70 @@ class TestGenerateDeviceSeries:
         equator = generate_device_series("plant-09-t1-d1", 1.0, ts)["temperature"]
         polar = generate_device_series("plant-09-t1-d1", 65.0, ts)["temperature"]
         assert sum(equator) / len(equator) > sum(polar) / len(polar)
+
+
+class TestRegistrationTimestamp:
+    """Synthetic administrative registration dates for seeded devices.
+
+    Guards the defect these replaced: before this existed the seed never set
+    `devices.created_at`, so every row took migration 002's `now()` default and
+    the whole fleet shared one registration instant.
+    """
+
+    def test_deterministic_for_same_device(self):
+        assert registration_timestamp("plant-01-t1-d1", ANCHOR) == registration_timestamp(
+            "plant-01-t1-d1", ANCHOR
+        )
+
+    def test_different_devices_register_at_different_times(self):
+        a = registration_timestamp("plant-01-t1-d1", ANCHOR)
+        b = registration_timestamp("plant-02-t1-d1", ANCHOR)
+        assert a != b
+
+    def test_never_later_than_the_anchor(self):
+        assert registration_timestamp("plant-01-t1-d1", ANCHOR) <= ANCHOR
+
+    def test_within_the_documented_history_window(self):
+        earliest = ANCHOR - timedelta(days=REGISTRATION_HISTORY_DAYS)
+        assert registration_timestamp("plant-01-t1-d1", ANCHOR) >= earliest
+
+    def test_preserves_anchor_timezone(self):
+        assert registration_timestamp("plant-01-t1-d1", ANCHOR).tzinfo is not None
+
+    def test_offset_is_anchor_independent(self):
+        """Shifting the anchor shifts every registration by the same delta.
+
+        The offset comes from `device_id` alone, so which devices fall inside a
+        recency window is a fixed property of the hierarchy rather than a
+        function of when the seed happened to run. That is what makes the
+        Recently Registered figure reproducible across reseeds.
+        """
+        shift = timedelta(days=10)
+        first = registration_timestamp("plant-03-t2-d1", ANCHOR)
+        second = registration_timestamp("plant-03-t2-d1", ANCHOR + shift)
+        assert second - first == shift
+
+
+class TestRegistrationSpreadAcrossTheFleet:
+    """The property the card depends on, checked over the real 120 devices."""
+
+    def _timestamps(self):
+        plant_ids = [f"plant-{i:02d}" for i in range(1, 31)]
+        countries = {pid: "Country" for pid in plant_ids}
+        _transformers, devices = build_hierarchy(plant_ids, countries)
+        assert len(devices) == 120
+        return [registration_timestamp(d.device_id, ANCHOR) for d in devices]
+
+    def test_registrations_are_not_all_identical(self):
+        assert len(set(self._timestamps())) > 1
+
+    def test_history_spans_more_than_a_year(self):
+        stamps = self._timestamps()
+        assert max(stamps) - min(stamps) > timedelta(days=365)
+
+    def test_no_device_registers_in_the_future(self):
+        assert all(ts <= ANCHOR for ts in self._timestamps())
+
+    def test_every_device_registers_within_the_window(self):
+        earliest = ANCHOR - timedelta(days=REGISTRATION_HISTORY_DAYS)
+        assert all(ts >= earliest for ts in self._timestamps())

@@ -28,7 +28,12 @@ from sqlalchemy import text
 from config.metrics import ordered_metrics
 from config.settings import database, monitoring
 from db.engine import get_engine, session_scope
-from db.generators import DAYS_OF_HISTORY, build_timestamps, generate_device_series
+from db.generators import (
+    DAYS_OF_HISTORY,
+    build_timestamps,
+    generate_device_series,
+    registration_timestamp,
+)
 from db.hierarchy import build_hierarchy
 
 SEED_DATA_DIR = Path(__file__).parent / "seed_data"
@@ -175,6 +180,15 @@ def seed(*, reset: bool = False) -> None:
     transformers, devices = build_hierarchy(plant_ids, countries)
     device_ids = [d.device_id for d in devices]
 
+    # One anchor for the whole seed, floored to the previous 30-minute
+    # boundary. Taken here rather than beside the reading loop because device
+    # registration dates are derived from it too: two `now()` calls would let
+    # the registration history and the reading window disagree about when
+    # "now" was, and a device could be registered after its own last reading.
+    anchor = datetime.now(timezone.utc)
+    minute_floor = (anchor.minute // 30) * 30
+    anchor = anchor.replace(minute=minute_floor, second=0, microsecond=0)
+
     print(f"\nPlants: {len(plants)}")
     print(f"Transformers: {len(transformers)}")
     print(f"Devices: {len(devices)}")
@@ -220,28 +234,40 @@ def seed(*, reset: bool = False) -> None:
             )
 
     # Insert devices
+    #
+    # `created_at` is set EXPLICITLY. Left to migration 002's `now()` server
+    # default it made every seeded device share one registration instant, which
+    # turned any registration-recency figure into the whole fleet. The dates are
+    # SYNTHETIC DEVELOPMENT SEED HISTORY (see db.generators.registration_timestamp)
+    # and are not client-derived registration records.
+    #
+    # `updated_at` is set to the same instant: a freshly seeded device has never
+    # been edited, so defaulting it to `now()` would show all 120 as just-modified.
+    #
+    # ON CONFLICT stays DO NOTHING. Re-running the seed over an existing database
+    # therefore will NOT correct rows already carrying the backfilled default —
+    # that needs `--reset`. Deliberate: DO UPDATE here would also overwrite the
+    # genuine registration timestamp of any device registered through the app.
     print("Seeding devices...")
     with session_scope() as session:
         for d in devices:
+            registered_at = registration_timestamp(d.device_id, anchor)
             session.execute(
                 text(
                     f"INSERT INTO {schema}.devices "
-                    "(device_id, transformer_id, device_code) "
-                    "VALUES (:device_id, :transformer_id, :device_code) "
+                    "(device_id, transformer_id, device_code, created_at, updated_at) "
+                    "VALUES (:device_id, :transformer_id, :device_code, :created_at, :updated_at) "
                     "ON CONFLICT (device_id) DO NOTHING"
                 ),
                 {
                     "device_id": d.device_id,
                     "transformer_id": d.transformer_id,
                     "device_code": d.device_code,
+                    "created_at": registered_at,
+                    "updated_at": registered_at,
                 },
             )
 
-    # Generate timestamps
-    anchor = datetime.now(timezone.utc)
-    # Floor to previous 30-minute boundary
-    minute_floor = (anchor.minute // 30) * 30
-    anchor = anchor.replace(minute=minute_floor, second=0, microsecond=0)
     timestamps = build_timestamps(anchor)
     print(f"\nTimestamps: {len(timestamps)} (30 days, 30-min intervals)")
     print(f"Range: {timestamps[0].isoformat()} to {timestamps[-1].isoformat()}")

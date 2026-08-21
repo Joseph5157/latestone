@@ -113,3 +113,39 @@ class TestReferentialIntegrity:
 
     def test_device_codes_are_globally_unique(self):
         assert _scalar(f"SELECT COUNT(DISTINCT device_code) FROM {SCHEMA}.devices") == 120
+
+
+class TestDeviceRegistrationHistory:
+    """`devices.created_at` must carry real spread, not one backfilled instant.
+
+    Before the seed set `created_at` explicitly, every device took migration
+    002's `now()` server default and the whole fleet shared one registration
+    timestamp — which made "registered in the last 7 days" report 120 of 120.
+    These assertions fail on any database seeded before that fix; the remedy is
+    a `--reset` reseed, since the insert deliberately does not overwrite
+    existing rows.
+
+    The dates are synthetic development seed history, not client registration
+    records (see db.generators.registration_timestamp).
+    """
+
+    def test_registrations_are_not_all_identical(self):
+        assert _scalar(f"SELECT COUNT(DISTINCT created_at) FROM {SCHEMA}.devices") > 1
+
+    def test_every_device_has_a_distinct_registration(self):
+        assert _scalar(f"SELECT COUNT(DISTINCT created_at) FROM {SCHEMA}.devices") == 120
+
+    def test_history_spans_more_than_a_year(self):
+        span = _scalar(
+            f"SELECT MAX(created_at) - MIN(created_at) FROM {SCHEMA}.devices"
+        )
+        assert span > timedelta(days=365)
+
+    def test_no_device_is_registered_in_the_future(self):
+        assert _scalar(f"SELECT COUNT(*) FROM {SCHEMA}.devices WHERE created_at > now()") == 0
+
+    def test_seeded_devices_are_unmodified_since_registration(self):
+        """A freshly seeded device has never been edited."""
+        assert _scalar(
+            f"SELECT COUNT(*) FROM {SCHEMA}.devices WHERE updated_at <> created_at"
+        ) == 0
