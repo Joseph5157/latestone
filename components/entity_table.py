@@ -43,6 +43,7 @@ def entity_table(
     state_column_id: str | None = None,
     administrative_state_column_id: str | None = None,
     responsive: bool = False,
+    markdown_link_target: str | None = None,
 ) -> html.Div:
     """Render a sortable, filterable DataTable.
 
@@ -64,6 +65,9 @@ def entity_table(
         presentation. The underlying DataTable, data, filtering, paging and
         active-cell behaviour stay unchanged; CSS only changes how its rows
         are arranged below the responsive breakpoint.
+    markdown_link_target: optional target for markdown links in this table.
+        User Administration uses ``_self`` so its Edit affordance activates
+        the existing cell callback without spawning a duplicate browser tab.
     """
     # Derived from the column spec rather than a per-page list: 900 < 1,000 <
     # 12,000 only reads correctly right-aligned, and the columns that need it
@@ -127,6 +131,10 @@ def entity_table(
                     "textOverflow": "ellipsis",
                 },
                 style_header={"fontWeight": "600", "backgroundColor": "#f9fafb"},
+                markdown_options=(
+                    {"link_target": markdown_link_target}
+                    if markdown_link_target else None
+                ),
                 style_header_conditional=[
                     {"if": {"column_id": cid}, "textAlign": "right"}
                     for cid in numeric_ids

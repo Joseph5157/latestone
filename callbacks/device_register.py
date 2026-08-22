@@ -71,28 +71,28 @@ def _review_summary(code: str, plant_label: str, transformer_label: str, status:
             html.Div(
                 className="device-register-review__row",
                 children=[
-                    html.Span("Device Code:", className="device-register-review__label"),
+                    html.Span("RTL UID / Device Code", className="device-register-review__label"),
                     html.Span(code, className="device-register-review__value"),
                 ],
             ),
             html.Div(
                 className="device-register-review__row",
                 children=[
-                    html.Span("Plant:", className="device-register-review__label"),
+                    html.Span("Plant", className="device-register-review__label"),
                     html.Span(plant_label, className="device-register-review__value"),
                 ],
             ),
             html.Div(
                 className="device-register-review__row",
                 children=[
-                    html.Span("Transformer:", className="device-register-review__label"),
+                    html.Span("Transformer", className="device-register-review__label"),
                     html.Span(transformer_label, className="device-register-review__value"),
                 ],
             ),
             html.Div(
                 className="device-register-review__row",
                 children=[
-                    html.Span("Status:", className="device-register-review__label"),
+                    html.Span("Administrative status", className="device-register-review__label"),
                     html.Span(status.capitalize(), className="device-register-review__value"),
                 ],
             ),

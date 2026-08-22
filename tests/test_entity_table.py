@@ -134,3 +134,13 @@ def test_administrative_and_freshness_axes_have_distinct_hooks():
     classes = set(table.className.split())
     assert "entity-table-wrapper--administrative-axis" in classes
     assert "entity-table-wrapper--freshness-axis" in classes
+
+
+def test_markdown_target_is_opt_in_and_scoped_to_one_table():
+    default = entity_table(table_id="default", columns=[], rows=[])
+    same_tab = entity_table(
+        table_id="same-tab", columns=[], rows=[], markdown_link_target="_self"
+    )
+
+    assert default.children[0].markdown_options is None
+    assert same_tab.children[0].markdown_options == {"link_target": "_self"}

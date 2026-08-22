@@ -15,6 +15,7 @@ USER_ROLE_ID = "user-form-role"
 USER_STATUS_ID = "user-form-status"
 USER_CONFIRM_BTN = "user-form-confirm-btn"
 USER_CANCEL_BTN = "user-form-cancel-btn"
+USER_DISMISS_BTN = "user-form-dismiss-btn"
 
 
 def user_form_drawer() -> html.Div:
@@ -44,12 +45,23 @@ def user_form_drawer() -> html.Div:
                     html.Div(
                         className="user-form-drawer__header",
                         children=[
-                            html.H2(id="user-form-drawer-title"),
+                            html.Div(
+                                children=[
+                                    html.Div("User management", className="user-form-drawer__eyebrow"),
+                                    html.H2(id="user-form-drawer-title"),
+                                    html.P(
+                                        "Set application identity, access role, and lifecycle status.",
+                                        className="user-form-drawer__description",
+                                    ),
+                                ],
+                            ),
                             html.Button(
                                 "\u00d7",
                                 id=USER_CANCEL_BTN,
                                 className="user-form-drawer__close",
                                 n_clicks=0,
+                                title="Close user form",
+                                **{"aria-label": "Close user form"},
                             ),
                         ],
                     ),
@@ -63,7 +75,7 @@ def user_form_drawer() -> html.Div:
                                 className="user-form-drawer__field",
                                 children=[
                                     html.Label(
-                                        "Username",
+                                        ["Username", html.Span(" *", className="required-marker")],
                                         htmlFor=USER_USERNAME_ID,
                                         className="user-form-drawer__field-label",
                                     ),
@@ -72,6 +84,7 @@ def user_form_drawer() -> html.Div:
                                         type="text",
                                         placeholder="Enter username...",
                                         className="user-form-drawer__input",
+                                        autoComplete="off",
                                     ),
                                     html.P(
                                         id="user-form-username-error",
@@ -83,7 +96,10 @@ def user_form_drawer() -> html.Div:
                                 className="user-form-drawer__field",
                                 children=[
                                     html.Label(
-                                        "Identifier / Email",
+                                        [
+                                            "Identifier / Email",
+                                            html.Span("Optional", className="field-optional"),
+                                        ],
                                         htmlFor=USER_IDENTIFIER_ID,
                                         className="user-form-drawer__field-label",
                                     ),
@@ -92,6 +108,7 @@ def user_form_drawer() -> html.Div:
                                         type="text",
                                         placeholder="e.g. user@example.com",
                                         className="user-form-drawer__input",
+                                        autoComplete="off",
                                     ),
                                 ],
                             ),
@@ -114,11 +131,13 @@ def user_form_drawer() -> html.Div:
                                         clearable=False,
                                         className="user-form-drawer__dropdown",
                                     ),
-                                    html.P(
-                                        "Administrator: broader RTL management, may upload/program settings for RTLs. "
-                                        "Technician: works with assigned RTL devices, may program assigned RTLs. "
-                                        "General User: view transformer data, export data only.",
+                                    html.Ul(
                                         className="user-form-drawer__role-note",
+                                        children=[
+                                            html.Li("Administrator — broader RTL management."),
+                                            html.Li("Technician — assigned RTL device work."),
+                                            html.Li("General User — view and export access."),
+                                        ],
                                     ),
                                 ],
                             ),
@@ -146,7 +165,7 @@ def user_form_drawer() -> html.Div:
                     ),
                     # Prototype notice
                     html.Div(
-                        className="status-panel status-panel--inactive",
+                        className="admin-boundary-note admin-boundary-note--drawer",
                         children=[
                             html.Strong("Prototype. "),
                             html.Span(
@@ -159,6 +178,12 @@ def user_form_drawer() -> html.Div:
                     html.Div(
                         className="user-form-drawer__actions",
                         children=[
+                            html.Button(
+                                "Cancel",
+                                id=USER_DISMISS_BTN,
+                                n_clicks=0,
+                                className="user-form-drawer__btn user-form-drawer__btn--secondary",
+                            ),
                             html.Button(
                                 id=USER_CONFIRM_BTN,
                                 n_clicks=0,

@@ -19,6 +19,7 @@ from components.user_form_drawer import (
     USER_STATUS_ID,
     USER_CONFIRM_BTN,
     USER_CANCEL_BTN,
+    USER_DISMISS_BTN,
 )
 from services.prototype_users import (
     get_all_users,
@@ -200,10 +201,11 @@ def register(app) -> None:
     @app.callback(
         Output(USER_DRAWER_ID, "style", allow_duplicate=True),
         Input(USER_CANCEL_BTN, "n_clicks"),
+        Input(USER_DISMISS_BTN, "n_clicks"),
         Input("user-form-drawer-overlay", "n_clicks"),
         prevent_initial_call=True,
     )
-    def close_user_drawer(cancel_clicks, overlay_clicks):
+    def close_user_drawer(cancel_clicks, dismiss_clicks, overlay_clicks):
         """Close the user form drawer without making changes."""
         return {"display": "none"}
 
