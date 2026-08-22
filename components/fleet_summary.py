@@ -103,19 +103,21 @@ def entity_summary_block(
 def fleet_kpi_cards(
     plants: int, transformers: int, devices: int, health: FleetHealth
 ) -> html.Div:
-    """The four cards from spec section 9.
+    """The three structural fleet counts.
 
     Hierarchy totals are passed in from the hierarchy counts rather than derived
     from `health`, so the population shown here is the same one the plant table
-    lists even if a device has no freshness row at all.
+    lists even if a device has no freshness row at all. Fleet freshness now has
+    its own primary summary block below this row; Plant and Transformer detail
+    pages continue to use ``entity_summary_block`` with a Data Health card.
     """
-    return entity_summary_block(
-        counts=[
-            ("Plants", plants),
-            ("Transformers", transformers),
-            ("Devices", devices),
+    return html.Div(
+        className="kpi-row kpi-row--fleet kpi-row--fleet-structure",
+        children=[
+            kpi_card("Plants", str(plants)),
+            kpi_card("Transformers", str(transformers)),
+            kpi_card("Devices", str(devices)),
         ],
-        health_counts=health.counts,
     )
 
 
@@ -175,7 +177,7 @@ def plant_kpi_cards(
 
 
 def fleet_health_distribution(counts: dict[Freshness, int]) -> html.Div:
-    """Compact segmented bar restating the fleet Data Health KPI's own counts.
+    """Primary fleet Data Health summary with subordinate state counts.
 
     Supporting information only — the KPI card stays the one authoritative
     Data Health figure; this renders `counts` the callback already built for
@@ -196,6 +198,7 @@ def fleet_health_distribution(counts: dict[Freshness, int]) -> html.Div:
     Both are existing tokens — no new colour is introduced.
     """
     total = sum(counts.get(state, 0) for state in _DISTRIBUTION_ORDER)
+    value, secondary = _health_summary(counts)
 
     if total > 0:
         bar_children = [
@@ -234,4 +237,58 @@ def fleet_health_distribution(counts: dict[Freshness, int]) -> html.Div:
         ],
     )
 
-    return html.Div(className="health-distribution", children=[bar, legend])
+    return html.Div(
+        className="health-distribution health-distribution--primary",
+        children=[
+            html.Div(
+                className="health-distribution__heading-row",
+                children=[
+                    html.Div(
+                        children=[
+                            html.H2("Data Health", className="health-distribution__title"),
+                            html.P(value, className="health-distribution__primary-value"),
+                        ]
+                    ),
+                    html.P(secondary, className="health-distribution__secondary"),
+                ],
+            ),
+            bar,
+            legend,
+        ],
+    )
+
+
+def systemic_freshness_summary(counts: dict[Freshness, int]):
+    """Fleet-wide summary for one exact, presentation-only condition.
+
+    The rule is deliberately conservative: render only when every monitored
+    device shares the same non-fresh state. There is no percentage threshold,
+    severity judgement or domain-policy change. Counts come from the same
+    ``FleetHealth.counts`` already used above.
+    """
+    total = sum(counts.get(state, 0) for state in _DISTRIBUTION_ORDER)
+    if total <= 0:
+        return None
+
+    if counts.get(Freshness.STALE, 0) == total:
+        condition = f"All {total} monitoring devices are stale."
+    elif counts.get(Freshness.NO_DATA, 0) == total:
+        condition = f"All {total} monitoring devices have no data."
+    else:
+        return None
+
+    return html.Div(
+        className="systemic-freshness",
+        children=[
+            html.Div(className="systemic-freshness__marker", **{"aria-hidden": "true"}),
+            html.Div(
+                children=[
+                    html.H2(
+                        "Fleet-wide freshness issue",
+                        className="systemic-freshness__title",
+                    ),
+                    html.P(condition, className="systemic-freshness__detail"),
+                ]
+            ),
+        ],
+    )

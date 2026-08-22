@@ -59,16 +59,17 @@ class TestPageSlot:
         slot = find_by_id(plants_overview.layout(), "admin-summary")
         assert not slot.children
 
-    def test_slot_sits_between_fleet_health_and_needs_attention(self):
-        """Administration reads after the monitoring figures it is not part
-        of, and before the exception list."""
+    def test_slot_sits_after_monitoring_and_needs_attention(self):
+        """Administration is secondary to monitoring and its exception queue."""
         ids = [
             n.id
             for n in plants_overview.layout().children
             if getattr(n, "id", None)
-            in {"fleet-health-distribution", "admin-summary", "needs-attention"}
+            in {"fleet-systemic-state", "needs-attention", "admin-summary", "fleet-plants"}
         ]
-        assert ids == ["fleet-health-distribution", "admin-summary", "needs-attention"]
+        assert ids == [
+            "fleet-systemic-state", "needs-attention", "admin-summary", "fleet-plants"
+        ]
 
 
 class TestAdminSummaryOutput:

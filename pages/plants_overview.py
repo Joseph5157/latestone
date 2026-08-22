@@ -27,12 +27,21 @@ def layout() -> html.Div:
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="plants-error", className="listing-error"),
-            # Filled by the same callback that fills the table, from the same
-            # FleetHealth, so the card and the rows cannot disagree.
-            html.Div(id="fleet-kpis"),
-            # Same FleetHealth.counts as the Data Health KPI card — a
-            # restatement, not a second computation.
-            html.Div(id="fleet-health-distribution"),
+            html.Section(
+                className="fleet-monitoring-summary",
+                children=[
+                    # Structural fleet totals and the primary Data Health block
+                    # are filled from the same callback/FleetHealth instance.
+                    html.Div(id="fleet-kpis"),
+                    html.Div(id="fleet-health-distribution"),
+                ],
+            ),
+            # Presentation-only exact-condition summary, built from the same
+            # already-available health counts. Empty for mixed populations.
+            html.Div(id="fleet-systemic-state"),
+            # Representative investigation queue. The component discloses the
+            # total and links to the authoritative inventory below.
+            html.Div(id="needs-attention"),
             # Filled by the same callback from one AdminOverviewSummary, at the
             # same instant as the freshness figures above. Administration is a
             # separate axis from monitoring: these cards count Managed RTLs,
@@ -45,12 +54,12 @@ def layout() -> html.Div:
             # Unassigned RTLs panel beneath them (ADMIN-3), both built from
             # the same summary in the same error boundary. One slot, so a
             # failed read cannot leave half a section standing.
-            html.Div(id="admin-summary"),
-            # Filled by the listing callback with freshness-only exceptions
-            # (NO_DATA / STALE plants) from the same FleetHealth. No panel
-            # means "not yet loaded"; an error path leaves this blank while the
-            # error panel explains the failure.
-            html.Div(id="needs-attention"),
+            html.Div(id="admin-summary", className="fleet-administration"),
+            html.H2(
+                "Fleet / Plants",
+                id="fleet-plants",
+                className="fleet-inventory__title",
+            ),
             entity_table(
                 table_id="plants-table",
                 # Deliberately duplicated from callbacks.listings.PLANT_COLUMNS

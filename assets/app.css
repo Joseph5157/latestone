@@ -1011,6 +1011,10 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr)) 1.5fr;
 }
 .kpi-row--fleet .kpi-card__value { font-size: var(--fs-fleet-kpi); }
+.kpi-row--fleet-structure {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: var(--sp-2);
+}
 
 /* ---------- Administration summary ---------- */
 /* Three cards, so the row overrides .kpi-row's 4-column default rather than
@@ -1034,13 +1038,30 @@ body {
    because the Unassigned RTLs panel below belongs to this section: the cards
    and the list they summarise should group visually rather than read as two
    independent blocks. */
+.fleet-administration {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--color-border);
+}
+
 .admin-summary { margin-bottom: var(--sp-2); }
 
 .admin-summary__heading {
-  font-size: var(--fs-section);
+  font-size: 12px;
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
   margin: 0 0 var(--sp-2);
+}
+
+.fleet-administration .kpi-card {
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.fleet-administration .kpi-card__value {
+  font-size: 22px;
 }
 
 /* ---------- Unassigned RTLs (ADMIN-3) ---------- */
@@ -1162,6 +1183,43 @@ body {
   margin-bottom: var(--sp-3);
 }
 
+.health-distribution--primary {
+  border-left: 4px solid var(--color-brand);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) calc(var(--sp-4) - 3px);
+}
+
+.health-distribution__heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.health-distribution__title {
+  margin: 0 0 2px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.health-distribution__primary-value {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.health-distribution__secondary {
+  margin: 0 0 2px;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+  text-align: right;
+}
+
 .health-distribution__bar {
   display: flex;
   height: 10px;
@@ -1221,6 +1279,40 @@ body {
   color: var(--color-text);
 }
 
+/* Exact-condition fleet summary. This is operational context, not an alarm:
+   neutral brand border, no red fill and no invented severity label. */
+.systemic-freshness {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: 11px var(--sp-4);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.systemic-freshness__marker {
+  flex: 0 0 auto;
+  width: 3px;
+  min-height: 38px;
+  border-radius: 2px;
+  background: var(--state-stale-text);
+}
+
+.systemic-freshness__title {
+  margin: 0 0 2px;
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.systemic-freshness__detail {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}
+
 /* ---------- Needs Attention panel ---------- */
 /* Compact exception list sitting between the distribution bar and the plants
    table. Surface + border + radius matches every other card-shaped block on
@@ -1246,6 +1338,35 @@ body {
   font-size: var(--fs-body);
   color: var(--color-muted);
   margin: 0;
+}
+
+.needs-attention__summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin: calc(-1 * var(--sp-1)) 0 var(--sp-1);
+}
+
+.needs-attention__summary {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+}
+
+.needs-attention__all {
+  color: var(--color-accent);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.needs-attention__all:hover { text-decoration: underline; }
+.needs-attention__all:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
 }
 
 .needs-attention__row {
@@ -1317,6 +1438,40 @@ body {
   outline: none;
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);
+}
+
+.fleet-inventory__title {
+  margin: var(--sp-6) 0 var(--sp-2);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--fs-section);
+  color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+  .health-distribution__heading-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .health-distribution__primary-value { font-size: 21px; }
+  .health-distribution__secondary { text-align: left; }
+  .health-distribution__legend { gap: var(--sp-3); }
+  .systemic-freshness { padding: 10px var(--sp-3); }
+  .needs-attention { padding: var(--sp-3); }
+  .needs-attention__summary-row { align-items: flex-start; }
+  .needs-attention__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 4px var(--sp-2);
+  }
+  .needs-attention__entity { max-width: none; }
+  .needs-attention__type { display: none; }
+  .needs-attention__detail,
+  .needs-attention__age { grid-column: 2 / -1; margin-left: 0; }
+  .needs-attention__link { grid-column: 3; grid-row: 1; }
+  .fleet-administration { margin-top: var(--sp-4); }
+  .fleet-inventory__title { margin-top: var(--sp-4); }
 }
 
 /* ---------- Device Administration toolbar ---------- */

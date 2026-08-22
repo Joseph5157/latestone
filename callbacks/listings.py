@@ -19,6 +19,7 @@ from components.fleet_summary import (
     format_render_stamp,
     plant_kpi_cards,
     transformer_kpi_cards,
+    systemic_freshness_summary,
 )
 from components.metric_health import metric_health_overview
 from components.needs_attention import needs_attention
@@ -491,6 +492,7 @@ def register(app) -> None:
         Output("plants-error", "children"),
         Output("fleet-kpis", "children"),
         Output("fleet-health-distribution", "children"),
+        Output("fleet-systemic-state", "children"),
         Output("admin-summary", "children"),
         Output("needs-attention", "children"),
         Output("fleet-subtitle", "children"),
@@ -501,7 +503,7 @@ def register(app) -> None:
     )
     def populate_overview(context, auth_data):
         if not context or context.get("route") != "overview":
-            return (no_update,) * 9
+            return (no_update,) * 10
 
         # One instant for the whole render. Taken once here and passed to both
         # the freshness computation and the header, so the stamp cannot name a
@@ -517,6 +519,7 @@ def register(app) -> None:
         # are stale?" differently.
         cards = []
         distribution = []
+        systemic = []
         admin = []
         attention = []
 
@@ -535,6 +538,7 @@ def register(app) -> None:
             # Same health.counts the Data Health KPI card above already
             # reads — a restatement, not a second computation.
             distribution.append(fleet_health_distribution(health.counts))
+            systemic.append(systemic_freshness_summary(health.counts))
             # Administration figures, on `rendered_at` like everything else on
             # this page. These count Managed RTLs — a different population from
             # the Devices card built above, which counts Monitoring Devices.
@@ -569,6 +573,7 @@ def register(app) -> None:
             error,
             (cards[0] if cards else None),
             (distribution[0] if distribution else None),
+            (systemic[0] if systemic else None),
             (admin[0] if admin else None),
             (attention[0] if attention else None),
             (subtitle[0] if subtitle else ""),
