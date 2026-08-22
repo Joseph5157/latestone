@@ -13,10 +13,18 @@ from config.settings import monitoring
 from services.monitoring_service import Freshness
 
 
-def _context_item(label: str, value, value_id: str | None = None) -> html.Div:
+def _context_item(
+    label: str,
+    value,
+    value_id: str | None = None,
+    modifier: str | None = None,
+) -> html.Div:
     value_props = {"id": value_id} if value_id else {}
+    classes = "equipment-context__item"
+    if modifier:
+        classes += f" equipment-context__item--{modifier}"
     return html.Div(
-        className="equipment-context__item",
+        className=classes,
         children=[
             html.Span(label, className="equipment-context__label"),
             html.Span(value, className="equipment-context__value", **value_props),
@@ -63,68 +71,152 @@ def layout(
             # Inactive equipment stays reachable by URL; it is marked rather
             # than hidden, so historical readings remain inspectable.
             inactive_notice("device") if device_status == "inactive" else None,
-            # UI_SPEC 6a: Plant | Transformer | Device | Status. `Status` is the
-            # administrative state from DevicePath — deliberately not merged
-            # with data freshness (header badge) or monitoring condition.
-            html.Div(
-                id="equipment-context-container",
-                className="equipment-context",
+            html.Header(
+                className="device-page-heading",
                 children=[
-                    _context_item("Plant", plant_name or "—"),
-                    _context_item("Transformer", transformer_code or "—"),
-                    _context_item("Device", device_code or "—"),
-                    _context_item("Status", device_status or "—"),
-                    _context_item("Last data (UTC)", "—", value_id="equipment-last-data"),
+                    html.Div("RTL device", className="device-page-heading__eyebrow"),
+                    html.H1(device_code or "Device", className="device-page-heading__title"),
+                    html.P(
+                        "Telemetry and latest-known operational state",
+                        className="device-page-heading__description",
+                    ),
                 ],
             ),
-            html.Div(id="snapshot-strip"),
-            html.Div(
-                className="metric-controls",
+            html.Section(
+                className="device-section device-current-state",
                 children=[
-                    dcc.Dropdown(
-                        id="metric-dropdown",
-                        options=metric_options,
-                        value=initial_metric,
-                        clearable=False,
-                        searchable=False,
-                        className="metric-dropdown",
-                    ),
-                    dcc.RadioItems(
-                        id="period-radio",
-                        options=[
-                            {"label": " 24h", "value": "24h"},
-                            {"label": " 7d", "value": "7d"},
-                            {"label": " 30d", "value": "30d"},
-                            {"label": " Custom", "value": "custom"},
-                        ],
-                        value=initial_period,
-                        inline=True,
-                        className="period-radio",
-                    ),
                     html.Div(
-                        id="custom-range-container",
-                        style={"display": "block" if initial_period == "custom" else "none"},
+                        className="device-section__heading",
                         children=[
-                            dcc.DatePickerRange(
-                                id="custom-date-range",
-                                display_format="YYYY-MM-DD",
-                                start_date=custom_start,
-                                end_date=custom_end,
+                            html.Div("Current state", className="device-section__eyebrow"),
+                            html.H2("Latest operational readings"),
+                        ],
+                    ),
+                    # UI_SPEC 6a: administrative status remains distinct from
+                    # data freshness (header badge) and monitoring condition.
+                    html.Div(
+                        id="equipment-context-container",
+                        className="equipment-context",
+                        children=[
+                            _context_item("Plant", plant_name or "—"),
+                            _context_item("Transformer", transformer_code or "—"),
+                            _context_item("Device", device_code or "—"),
+                            _context_item(
+                                "Status", device_status or "—", modifier="administrative"
+                            ),
+                            _context_item(
+                                "Last data (UTC)", "—", value_id="equipment-last-data"
                             ),
                         ],
                     ),
+                    html.Div(id="snapshot-strip"),
                 ],
             ),
-            html.Div(id="kpi-row-container"),
-            dcc.Loading(
-                metric_chart("metric-chart"),
-                className="chart-loading",
+            html.Section(
+                className="device-section device-telemetry",
+                children=[
+                    html.Div(
+                        className="device-section__heading device-section__heading--inline",
+                        children=[
+                            html.Div(
+                                children=[
+                                    html.Div("Telemetry", className="device-section__eyebrow"),
+                                    html.H2("Metric history"),
+                                ]
+                            ),
+                            html.P("Select a metric and UTC time range."),
+                        ],
+                    ),
+                    html.Div(
+                        className="metric-controls",
+                        children=[
+                            html.Div(
+                                className="metric-control metric-control--metric",
+                                children=[
+                                    html.Label("Metric", htmlFor="metric-dropdown"),
+                                    dcc.Dropdown(
+                                        id="metric-dropdown", options=metric_options,
+                                        value=initial_metric, clearable=False,
+                                        searchable=False, className="metric-dropdown",
+                                    ),
+                                ],
+                            ),
+                            html.Fieldset(
+                                className="metric-control metric-control--period",
+                                children=[
+                                    html.Legend("Time range"),
+                                    dcc.RadioItems(
+                                        id="period-radio",
+                                        options=[
+                                            {"label": "24h", "value": "24h"},
+                                            {"label": "7d", "value": "7d"},
+                                            {"label": "30d", "value": "30d"},
+                                            {"label": "Custom", "value": "custom"},
+                                        ],
+                                        value=initial_period, inline=True,
+                                        className="period-radio",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                id="custom-range-container",
+                                className="metric-control metric-control--custom",
+                                style={
+                                    "display": "block" if initial_period == "custom" else "none"
+                                },
+                                children=[
+                                    html.Label("Custom UTC range"),
+                                    dcc.DatePickerRange(
+                                        id="custom-date-range", display_format="YYYY-MM-DD",
+                                        start_date=custom_start, end_date=custom_end,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                    html.Div(id="kpi-row-container"),
+                    html.Div(
+                        className="device-chart-panel",
+                        children=[dcc.Loading(metric_chart("metric-chart"), className="chart-loading")],
+                    ),
+                ],
             ),
-            # Below the primary chart, so eight more figures cannot push it
-            # past the §6.8 budget.
-            html.H2("Quick Trends", className="section-heading"),
-            html.Div(id="trend-grid"),
-            readings_table("readings-table"),
+            html.Section(
+                className="device-section device-supporting-metrics",
+                children=[
+                    html.Div(
+                        className="device-section__heading device-section__heading--inline",
+                        children=[
+                            html.Div(
+                                children=[
+                                    html.Div("Supporting metrics", className="device-section__eyebrow"),
+                                    html.H2("Quick trends"),
+                                ]
+                            ),
+                            html.P("Select a tile to promote that metric to the main chart."),
+                        ],
+                    ),
+                    html.Div(id="trend-grid"),
+                ],
+            ),
+            html.Section(
+                className="device-section device-readings",
+                children=[
+                    html.Div(
+                        className="device-section__heading device-section__heading--inline",
+                        children=[
+                            html.Div(
+                                children=[
+                                    html.Div("History", className="device-section__eyebrow"),
+                                    html.H2("Recent readings"),
+                                ]
+                            ),
+                            html.P("Newest observations first. Timestamps are UTC."),
+                        ],
+                    ),
+                    readings_table("readings-table"),
+                ],
+            ),
             dcc.Interval(
                 id="device-refresh-interval",
                 interval=monitoring.refresh_interval_seconds * 1000,

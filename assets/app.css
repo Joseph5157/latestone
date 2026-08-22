@@ -2303,7 +2303,300 @@ body {
   .trend-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 }
 
-/* ==========================================================================
+/* ---------- Device detail hierarchy (UI-4) ---------- */
+.page--device-dashboard .device-page-heading {
+  margin: var(--sp-3) 0 var(--sp-4);
+  max-width: 760px;
+}
+
+.page--device-dashboard .device-page-heading__eyebrow,
+.page--device-dashboard .device-section__eyebrow {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.page--device-dashboard .device-page-heading__title {
+  color: var(--color-text);
+  font-size: clamp(26px, 2.4vw, 34px);
+  line-height: 1.12;
+  margin: 2px 0 3px;
+  overflow-wrap: anywhere;
+}
+
+.page--device-dashboard .device-page-heading__description,
+.page--device-dashboard .device-section__heading p {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.page--device-dashboard .device-section {
+  margin-bottom: var(--sp-5);
+  min-width: 0;
+}
+
+.page--device-dashboard .device-section__heading {
+  margin-bottom: var(--sp-2);
+}
+
+.page--device-dashboard .device-section__heading h2 {
+  color: var(--color-text);
+  font-size: 17px;
+  line-height: 1.3;
+  margin: 1px 0 0;
+}
+
+.page--device-dashboard .device-section__heading--inline {
+  align-items: end;
+  display: flex;
+  gap: var(--sp-4);
+  justify-content: space-between;
+}
+
+.page--device-dashboard .device-current-state {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+.page--device-dashboard .equipment-context {
+  background: var(--color-bg);
+  border-color: #d8dde3;
+  margin-bottom: var(--sp-2);
+}
+
+.page--device-dashboard .equipment-context__item {
+  min-width: 0;
+}
+
+.page--device-dashboard .equipment-context__value,
+.page--device-dashboard .breadcrumb__link,
+.page--device-dashboard .breadcrumb__current {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.page--device-dashboard .breadcrumb {
+  min-width: 0;
+}
+
+.page--device-dashboard .equipment-context__item--administrative .equipment-context__value {
+  align-self: flex-start;
+  background: #f8fafc;
+  border: 1px solid #cbd2d9;
+  border-radius: 3px;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+.page--device-dashboard #snapshot-strip {
+  min-height: 0;
+}
+
+.page--device-dashboard .metric-snapshot-strip {
+  gap: 1px;
+  margin-bottom: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+}
+
+.page--device-dashboard .snapshot-tile {
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+}
+
+.page--device-dashboard .snapshot-tile--active {
+  background: var(--color-accent-bg);
+  box-shadow: inset 0 -3px 0 var(--color-accent);
+}
+
+/* Keep the state scan compact on laptop/tablet widths. The generic snapshot
+   rules step down too aggressively at exactly 1024px for this grouped surface. */
+@media (max-width: 1199px) {
+  .page--device-dashboard .metric-snapshot-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.page--device-dashboard .snapshot-tile a:focus-visible,
+.page--device-dashboard .trend-cell__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.page--device-dashboard .device-telemetry {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--sp-5);
+}
+
+.page--device-dashboard .metric-controls {
+  align-items: end;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0;
+  padding: var(--sp-3);
+}
+
+.page--device-dashboard .metric-control {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.page--device-dashboard .metric-control > label,
+.page--device-dashboard .metric-control > legend {
+  color: var(--color-muted);
+  display: block;
+  float: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0 0 4px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.page--device-dashboard .metric-control--metric { flex: 0 1 240px; }
+.page--device-dashboard .metric-dropdown { min-width: 180px; }
+.page--device-dashboard .metric-dropdown .Select-control {
+  border-color: #aeb7c2;
+  border-radius: 3px;
+  box-shadow: none;
+  min-height: 36px;
+}
+.page--device-dashboard .metric-dropdown.is-focused .Select-control {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.page--device-dashboard .period-radio {
+  background: var(--color-surface);
+  border: 1px solid #aeb7c2;
+  border-radius: 3px;
+  display: inline-flex;
+  gap: 0;
+  overflow: hidden;
+}
+
+.page--device-dashboard .period-radio label {
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 58px;
+  padding: 0 10px;
+  position: relative;
+}
+.page--device-dashboard .period-radio label:last-child { border-right: 0; }
+.page--device-dashboard .period-radio label:has(input:checked) {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+.page--device-dashboard .period-radio input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+.page--device-dashboard .period-radio label:focus-within {
+  box-shadow: inset 0 0 0 2px #ffffff, inset 0 0 0 4px var(--color-accent);
+}
+
+.page--device-dashboard .device-chart-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.page--device-dashboard .chart-loading { margin-bottom: 0; }
+
+@media (min-width: 1200px) {
+  .page--device-dashboard .trend-grid {
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    gap: 1px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: hidden;
+  }
+  .page--device-dashboard .trend-cell { border: 0; border-radius: 0; }
+  .page--device-dashboard .trend-cell--selected {
+    box-shadow: inset 0 3px 0 var(--color-accent);
+  }
+}
+
+.page--device-dashboard .device-readings .readings-table-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+@media (max-width: 767px) {
+  .page--device-dashboard .device-section__heading--inline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .page--device-dashboard .equipment-context { gap: var(--sp-3); }
+  .page--device-dashboard .equipment-context__item:last-child {
+    margin-left: 0;
+    width: 100%;
+  }
+  .page--device-dashboard .equipment-context__item:last-child .equipment-context__value {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .page--device-dashboard .metric-controls { align-items: stretch; }
+  .page--device-dashboard .metric-control--metric,
+  .page--device-dashboard .metric-control--period,
+  .page--device-dashboard .metric-control--custom { flex: 1 1 100%; width: 100%; }
+  .page--device-dashboard .metric-dropdown { min-width: 0; }
+  .page--device-dashboard .period-radio { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .page--device-dashboard .period-radio label { min-width: 0; padding: 0 6px; }
+  .page--device-dashboard .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .page--device-dashboard .metric-snapshot-strip {
+    display: flex;
+    gap: 1px;
+    overflow-x: auto;
+    padding-bottom: 0;
+    scroll-snap-type: x mandatory;
+  }
+  .page--device-dashboard .snapshot-tile {
+    flex: 0 0 142px;
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 419px) {
+  .page--device-dashboard .device-current-state { padding: var(--sp-2); }
+  .page--device-dashboard .period-radio { grid-template-columns: repeat(2, 1fr); }
+  .page--device-dashboard .period-radio label:nth-child(2) { border-right: 0; }
+  .page--device-dashboard .period-radio label:nth-child(-n+2) { border-bottom: 1px solid var(--color-border); }
+}
+
+/* ===========================================================================
    Device Registration Form (Phase 4)
    ========================================================================== */
 
