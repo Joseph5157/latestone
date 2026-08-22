@@ -115,7 +115,7 @@ class TestHierarchy:
 
     def test_hierarchy_counts_cover_all_plants(self):
         with measure_time() as t:
-            counts = repo.count_hierarchy_by_plant()
+            counts = repo.count_hierarchy_by_plant(allowed_device_ids=None)
         assert len(counts) == 30
         assert sum(t for t, _ in counts.values()) == 71
         assert sum(d for _, d in counts.values()) == 120
@@ -342,7 +342,7 @@ class TestFleetFreshness:
         they must describe the same population — including the transformer-level
         status filter, which is easy to omit here and invisible while the seed
         holds no inactive rows."""
-        counts = repo.count_hierarchy_by_plant()
+        counts = repo.count_hierarchy_by_plant(allowed_device_ids=None)
         rows = repo.latest_reading_times(["temperature"])
         devices_per_plant = {}
         for r in rows:

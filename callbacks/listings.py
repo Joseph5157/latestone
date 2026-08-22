@@ -487,7 +487,7 @@ def register(app) -> None:
 
         def build():
             plants = hierarchy_service.list_plants(scope=scope)
-            counts = hierarchy_service.get_plant_hierarchy_counts()
+            counts = hierarchy_service.get_plant_hierarchy_counts(scope=scope)
             health = monitoring_service.get_fleet_health(rendered_at)
             cards.append(
                 fleet_kpi_cards(

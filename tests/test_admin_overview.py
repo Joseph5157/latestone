@@ -319,7 +319,7 @@ class TestDevicePopulations:
 
     def test_monitoring_counts_use_the_monitoring_device_population(self):
         # count_hierarchy_by_plant backs the Fleet Overview's device column.
-        counts = repo.count_hierarchy_by_plant()
+        counts = repo.count_hierarchy_by_plant(allowed_device_ids=None)
 
         assert sum(devices for _transformers, devices in counts.values()) == 3
 

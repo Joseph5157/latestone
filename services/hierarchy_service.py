@@ -87,13 +87,18 @@ def get_device_context(device_id: str) -> DevicePath | None:
     return repo.get_device_breadcrumb(device_id)
 
 
-def get_plant_hierarchy_counts(include_inactive: bool = False) -> dict[str, tuple[int, int]]:
-    """Counts matching what the drill-down pages actually list.
+def get_plant_hierarchy_counts(
+    *, scope: DeviceScope, include_inactive: bool = False
+) -> dict[str, tuple[int, int]]:
+    """Counts matching what the drill-down pages actually list, within scope.
 
-    The default must stay aligned with `list_transformers`/`list_devices`, or an
-    overview row will disagree with the page it opens.
+    The default must stay aligned with `list_transformers`/`list_devices`, or
+    an overview row will disagree with the page it opens — and now that
+    includes agreeing about scope.
     """
-    return repo.count_hierarchy_by_plant(include_inactive=include_inactive)
+    return repo.count_hierarchy_by_plant(
+        allowed_device_ids=scope.device_ids, include_inactive=include_inactive
+    )
 
 
 def list_all_devices(include_inactive: bool = False) -> list[AdminDeviceRow]:

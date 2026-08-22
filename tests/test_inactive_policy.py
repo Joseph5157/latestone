@@ -32,23 +32,23 @@ class TestCountsMatchListings:
     def test_counts_exclude_inactive_by_default(self, monkeypatch):
         seen = {}
 
-        def _count(include_inactive=False):
+        def _count(*, allowed_device_ids, include_inactive=False):
             seen["include_inactive"] = include_inactive
             return {}
 
         monkeypatch.setattr(hierarchy_service.repo, "count_hierarchy_by_plant", _count)
-        hierarchy_service.get_plant_hierarchy_counts()
+        hierarchy_service.get_plant_hierarchy_counts(scope=UNRESTRICTED)
         assert seen["include_inactive"] is False
 
     def test_counts_can_still_include_inactive_explicitly(self, monkeypatch):
         seen = {}
 
-        def _count(include_inactive=False):
+        def _count(*, allowed_device_ids, include_inactive=False):
             seen["include_inactive"] = include_inactive
             return {}
 
         monkeypatch.setattr(hierarchy_service.repo, "count_hierarchy_by_plant", _count)
-        hierarchy_service.get_plant_hierarchy_counts(include_inactive=True)
+        hierarchy_service.get_plant_hierarchy_counts(scope=UNRESTRICTED, include_inactive=True)
         assert seen["include_inactive"] is True
 
     def test_listing_and_counting_share_one_default(self, monkeypatch):

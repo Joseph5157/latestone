@@ -324,7 +324,9 @@ def get_device_breadcrumb(device_id: str) -> DevicePath | None:
     return DevicePath(*row) if row else None
 
 
-def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[int, int]]:
+def count_hierarchy_by_plant(
+    *, allowed_device_ids: frozenset[str] | None, include_inactive: bool = False
+) -> dict[str, tuple[int, int]]:
     """Returns {plant_id: (transformer_count, device_count)}.
 
     Counts **Monitoring Devices** — active devices under active transformers.
@@ -340,26 +342,46 @@ def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[
     The filters sit in the JOIN, not a WHERE clause: moving them to WHERE would
     turn the LEFT JOINs inner and drop plants that have no active equipment
     from the overview entirely.
+
+    SCOPE IS APPLIED BEFORE AGGREGATION (ROLE-3 invariant 4). The constraint
+    sits in the device JOIN and in a plant-level EXISTS, so a scoped caller
+    receives counts of what they may see rather than fleet counts trimmed
+    afterwards. A plant with no visible device drops out entirely — unlike the
+    status filters, which deliberately keep such plants at zero, because a
+    plant outside your scope is not a plant of yours that happens to be empty.
     """
     status_filter = "" if include_inactive else " AND t.status = :active"
     device_filter = "" if include_inactive else " AND d.status = :active"
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+
+    plant_filter = ""
+    if scope_sql:
+        plant_filter = (
+            f" WHERE EXISTS (SELECT 1 FROM {_SCHEMA}.transformers t2 "
+            f"JOIN {_SCHEMA}.devices d ON d.transformer_id = t2.transformer_id "
+            f"WHERE t2.plant_id = p.plant_id{scope_sql})"
+        )
+
+    params = {"active": ACTIVE_STATUS, **scope_params}
+    statement = _scoped(
+        text(
+            f"""
+            SELECT p.plant_id,
+                   COUNT(DISTINCT t.transformer_id) AS transformers,
+                   COUNT(d.device_id)               AS devices
+            FROM {_SCHEMA}.plants p
+            LEFT JOIN {_SCHEMA}.transformers t
+                   ON t.plant_id = p.plant_id{status_filter}
+            LEFT JOIN {_SCHEMA}.devices d
+                   ON d.transformer_id = t.transformer_id{device_filter}{scope_sql}
+            {plant_filter}
+            GROUP BY p.plant_id
+            """
+        ),
+        allowed_device_ids,
+    )
     with session_scope() as session:
-        rows = session.execute(
-            text(
-                f"""
-                SELECT p.plant_id,
-                       COUNT(DISTINCT t.transformer_id) AS transformers,
-                       COUNT(d.device_id)               AS devices
-                FROM {_SCHEMA}.plants p
-                LEFT JOIN {_SCHEMA}.transformers t
-                       ON t.plant_id = p.plant_id{status_filter}
-                LEFT JOIN {_SCHEMA}.devices d
-                       ON d.transformer_id = t.transformer_id{device_filter}
-                GROUP BY p.plant_id
-                """
-            ),
-            {"active": ACTIVE_STATUS},
-        ).all()
+        rows = session.execute(statement, params).all()
     return {r[0]: (r[1], r[2]) for r in rows}
 
 

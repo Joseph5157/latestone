@@ -22,6 +22,7 @@ SCOPED_REPOSITORY_FUNCTIONS = [
     "list_devices",
     "list_plants",
     "list_transformers",
+    "count_hierarchy_by_plant",
 ]
 
 #: Service functions that carry a DeviceScope down to them.
@@ -29,6 +30,7 @@ SCOPED_SERVICE_FUNCTIONS = [
     "list_devices",
     "list_plants",
     "list_transformers",
+    "get_plant_hierarchy_counts",
 ]
 
 

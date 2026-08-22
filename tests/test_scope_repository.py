@@ -205,3 +205,21 @@ def test_list_transformers_constrained_to_those_holding_a_visible_device():
 def test_list_transformers_empty_scope_returns_nothing():
     _seed_tree("sc-p10", "sc-p10-t1", ["sc-p10-d1"])
     assert repo.list_transformers("sc-p10", allowed_device_ids=frozenset()) == []
+
+
+def test_hierarchy_counts_are_computed_over_the_visible_population():
+    """Invariant 4: filtered before aggregation, not trimmed after."""
+    _seed_tree("sc-p11", "sc-p11-t1", ["sc-c1", "sc-c2", "sc-c3"])
+
+    counts = repo.count_hierarchy_by_plant(
+        allowed_device_ids=frozenset({"sc-c1"})
+    )
+
+    transformers, devices = counts["sc-p11"]
+    assert devices == 1, "count must reflect the visible device, not all three"
+    assert transformers == 1
+
+
+def test_hierarchy_counts_empty_scope_yields_no_plants():
+    _seed_tree("sc-p12", "sc-p12-t1", ["sc-c9"])
+    assert repo.count_hierarchy_by_plant(allowed_device_ids=frozenset()) == {}
