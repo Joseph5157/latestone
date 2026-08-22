@@ -199,12 +199,28 @@ def _scoped(statement, allowed_device_ids):
     )
 
 
-def list_plants() -> list[PlantRecord]:
+def list_plants(*, allowed_device_ids: frozenset[str] | None) -> list[PlantRecord]:
+    """Plants, constrained to those holding at least one visible device.
+
+    The constraint is an EXISTS rather than a join so a plant is never
+    duplicated by the number of matching devices beneath it.
+    """
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    where = ""
+    if scope_sql:
+        where = (
+            f" WHERE EXISTS (SELECT 1 FROM {_SCHEMA}.transformers t "
+            f"JOIN {_SCHEMA}.devices d ON d.transformer_id = t.transformer_id "
+            f"WHERE t.plant_id = p.plant_id{scope_sql})"
+        )
+    statement = _scoped(
+        text(f"SELECT p.plant_id, p.name, p.country, p.latitude, p.longitude, "
+             f"p.capacity_mw, p.primary_fuel, p.status "
+             f"FROM {_SCHEMA}.plants p{where} ORDER BY p.name"),
+        allowed_device_ids,
+    )
     with session_scope() as session:
-        rows = session.execute(
-            text(f"SELECT plant_id, name, country, latitude, longitude, "
-                 f"capacity_mw, primary_fuel, status FROM {_SCHEMA}.plants ORDER BY name")
-        ).all()
+        rows = session.execute(statement, scope_params).all()
     return [_to_plant(r) for r in rows]
 
 
@@ -219,13 +235,28 @@ def get_plant(plant_id: str) -> PlantRecord | None:
     return _to_plant(row) if row else None
 
 
-def list_transformers(plant_id: str) -> list[TransformerRecord]:
+def list_transformers(
+    plant_id: str, *, allowed_device_ids: frozenset[str] | None
+) -> list[TransformerRecord]:
+    """Transformers under one plant, constrained to those holding at least
+    one visible device."""
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    extra = ""
+    if scope_sql:
+        extra = (
+            f" AND EXISTS (SELECT 1 FROM {_SCHEMA}.devices d "
+            f"WHERE d.transformer_id = t.transformer_id{scope_sql})"
+        )
+    statement = _scoped(
+        text(f"SELECT t.transformer_id, t.plant_id, t.transformer_code, t.status "
+             f"FROM {_SCHEMA}.transformers t "
+             f"WHERE t.plant_id = :plant_id{extra} "
+             f"ORDER BY t.transformer_code"),
+        allowed_device_ids,
+    )
     with session_scope() as session:
         rows = session.execute(
-            text(f"SELECT transformer_id, plant_id, transformer_code, status "
-                 f"FROM {_SCHEMA}.transformers WHERE plant_id = :plant_id "
-                 f"ORDER BY transformer_code"),
-            {"plant_id": plant_id},
+            statement, {"plant_id": plant_id, **scope_params}
         ).all()
     return [_to_transformer(r) for r in rows]
 

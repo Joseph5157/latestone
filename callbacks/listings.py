@@ -360,7 +360,7 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime, *, scope: Devi
     which devices are visible.
     """
     plant = hierarchy_service.get_plant_or_none(plant_id)
-    transformers = hierarchy_service.list_transformers(plant_id)
+    transformers = hierarchy_service.list_transformers(plant_id, scope=scope)
     device_counts = {
         t.transformer_id: len(
             hierarchy_service.list_devices(t.transformer_id, scope=scope)
@@ -461,9 +461,10 @@ def register(app) -> None:
         Output("fleet-subtitle", "children"),
         Output("fleet-refreshed", "children"),
         Input("page-context", "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_overview(context):
+    def populate_overview(context, auth_data):
         if not context or context.get("route") != "overview":
             return (no_update,) * 9
 
@@ -471,6 +472,8 @@ def register(app) -> None:
         # the freshness computation and the header, so the stamp cannot name a
         # moment different from the one the rows were evaluated at.
         rendered_at = datetime.now(timezone.utc)
+        # Resolved once for the whole render — same reasoning as `rendered_at`.
+        scope = scope_from_session(auth_data)
         subtitle = []
 
         # One fetch, one FleetHealth, every output derived from it. Building the
@@ -483,7 +486,7 @@ def register(app) -> None:
         attention = []
 
         def build():
-            plants = hierarchy_service.list_plants()
+            plants = hierarchy_service.list_plants(scope=scope)
             counts = hierarchy_service.get_plant_hierarchy_counts()
             health = monitoring_service.get_fleet_health(rendered_at)
             cards.append(

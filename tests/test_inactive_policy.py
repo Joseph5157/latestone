@@ -18,6 +18,7 @@ import pytest
 from components.status_panels import inactive_notice
 from pages import device_dashboard, plant_detail, transformer_detail
 from services import hierarchy_service
+from services.device_scope import UNRESTRICTED
 
 from tests.dash_tree import find_by_class, text_of
 
@@ -56,8 +57,12 @@ class TestCountsMatchListings:
             _Rec(transformer_id="t1", transformer_code="T1", status="active"),
             _Rec(transformer_id="t2", transformer_code="T2", status="inactive"),
         ]
-        monkeypatch.setattr(hierarchy_service.repo, "list_transformers", lambda p: transformers)
-        listed = hierarchy_service.list_transformers("plant-01")
+        monkeypatch.setattr(
+            hierarchy_service.repo,
+            "list_transformers",
+            lambda p, *, allowed_device_ids: transformers,
+        )
+        listed = hierarchy_service.list_transformers("plant-01", scope=UNRESTRICTED)
         assert len(listed) == 1, "listing must exclude inactive by default"
 
 

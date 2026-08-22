@@ -26,7 +26,7 @@ from components.assign_device_drawer import (
     ASSIGN_CANCEL_BTN,
 )
 from routes import parse_assign_request
-from services import hierarchy_service, prototype_assignments
+from services import device_scope, hierarchy_service, prototype_assignments
 from services.prototype_users import get_technician_options
 
 logger = logging.getLogger(__name__)
@@ -116,18 +116,26 @@ def assign_drawer_open_state(row: dict | None):
 
 
 def _plant_options() -> list[dict]:
+    # Administration surface: the device-management population is deliberately
+    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
+    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
     return [
         {"label": p.name, "value": p.plant_id}
-        for p in hierarchy_service.list_plants()
+        for p in hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
     ]
 
 
 def _transformer_options(plant_id: str) -> list[dict]:
     if not plant_id:
         return []
+    # Administration surface: the device-management population is deliberately
+    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
+    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
     return [
         {"label": t.transformer_code, "value": t.transformer_id}
-        for t in hierarchy_service.list_transformers(plant_id)
+        for t in hierarchy_service.list_transformers(
+            plant_id, scope=device_scope.UNRESTRICTED
+        )
     ]
 
 

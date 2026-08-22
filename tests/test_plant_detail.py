@@ -197,7 +197,10 @@ def _stub_hierarchy(monkeypatch, plant=None, transformers=(), devices_by_transfo
     from repositories import plant_monitoring_repository as repo
 
     monkeypatch.setattr(repo, "get_plant", lambda plant_id: plant)
-    monkeypatch.setattr(repo, "list_transformers", lambda plant_id: list(transformers))
+    monkeypatch.setattr(
+        repo, "list_transformers",
+        lambda plant_id, *, allowed_device_ids: list(transformers),
+    )
     by_transformer = devices_by_transformer or {}
     monkeypatch.setattr(
         repo, "list_devices",

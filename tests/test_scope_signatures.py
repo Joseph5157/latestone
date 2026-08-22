@@ -20,11 +20,15 @@ from services import hierarchy_service
 #: Repository functions whose results depend on which RTLs are visible.
 SCOPED_REPOSITORY_FUNCTIONS = [
     "list_devices",
+    "list_plants",
+    "list_transformers",
 ]
 
 #: Service functions that carry a DeviceScope down to them.
 SCOPED_SERVICE_FUNCTIONS = [
     "list_devices",
+    "list_plants",
+    "list_transformers",
 ]
 
 

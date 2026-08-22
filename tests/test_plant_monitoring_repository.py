@@ -43,7 +43,7 @@ ALL_METRIC_KEYS = [
 class TestHierarchy:
     def test_lists_thirty_plants(self):
         with measure_time() as t:
-            plants = repo.list_plants()
+            plants = repo.list_plants(allowed_device_ids=None)
         assert len(plants) == 30
         t.row_count = len(plants)
         assert_timing(t, BUDGET_LIST_PLANTS, min_rows=30)
@@ -64,7 +64,7 @@ class TestHierarchy:
 
     def test_transformers_belong_to_requested_plant(self):
         with measure_time() as t:
-            transformers = repo.list_transformers("plant-01")
+            transformers = repo.list_transformers("plant-01", allowed_device_ids=None)
         assert transformers
         assert all(t.plant_id == "plant-01" for t in transformers)
         t.row_count = len(transformers)
@@ -72,7 +72,10 @@ class TestHierarchy:
 
     def test_total_transformers_is_71(self):
         with measure_time() as t:
-            total = sum(len(repo.list_transformers(p.plant_id)) for p in repo.list_plants())
+            total = sum(
+                len(repo.list_transformers(p.plant_id, allowed_device_ids=None))
+                for p in repo.list_plants(allowed_device_ids=None)
+            )
         assert total == 71
         t.row_count = total
         assert_timing(t, BUDGET_LIST_TRANSFORMERS * 30)
@@ -431,7 +434,7 @@ class TestLatestMetricReadings:
 
         expected = {
             d.device_id
-            for t in hierarchy_service.list_transformers(self.PLANT)
+            for t in hierarchy_service.list_transformers(self.PLANT, scope=UNRESTRICTED)
             for d in hierarchy_service.list_devices(t.transformer_id, scope=UNRESTRICTED)
         }
         actual = {

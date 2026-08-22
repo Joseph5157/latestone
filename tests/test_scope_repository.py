@@ -161,3 +161,47 @@ def test_scope_narrows_but_never_widens_past_the_status_filter():
             "sc-p5b-t1", scope=scope, include_inactive=True
         )
     ] == ["sc-inact"]
+
+
+def test_list_plants_constrained_to_plants_holding_a_visible_device():
+    _seed_tree("sc-p6", "sc-p6-t1", ["sc-p6-d1"])
+    _seed_tree("sc-p7", "sc-p7-t1", ["sc-p7-d1"])
+
+    rows = repo.list_plants(allowed_device_ids=frozenset({"sc-p6-d1"}))
+    plant_ids = [r.plant_id for r in rows]
+
+    assert "sc-p6" in plant_ids
+    assert "sc-p7" not in plant_ids
+
+
+def test_list_plants_empty_scope_returns_nothing():
+    _seed_tree("sc-p8", "sc-p8-t1", ["sc-p8-d1"])
+    assert repo.list_plants(allowed_device_ids=frozenset()) == []
+
+
+def test_list_transformers_constrained_to_those_holding_a_visible_device():
+    _seed_tree("sc-p9", "sc-p9-t1", ["sc-p9-d1"])
+    with session_scope() as session:
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.transformers "
+                f"(transformer_id, plant_id, transformer_code) "
+                f"VALUES ('sc-p9-t2', 'sc-p9', 't2') ON CONFLICT DO NOTHING"
+            )
+        )
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.devices "
+                f"(device_id, transformer_id, device_code) "
+                f"VALUES ('sc-p9-d2', 'sc-p9-t2', 'd2') ON CONFLICT DO NOTHING"
+            )
+        )
+
+    rows = repo.list_transformers("sc-p9", allowed_device_ids=frozenset({"sc-p9-d1"}))
+
+    assert [r.transformer_id for r in rows] == ["sc-p9-t1"]
+
+
+def test_list_transformers_empty_scope_returns_nothing():
+    _seed_tree("sc-p10", "sc-p10-t1", ["sc-p10-d1"])
+    assert repo.list_transformers("sc-p10", allowed_device_ids=frozenset()) == []

@@ -24,12 +24,26 @@ def _active_only(records: list, include_inactive: bool) -> list:
     return records if include_inactive else [r for r in records if r.status == ACTIVE]
 
 
-def list_plants(include_inactive: bool = False) -> list[PlantRecord]:
-    return _active_only(repo.list_plants(), include_inactive)
+def list_plants(
+    *, scope: DeviceScope, include_inactive: bool = False
+) -> list[PlantRecord]:
+    """Plants within the caller's scope.
+
+    Scope and `include_inactive` are independent filters and both apply.
+    """
+    return _active_only(
+        repo.list_plants(allowed_device_ids=scope.device_ids), include_inactive
+    )
 
 
-def list_transformers(plant_id: str, include_inactive: bool = False) -> list[TransformerRecord]:
-    return _active_only(repo.list_transformers(plant_id), include_inactive)
+def list_transformers(
+    plant_id: str, *, scope: DeviceScope, include_inactive: bool = False
+) -> list[TransformerRecord]:
+    """Transformers under one plant, within the caller's scope."""
+    return _active_only(
+        repo.list_transformers(plant_id, allowed_device_ids=scope.device_ids),
+        include_inactive,
+    )
 
 
 def list_devices(

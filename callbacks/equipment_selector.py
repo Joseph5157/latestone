@@ -57,19 +57,26 @@ def plant_options(auth_data) -> list[dict]:
     """
     if not _is_authenticated(auth_data):
         return []
-    return [{"label": p.name, "value": p.plant_id} for p in hierarchy_service.list_plants()]
+    scope = scope_from_session(auth_data)
+    return [
+        {"label": p.name, "value": p.plant_id}
+        for p in hierarchy_service.list_plants(scope=scope)
+    ]
 
 
-def transformer_options(plant_id) -> tuple[list[dict], bool, None]:
+def transformer_options(plant_id, scope: DeviceScope) -> tuple[list[dict], bool, None]:
     """Options, disabled-state, and a cleared value for the transformer field.
 
     The value is always reset: keeping a transformer from the previous plant
     selected would let the device field navigate somewhere the user did not
     pick.
+
+    `scope` is resolved once by the enclosing callback and passed down, not
+    re-resolved here.
     """
     if not plant_id:
         return [], True, None
-    transformers = hierarchy_service.list_transformers(plant_id)
+    transformers = hierarchy_service.list_transformers(plant_id, scope=scope)
     options = [{"label": t.transformer_code, "value": t.transformer_id} for t in transformers]
     return options, False, None
 
@@ -130,11 +137,12 @@ def register(app) -> None:
         Output(TRANSFORMER_ID, "disabled"),
         Output(TRANSFORMER_ID, "value"),
         Input(PLANT_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def _populate_transformers(plant_id):
+    def _populate_transformers(plant_id, auth_data):
         try:
-            return transformer_options(plant_id)
+            return transformer_options(plant_id, scope_from_session(auth_data))
         except Exception:
             logger.exception("Equipment selector failed for plant_id=%r", plant_id)
             return [], True, None

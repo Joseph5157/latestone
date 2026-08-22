@@ -163,7 +163,7 @@ class TestPlantOptionsAuthGate:
         monkeypatch.setattr(
             sel.hierarchy_service,
             "list_plants",
-            lambda: [_plant("p1", "Alpha"), _plant("p2", "Beta")],
+            lambda *, scope: [_plant("p1", "Alpha"), _plant("p2", "Beta")],
         )
         assert sel.plant_options({"authenticated": True}) == [
             {"label": "Alpha", "value": "p1"},
@@ -177,16 +177,16 @@ class TestPlantOptionsAuthGate:
 
 class TestCascade:
     def test_transformers_disabled_until_a_plant_is_chosen(self):
-        options, disabled, value = sel.transformer_options(None)
+        options, disabled, value = sel.transformer_options(None, UNRESTRICTED)
         assert (options, disabled, value) == ([], True, None)
 
     def test_transformers_listed_for_a_plant(self, monkeypatch):
         monkeypatch.setattr(
             sel.hierarchy_service,
             "list_transformers",
-            lambda plant_id: [_transformer("p1-t1", "T1")],
+            lambda plant_id, *, scope: [_transformer("p1-t1", "T1")],
         )
-        options, disabled, value = sel.transformer_options("p1")
+        options, disabled, value = sel.transformer_options("p1", UNRESTRICTED)
         assert options == [{"label": "T1", "value": "p1-t1"}]
         assert disabled is False
         assert value is None, "changing plant must clear the stale transformer"
@@ -208,7 +208,7 @@ class TestCascade:
 
     def test_clearing_the_plant_collapses_the_whole_cascade(self, monkeypatch):
         """plant -> None must not leave a selectable device behind."""
-        _, _, transformer_value = sel.transformer_options(None)
+        _, _, transformer_value = sel.transformer_options(None, UNRESTRICTED)
         _, device_disabled, device_value = sel.device_options(transformer_value, UNRESTRICTED)
         assert device_disabled is True
         assert device_value is None
