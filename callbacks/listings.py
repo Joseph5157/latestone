@@ -29,6 +29,8 @@ from config.metrics import ATTRIBUTION_METRIC_KEY
 from components.freshness_badge import format_last_reading
 from routes import device_href
 from services import admin_overview_service, hierarchy_service, monitoring_service
+from services.auth_service import from_session
+from services.authorization import VIEW_ADMINISTRATION_OVERVIEW, may_perform_capability
 from services.device_scope import DeviceScope, scope_from_session
 from services.monitoring_service import Freshness, aggregate_freshness, reading_age, severity_rank
 
@@ -321,6 +323,39 @@ def admin_summary_output(now: datetime):
         return None
 
 
+def administration_section(auth_data, rendered_at: datetime):
+    """The Administration block, or None when the role may not see it.
+
+    Gated on an explicit CAPABILITY rather than on
+    `may_access_route(role, "admin_devices")`. Those two questions — may this
+    user enter Device Management, and may this user see Administration
+    overview content — happen to have the same answer today and may diverge.
+    Navigation is derived from routes because it is the same question viewed
+    twice; page content is not.
+
+    Role comes from `from_session`, the same validation the router uses, so a
+    tampered or pre-ROLE-1 payload fails this check for the same reason it
+    fails a route check. Reading `auth_data["role"]` directly would accept a
+    store that carries a role and no identity at all.
+
+    Returns None WITHOUT calling `admin_summary_output`, so a denied role
+    issues no administration query at all — the section is skipped, not built
+    and discarded. That distinction is invisible in the rendered output,
+    because `admin_summary_output` also returns None when its query fails,
+    which is why the tests assert on the query rather than on the markup.
+
+    NOT NARROWED BY DEVICE SCOPE. These figures count Managed RTLs across the
+    whole estate. This is administrator-only content about the entire fleet,
+    and passing a ROLE-3 scope here would silently change what the counts
+    mean without changing their labels.
+    """
+    user = from_session(auth_data)
+    role = user.role if user else None
+    if not may_perform_capability(role, VIEW_ADMINISTRATION_OVERVIEW):
+        return None
+    return admin_summary_output(rendered_at)
+
+
 # --------------------------------------------------------------------------
 # Plant / Transformer detail data (Phase 5)
 #
@@ -504,7 +539,11 @@ def register(app) -> None:
             # this page. These count Managed RTLs — a different population from
             # the Devices card built above, which counts Monitoring Devices.
             # The two are labelled, never reconciled; see admin_overview_service.
-            admin.append(admin_summary_output(rendered_at))
+            #
+            # Administrator-only content: `administration_section` returns None
+            # for every other role WITHOUT issuing the query, so a denied role
+            # does no administration work on the way to seeing nothing.
+            admin.append(administration_section(auth_data, rendered_at))
             attention.append(
                 needs_attention(
                     build_needs_attention_rows(plants, health, rendered_at)
