@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import String, bindparam, text
 
 from config.settings import monitoring
 from db.engine import session_scope
@@ -156,12 +156,71 @@ _DEVICE_COLUMNS = (
 # Hierarchy queries
 # ---------------------------------------------------------------------------
 
-def list_plants() -> list[PlantRecord]:
+#: The bound parameter name every scoped query uses. One name, so the
+#: expanding bindparam is declared identically everywhere.
+_SCOPE_PARAM = "allowed_device_ids"
+
+
+def _scope_clause(alias: str, allowed_device_ids) -> tuple[str, dict]:
+    """SQL fragment and params constraining `<alias>.device_id` to a set.
+
+    ROLE-BLIND BY CONSTRUCTION. This understands "restrict to these device
+    ids" and nothing else — not what a technician is, not why a device is in
+    scope, not that assignments exist. Scope semantics live in
+    services/device_scope.py.
+
+    `None` means unrestricted and produces no SQL. An EMPTY frozenset is a
+    real constraint that matches nothing, and the difference between the two
+    is load-bearing: collapsing them would hand an unassigned technician the
+    whole fleet.
+    """
+    if allowed_device_ids is None:
+        return "", {}
+    return (
+        f" AND {alias}.device_id IN :{_SCOPE_PARAM}",
+        {_SCOPE_PARAM: list(allowed_device_ids)},
+    )
+
+
+def _scoped(statement, allowed_device_ids):
+    """Declare the expanding bindparam when the statement is constrained.
+
+    `type_=String` is required, not decorative: device ids are varchar, and
+    when `allowed_device_ids` is empty SQLAlchemy has no values to infer a
+    type from, so an untyped expanding bindparam defaults to Integer and
+    renders `IN (SELECT CAST(NULL AS INTEGER) WHERE 1!=1)` — a type mismatch
+    against a varchar column on Postgres. That failure mode only surfaces
+    when the empty-set case actually executes against real SQL.
+    """
+    if allowed_device_ids is None:
+        return statement
+    return statement.bindparams(
+        bindparam(_SCOPE_PARAM, expanding=True, type_=String)
+    )
+
+
+def list_plants(*, allowed_device_ids: frozenset[str] | None) -> list[PlantRecord]:
+    """Plants, constrained to those holding at least one visible device.
+
+    The constraint is an EXISTS rather than a join so a plant is never
+    duplicated by the number of matching devices beneath it.
+    """
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    where = ""
+    if scope_sql:
+        where = (
+            f" WHERE EXISTS (SELECT 1 FROM {_SCHEMA}.transformers t "
+            f"JOIN {_SCHEMA}.devices d ON d.transformer_id = t.transformer_id "
+            f"WHERE t.plant_id = p.plant_id{scope_sql})"
+        )
+    statement = _scoped(
+        text(f"SELECT p.plant_id, p.name, p.country, p.latitude, p.longitude, "
+             f"p.capacity_mw, p.primary_fuel, p.status "
+             f"FROM {_SCHEMA}.plants p{where} ORDER BY p.name"),
+        allowed_device_ids,
+    )
     with session_scope() as session:
-        rows = session.execute(
-            text(f"SELECT plant_id, name, country, latitude, longitude, "
-                 f"capacity_mw, primary_fuel, status FROM {_SCHEMA}.plants ORDER BY name")
-        ).all()
+        rows = session.execute(statement, scope_params).all()
     return [_to_plant(r) for r in rows]
 
 
@@ -176,13 +235,28 @@ def get_plant(plant_id: str) -> PlantRecord | None:
     return _to_plant(row) if row else None
 
 
-def list_transformers(plant_id: str) -> list[TransformerRecord]:
+def list_transformers(
+    plant_id: str, *, allowed_device_ids: frozenset[str] | None
+) -> list[TransformerRecord]:
+    """Transformers under one plant, constrained to those holding at least
+    one visible device."""
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    extra = ""
+    if scope_sql:
+        extra = (
+            f" AND EXISTS (SELECT 1 FROM {_SCHEMA}.devices d "
+            f"WHERE d.transformer_id = t.transformer_id{scope_sql})"
+        )
+    statement = _scoped(
+        text(f"SELECT t.transformer_id, t.plant_id, t.transformer_code, t.status "
+             f"FROM {_SCHEMA}.transformers t "
+             f"WHERE t.plant_id = :plant_id{extra} "
+             f"ORDER BY t.transformer_code"),
+        allowed_device_ids,
+    )
     with session_scope() as session:
         rows = session.execute(
-            text(f"SELECT transformer_id, plant_id, transformer_code, status "
-                 f"FROM {_SCHEMA}.transformers WHERE plant_id = :plant_id "
-                 f"ORDER BY transformer_code"),
-            {"plant_id": plant_id},
+            statement, {"plant_id": plant_id, **scope_params}
         ).all()
     return [_to_transformer(r) for r in rows]
 
@@ -197,13 +271,27 @@ def get_transformer(transformer_id: str) -> TransformerRecord | None:
     return _to_transformer(row) if row else None
 
 
-def list_devices(transformer_id: str) -> list[DeviceRecord]:
+def list_devices(
+    transformer_id: str, *, allowed_device_ids: frozenset[str] | None
+) -> list[DeviceRecord]:
+    """Devices under one transformer, constrained to a visible set.
+
+    `allowed_device_ids` is keyword-only and undefaulted on purpose: a default
+    of None would let an omitted argument silently return the whole
+    transformer, which is a fail-open seam wearing the costume of a safe
+    default (ROLE-3 invariant 8).
+    """
+    scope_sql, scope_params = _scope_clause("devices", allowed_device_ids)
+    statement = _scoped(
+        text(f"SELECT {_DEVICE_COLUMNS} "
+             f"FROM {_SCHEMA}.devices AS devices "
+             f"WHERE devices.transformer_id = :transformer_id{scope_sql} "
+             f"ORDER BY devices.device_code"),
+        allowed_device_ids,
+    )
     with session_scope() as session:
         rows = session.execute(
-            text(f"SELECT {_DEVICE_COLUMNS} "
-                 f"FROM {_SCHEMA}.devices WHERE transformer_id = :transformer_id "
-                 f"ORDER BY device_code"),
-            {"transformer_id": transformer_id},
+            statement, {"transformer_id": transformer_id, **scope_params}
         ).all()
     return [_to_device(r) for r in rows]
 
@@ -236,7 +324,9 @@ def get_device_breadcrumb(device_id: str) -> DevicePath | None:
     return DevicePath(*row) if row else None
 
 
-def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[int, int]]:
+def count_hierarchy_by_plant(
+    *, allowed_device_ids: frozenset[str] | None, include_inactive: bool = False
+) -> dict[str, tuple[int, int]]:
     """Returns {plant_id: (transformer_count, device_count)}.
 
     Counts **Monitoring Devices** — active devices under active transformers.
@@ -252,26 +342,60 @@ def count_hierarchy_by_plant(include_inactive: bool = False) -> dict[str, tuple[
     The filters sit in the JOIN, not a WHERE clause: moving them to WHERE would
     turn the LEFT JOINs inner and drop plants that have no active equipment
     from the overview entirely.
+
+    SCOPE IS APPLIED BEFORE AGGREGATION (ROLE-3 invariant 4). The constraint
+    sits in the transformer JOIN, the device JOIN, and a plant-level EXISTS,
+    so a scoped caller receives counts of what they may see rather than fleet
+    counts trimmed afterwards. The transformer JOIN needs its own EXISTS
+    (against a distinct `d2` alias) because a transformer whose only devices
+    are out of scope must not be counted either — without it, that
+    transformer survives via its own status-filtered row (device columns
+    NULL from the LEFT JOIN) and inflates COUNT(DISTINCT t.transformer_id)
+    past what list_transformers would actually list for the same scope. A
+    plant with no visible device drops out entirely — unlike the status
+    filters, which deliberately keep such plants at zero, because a plant
+    outside your scope is not a plant of yours that happens to be empty.
     """
     status_filter = "" if include_inactive else " AND t.status = :active"
     device_filter = "" if include_inactive else " AND d.status = :active"
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+
+    tx_scope_sql, _ = _scope_clause("d2", allowed_device_ids)
+    transformer_filter = ""
+    if tx_scope_sql:
+        transformer_filter = (
+            f" AND EXISTS (SELECT 1 FROM {_SCHEMA}.devices d2 "
+            f"WHERE d2.transformer_id = t.transformer_id{tx_scope_sql})"
+        )
+
+    plant_filter = ""
+    if scope_sql:
+        plant_filter = (
+            f" WHERE EXISTS (SELECT 1 FROM {_SCHEMA}.transformers t2 "
+            f"JOIN {_SCHEMA}.devices d ON d.transformer_id = t2.transformer_id "
+            f"WHERE t2.plant_id = p.plant_id{scope_sql})"
+        )
+
+    params = {"active": ACTIVE_STATUS, **scope_params}
+    statement = _scoped(
+        text(
+            f"""
+            SELECT p.plant_id,
+                   COUNT(DISTINCT t.transformer_id) AS transformers,
+                   COUNT(d.device_id)               AS devices
+            FROM {_SCHEMA}.plants p
+            LEFT JOIN {_SCHEMA}.transformers t
+                   ON t.plant_id = p.plant_id{status_filter}{transformer_filter}
+            LEFT JOIN {_SCHEMA}.devices d
+                   ON d.transformer_id = t.transformer_id{device_filter}{scope_sql}
+            {plant_filter}
+            GROUP BY p.plant_id
+            """
+        ),
+        allowed_device_ids,
+    )
     with session_scope() as session:
-        rows = session.execute(
-            text(
-                f"""
-                SELECT p.plant_id,
-                       COUNT(DISTINCT t.transformer_id) AS transformers,
-                       COUNT(d.device_id)               AS devices
-                FROM {_SCHEMA}.plants p
-                LEFT JOIN {_SCHEMA}.transformers t
-                       ON t.plant_id = p.plant_id{status_filter}
-                LEFT JOIN {_SCHEMA}.devices d
-                       ON d.transformer_id = t.transformer_id{device_filter}
-                GROUP BY p.plant_id
-                """
-            ),
-            {"active": ACTIVE_STATUS},
-        ).all()
+        rows = session.execute(statement, params).all()
     return {r[0]: (r[1], r[2]) for r in rows}
 
 
@@ -343,7 +467,10 @@ class LatestReadingRow:
 
 
 def latest_reading_times(
-    metrics: list[str], include_inactive: bool = False
+    metrics: list[str],
+    *,
+    allowed_device_ids: frozenset[str] | None,
+    include_inactive: bool = False,
 ) -> list[LatestReadingRow]:
     """Newest reading per (device, metric) across the whole fleet, in one query.
 
@@ -368,6 +495,15 @@ def latest_reading_times(
 
     `metrics` is passed in rather than read from config so this layer stays
     free of presentation concerns.
+
+    SCOPE IS APPLIED PER-ROW, NOT AGGREGATED (ROLE-3 invariant 4). This query
+    is device-grained — one row per (device, metric), no GROUP BY, no COUNT —
+    so constraining `d.device_id` here is already the correct grain; unlike
+    `count_hierarchy_by_plant`, no separate EXISTS is needed at a coarser
+    level. Every rollup (fleet health, the health distribution bar, Needs
+    Attention, the Notification Center) is built from these rows in Python,
+    so a caller that gets this constraint wrong shows freshness figures for a
+    different population than the counts on the same screen.
     """
     if not metrics:
         return []
@@ -388,28 +524,33 @@ def latest_reading_times(
     if not include_inactive:
         params["active"] = ACTIVE_STATUS
 
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    params.update(scope_params)
+
+    statement = _scoped(
+        text(
+            f"""
+            SELECT t.plant_id, t.transformer_id, d.device_id,
+                   m.metric, latest.reading_ts
+            FROM {_SCHEMA}.devices d
+            JOIN {_SCHEMA}.transformers t
+              ON t.transformer_id = d.transformer_id
+            CROSS JOIN (VALUES {values}) AS m(metric)
+            LEFT JOIN LATERAL (
+                SELECT rr.reading_ts
+                FROM {_SCHEMA}.readings rr
+                WHERE rr.device_id = d.device_id AND rr.metric = m.metric
+                ORDER BY rr.reading_ts DESC
+                LIMIT 1
+            ) latest ON TRUE
+            WHERE TRUE{status_filter}{scope_sql}
+            """
+        ),
+        allowed_device_ids,
+    )
+
     with session_scope() as session:
-        rows = session.execute(
-            text(
-                f"""
-                SELECT t.plant_id, t.transformer_id, d.device_id,
-                       m.metric, latest.reading_ts
-                FROM {_SCHEMA}.devices d
-                JOIN {_SCHEMA}.transformers t
-                  ON t.transformer_id = d.transformer_id
-                CROSS JOIN (VALUES {values}) AS m(metric)
-                LEFT JOIN LATERAL (
-                    SELECT rr.reading_ts
-                    FROM {_SCHEMA}.readings rr
-                    WHERE rr.device_id = d.device_id AND rr.metric = m.metric
-                    ORDER BY rr.reading_ts DESC
-                    LIMIT 1
-                ) latest ON TRUE
-                WHERE TRUE{status_filter}
-                """
-            ),
-            params,
-        ).all()
+        rows = session.execute(statement, params).all()
 
     return [LatestReadingRow(r[0], r[1], r[2], r[3], r[4]) for r in rows]
 
@@ -456,6 +597,7 @@ def latest_metric_readings(
     *,
     plant_id: str | None = None,
     transformer_id: str | None = None,
+    allowed_device_ids: frozenset[str] | None,
     include_inactive: bool = False,
 ) -> list[DeviceMetricReading]:
     """Newest reading of ONE metric for every device beneath one entity.
@@ -509,30 +651,35 @@ def latest_metric_readings(
     if not include_inactive:
         params["active"] = ACTIVE_STATUS
 
+    scope_clause, scope_params = _scope_clause("d", allowed_device_ids)
+    params.update(scope_params)
+
+    statement = _scoped(
+        text(
+            f"""
+            SELECT t.plant_id, t.transformer_id, t.transformer_code,
+                   d.device_id, d.device_code,
+                   :metric AS metric,
+                   latest.reading_ts, latest.value
+            FROM {_SCHEMA}.devices d
+            JOIN {_SCHEMA}.transformers t
+              ON t.transformer_id = d.transformer_id
+            LEFT JOIN LATERAL (
+                SELECT rr.reading_ts, rr.value
+                FROM {_SCHEMA}.readings rr
+                WHERE rr.device_id = d.device_id AND rr.metric = :metric
+                ORDER BY rr.reading_ts DESC
+                LIMIT 1
+            ) latest ON TRUE
+            WHERE TRUE{status_filter}{scope_sql}{scope_clause}
+            ORDER BY t.transformer_code, d.device_code
+            """
+        ),
+        allowed_device_ids,
+    )
+
     with session_scope() as session:
-        rows = session.execute(
-            text(
-                f"""
-                SELECT t.plant_id, t.transformer_id, t.transformer_code,
-                       d.device_id, d.device_code,
-                       :metric AS metric,
-                       latest.reading_ts, latest.value
-                FROM {_SCHEMA}.devices d
-                JOIN {_SCHEMA}.transformers t
-                  ON t.transformer_id = d.transformer_id
-                LEFT JOIN LATERAL (
-                    SELECT rr.reading_ts, rr.value
-                    FROM {_SCHEMA}.readings rr
-                    WHERE rr.device_id = d.device_id AND rr.metric = :metric
-                    ORDER BY rr.reading_ts DESC
-                    LIMIT 1
-                ) latest ON TRUE
-                WHERE TRUE{status_filter}{scope_sql}
-                ORDER BY t.transformer_code, d.device_code
-                """
-            ),
-            params,
-        ).all()
+        rows = session.execute(statement, params).all()
 
     return [_to_device_metric_reading(r) for r in rows]
 
@@ -809,6 +956,28 @@ def list_devices_for_technician(username: str) -> list[str]:
                 """
             ),
             {"username": username},
+        ).all()
+    return [r[0] for r in rows]
+
+
+def list_active_device_ids_for_user(user_id: int) -> list[str]:
+    """Device ids with a current active assignment to `user_id`.
+
+    Keyed on user_id — the persistent identity key — not username. See
+    services/device_scope.py for why authorization never resolves through a
+    display identity.
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT a.device_id
+                FROM {_SCHEMA}.user_device_assignments a
+                WHERE a.user_id = :user_id AND a.ended_at IS NULL
+                ORDER BY a.device_id
+                """
+            ),
+            {"user_id": user_id},
         ).all()
     return [r[0] for r in rows]
 

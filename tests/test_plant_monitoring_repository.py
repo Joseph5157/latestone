@@ -43,7 +43,7 @@ ALL_METRIC_KEYS = [
 class TestHierarchy:
     def test_lists_thirty_plants(self):
         with measure_time() as t:
-            plants = repo.list_plants()
+            plants = repo.list_plants(allowed_device_ids=None)
         assert len(plants) == 30
         t.row_count = len(plants)
         assert_timing(t, BUDGET_LIST_PLANTS, min_rows=30)
@@ -64,7 +64,7 @@ class TestHierarchy:
 
     def test_transformers_belong_to_requested_plant(self):
         with measure_time() as t:
-            transformers = repo.list_transformers("plant-01")
+            transformers = repo.list_transformers("plant-01", allowed_device_ids=None)
         assert transformers
         assert all(t.plant_id == "plant-01" for t in transformers)
         t.row_count = len(transformers)
@@ -72,14 +72,17 @@ class TestHierarchy:
 
     def test_total_transformers_is_71(self):
         with measure_time() as t:
-            total = sum(len(repo.list_transformers(p.plant_id)) for p in repo.list_plants())
+            total = sum(
+                len(repo.list_transformers(p.plant_id, allowed_device_ids=None))
+                for p in repo.list_plants(allowed_device_ids=None)
+            )
         assert total == 71
         t.row_count = total
         assert_timing(t, BUDGET_LIST_TRANSFORMERS * 30)
 
     def test_devices_belong_to_requested_transformer(self):
         with measure_time() as t:
-            devices = repo.list_devices("plant-01-t1")
+            devices = repo.list_devices("plant-01-t1", allowed_device_ids=None)
         assert devices
         assert all(d.transformer_id == "plant-01-t1" for d in devices)
         t.row_count = len(devices)
@@ -112,7 +115,7 @@ class TestHierarchy:
 
     def test_hierarchy_counts_cover_all_plants(self):
         with measure_time() as t:
-            counts = repo.count_hierarchy_by_plant()
+            counts = repo.count_hierarchy_by_plant(allowed_device_ids=None)
         assert len(counts) == 30
         assert sum(t for t, _ in counts.values()) == 71
         assert sum(d for _, d in counts.values()) == 120
@@ -285,7 +288,7 @@ class TestFleetFreshness:
     card and the per-plant freshness column."""
 
     def test_covers_every_active_device_and_metric_pair(self):
-        rows = repo.latest_reading_times(ALL_METRIC_KEYS)
+        rows = repo.latest_reading_times(ALL_METRIC_KEYS, allowed_device_ids=None)
         pairs = {(r.device_id, r.metric) for r in rows}
         assert len(pairs) == len(rows), "a (device, metric) pair appeared twice"
         assert len(rows) == 120 * len(ALL_METRIC_KEYS)
@@ -299,15 +302,15 @@ class TestFleetFreshness:
         query itself runs in 15-19 ms; folding startup into the budget would
         measure SQLAlchemy, not the query shape this test exists to protect.
         """
-        repo.latest_reading_times(ALL_METRIC_KEYS)  # pay connection setup first
+        repo.latest_reading_times(ALL_METRIC_KEYS, allowed_device_ids=None)  # pay connection setup first
         with measure_time() as t:
-            rows = repo.latest_reading_times(ALL_METRIC_KEYS)
+            rows = repo.latest_reading_times(ALL_METRIC_KEYS, allowed_device_ids=None)
         t.row_count = len(rows)
         assert_timing(t, BUDGET_FLEET_FRESHNESS, min_rows=960)
 
     def test_reports_the_newest_reading_for_a_known_device(self):
         expected = repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature")
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         match = next(
             r for r in rows
             if r.device_id == RESERVED_DEVICE_ID and r.metric == "temperature"
@@ -315,7 +318,7 @@ class TestFleetFreshness:
         assert match.reading_ts == expected.timestamp
 
     def test_carries_the_owning_plant_so_no_second_query_is_needed(self):
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         match = next(r for r in rows if r.device_id == RESERVED_DEVICE_ID)
         assert match.plant_id == "plant-01"
         assert len({r.plant_id for r in rows}) == 30
@@ -323,14 +326,14 @@ class TestFleetFreshness:
     def test_carries_the_owning_transformer_for_plant_level_rollups(self):
         """The Plant screen rolls up per transformer. The join is already in
         this query, so carrying the id costs nothing and saves a second one."""
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         match = next(r for r in rows if r.device_id == RESERVED_DEVICE_ID)
         assert match.transformer_id == "plant-01-t1"
         assert len({r.transformer_id for r in rows}) == 71
 
     def test_a_device_with_no_readings_yields_a_row_with_no_timestamp(self):
         """A silent device must appear as NO_DATA, not vanish from the fleet."""
-        rows = repo.latest_reading_times(["not_a_seeded_metric"])
+        rows = repo.latest_reading_times(["not_a_seeded_metric"], allowed_device_ids=None)
         assert len(rows) == 120
         assert all(r.reading_ts is None for r in rows)
 
@@ -339,8 +342,8 @@ class TestFleetFreshness:
         they must describe the same population — including the transformer-level
         status filter, which is easy to omit here and invisible while the seed
         holds no inactive rows."""
-        counts = repo.count_hierarchy_by_plant()
-        rows = repo.latest_reading_times(["temperature"])
+        counts = repo.count_hierarchy_by_plant(allowed_device_ids=None)
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         devices_per_plant = {}
         for r in rows:
             devices_per_plant[r.plant_id] = devices_per_plant.get(r.plant_id, 0) + 1
@@ -351,20 +354,20 @@ class TestFleetFreshness:
             )
 
     def test_include_inactive_widens_the_population(self):
-        default_rows = repo.latest_reading_times(["temperature"])
-        with_inactive = repo.latest_reading_times(["temperature"], include_inactive=True)
+        default_rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
+        with_inactive = repo.latest_reading_times(["temperature"], include_inactive=True, allowed_device_ids=None)
         assert {r.device_id for r in default_rows} <= {r.device_id for r in with_inactive}
 
     def test_empty_metric_list_returns_empty_without_querying(self):
         with measure_time() as t:
-            rows = repo.latest_reading_times([])
+            rows = repo.latest_reading_times([], allowed_device_ids=None)
         assert rows == []
         t.row_count = 0
         assert_timing(t, BUDGET_FLEET_FRESHNESS)
 
     def test_metric_names_are_bound_not_interpolated(self):
         injected = "'); DROP TABLE plant_monitoring.readings; --"
-        rows = repo.latest_reading_times([injected])
+        rows = repo.latest_reading_times([injected], allowed_device_ids=None)
         assert all(r.reading_ts is None for r in rows)
         assert repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature") is not None
 
@@ -381,40 +384,55 @@ class TestLatestMetricReadings:
     TRANSFORMER = "plant-11-t1"  # a single-device transformer
 
     def test_returns_one_row_per_device_beneath_a_plant(self):
-        rows = repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+        rows = repo.latest_metric_readings(
+            "temperature", plant_id=self.PLANT, allowed_device_ids=None
+        )
         assert len(rows) == 7
         assert len({r.device_id for r in rows}) == len(rows), "a device appeared twice"
 
     def test_scopes_to_one_transformer(self):
-        rows = repo.latest_metric_readings("temperature", transformer_id=self.TRANSFORMER)
+        rows = repo.latest_metric_readings(
+            "temperature", transformer_id=self.TRANSFORMER, allowed_device_ids=None
+        )
         assert len(rows) == 1
         assert rows[0].transformer_id == self.TRANSFORMER
 
     def test_a_transformer_scope_is_a_subset_of_its_plant(self):
         plant_devices = {
-            r.device_id for r in repo.latest_metric_readings("temperature", plant_id="plant-11")
+            r.device_id
+            for r in repo.latest_metric_readings(
+                "temperature", plant_id="plant-11", allowed_device_ids=None
+            )
         }
         transformer_devices = {
             r.device_id
-            for r in repo.latest_metric_readings("temperature", transformer_id=self.TRANSFORMER)
+            for r in repo.latest_metric_readings(
+                "temperature", transformer_id=self.TRANSFORMER, allowed_device_ids=None
+            )
         }
         assert transformer_devices
         assert transformer_devices <= plant_devices
 
     def test_carries_the_identity_needed_to_attribute_a_reading(self):
         """A maximum nobody can trace back to a device is not attribution."""
-        row = repo.latest_metric_readings("temperature", plant_id=self.PLANT)[0]
+        row = repo.latest_metric_readings(
+            "temperature", plant_id=self.PLANT, allowed_device_ids=None
+        )[0]
         assert row.device_code and row.transformer_code
         assert row.device_id and row.transformer_id
         assert row.plant_id == self.PLANT
         assert row.metric == "temperature"
 
     def test_returns_only_the_requested_metric(self):
-        rows = repo.latest_metric_readings("voltage", plant_id=self.PLANT)
+        rows = repo.latest_metric_readings(
+            "voltage", plant_id=self.PLANT, allowed_device_ids=None
+        )
         assert {r.metric for r in rows} == {"voltage"}
 
     def test_reports_the_newest_reading_for_a_device(self):
-        rows = repo.latest_metric_readings("temperature", transformer_id=self.TRANSFORMER)
+        rows = repo.latest_metric_readings(
+            "temperature", transformer_id=self.TRANSFORMER, allowed_device_ids=None
+        )
         newest = repo.get_latest_reading(rows[0].device_id, "temperature")
         assert rows[0].reading_ts == newest.timestamp
         assert rows[0].value == pytest.approx(newest.value)
@@ -427,14 +445,18 @@ class TestLatestMetricReadings:
         database where everything happens to be active.
         """
         from services import hierarchy_service
+        from services.device_scope import UNRESTRICTED
 
         expected = {
             d.device_id
-            for t in hierarchy_service.list_transformers(self.PLANT)
-            for d in hierarchy_service.list_devices(t.transformer_id)
+            for t in hierarchy_service.list_transformers(self.PLANT, scope=UNRESTRICTED)
+            for d in hierarchy_service.list_devices(t.transformer_id, scope=UNRESTRICTED)
         }
         actual = {
-            r.device_id for r in repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+            r.device_id
+            for r in repo.latest_metric_readings(
+                "temperature", plant_id=self.PLANT, allowed_device_ids=None
+            )
         }
         assert actual == expected
 
@@ -442,11 +464,13 @@ class TestLatestMetricReadings:
         """Without one this would seek every device in the fleet — the
         unbounded reading query the module docstring rules out."""
         with pytest.raises(ValueError):
-            repo.latest_metric_readings("temperature")
+            repo.latest_metric_readings("temperature", allowed_device_ids=None)
 
     def test_metric_is_bound_not_interpolated(self):
         injected = "'); DROP TABLE plant_monitoring.readings; --"
-        rows = repo.latest_metric_readings(injected, plant_id=self.PLANT)
+        rows = repo.latest_metric_readings(
+            injected, plant_id=self.PLANT, allowed_device_ids=None
+        )
         # Devices still listed; every one simply has no reading of that "metric".
         assert len(rows) == 7
         assert all(r.value is None and r.reading_ts is None for r in rows)
@@ -455,9 +479,13 @@ class TestLatestMetricReadings:
     def test_stays_within_budget(self):
         """Bounded index seeks, not a range scan. The first call in a process
         is discarded: it carries engine/connection setup, not query cost."""
-        repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+        repo.latest_metric_readings(
+            "temperature", plant_id=self.PLANT, allowed_device_ids=None
+        )
         with measure_time() as t:
-            rows = repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+            rows = repo.latest_metric_readings(
+                "temperature", plant_id=self.PLANT, allowed_device_ids=None
+            )
         t.row_count = len(rows)
         assert_timing(t, BUDGET_LATEST_METRIC, min_rows=7)
 

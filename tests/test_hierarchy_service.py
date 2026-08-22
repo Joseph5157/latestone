@@ -10,6 +10,7 @@ from repositories.plant_monitoring_repository import (
     TransformerRecord,
 )
 from services import hierarchy_service as svc
+from services.device_scope import UNRESTRICTED
 
 
 def _plant(plant_id: str, status: str = "active") -> PlantRecord:
@@ -27,31 +28,41 @@ def _device(did: str, tid: str, status: str = "active") -> DeviceRecord:
 class TestActiveFiltering:
     def test_list_plants_excludes_inactive_by_default(self, monkeypatch):
         monkeypatch.setattr(
-            svc.repo, "list_plants", lambda: [_plant("a"), _plant("b", "inactive")]
+            svc.repo,
+            "list_plants",
+            lambda *, allowed_device_ids: [_plant("a"), _plant("b", "inactive")],
         )
-        assert [p.plant_id for p in svc.list_plants()] == ["a"]
+        assert [p.plant_id for p in svc.list_plants(scope=UNRESTRICTED)] == ["a"]
 
     def test_list_plants_can_include_inactive(self, monkeypatch):
         monkeypatch.setattr(
-            svc.repo, "list_plants", lambda: [_plant("a"), _plant("b", "inactive")]
+            svc.repo,
+            "list_plants",
+            lambda *, allowed_device_ids: [_plant("a"), _plant("b", "inactive")],
         )
-        assert len(svc.list_plants(include_inactive=True)) == 2
+        assert len(svc.list_plants(scope=UNRESTRICTED, include_inactive=True)) == 2
 
     def test_list_transformers_excludes_inactive_by_default(self, monkeypatch):
         monkeypatch.setattr(
             svc.repo,
             "list_transformers",
-            lambda plant_id: [_transformer("t1", "a"), _transformer("t2", "a", "inactive")],
+            lambda plant_id, *, allowed_device_ids: [
+                _transformer("t1", "a"), _transformer("t2", "a", "inactive")
+            ],
         )
-        assert [t.transformer_id for t in svc.list_transformers("a")] == ["t1"]
+        assert [
+            t.transformer_id for t in svc.list_transformers("a", scope=UNRESTRICTED)
+        ] == ["t1"]
 
     def test_list_devices_excludes_inactive_by_default(self, monkeypatch):
         monkeypatch.setattr(
             svc.repo,
             "list_devices",
-            lambda tid: [_device("d1", "t1"), _device("d2", "t1", "inactive")],
+            lambda tid, *, allowed_device_ids: [
+                _device("d1", "t1"), _device("d2", "t1", "inactive")
+            ],
         )
-        assert [d.device_id for d in svc.list_devices("t1")] == ["d1"]
+        assert [d.device_id for d in svc.list_devices("t1", scope=UNRESTRICTED)] == ["d1"]
 
 
 class TestParentValidation:

@@ -41,6 +41,35 @@ def forbidden_panel() -> html.Div:
     )
 
 
+#: Shared by every action refusal so callbacks and tests agree on one class
+#: rather than each drawer inventing its own markup.
+ACTION_REFUSED_CLASS = "status-panel status-panel--forbidden"
+
+
+def action_refused_notice() -> html.Div:
+    """Shown inline when an operator confirms an action their role may not do.
+
+    Not `forbidden_panel`: that one is a whole-page state with a heading and a
+    way back to the Fleet Overview. This is a strip inside an open drawer, so
+    it replaces the success message in place and leaves the operator where
+    they are.
+
+    Says nothing about the policy — no role, no action name, no device id.
+    Echoing those back would tell whoever is holding the session exactly which
+    door to try next, and the operator can do nothing with the detail anyway.
+    """
+    return html.Div(
+        className=ACTION_REFUSED_CLASS,
+        children=[
+            html.Strong("Not permitted. "),
+            html.Span(
+                "Your account does not have permission to perform this action "
+                "on this device."
+            ),
+        ],
+    )
+
+
 def inactive_notice(entity_type: str) -> html.Div:
     """Shown when an inactive entity is opened by direct URL.
 

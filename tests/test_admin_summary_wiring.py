@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from callbacks import listings
 from pages import plants_overview
 from repositories.plant_monitoring_repository import AdminDeviceRow
@@ -298,3 +300,232 @@ class TestUnassignedPanelInTheSlot:
         )
         block = listings.admin_summary_output(NOW)
         assert "All managed RTLs are currently assigned." in text_of(block)
+
+
+# ==========================================================================
+# ROLE-3 Task 12 — the Administration block is Administrator-only content
+#
+# `admin_summary_output` swallows its own failures and returns None, so a
+# test that only asserted "absent for a technician" would pass even if the
+# block were still being built and merely erroring. The load-bearing
+# assertion in this section is therefore always the NO-QUERY one: a denied
+# role must not reach get_admin_overview at all.
+# ==========================================================================
+
+ADMINISTRATOR_SESSION = {
+    "authenticated": True,
+    "user_id": 1,
+    "username": "admin",
+    "full_name": "Admin",
+    "role": "administrator",
+}
+
+TECHNICIAN_SESSION = {
+    "authenticated": True,
+    "user_id": 42,
+    "username": "tech",
+    "full_name": "Tech",
+    "role": "technician",
+}
+
+GENERAL_SESSION = {
+    "authenticated": True,
+    "user_id": 7,
+    "username": "general",
+    "full_name": "General",
+    "role": "general",
+}
+
+#: The pre-ROLE-1 payload: a valid flag and no usable identity.
+STALE_SESSION = {"authenticated": True}
+
+#: A client-set store claiming a role the session never earned.
+TAMPERED_SESSION = {
+    "authenticated": True,
+    "user_id": 42,
+    "username": "tech",
+    "full_name": "Tech",
+    "role": "Administrator",  # exact-match policy: not the administrator
+}
+
+DENIED_SESSIONS = [
+    (TECHNICIAN_SESSION, "technician"),
+    (GENERAL_SESSION, "general"),
+    (STALE_SESSION, "pre-ROLE-1 payload"),
+    (TAMPERED_SESSION, "case-tampered role"),
+    (None, "no session"),
+    ({}, "empty store"),
+    ({"authenticated": False}, "signed out"),
+    ({"authenticated": True, "role": "administrator"}, "role without identity"),
+]
+
+
+def _watch_admin_query(monkeypatch, calls, summary=None):
+    """Replace the ONE administration read behind both cards and panel."""
+
+    def _get(**kwargs):
+        calls.append(kwargs)
+        if summary is None:
+            raise AssertionError("a denied role reached the administration query")
+        return summary
+
+    monkeypatch.setattr(
+        listings.admin_overview_service, "get_admin_overview", _get
+    )
+
+
+class TestAdministrationSectionVisibility:
+    def test_renders_for_the_administrator(self, monkeypatch):
+        calls = []
+        _watch_admin_query(monkeypatch, calls, _summary(rows=(_row(1),)))
+
+        block = listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+
+        assert block is not None
+        assert calls, "the administrator's section issued no query"
+
+    def test_the_administrator_gets_cards_and_the_unassigned_panel(self, monkeypatch):
+        """ADMIN-2 and ADMIN-3 both live in this block; gating must not drop
+        one of them."""
+        _watch_admin_query(monkeypatch, [], _summary(rows=(_row(1),)))
+
+        block = listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+
+        assert len(find_by_exact_class(block, "kpi-card")) == 3
+        assert find_by_exact_class(block, "unassigned-rtls") != []
+
+    @pytest.mark.parametrize(
+        "session,label", DENIED_SESSIONS, ids=[label for _s, label in DENIED_SESSIONS]
+    )
+    def test_absent_for_every_denied_session(self, monkeypatch, session, label):
+        calls = []
+        _watch_admin_query(monkeypatch, calls)
+
+        assert listings.administration_section(session, NOW) is None
+
+    @pytest.mark.parametrize(
+        "session,label", DENIED_SESSIONS, ids=[label for _s, label in DENIED_SESSIONS]
+    )
+    def test_a_denied_session_issues_no_administration_query(
+        self, monkeypatch, session, label
+    ):
+        """Invariant 6, and the load-bearing assertion of this section.
+
+        The section is SKIPPED, not built and discarded. `_watch_admin_query`
+        raises if it is reached, so this cannot pass by the block quietly
+        erroring into None the way a real query failure would.
+        """
+        calls = []
+        _watch_admin_query(monkeypatch, calls)
+
+        listings.administration_section(session, NOW)
+
+        assert calls == []
+
+
+class TestIdentityComesFromTheSession:
+    def test_a_raw_role_key_without_an_identity_is_not_enough(self, monkeypatch):
+        """The store is client-settable. Reading `auth_data["role"]` directly
+        would accept this payload; `from_session` rejects it because it
+        carries no user_id, username or full_name.
+        """
+        calls = []
+        _watch_admin_query(monkeypatch, calls)
+
+        payload = {"authenticated": True, "role": "administrator"}
+        assert listings.administration_section(payload, NOW) is None
+        assert calls == []
+
+    def test_the_role_is_compared_exactly(self, monkeypatch):
+        calls = []
+        _watch_admin_query(monkeypatch, calls)
+
+        assert listings.administration_section(TAMPERED_SESSION, NOW) is None
+        assert calls == []
+
+    def test_a_non_integer_user_id_is_rejected(self, monkeypatch):
+        """from_session rejects a bool user_id (bool is an int in Python)."""
+        calls = []
+        _watch_admin_query(monkeypatch, calls)
+
+        payload = dict(ADMINISTRATOR_SESSION, user_id=True)
+        assert listings.administration_section(payload, NOW) is None
+        assert calls == []
+
+
+class TestTheCapabilityIsNotTheRoute:
+    def test_visibility_does_not_consult_the_admin_devices_route(self, monkeypatch):
+        """Do not derive this from may_access_route(role, "admin_devices").
+
+        They agree today. If the section were wired to the route instead of
+        the capability, breaking the route policy would silently move page
+        content too — so this asserts the section keeps rendering for an
+        administrator even when the route answer is forced to False.
+        """
+        _watch_admin_query(monkeypatch, [], _summary())
+        monkeypatch.setattr(
+            listings, "may_access_route", lambda *a, **k: False, raising=False
+        )
+
+        assert listings.administration_section(ADMINISTRATOR_SESSION, NOW) is not None
+
+
+class TestErrorIsolationSurvivesGating:
+    def test_the_administrator_still_gets_none_when_the_query_fails(self, monkeypatch):
+        """ADMIN-2/ADMIN-3 isolation: administration failing must cost the
+        operator nothing else on the page, so it still fails to None rather
+        than raising through the listing boundary."""
+        monkeypatch.setattr(
+            listings.admin_overview_service,
+            "get_admin_overview",
+            lambda **kwargs: (_ for _ in ()).throw(RuntimeError("db down")),
+        )
+
+        assert listings.administration_section(ADMINISTRATOR_SESSION, NOW) is None
+
+    def test_gating_adds_no_second_query(self, monkeypatch):
+        """No new queries: the whole section is still ONE administration
+        read, and the capability check itself reads nothing."""
+        calls = []
+        _watch_admin_query(monkeypatch, calls, _summary(rows=(_row(1),)))
+
+        listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+
+        assert len(calls) == 1
+
+
+class TestDeviceScopeDoesNotLeakIntoAdministration:
+    def test_the_administration_read_takes_no_scope_argument(self, monkeypatch):
+        """The Administration summary counts Managed RTLs across the fleet.
+
+        It is deliberately NOT narrowed by ROLE-3 device scope: it is
+        administrator-only content about the whole estate, and passing a
+        scope here would silently change what the counts mean.
+        """
+        calls = []
+        _watch_admin_query(monkeypatch, calls, _summary())
+
+        listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+
+        assert calls == [{"now": NOW}]
+
+
+class TestTheCallbackUsesTheGate:
+    def test_populate_overview_appends_nothing_for_a_denied_role(self, monkeypatch):
+        """The gate is wired into the render path, not merely available.
+
+        Without this, `administration_section` could be perfectly gated and
+        the callback could still call `admin_summary_output` directly.
+        """
+        calls = []
+        _watch_admin_query(monkeypatch, calls)
+
+        source = _populate_overview_source()
+        assert "administration_section(" in source
+        assert "admin_summary_output(" not in source
+
+
+def _populate_overview_source() -> str:
+    import inspect
+
+    return inspect.getsource(listings.register)

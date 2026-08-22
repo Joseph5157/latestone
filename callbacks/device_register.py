@@ -14,7 +14,7 @@ import logging
 from dash import Input, Output, State, no_update, html
 
 from components.status_panels import error_panel
-from services import hierarchy_service
+from services import device_scope, hierarchy_service
 from services.device_registration import RegistrationError, register_device
 
 logger = logging.getLogger(__name__)
@@ -22,9 +22,12 @@ logger = logging.getLogger(__name__)
 
 def _plant_options() -> list[dict]:
     """Plant options for the dropdown — reused by plant and equipment selectors."""
+    # Administration surface: the device-management population is deliberately
+    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
+    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
     return [
         {"label": p.name, "value": p.plant_id}
-        for p in hierarchy_service.list_plants()
+        for p in hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
     ]
 
 
@@ -32,9 +35,14 @@ def _transformer_options(plant_id: str) -> list[dict]:
     """Transformer options for a given plant."""
     if not plant_id:
         return []
+    # Administration surface: the device-management population is deliberately
+    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
+    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
     return [
         {"label": t.transformer_code, "value": t.transformer_id}
-        for t in hierarchy_service.list_transformers(plant_id)
+        for t in hierarchy_service.list_transformers(
+            plant_id, scope=device_scope.UNRESTRICTED
+        )
     ]
 
 
@@ -149,14 +157,23 @@ def register(app) -> None:
                 no_update,
                 no_update,
             )
-        # Look up labels for review
+        # Look up labels for review. Administration surface: fleet-wide, like
+        # list_all_devices (spec §4.6) — see _plant_options() above.
         plant_label = next(
-            (p.name for p in hierarchy_service.list_plants() if p.plant_id == plant_id),
+            (
+                p.name for p in hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
+                if p.plant_id == plant_id
+            ),
             plant_id,
         )
         transformer_label = next(
-            (t.transformer_code for t in hierarchy_service.list_transformers(plant_id)
-             if t.transformer_id == transformer_id),
+            (
+                t.transformer_code
+                for t in hierarchy_service.list_transformers(
+                    plant_id, scope=device_scope.UNRESTRICTED
+                )
+                if t.transformer_id == transformer_id
+            ),
             transformer_id,
         )
         summary = _review_summary(code.strip(), plant_label, transformer_label, status)
@@ -201,13 +218,23 @@ def register(app) -> None:
         if not n_clicks:
             return (no_update,) * 6
 
+        # Administration surface: fleet-wide, like list_all_devices (spec
+        # §4.6) — see _plant_options() above.
         plant_label = next(
-            (p.name for p in hierarchy_service.list_plants() if p.plant_id == plant_id),
+            (
+                p.name for p in hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
+                if p.plant_id == plant_id
+            ),
             plant_id or "—",
         )
         transformer_label = next(
-            (t.transformer_code for t in hierarchy_service.list_transformers(plant_id)
-             if t.transformer_id == transformer_id),
+            (
+                t.transformer_code
+                for t in hierarchy_service.list_transformers(
+                    plant_id, scope=device_scope.UNRESTRICTED
+                )
+                if t.transformer_id == transformer_id
+            ),
             transformer_id or "—",
         )
 

@@ -33,6 +33,7 @@ from components.equipment_selector import (
 )
 from routes import device_href
 from services import hierarchy_service
+from services.device_scope import DeviceScope, scope_from_session
 
 logger = logging.getLogger(__name__)
 
@@ -56,28 +57,39 @@ def plant_options(auth_data) -> list[dict]:
     """
     if not _is_authenticated(auth_data):
         return []
-    return [{"label": p.name, "value": p.plant_id} for p in hierarchy_service.list_plants()]
+    scope = scope_from_session(auth_data)
+    return [
+        {"label": p.name, "value": p.plant_id}
+        for p in hierarchy_service.list_plants(scope=scope)
+    ]
 
 
-def transformer_options(plant_id) -> tuple[list[dict], bool, None]:
+def transformer_options(plant_id, scope: DeviceScope) -> tuple[list[dict], bool, None]:
     """Options, disabled-state, and a cleared value for the transformer field.
 
     The value is always reset: keeping a transformer from the previous plant
     selected would let the device field navigate somewhere the user did not
     pick.
+
+    `scope` is resolved once by the enclosing callback and passed down, not
+    re-resolved here.
     """
     if not plant_id:
         return [], True, None
-    transformers = hierarchy_service.list_transformers(plant_id)
+    transformers = hierarchy_service.list_transformers(plant_id, scope=scope)
     options = [{"label": t.transformer_code, "value": t.transformer_id} for t in transformers]
     return options, False, None
 
 
-def device_options(transformer_id) -> tuple[list[dict], bool, None]:
-    """Options, disabled-state, and a cleared value for the device field."""
+def device_options(transformer_id, scope: DeviceScope) -> tuple[list[dict], bool, None]:
+    """Options, disabled-state, and a cleared value for the device field.
+
+    `scope` is resolved once by the enclosing callback and passed down, not
+    re-resolved here.
+    """
     if not transformer_id:
         return [], True, None
-    devices = hierarchy_service.list_devices(transformer_id)
+    devices = hierarchy_service.list_devices(transformer_id, scope=scope)
     options = [{"label": d.device_code, "value": d.device_id} for d in devices]
     return options, False, None
 
@@ -125,11 +137,12 @@ def register(app) -> None:
         Output(TRANSFORMER_ID, "disabled"),
         Output(TRANSFORMER_ID, "value"),
         Input(PLANT_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def _populate_transformers(plant_id):
+    def _populate_transformers(plant_id, auth_data):
         try:
-            return transformer_options(plant_id)
+            return transformer_options(plant_id, scope_from_session(auth_data))
         except Exception:
             logger.exception("Equipment selector failed for plant_id=%r", plant_id)
             return [], True, None
@@ -139,11 +152,12 @@ def register(app) -> None:
         Output(DEVICE_ID, "disabled"),
         Output(DEVICE_ID, "value"),
         Input(TRANSFORMER_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def _populate_devices(transformer_id):
+    def _populate_devices(transformer_id, auth_data):
         try:
-            return device_options(transformer_id)
+            return device_options(transformer_id, scope_from_session(auth_data))
         except Exception:
             logger.exception(
                 "Equipment selector failed for transformer_id=%r", transformer_id

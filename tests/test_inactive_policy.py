@@ -18,6 +18,7 @@ import pytest
 from components.status_panels import inactive_notice
 from pages import device_dashboard, plant_detail, transformer_detail
 from services import hierarchy_service
+from services.device_scope import UNRESTRICTED
 
 from tests.dash_tree import find_by_class, text_of
 
@@ -31,23 +32,23 @@ class TestCountsMatchListings:
     def test_counts_exclude_inactive_by_default(self, monkeypatch):
         seen = {}
 
-        def _count(include_inactive=False):
+        def _count(*, allowed_device_ids, include_inactive=False):
             seen["include_inactive"] = include_inactive
             return {}
 
         monkeypatch.setattr(hierarchy_service.repo, "count_hierarchy_by_plant", _count)
-        hierarchy_service.get_plant_hierarchy_counts()
+        hierarchy_service.get_plant_hierarchy_counts(scope=UNRESTRICTED)
         assert seen["include_inactive"] is False
 
     def test_counts_can_still_include_inactive_explicitly(self, monkeypatch):
         seen = {}
 
-        def _count(include_inactive=False):
+        def _count(*, allowed_device_ids, include_inactive=False):
             seen["include_inactive"] = include_inactive
             return {}
 
         monkeypatch.setattr(hierarchy_service.repo, "count_hierarchy_by_plant", _count)
-        hierarchy_service.get_plant_hierarchy_counts(include_inactive=True)
+        hierarchy_service.get_plant_hierarchy_counts(scope=UNRESTRICTED, include_inactive=True)
         assert seen["include_inactive"] is True
 
     def test_listing_and_counting_share_one_default(self, monkeypatch):
@@ -56,8 +57,12 @@ class TestCountsMatchListings:
             _Rec(transformer_id="t1", transformer_code="T1", status="active"),
             _Rec(transformer_id="t2", transformer_code="T2", status="inactive"),
         ]
-        monkeypatch.setattr(hierarchy_service.repo, "list_transformers", lambda p: transformers)
-        listed = hierarchy_service.list_transformers("plant-01")
+        monkeypatch.setattr(
+            hierarchy_service.repo,
+            "list_transformers",
+            lambda p, *, allowed_device_ids: transformers,
+        )
+        listed = hierarchy_service.list_transformers("plant-01", scope=UNRESTRICTED)
         assert len(listed) == 1, "listing must exclude inactive by default"
 
 

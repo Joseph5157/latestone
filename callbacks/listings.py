@@ -29,6 +29,9 @@ from config.metrics import ATTRIBUTION_METRIC_KEY
 from components.freshness_badge import format_last_reading
 from routes import device_href
 from services import admin_overview_service, hierarchy_service, monitoring_service
+from services.auth_service import from_session
+from services.authorization import VIEW_ADMINISTRATION_OVERVIEW, may_perform_capability
+from services.device_scope import DeviceScope, scope_from_session
 from services.monitoring_service import Freshness, aggregate_freshness, reading_age, severity_rank
 
 logger = logging.getLogger(__name__)
@@ -320,6 +323,39 @@ def admin_summary_output(now: datetime):
         return None
 
 
+def administration_section(auth_data, rendered_at: datetime):
+    """The Administration block, or None when the role may not see it.
+
+    Gated on an explicit CAPABILITY rather than on
+    `may_access_route(role, "admin_devices")`. Those two questions — may this
+    user enter Device Management, and may this user see Administration
+    overview content — happen to have the same answer today and may diverge.
+    Navigation is derived from routes because it is the same question viewed
+    twice; page content is not.
+
+    Role comes from `from_session`, the same validation the router uses, so a
+    tampered or pre-ROLE-1 payload fails this check for the same reason it
+    fails a route check. Reading `auth_data["role"]` directly would accept a
+    store that carries a role and no identity at all.
+
+    Returns None WITHOUT calling `admin_summary_output`, so a denied role
+    issues no administration query at all — the section is skipped, not built
+    and discarded. That distinction is invisible in the rendered output,
+    because `admin_summary_output` also returns None when its query fails,
+    which is why the tests assert on the query rather than on the markup.
+
+    NOT NARROWED BY DEVICE SCOPE. These figures count Managed RTLs across the
+    whole estate. This is administrator-only content about the entire fleet,
+    and passing a ROLE-3 scope here would silently change what the counts
+    mean without changing their labels.
+    """
+    user = from_session(auth_data)
+    role = user.role if user else None
+    if not may_perform_capability(role, VIEW_ADMINISTRATION_OVERVIEW):
+        return None
+    return admin_summary_output(rendered_at)
+
+
 # --------------------------------------------------------------------------
 # Plant / Transformer detail data (Phase 5)
 #
@@ -345,7 +381,7 @@ def _format_capacity_mw(value) -> str | None:
     return f"{float(value):g} MW"
 
 
-def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
+def build_plant_detail_view(plant_id: str, rendered_at: datetime, *, scope: DeviceScope) -> dict:
     """Everything the Plant page needs, from one `latest_reading_rows()` fetch
     and one `latest_metric_readings()` fetch — never one query per section.
 
@@ -353,11 +389,17 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
     Health, Metric Health, the attribution card's freshness) so the whole
     render answers "as of one instant", the same rule `get_fleet_health`
     already applies on the Fleet screen.
+
+    `scope` is resolved once by the enclosing callback and passed down —
+    never re-resolved here — so every section of this one render agrees on
+    which devices are visible.
     """
     plant = hierarchy_service.get_plant_or_none(plant_id)
-    transformers = hierarchy_service.list_transformers(plant_id)
+    transformers = hierarchy_service.list_transformers(plant_id, scope=scope)
     device_counts = {
-        t.transformer_id: len(hierarchy_service.list_devices(t.transformer_id))
+        t.transformer_id: len(
+            hierarchy_service.list_devices(t.transformer_id, scope=scope)
+        )
         for t in transformers
     }
     total_devices = sum(device_counts.values())
@@ -365,14 +407,14 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
     # One fetch, two derivations: fleet_health_from_rows and
     # metric_health_from_rows both read this same result set rather than
     # each issuing their own latest_reading_times() query.
-    rows = monitoring_service.latest_reading_rows()
+    rows = monitoring_service.latest_reading_rows(scope=scope)
     health = monitoring_service.fleet_health_from_rows(rows, rendered_at)
     metric_health_items = monitoring_service.metric_health_from_rows(
         rows, plant_id=plant_id, now=rendered_at
     )
 
     temperature_readings = monitoring_service.latest_metric_readings(
-        ATTRIBUTION_METRIC_KEY, plant_id=plant_id
+        ATTRIBUTION_METRIC_KEY, plant_id=plant_id, scope=scope
     )
     attribution = monitoring_service.hottest_temperature(temperature_readings, now=rendered_at)
 
@@ -400,6 +442,7 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
 
 def build_transformer_detail_view(
     transformer_id: str, plant_name: str, transformer_code: str, rendered_at: datetime,
+    *, scope: DeviceScope,
 ) -> dict:
     """Everything the Transformer page needs, from one `latest_reading_rows()`
     fetch and one `latest_metric_readings()` fetch.
@@ -407,17 +450,20 @@ def build_transformer_detail_view(
     `plant_name`/`transformer_code` come from `page-context` (already resolved
     by the router) rather than a repository call — they are the two Entity
     Context fields that need no new query at all.
-    """
-    devices = hierarchy_service.list_devices(transformer_id)
 
-    rows = monitoring_service.latest_reading_rows()
+    `scope` is resolved once by the enclosing callback and passed down; see
+    `build_plant_detail_view`.
+    """
+    devices = hierarchy_service.list_devices(transformer_id, scope=scope)
+
+    rows = monitoring_service.latest_reading_rows(scope=scope)
     health = monitoring_service.fleet_health_from_rows(rows, rendered_at)
     metric_health_items = monitoring_service.metric_health_from_rows(
         rows, transformer_id=transformer_id, now=rendered_at
     )
 
     temperature_readings = monitoring_service.latest_metric_readings(
-        ATTRIBUTION_METRIC_KEY, transformer_id=transformer_id
+        ATTRIBUTION_METRIC_KEY, transformer_id=transformer_id, scope=scope
     )
     attribution = monitoring_service.hottest_temperature(temperature_readings, now=rendered_at)
 
@@ -450,9 +496,10 @@ def register(app) -> None:
         Output("fleet-subtitle", "children"),
         Output("fleet-refreshed", "children"),
         Input("page-context", "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_overview(context):
+    def populate_overview(context, auth_data):
         if not context or context.get("route") != "overview":
             return (no_update,) * 9
 
@@ -460,6 +507,8 @@ def register(app) -> None:
         # the freshness computation and the header, so the stamp cannot name a
         # moment different from the one the rows were evaluated at.
         rendered_at = datetime.now(timezone.utc)
+        # Resolved once for the whole render — same reasoning as `rendered_at`.
+        scope = scope_from_session(auth_data)
         subtitle = []
 
         # One fetch, one FleetHealth, every output derived from it. Building the
@@ -472,9 +521,9 @@ def register(app) -> None:
         attention = []
 
         def build():
-            plants = hierarchy_service.list_plants()
-            counts = hierarchy_service.get_plant_hierarchy_counts()
-            health = monitoring_service.get_fleet_health(rendered_at)
+            plants = hierarchy_service.list_plants(scope=scope)
+            counts = hierarchy_service.get_plant_hierarchy_counts(scope=scope)
+            health = monitoring_service.get_fleet_health(rendered_at, scope=scope)
             cards.append(
                 fleet_kpi_cards(
                     plants=len(plants),
@@ -490,7 +539,11 @@ def register(app) -> None:
             # this page. These count Managed RTLs — a different population from
             # the Devices card built above, which counts Monitoring Devices.
             # The two are labelled, never reconciled; see admin_overview_service.
-            admin.append(admin_summary_output(rendered_at))
+            #
+            # Administrator-only content: `administration_section` returns None
+            # for every other role WITHOUT issuing the query, so a denied role
+            # does no administration work on the way to seeing nothing.
+            admin.append(administration_section(auth_data, rendered_at))
             attention.append(
                 needs_attention(
                     build_needs_attention_rows(plants, health, rendered_at)
@@ -531,9 +584,10 @@ def register(app) -> None:
         Output("plant-metric-health", "children"),
         Output("plant-attribution", "children"),
         Input("page-context", "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_plant_detail(context):
+    def populate_plant_detail(context, auth_data):
         if not context or context.get("route") != "plant":
             return (no_update,) * 7
         plant_id = context.get("plant_id")
@@ -542,10 +596,14 @@ def register(app) -> None:
         # and the attribution card's freshness must not disagree about which
         # instant "now" was.
         rendered_at = datetime.now(timezone.utc)
+        # Resolved once for the whole render, same reasoning as `rendered_at`:
+        # re-resolving per section could let two parts of one screen disagree
+        # about which devices are visible.
+        scope = scope_from_session(auth_data)
         result: dict = {}
 
         def build():
-            result.update(build_plant_detail_view(plant_id, rendered_at))
+            result.update(build_plant_detail_view(plant_id, rendered_at, scope=scope))
             return result["table_rows"]
 
         rows, columns, error = listing_outputs(
@@ -577,9 +635,10 @@ def register(app) -> None:
         Output("transformer-metric-health", "children"),
         Output("transformer-attribution", "children"),
         Input("page-context", "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_transformer_detail(context):
+    def populate_transformer_detail(context, auth_data):
         if not context or context.get("route") != "transformer":
             return (no_update,) * 7
         transformer_id = context.get("transformer_id")
@@ -587,12 +646,14 @@ def register(app) -> None:
         transformer_code = context.get("transformer_code", "")
 
         rendered_at = datetime.now(timezone.utc)
+        scope = scope_from_session(auth_data)
         result: dict = {}
 
         def build():
             result.update(
                 build_transformer_detail_view(
-                    transformer_id, plant_name, transformer_code, rendered_at
+                    transformer_id, plant_name, transformer_code, rendered_at,
+                    scope=scope,
                 )
             )
             return result["table_rows"]

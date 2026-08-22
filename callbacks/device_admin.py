@@ -11,7 +11,7 @@ from dash import Input, Output, no_update
 
 from components.status_panels import error_panel
 from routes import device_href
-from services import hierarchy_service, monitoring_service
+from services import device_scope, hierarchy_service, monitoring_service
 from services.monitoring_service import severity_rank
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,13 @@ def register(app) -> None:
 
         def build():
             devices = hierarchy_service.list_all_devices()
-            health = monitoring_service.get_fleet_health(rendered_at)
+            # Administration surface: the device admin table is
+            # administrator-only by ROUTE_POLICY, so it is deliberately
+            # unrestricted rather than resolving a caller scope — same
+            # ruling as device_assign.py/device_register.py.
+            health = monitoring_service.get_fleet_health(
+                rendered_at, scope=device_scope.UNRESTRICTED
+            )
             rows = build_device_admin_rows(devices, health)
             result["rows"] = rows
             result["total"] = len(devices)

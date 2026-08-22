@@ -6,7 +6,7 @@ The existing in-memory prototype store (services/prototype_users.py) is
 untouched; replacing it is DB-2, not DB-1.
 
 Roles are the three confirmed values from the Functional Specification
-(services/prototype_access.py::CONFIRMED_ROLES). Full Role/Privilege/
+(services/prototype_users.py::CONFIRMED_ROLES). Full Role/Privilege/
 Permission RBAC is deliberately deferred, so this is a CHECK constraint,
 not a lookup table.
 

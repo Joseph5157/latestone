@@ -16,6 +16,7 @@ from routes import Route, device_href, parse_custom_range, parse_pathname, parse
 from services import hierarchy_service
 from services.auth_service import from_session
 from services.authorization import ROUTE_POLICY, may_access_route
+from services.device_scope import DeviceScope, scope_from_session
 
 #: What the router should do with a request, decided before anything renders.
 DECISION_LOGIN = "login"
@@ -99,6 +100,41 @@ def route_decision(auth_data, route_name: str) -> str:
     return DECISION_FORBIDDEN
 
 
+def entity_in_scope(
+    scope: DeviceScope,
+    *,
+    device_id: str | None = None,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+) -> bool:
+    """Whether a resolved entity is visible to `scope`.
+
+    EXISTENCE IS CHECKED FIRST, BY THE CALLER, AND MEMBERSHIP SECOND (ROLE-3
+    invariant 5). Folding the two into one filtered lookup would make an
+    out-of-scope device indistinguishable from a nonexistent one, which is
+    exactly what ROLE-1 froze as unacceptable.
+
+    A plant or transformer is visible when it holds at least one visible
+    device, so a Technician cannot hand-type a path to an otherwise-valid
+    plant containing none of their RTLs.
+
+    The unrestricted short-circuit is first for cost, not just clarity: an
+    Administrator would otherwise pay for a listing query on every plant and
+    transformer render purely to discard the answer.
+
+    Default-deny: called with no identifier, it refuses.
+    """
+    if scope.is_unrestricted:
+        return True
+    if device_id is not None:
+        return scope.allows(device_id)
+    if transformer_id is not None:
+        return bool(hierarchy_service.list_devices(transformer_id, scope=scope))
+    if plant_id is not None:
+        return bool(hierarchy_service.list_transformers(plant_id, scope=scope))
+    return False
+
+
 def register(app) -> None:
     """Register the top-level router callback on the Dash app."""
 
@@ -127,6 +163,11 @@ def register(app) -> None:
                 # simply never fires for a page that was refused.
                 return forbidden_panel(), {"route": "forbidden"}
 
+            # Resolved ONCE per render and passed down. `scope_from_session`
+            # performs an assignment read for technicians, so calling it per
+            # entity would turn one render into a query storm.
+            scope = scope_from_session(auth_data)
+
             metric_key, period_value = parse_query(search)
             custom_start, custom_end = parse_custom_range(search)
 
@@ -138,6 +179,12 @@ def register(app) -> None:
                 plant = hierarchy_service.get_plant_or_none(route.plant_id)
                 if plant is None:
                     return not_found_panel("plant"), {"route": "unknown"}
+                if not entity_in_scope(scope, plant_id=plant.plant_id):
+                    logger.warning(
+                        "Plant %r refused: outside the session's device scope",
+                        plant.plant_id,
+                    )
+                    return forbidden_panel(), {"route": "forbidden"}
 
                 ctx = {
                     "route": "plant",
@@ -158,6 +205,14 @@ def register(app) -> None:
                 )
                 if transformer is None:
                     return not_found_panel("transformer"), {"route": "unknown"}
+                if not entity_in_scope(
+                    scope, transformer_id=transformer.transformer_id
+                ):
+                    logger.warning(
+                        "Transformer %r refused: outside the session's device scope",
+                        transformer.transformer_id,
+                    )
+                    return forbidden_panel(), {"route": "forbidden"}
 
                 ctx = {
                     "route": "transformer",
@@ -180,6 +235,12 @@ def register(app) -> None:
                 device_ctx = hierarchy_service.get_device_context(route.device_id)
                 if device_ctx is None:
                     return not_found_panel("device"), {"route": "unknown"}
+                if not entity_in_scope(scope, device_id=route.device_id):
+                    logger.warning(
+                        "Device %r refused: outside the session's device scope",
+                        route.device_id,
+                    )
+                    return forbidden_panel(), {"route": "forbidden"}
 
                 ctx = build_device_context(device_ctx, metric_key, period_value)
                 return (

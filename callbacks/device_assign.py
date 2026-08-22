@@ -26,7 +26,10 @@ from components.assign_device_drawer import (
     ASSIGN_CANCEL_BTN,
 )
 from routes import parse_assign_request
-from services import hierarchy_service, prototype_assignments
+from services import device_scope, hierarchy_service, prototype_assignments
+from services.action_guard import require_action
+from services.auth_service import from_session
+from services.authorization import AuthorizationError, MANAGE_ASSIGNMENT
 from services.prototype_users import get_technician_options
 
 logger = logging.getLogger(__name__)
@@ -116,18 +119,26 @@ def assign_drawer_open_state(row: dict | None):
 
 
 def _plant_options() -> list[dict]:
+    # Administration surface: the device-management population is deliberately
+    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
+    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
     return [
         {"label": p.name, "value": p.plant_id}
-        for p in hierarchy_service.list_plants()
+        for p in hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
     ]
 
 
 def _transformer_options(plant_id: str) -> list[dict]:
     if not plant_id:
         return []
+    # Administration surface: the device-management population is deliberately
+    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
+    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
     return [
         {"label": t.transformer_code, "value": t.transformer_id}
-        for t in hierarchy_service.list_transformers(plant_id)
+        for t in hierarchy_service.list_transformers(
+            plant_id, scope=device_scope.UNRESTRICTED
+        )
     ]
 
 
@@ -220,11 +231,28 @@ def register(app) -> None:
         State(ASSIGN_PLANT_ID, "value"),
         State(ASSIGN_TRANSFORMER_ID, "value"),
         State(ASSIGN_TECHNICIAN_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_assignment(n_clicks, device_id, plant_id, transformer_id, technician):
+    def confirm_assignment(
+        n_clicks, device_id, plant_id, transformer_id, technician, auth_data
+    ):
         """Prototype confirm — stores in memory, no database write."""
         if not n_clicks or not device_id:
+            return no_update, no_update
+
+        # Managing an assignment is administrator-only, including for a
+        # technician who currently holds this device: the assignment is what
+        # grants their authority, so being able to edit it would let them
+        # widen their own scope. The rule lives in the policy table; this
+        # callback only supplies identity, action and target.
+        try:
+            require_action(
+                from_session(auth_data), MANAGE_ASSIGNMENT, device_id=device_id
+            )
+        except AuthorizationError:
+            # Leave the drawer open and change nothing. The operator keeps
+            # their context and no partial assignment is written.
             return no_update, no_update
 
         # Store asset assignment if transformer selected

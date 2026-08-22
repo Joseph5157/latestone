@@ -319,12 +319,12 @@ class TestDevicePopulations:
 
     def test_monitoring_counts_use_the_monitoring_device_population(self):
         # count_hierarchy_by_plant backs the Fleet Overview's device column.
-        counts = repo.count_hierarchy_by_plant()
+        counts = repo.count_hierarchy_by_plant(allowed_device_ids=None)
 
         assert sum(devices for _transformers, devices in counts.values()) == 3
 
     def test_monitoring_freshness_uses_the_monitoring_device_population(self):
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
 
         assert {r.device_id for r in rows} == {
             "p-alpha-t1-d1", "p-alpha-t1-d2", "p-bravo-t1-d1",
@@ -332,7 +332,10 @@ class TestDevicePopulations:
 
     def test_the_two_populations_differ_by_exactly_that_device(self):
         managed = {d.device_id for d in repo.list_all_devices()}
-        monitored = {r.device_id for r in repo.latest_reading_times(["temperature"])}
+        monitored = {
+            r.device_id
+            for r in repo.latest_reading_times(["temperature"], allowed_device_ids=None)
+        }
 
         assert managed - monitored == {"p-alpha-t2-d1"}
 

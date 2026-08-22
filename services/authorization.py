@@ -25,10 +25,13 @@ docs/CODE_AUDIT.md). ROLE-2 shapes what the UI offers; it does not withhold
 data from anyone bypassing the UI. Calling any of this production-secure needs
 the server-verifiable session that work is blocked on.
 
-SCOPE. Routes only. Device-level scope — a technician seeing only their
-assigned RTLs, and which actions each role may take on a device — is ROLE-3,
-deliberately kept out so route policy and row-level policy do not braid
-together in one table.
+SCOPE. Routes, page-content capabilities, and actions — three dimensions,
+three tables, deliberately not derived from one another. Navigation IS
+derived from routes because it is the same question viewed twice; a
+capability is not. Device VISIBILITY is not here at all: it belongs to
+services/device_scope.py, which is the only answer to "may this user see
+this RTL?". This module stays pure — no database, no Dash — which is why the
+action guard that needs an assignment read lives elsewhere.
 """
 from __future__ import annotations
 
@@ -97,3 +100,86 @@ def visible_nav_keys(role) -> frozenset[str]:
         for route_name, key in NAV_KEY_BY_ROUTE.items()
         if may_access_route(role, route_name)
     )
+
+
+class AuthorizationError(Exception):
+    """An authenticated user reached for something they are not entitled to.
+
+    Deliberately distinct from the ValueError raised for a bad identifier: the
+    ROLE-1 decision that an authorization failure must never be folded into
+    the same outcome as a nonexistent resource applies at the action layer as
+    it does at the route layer.
+
+    Defined here, in the pure module, so it can be caught without importing
+    data access.
+    """
+
+
+#: Page content a role may see. Not a route and not an action: the
+#: Administration block on /plants is content inside a page every role may
+#: open, so neither of the other two tables can express it.
+VIEW_ADMINISTRATION_OVERVIEW = "view_administration_overview"
+
+PROGRAM_RTL = "program_rtl"
+TOGGLE_MESSAGE_FORWARDING = "toggle_message_forwarding"
+DEACTIVATE_RTL = "deactivate_rtl"
+MANAGE_ASSIGNMENT = "manage_assignment"
+EXPORT_DATA = "export_data"
+
+#: capability -> roles. Page content, role-only: no device is involved, so
+#: there is no assignment condition to apply.
+CAPABILITY_POLICY: dict[str, frozenset[str]] = {
+    VIEW_ADMINISTRATION_OVERVIEW: _ADMIN_ONLY,
+}
+
+_NO_ROLE: frozenset[str] = frozenset()
+
+#: action -> (roles allowed on any device, roles allowed only on assigned
+#: ones). Sources: BR003, BR004, BR005, BR012 via the Functional
+#: Specification, absorbed from the retired services/prototype_access.py.
+#:
+#: THE SECOND SET IS NOT A WEAKER FIRST SET. A role listed there may act only
+#: where an assignment currently exists, which is why the two are separate
+#: sets rather than one set plus a boolean: MANAGE_ASSIGNMENT has an empty
+#: second set on purpose, because assignment is what GRANTS technician
+#: authority and a technician who could manage it could grant it to
+#: themselves.
+ACTION_POLICY: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    PROGRAM_RTL: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
+    TOGGLE_MESSAGE_FORWARDING: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
+    DEACTIVATE_RTL: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
+    MANAGE_ASSIGNMENT: (_ADMIN_ONLY, _NO_ROLE),
+    EXPORT_DATA: (_EVERY_ROLE, _NO_ROLE),
+}
+
+
+def may_perform_capability(role, capability: str) -> bool:
+    """Whether `role` may see the page content behind `capability`.
+
+    Default-deny on an unknown capability, and roles are compared exactly —
+    the same posture as `may_access_route`.
+    """
+    if not isinstance(role, str):
+        return False
+    return role in CAPABILITY_POLICY.get(capability, frozenset())
+
+
+def may_perform_action(role, action: str, *, is_assigned: bool) -> bool:
+    """Whether `role` may perform `action` on a device.
+
+    `is_assigned` is keyword-only AND undefaulted: a positional bool at a
+    policy boundary is a seam, and this one decides whether a technician may
+    act. The retired prototype_access defaulted it to False — the safe
+    direction, but a default all the same, and a caller that simply forgot
+    the argument looked identical to one that meant "unassigned".
+
+    This function answers the ROLE question only. Whether the assignment
+    actually exists is a database fact the caller supplies; keeping that out
+    of here is what lets this module stay pure and synchronously testable.
+    """
+    if not isinstance(role, str):
+        return False
+    any_device, assigned_only = ACTION_POLICY.get(action, (_NO_ROLE, _NO_ROLE))
+    if role in any_device:
+        return True
+    return bool(is_assigned) and role in assigned_only

@@ -14,6 +14,7 @@ from dash import Input, Output, State, no_update, html
 
 from config.reports import get_report, REPORTS
 from services import hierarchy_service
+from services.device_scope import DeviceScope, scope_from_session
 
 logger = logging.getLogger(__name__)
 
@@ -56,33 +57,46 @@ def _seed_mock_reports() -> None:
         ])
 
 
-def _plant_options() -> list[dict]:
+def _plant_options(scope: DeviceScope) -> list[dict]:
     return [
         {"label": p.name, "value": p.plant_id}
-        for p in hierarchy_service.list_plants()
+        for p in hierarchy_service.list_plants(scope=scope)
     ]
 
 
-def _transformer_options(plant_id: str) -> list[dict]:
+def _transformer_options(plant_id: str, scope: DeviceScope) -> list[dict]:
     if not plant_id:
         return []
     return [
         {"label": t.transformer_code, "value": t.transformer_id}
-        for t in hierarchy_service.list_transformers(plant_id)
+        for t in hierarchy_service.list_transformers(plant_id, scope=scope)
     ]
 
 
-def _device_options(transformer_id: str) -> list[dict]:
+def _device_options(transformer_id: str, scope: DeviceScope) -> list[dict]:
     if not transformer_id:
         return []
     return [
         {"label": d.device_code, "value": d.device_id}
-        for d in hierarchy_service.list_devices(transformer_id)
+        for d in hierarchy_service.list_devices(transformer_id, scope=scope)
     ]
 
 
-def _scope_label(scope: str, plant_id: str = "", transformer_id: str = "", device_id: str = "") -> str:
-    """Build human-readable scope label."""
+def _scope_label(
+    scope: str,
+    plant_id: str = "",
+    transformer_id: str = "",
+    device_id: str = "",
+    *,
+    device_scope: DeviceScope = None,
+) -> str:
+    """Build human-readable scope label.
+
+    `scope` here is the report's *asset scope* selection ("fleet"/"plant"/
+    "transformer"/"device") — an unrelated string that predates ROLE-3 and is
+    not renamed to avoid a churny diff. `device_scope` is the caller's
+    `DeviceScope`, required whenever this needs to list transformers.
+    """
     if scope == "fleet":
         return "Entire Fleet"
     if scope == "plant" and plant_id:
@@ -90,7 +104,10 @@ def _scope_label(scope: str, plant_id: str = "", transformer_id: str = "", devic
         return f"Plant: {plant.name if plant else plant_id}"
     if scope == "transformer" and transformer_id:
         transformer = next(
-            (t for t in hierarchy_service.list_transformers(plant_id) if t.transformer_id == transformer_id),
+            (
+                t for t in hierarchy_service.list_transformers(plant_id, scope=device_scope)
+                if t.transformer_id == transformer_id
+            ),
             None
         )
         plant = hierarchy_service.get_plant_or_none(plant_id) if plant_id else None
@@ -253,10 +270,11 @@ def register(app) -> None:
     @app.callback(
         Output("report-plant", "options"),
         Input("report-plant", "id"),
+        State("auth-store", "data"),
     )
-    def populate_report_plants(_):
+    def populate_report_plants(_, auth_data):
         try:
-            return _plant_options()
+            return _plant_options(scope_from_session(auth_data))
         except Exception:
             logger.exception("Failed to populate report plant options")
             return []
@@ -265,11 +283,12 @@ def register(app) -> None:
         Output("report-transformer", "options"),
         Output("report-transformer", "disabled"),
         Input("report-plant", "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_report_transformers(plant_id):
+    def populate_report_transformers(plant_id, auth_data):
         try:
-            options = _transformer_options(plant_id)
+            options = _transformer_options(plant_id, scope_from_session(auth_data))
             return options, not options
         except Exception:
             logger.exception("Failed to populate report transformers for %r", plant_id)
@@ -279,11 +298,12 @@ def register(app) -> None:
         Output("report-device", "options"),
         Output("report-device", "disabled"),
         Input("report-transformer", "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_report_devices(transformer_id):
+    def populate_report_devices(transformer_id, auth_data):
         try:
-            options = _device_options(transformer_id)
+            options = _device_options(transformer_id, scope_from_session(auth_data))
             return options, not options
         except Exception:
             logger.exception("Failed to populate report devices for %r", transformer_id)
@@ -342,9 +362,13 @@ def register(app) -> None:
         State("report-period", "value"),
         State("report-custom-date-range", "start_date"),
         State("report-custom-date-range", "end_date"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def generate_report(n_clicks, report_key, asset_scope, plant_id, transformer_id, device_id, period, custom_start, custom_end):
+    def generate_report(
+        n_clicks, report_key, asset_scope, plant_id, transformer_id, device_id,
+        period, custom_start, custom_end, auth_data,
+    ):
         if not n_clicks:
             return no_update, no_update
 
@@ -352,7 +376,10 @@ def register(app) -> None:
         report_label = report.label if report else "Unknown"
 
         # Build scope description
-        scope_desc = _scope_label(asset_scope, plant_id, transformer_id, device_id)
+        scope_desc = _scope_label(
+            asset_scope, plant_id, transformer_id, device_id,
+            device_scope=scope_from_session(auth_data),
+        )
 
         # Build period description
         if report and report.date_range_fixed == "30d":

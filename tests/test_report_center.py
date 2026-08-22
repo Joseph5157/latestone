@@ -22,6 +22,7 @@ from config.reports import (
     all_report_keys,
 )
 from pages.report_center import layout
+from services.device_scope import UNRESTRICTED
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +280,9 @@ class TestScopeLabel:
         assert "Plant:" in result
 
     def test_transformer(self):
-        result = _scope_label("transformer", plant_id="p1", transformer_id="t1")
+        result = _scope_label(
+            "transformer", plant_id="p1", transformer_id="t1", device_scope=UNRESTRICTED
+        )
         assert "Transformer:" in result
 
     def test_device(self):
@@ -293,15 +296,15 @@ class TestScopeLabel:
 
 class TestCascadeOptions:
     def test_plant_options_returns_list(self):
-        options = _plant_options()
+        options = _plant_options(UNRESTRICTED)
         assert isinstance(options, list)
 
     def test_transformer_options_empty_without_plant(self):
-        options = _transformer_options("")
+        options = _transformer_options("", UNRESTRICTED)
         assert options == []
 
     def test_device_options_empty_without_transformer(self):
-        options = _device_options("")
+        options = _device_options("", UNRESTRICTED)
         assert options == []
 
 
