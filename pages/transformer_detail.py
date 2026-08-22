@@ -34,15 +34,44 @@ def layout(
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="devices-error", className="listing-error"),
-            # Plant, transformer, device count.
-            html.Div(id="transformer-context"),
-            # Same callback, same FleetHealth as the table below it.
-            html.Div(id="transformer-kpis"),
-            html.H2("Metric Health", className="section-heading"),
-            # One tile per configured metric, scoped to this transformer's devices.
-            html.Div(id="transformer-metric-health"),
-            # Hottest latest-available temperature, attributed to its device.
-            html.Div(id="transformer-attribution"),
+            html.Section(
+                className="detail-operational-summary",
+                children=[
+                    html.Div(
+                        className="detail-section-heading",
+                        children=[
+                            html.H2("Operational summary"),
+                            html.P("Current monitoring view for this transformer"),
+                        ],
+                    ),
+                    # Plant/transformer identity and the visible RTL count.
+                    html.Div(id="transformer-context"),
+                    html.Div(
+                        className="detail-operational-summary__signals",
+                        children=[
+                            # Same callback, same FleetHealth as the table below it.
+                            html.Div(id="transformer-kpis"),
+                            # Maximum latest temperature only — attribution, not alarm.
+                            html.Div(id="transformer-attribution"),
+                        ],
+                    ),
+                ],
+            ),
+            html.Section(
+                className="detail-metric-section",
+                children=[
+                    html.Div(
+                        className="detail-section-heading",
+                        children=[
+                            html.H2("Metric health"),
+                            html.P("Reporting freshness by configured metric"),
+                        ],
+                    ),
+                    # One tile per configured metric, scoped to this transformer's devices.
+                    html.Div(id="transformer-metric-health"),
+                ],
+            ),
+            html.H2("RTL inventory", className="detail-inventory__title"),
             entity_table(
                 table_id="devices-table",
                 columns=[
@@ -53,6 +82,8 @@ def layout(
                 rows=[],
                 link_column_id="device",
                 state_column_id="freshness",
+                administrative_state_column_id="status",
+                responsive=True,
             ),
         ],
     )

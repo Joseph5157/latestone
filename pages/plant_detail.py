@@ -31,15 +31,45 @@ def layout(plant_name: str = "", status: str = "") -> html.Div:
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="transformers-error", className="listing-error"),
-            # Country, primary fuel, capacity, transformer/device counts.
-            html.Div(id="plant-context"),
-            # Same callback, same FleetHealth as the table below it.
-            html.Div(id="plant-kpis"),
-            html.H2("Metric Health", className="section-heading"),
-            # One tile per configured metric, scoped to this plant's devices.
-            html.Div(id="plant-metric-health"),
-            # Hottest latest-available temperature, attributed to its device.
-            html.Div(id="plant-attribution"),
+            html.Section(
+                className="detail-operational-summary",
+                children=[
+                    html.Div(
+                        className="detail-section-heading",
+                        children=[
+                            html.H2("Operational summary"),
+                            html.P("Current monitoring view for this plant"),
+                        ],
+                    ),
+                    # Identity facts and counts come from the same already-scoped
+                    # callback result as the inventory below.
+                    html.Div(id="plant-context"),
+                    html.Div(
+                        className="detail-operational-summary__signals",
+                        children=[
+                            # Same callback, same FleetHealth as the table below it.
+                            html.Div(id="plant-kpis"),
+                            # Maximum latest temperature only — attribution, not alarm.
+                            html.Div(id="plant-attribution"),
+                        ],
+                    ),
+                ],
+            ),
+            html.Section(
+                className="detail-metric-section",
+                children=[
+                    html.Div(
+                        className="detail-section-heading",
+                        children=[
+                            html.H2("Metric health"),
+                            html.P("Reporting freshness by configured metric"),
+                        ],
+                    ),
+                    # One tile per configured metric, scoped to this plant's devices.
+                    html.Div(id="plant-metric-health"),
+                ],
+            ),
+            html.H2("Transformers / RTLs", className="detail-inventory__title"),
             entity_table(
                 table_id="transformers-table",
                 columns=[
@@ -50,6 +80,8 @@ def layout(plant_name: str = "", status: str = "") -> html.Div:
                 rows=[],
                 link_column_id="transformer",
                 state_column_id="freshness",
+                administrative_state_column_id="status",
+                responsive=True,
             ),
         ],
     )
