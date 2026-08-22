@@ -156,6 +156,39 @@ _DEVICE_COLUMNS = (
 # Hierarchy queries
 # ---------------------------------------------------------------------------
 
+#: The bound parameter name every scoped query uses. One name, so the
+#: expanding bindparam is declared identically everywhere.
+_SCOPE_PARAM = "allowed_device_ids"
+
+
+def _scope_clause(alias: str, allowed_device_ids) -> tuple[str, dict]:
+    """SQL fragment and params constraining `<alias>.device_id` to a set.
+
+    ROLE-BLIND BY CONSTRUCTION. This understands "restrict to these device
+    ids" and nothing else — not what a technician is, not why a device is in
+    scope, not that assignments exist. Scope semantics live in
+    services/device_scope.py.
+
+    `None` means unrestricted and produces no SQL. An EMPTY frozenset is a
+    real constraint that matches nothing, and the difference between the two
+    is load-bearing: collapsing them would hand an unassigned technician the
+    whole fleet.
+    """
+    if allowed_device_ids is None:
+        return "", {}
+    return (
+        f" AND {alias}.device_id IN :{_SCOPE_PARAM}",
+        {_SCOPE_PARAM: list(allowed_device_ids)},
+    )
+
+
+def _scoped(statement, allowed_device_ids):
+    """Declare the expanding bindparam when the statement is constrained."""
+    if allowed_device_ids is None:
+        return statement
+    return statement.bindparams(bindparam(_SCOPE_PARAM, expanding=True))
+
+
 def list_plants() -> list[PlantRecord]:
     with session_scope() as session:
         rows = session.execute(
@@ -809,6 +842,28 @@ def list_devices_for_technician(username: str) -> list[str]:
                 """
             ),
             {"username": username},
+        ).all()
+    return [r[0] for r in rows]
+
+
+def list_active_device_ids_for_user(user_id: int) -> list[str]:
+    """Device ids with a current active assignment to `user_id`.
+
+    Keyed on user_id — the persistent identity key — not username. See
+    services/device_scope.py for why authorization never resolves through a
+    display identity.
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT a.device_id
+                FROM {_SCHEMA}.user_device_assignments a
+                WHERE a.user_id = :user_id AND a.ended_at IS NULL
+                ORDER BY a.device_id
+                """
+            ),
+            {"user_id": user_id},
         ).all()
     return [r[0] for r in rows]
 
