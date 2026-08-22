@@ -9,6 +9,15 @@ import logging
 
 from dash import Input, Output, State, no_update, html
 
+from components.status_panels import action_refused_notice
+from services.action_guard import require_action
+from services.auth_service import from_session
+from services.authorization import (
+    AuthorizationError,
+    DEACTIVATE_RTL,
+    PROGRAM_RTL,
+    TOGGLE_MESSAGE_FORWARDING,
+)
 from components.device_manage_drawer import (
     MANAGE_DRAWER_ID,
     MANAGE_DEVICE_ID,
@@ -156,15 +165,22 @@ def register(app) -> None:
     @app.callback(
         Output(PROGRAM_RTL_RESULT_ID, "children"),
         Input(PROGRAM_RTL_CONFIRM_BTN, "n_clicks"),
+        State(MANAGE_DEVICE_ID, "data"),
         State(PROGRAM_RTL_UID_ID, "value"),
         State(PROGRAM_RTL_TRANSFORMER_ID, "value"),
         State(PROGRAM_RTL_MSISDN_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_program_rtl(n_clicks, uid, transformer, msisdn):
+    def confirm_program_rtl(n_clicks, device_id, uid, transformer, msisdn, auth_data):
         """Prototype confirm — no real SMS or command sent."""
         if not n_clicks:
             return no_update
+
+        try:
+            require_action(from_session(auth_data), PROGRAM_RTL, device_id=device_id)
+        except AuthorizationError:
+            return action_refused_notice()
 
         logger.info("Prototype Program RTL: uid=%s, transformer=%s", uid, transformer)
 
@@ -186,12 +202,22 @@ def register(app) -> None:
         Input(MSG_FWD_CONFIRM_BTN, "n_clicks"),
         State(MANAGE_DEVICE_ID, "data"),
         State(MSG_FWD_TOGGLE_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_message_forwarding(n_clicks, device_id, forwarding_state):
+    def confirm_message_forwarding(n_clicks, device_id, forwarding_state, auth_data):
         """Prototype confirm — no real forwarding state changed."""
         if not n_clicks:
             return no_update
+
+        # Authorized BEFORE the state write below: a refusal that lands after
+        # the mutation has already happened is not a refusal.
+        try:
+            require_action(
+                from_session(auth_data), TOGGLE_MESSAGE_FORWARDING, device_id=device_id
+            )
+        except AuthorizationError:
+            return action_refused_notice()
 
         # Store prototype state
         if device_id:
@@ -218,12 +244,18 @@ def register(app) -> None:
         Output(DEACTIVATE_RESULT_ID, "children"),
         Input(DEACTIVATE_CONFIRM_BTN, "n_clicks"),
         State(MANAGE_DEVICE_ID, "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_deactivate_rtl(n_clicks, device_id):
+    def confirm_deactivate_rtl(n_clicks, device_id, auth_data):
         """Prototype confirm — no real active-list mutation."""
         if not n_clicks:
             return no_update
+
+        try:
+            require_action(from_session(auth_data), DEACTIVATE_RTL, device_id=device_id)
+        except AuthorizationError:
+            return action_refused_notice()
 
         logger.info("Prototype Deactivate RTL: device=%s", device_id)
 

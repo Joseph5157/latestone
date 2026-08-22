@@ -27,6 +27,9 @@ from components.assign_device_drawer import (
 )
 from routes import parse_assign_request
 from services import device_scope, hierarchy_service, prototype_assignments
+from services.action_guard import require_action
+from services.auth_service import from_session
+from services.authorization import AuthorizationError, MANAGE_ASSIGNMENT
 from services.prototype_users import get_technician_options
 
 logger = logging.getLogger(__name__)
@@ -228,11 +231,28 @@ def register(app) -> None:
         State(ASSIGN_PLANT_ID, "value"),
         State(ASSIGN_TRANSFORMER_ID, "value"),
         State(ASSIGN_TECHNICIAN_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_assignment(n_clicks, device_id, plant_id, transformer_id, technician):
+    def confirm_assignment(
+        n_clicks, device_id, plant_id, transformer_id, technician, auth_data
+    ):
         """Prototype confirm — stores in memory, no database write."""
         if not n_clicks or not device_id:
+            return no_update, no_update
+
+        # Managing an assignment is administrator-only, including for a
+        # technician who currently holds this device: the assignment is what
+        # grants their authority, so being able to edit it would let them
+        # widen their own scope. The rule lives in the policy table; this
+        # callback only supplies identity, action and target.
+        try:
+            require_action(
+                from_session(auth_data), MANAGE_ASSIGNMENT, device_id=device_id
+            )
+        except AuthorizationError:
+            # Leave the drawer open and change nothing. The operator keeps
+            # their context and no partial assignment is written.
             return no_update, no_update
 
         # Store asset assignment if transformer selected
