@@ -15,7 +15,7 @@ import inspect
 import pytest
 
 from repositories import plant_monitoring_repository as repo
-from services import hierarchy_service
+from services import hierarchy_service, monitoring_service
 
 #: Repository functions whose results depend on which RTLs are visible.
 SCOPED_REPOSITORY_FUNCTIONS = [
@@ -23,6 +23,7 @@ SCOPED_REPOSITORY_FUNCTIONS = [
     "list_plants",
     "list_transformers",
     "count_hierarchy_by_plant",
+    "latest_reading_times",
 ]
 
 #: Service functions that carry a DeviceScope down to them.
@@ -31,6 +32,12 @@ SCOPED_SERVICE_FUNCTIONS = [
     "list_plants",
     "list_transformers",
     "get_plant_hierarchy_counts",
+]
+
+#: Monitoring service functions that carry a DeviceScope down to them.
+SCOPED_MONITORING_FUNCTIONS = [
+    "latest_reading_rows",
+    "get_fleet_health",
 ]
 
 
@@ -51,4 +58,14 @@ def test_service_scope_argument_is_keyword_only_and_undefaulted(name):
     assert parameter.default is inspect.Parameter.empty, (
         f"{name} defaults scope — the fail-open seam closes at both "
         f"boundaries or at neither"
+    )
+
+
+@pytest.mark.parametrize("name", SCOPED_MONITORING_FUNCTIONS)
+def test_monitoring_scope_argument_is_keyword_only_and_undefaulted(name):
+    parameter = inspect.signature(getattr(monitoring_service, name)).parameters["scope"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is inspect.Parameter.empty, (
+        f"{name} defaults scope — every freshness figure on the fleet page "
+        f"derives from this call"
     )

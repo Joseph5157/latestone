@@ -288,7 +288,7 @@ class TestFleetFreshness:
     card and the per-plant freshness column."""
 
     def test_covers_every_active_device_and_metric_pair(self):
-        rows = repo.latest_reading_times(ALL_METRIC_KEYS)
+        rows = repo.latest_reading_times(ALL_METRIC_KEYS, allowed_device_ids=None)
         pairs = {(r.device_id, r.metric) for r in rows}
         assert len(pairs) == len(rows), "a (device, metric) pair appeared twice"
         assert len(rows) == 120 * len(ALL_METRIC_KEYS)
@@ -302,15 +302,15 @@ class TestFleetFreshness:
         query itself runs in 15-19 ms; folding startup into the budget would
         measure SQLAlchemy, not the query shape this test exists to protect.
         """
-        repo.latest_reading_times(ALL_METRIC_KEYS)  # pay connection setup first
+        repo.latest_reading_times(ALL_METRIC_KEYS, allowed_device_ids=None)  # pay connection setup first
         with measure_time() as t:
-            rows = repo.latest_reading_times(ALL_METRIC_KEYS)
+            rows = repo.latest_reading_times(ALL_METRIC_KEYS, allowed_device_ids=None)
         t.row_count = len(rows)
         assert_timing(t, BUDGET_FLEET_FRESHNESS, min_rows=960)
 
     def test_reports_the_newest_reading_for_a_known_device(self):
         expected = repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature")
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         match = next(
             r for r in rows
             if r.device_id == RESERVED_DEVICE_ID and r.metric == "temperature"
@@ -318,7 +318,7 @@ class TestFleetFreshness:
         assert match.reading_ts == expected.timestamp
 
     def test_carries_the_owning_plant_so_no_second_query_is_needed(self):
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         match = next(r for r in rows if r.device_id == RESERVED_DEVICE_ID)
         assert match.plant_id == "plant-01"
         assert len({r.plant_id for r in rows}) == 30
@@ -326,14 +326,14 @@ class TestFleetFreshness:
     def test_carries_the_owning_transformer_for_plant_level_rollups(self):
         """The Plant screen rolls up per transformer. The join is already in
         this query, so carrying the id costs nothing and saves a second one."""
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         match = next(r for r in rows if r.device_id == RESERVED_DEVICE_ID)
         assert match.transformer_id == "plant-01-t1"
         assert len({r.transformer_id for r in rows}) == 71
 
     def test_a_device_with_no_readings_yields_a_row_with_no_timestamp(self):
         """A silent device must appear as NO_DATA, not vanish from the fleet."""
-        rows = repo.latest_reading_times(["not_a_seeded_metric"])
+        rows = repo.latest_reading_times(["not_a_seeded_metric"], allowed_device_ids=None)
         assert len(rows) == 120
         assert all(r.reading_ts is None for r in rows)
 
@@ -343,7 +343,7 @@ class TestFleetFreshness:
         status filter, which is easy to omit here and invisible while the seed
         holds no inactive rows."""
         counts = repo.count_hierarchy_by_plant(allowed_device_ids=None)
-        rows = repo.latest_reading_times(["temperature"])
+        rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
         devices_per_plant = {}
         for r in rows:
             devices_per_plant[r.plant_id] = devices_per_plant.get(r.plant_id, 0) + 1
@@ -354,20 +354,20 @@ class TestFleetFreshness:
             )
 
     def test_include_inactive_widens_the_population(self):
-        default_rows = repo.latest_reading_times(["temperature"])
-        with_inactive = repo.latest_reading_times(["temperature"], include_inactive=True)
+        default_rows = repo.latest_reading_times(["temperature"], allowed_device_ids=None)
+        with_inactive = repo.latest_reading_times(["temperature"], include_inactive=True, allowed_device_ids=None)
         assert {r.device_id for r in default_rows} <= {r.device_id for r in with_inactive}
 
     def test_empty_metric_list_returns_empty_without_querying(self):
         with measure_time() as t:
-            rows = repo.latest_reading_times([])
+            rows = repo.latest_reading_times([], allowed_device_ids=None)
         assert rows == []
         t.row_count = 0
         assert_timing(t, BUDGET_FLEET_FRESHNESS)
 
     def test_metric_names_are_bound_not_interpolated(self):
         injected = "'); DROP TABLE plant_monitoring.readings; --"
-        rows = repo.latest_reading_times([injected])
+        rows = repo.latest_reading_times([injected], allowed_device_ids=None)
         assert all(r.reading_ts is None for r in rows)
         assert repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature") is not None
 

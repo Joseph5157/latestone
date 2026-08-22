@@ -167,7 +167,7 @@ class TestBuildTransformerDetailViewQueryCounts:
         calls = []
         monkeypatch.setattr(
             repo, "latest_reading_times",
-            lambda metrics, include_inactive=False: calls.append(metrics) or [],
+            lambda metrics, *, allowed_device_ids=None, include_inactive=False: calls.append(metrics) or [],
         )
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
@@ -178,7 +178,7 @@ class TestBuildTransformerDetailViewQueryCounts:
         from repositories import plant_monitoring_repository as repo
 
         _stub_devices(monkeypatch, devices=[])
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
         calls = []
         monkeypatch.setattr(
             repo, "latest_metric_readings",
@@ -197,7 +197,7 @@ class TestBuildTransformerDetailViewQueryCounts:
         reading_calls = []
         monkeypatch.setattr(
             repo, "latest_reading_times",
-            lambda metrics, include_inactive=False: reading_calls.append(metrics) or [],
+            lambda metrics, *, allowed_device_ids=None, include_inactive=False: reading_calls.append(metrics) or [],
         )
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
@@ -210,7 +210,7 @@ class TestBuildTransformerDetailViewQueryCounts:
         from repositories import plant_monitoring_repository as repo
 
         _stub_devices(monkeypatch, devices=[])
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
         seen = {}
@@ -243,7 +243,7 @@ class TestBuildTransformerDetailViewContent:
         _stub_devices(monkeypatch, devices=[_Device("d1", "29017"), _Device("d2", "29018")])
         from repositories import plant_monitoring_repository as repo
 
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
         result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
@@ -257,7 +257,7 @@ class TestBuildTransformerDetailViewContent:
         _stub_devices(monkeypatch, devices=[])
         from repositories import plant_monitoring_repository as repo
 
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
         result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
@@ -267,7 +267,7 @@ class TestBuildTransformerDetailViewContent:
         _stub_devices(monkeypatch, devices=[_Device("d1", "29017")])
         from repositories import plant_monitoring_repository as repo
 
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
         result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
@@ -284,7 +284,7 @@ class TestBuildTransformerDetailViewContent:
         _stub_devices(monkeypatch, devices=[])
         from repositories import plant_monitoring_repository as repo
 
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [stale_reading])
 
         result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
@@ -307,7 +307,7 @@ class TestBuildTransformerDetailViewContent:
         _stub_devices(monkeypatch, devices=[])
         from repositories import plant_monitoring_repository as repo
 
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
+        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [reading])
 
         result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)

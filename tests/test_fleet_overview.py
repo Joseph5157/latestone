@@ -22,6 +22,7 @@ from components.fleet_summary import (
     fleet_health_summary,
     fleet_kpi_cards,
 )
+from services.device_scope import UNRESTRICTED
 from services.monitoring_service import (
     Freshness,
     FreshnessRollup,
@@ -250,9 +251,11 @@ class TestSingleSourceOfFreshness:
         calls = []
         monkeypatch.setattr(
             repo, "latest_reading_times",
-            lambda metrics, include_inactive=False: calls.append(metrics) or [],
+            lambda metrics, *, allowed_device_ids=None, include_inactive=False: (
+                calls.append(metrics) or []
+            ),
         )
-        monitoring_service.get_fleet_health()
+        monitoring_service.get_fleet_health(scope=UNRESTRICTED)
         assert len(calls) == 1
 
     def test_fleet_health_query_covers_every_configured_metric(self, monkeypatch):
@@ -265,9 +268,11 @@ class TestSingleSourceOfFreshness:
         captured = {}
         monkeypatch.setattr(
             repo, "latest_reading_times",
-            lambda metrics, include_inactive=False: captured.update(m=metrics) or [],
+            lambda metrics, *, allowed_device_ids=None, include_inactive=False: (
+                captured.update(m=metrics) or []
+            ),
         )
-        monitoring_service.get_fleet_health()
+        monitoring_service.get_fleet_health(scope=UNRESTRICTED)
         assert captured["m"] == [m.key for m in ordered_metrics()]
 
     def test_card_and_table_agree_on_every_plant(self):
@@ -299,9 +304,11 @@ class TestSingleSourceOfFreshness:
         calls = []
         monkeypatch.setattr(
             repo, "latest_reading_times",
-            lambda metrics, include_inactive=False: calls.append(metrics) or [],
+            lambda metrics, *, allowed_device_ids=None, include_inactive=False: (
+                calls.append(metrics) or []
+            ),
         )
-        health = monitoring_service.get_fleet_health()
+        health = monitoring_service.get_fleet_health(scope=UNRESTRICTED)
         fleet_health_distribution(health.counts)
         assert len(calls) == 1
 
@@ -469,11 +476,14 @@ def test_get_fleet_health_accepts_an_injected_instant(monkeypatch):
         seen["now"] = now
         return real_from_rows(rows, now)
 
-    monkeypatch.setattr(ms.repo, "latest_reading_times", lambda keys: [])
+    monkeypatch.setattr(
+        ms.repo, "latest_reading_times",
+        lambda keys, *, allowed_device_ids=None, include_inactive=False: [],
+    )
     monkeypatch.setattr(ms, "fleet_health_from_rows", fake_from_rows)
 
     frozen = datetime(2026, 8, 9, 11, 24, tzinfo=timezone.utc)
-    ms.get_fleet_health(now=frozen)
+    ms.get_fleet_health(now=frozen, scope=UNRESTRICTED)
     assert seen["now"] == frozen
 
 

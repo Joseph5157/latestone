@@ -5,6 +5,8 @@ plant_monitoring.* tables. See tests/conftest.py::isolated_schema.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import text
 
@@ -255,3 +257,74 @@ def test_hierarchy_counts_transformer_count_agrees_with_list_transformers():
     assert counts["sc-p13"][0] == len(listed_transformers), (
         "the transformer count must agree with what list_transformers actually lists"
     )
+
+
+def test_latest_reading_times_constrained_to_visible_devices():
+    _seed_tree("sc-p13b", "sc-p13b-t1", ["sc-r1", "sc-r2"])
+
+    rows = repo.latest_reading_times(
+        ["temperature"], allowed_device_ids=frozenset({"sc-r1"})
+    )
+
+    assert {r.device_id for r in rows} == {"sc-r1"}
+
+
+def test_latest_reading_times_empty_scope_returns_nothing():
+    """Invariant 8 on the query that feeds every freshness figure."""
+    _seed_tree("sc-p14", "sc-p14-t1", ["sc-r9"])
+    assert repo.latest_reading_times(
+        ["temperature"], allowed_device_ids=frozenset()
+    ) == []
+
+
+def test_notification_rows_are_empty_for_an_empty_scope():
+    """Spec §7.1(1): notifications derive from latest_reading_times rather
+    than a query of their own, which makes them the easiest surface to leave
+    unscoped by accident."""
+    from services.device_scope import EMPTY
+    from services import monitoring_service
+    from services.notification_service import build_current_notifications
+
+    _seed_tree("sc-p14b", "sc-p14b-t1", ["sc-r10"])
+    rows = monitoring_service.latest_reading_rows(scope=EMPTY)
+
+    assert rows == []
+    assert build_current_notifications(rows, datetime.now(timezone.utc)) == []
+
+
+def test_reading_population_agrees_with_hierarchy_counts_under_scope():
+    """Two figures rendered on the same screen must describe the same population.
+
+    latest_reading_times is device-grained and rolled up in Python;
+    count_hierarchy_by_plant aggregates in SQL. They must still agree about how
+    many transformers a scoped user can see, or the Fleet card and the freshness
+    column contradict each other.
+    """
+    _seed_tree("agree-p1", "agree-p1-t1", ["agree-d1"])
+    # second transformer under the SAME plant, holding an out-of-scope device
+    # (mirrors test_hierarchy_counts_transformer_count_agrees_with_list_transformers)
+    with session_scope() as session:
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.transformers "
+                f"(transformer_id, plant_id, transformer_code) "
+                f"VALUES ('agree-p1-t2', 'agree-p1', 't2') ON CONFLICT DO NOTHING"
+            )
+        )
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.devices "
+                f"(device_id, transformer_id, device_code) "
+                f"VALUES ('agree-d2', 'agree-p1-t2', 'd2') ON CONFLICT DO NOTHING"
+            )
+        )
+
+    scope = frozenset({"agree-d1"})
+
+    rows = repo.latest_reading_times(["temperature"], allowed_device_ids=scope)
+    tx_from_rows = {r.transformer_id for r in rows}
+    tx_from_counts, _devices = repo.count_hierarchy_by_plant(
+        allowed_device_ids=scope
+    )["agree-p1"]
+
+    assert len(tx_from_rows) == tx_from_counts == 1

@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import logging
 
-from dash import Input, Output, no_update, html
+from dash import Input, Output, State, no_update, html
 
 from services import monitoring_service
+from services.device_scope import scope_from_session
 from services.notification_service import build_current_notifications, notification_summary
 
 logger = logging.getLogger(__name__)
@@ -26,15 +27,18 @@ def register(app) -> None:
         Output("notification-summary", "children"),
         Output("notification-empty", "style"),
         Input("page-context", "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_notifications(context):
+    def populate_notifications(context, auth_data):
         if not context or context.get("route") != "notifications":
             return no_update, no_update, no_update, no_update, no_update
 
         try:
-            # Get fleet-wide latest reading data
-            rows = monitoring_service.latest_reading_rows()
+            # Get fleet-wide latest reading data, constrained to what this
+            # caller may see — resolved once per render (ROLE-3 invariant).
+            scope = scope_from_session(auth_data)
+            rows = monitoring_service.latest_reading_rows(scope=scope)
 
             # Build formal notifications (>24h no-data)
             notifications = build_current_notifications(rows)

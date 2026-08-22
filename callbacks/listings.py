@@ -372,7 +372,7 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime, *, scope: Devi
     # One fetch, two derivations: fleet_health_from_rows and
     # metric_health_from_rows both read this same result set rather than
     # each issuing their own latest_reading_times() query.
-    rows = monitoring_service.latest_reading_rows()
+    rows = monitoring_service.latest_reading_rows(scope=scope)
     health = monitoring_service.fleet_health_from_rows(rows, rendered_at)
     metric_health_items = monitoring_service.metric_health_from_rows(
         rows, plant_id=plant_id, now=rendered_at
@@ -421,7 +421,7 @@ def build_transformer_detail_view(
     """
     devices = hierarchy_service.list_devices(transformer_id, scope=scope)
 
-    rows = monitoring_service.latest_reading_rows()
+    rows = monitoring_service.latest_reading_rows(scope=scope)
     health = monitoring_service.fleet_health_from_rows(rows, rendered_at)
     metric_health_items = monitoring_service.metric_health_from_rows(
         rows, transformer_id=transformer_id, now=rendered_at
@@ -488,7 +488,7 @@ def register(app) -> None:
         def build():
             plants = hierarchy_service.list_plants(scope=scope)
             counts = hierarchy_service.get_plant_hierarchy_counts(scope=scope)
-            health = monitoring_service.get_fleet_health(rendered_at)
+            health = monitoring_service.get_fleet_health(rendered_at, scope=scope)
             cards.append(
                 fleet_kpi_cards(
                     plants=len(plants),

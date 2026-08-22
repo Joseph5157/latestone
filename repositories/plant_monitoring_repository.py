@@ -467,7 +467,10 @@ class LatestReadingRow:
 
 
 def latest_reading_times(
-    metrics: list[str], include_inactive: bool = False
+    metrics: list[str],
+    *,
+    allowed_device_ids: frozenset[str] | None,
+    include_inactive: bool = False,
 ) -> list[LatestReadingRow]:
     """Newest reading per (device, metric) across the whole fleet, in one query.
 
@@ -492,6 +495,15 @@ def latest_reading_times(
 
     `metrics` is passed in rather than read from config so this layer stays
     free of presentation concerns.
+
+    SCOPE IS APPLIED PER-ROW, NOT AGGREGATED (ROLE-3 invariant 4). This query
+    is device-grained — one row per (device, metric), no GROUP BY, no COUNT —
+    so constraining `d.device_id` here is already the correct grain; unlike
+    `count_hierarchy_by_plant`, no separate EXISTS is needed at a coarser
+    level. Every rollup (fleet health, the health distribution bar, Needs
+    Attention, the Notification Center) is built from these rows in Python,
+    so a caller that gets this constraint wrong shows freshness figures for a
+    different population than the counts on the same screen.
     """
     if not metrics:
         return []
@@ -512,28 +524,33 @@ def latest_reading_times(
     if not include_inactive:
         params["active"] = ACTIVE_STATUS
 
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    params.update(scope_params)
+
+    statement = _scoped(
+        text(
+            f"""
+            SELECT t.plant_id, t.transformer_id, d.device_id,
+                   m.metric, latest.reading_ts
+            FROM {_SCHEMA}.devices d
+            JOIN {_SCHEMA}.transformers t
+              ON t.transformer_id = d.transformer_id
+            CROSS JOIN (VALUES {values}) AS m(metric)
+            LEFT JOIN LATERAL (
+                SELECT rr.reading_ts
+                FROM {_SCHEMA}.readings rr
+                WHERE rr.device_id = d.device_id AND rr.metric = m.metric
+                ORDER BY rr.reading_ts DESC
+                LIMIT 1
+            ) latest ON TRUE
+            WHERE TRUE{status_filter}{scope_sql}
+            """
+        ),
+        allowed_device_ids,
+    )
+
     with session_scope() as session:
-        rows = session.execute(
-            text(
-                f"""
-                SELECT t.plant_id, t.transformer_id, d.device_id,
-                       m.metric, latest.reading_ts
-                FROM {_SCHEMA}.devices d
-                JOIN {_SCHEMA}.transformers t
-                  ON t.transformer_id = d.transformer_id
-                CROSS JOIN (VALUES {values}) AS m(metric)
-                LEFT JOIN LATERAL (
-                    SELECT rr.reading_ts
-                    FROM {_SCHEMA}.readings rr
-                    WHERE rr.device_id = d.device_id AND rr.metric = m.metric
-                    ORDER BY rr.reading_ts DESC
-                    LIMIT 1
-                ) latest ON TRUE
-                WHERE TRUE{status_filter}
-                """
-            ),
-            params,
-        ).all()
+        rows = session.execute(statement, params).all()
 
     return [LatestReadingRow(r[0], r[1], r[2], r[3], r[4]) for r in rows]
 

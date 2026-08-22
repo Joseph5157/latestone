@@ -26,6 +26,7 @@ from config.metrics import (
 from config.settings import monitoring
 from repositories import plant_monitoring_repository as repo
 from repositories.plant_monitoring_repository import DeviceMetricReading, RawReading
+from services.device_scope import DeviceScope
 
 
 class Freshness(str, Enum):
@@ -386,7 +387,7 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
     )
 
 
-def get_fleet_health(now: datetime | None = None) -> FleetHealth:
+def get_fleet_health(now: datetime | None = None, *, scope: DeviceScope) -> FleetHealth:
     """The fleet's freshness, from one query, for one render.
 
     The Fleet screen's Data Health card and every plant's freshness label are
@@ -402,11 +403,14 @@ def get_fleet_health(now: datetime | None = None) -> FleetHealth:
     single instant. The Fleet header stamps that same instant, so the page
     cannot claim to have refreshed at a moment different from the one its
     freshness column was computed at.
+
+    Scoped: every figure derived from this describes the caller's visible
+    devices only, constrained in SQL before aggregation.
     """
-    return fleet_health_from_rows(latest_reading_rows(), now)
+    return fleet_health_from_rows(latest_reading_rows(scope=scope), now)
 
 
-def latest_reading_rows() -> list[LatestReadingRow]:
+def latest_reading_rows(*, scope: DeviceScope) -> list[LatestReadingRow]:
     """The one fleet-wide freshness fetch, unaggregated.
 
     Split out from `get_fleet_health` so a screen needing two different rollups
@@ -417,8 +421,15 @@ def latest_reading_rows() -> list[LatestReadingRow]:
 
     `get_fleet_health` remains the right entry point for a screen that needs
     only device rollups.
+
+    Scoped: constrained in SQL to the caller's visible devices before any
+    rollup runs, so fleet health, the health distribution bar, Needs
+    Attention and the Notification Center can never disagree with the counts
+    the caller is otherwise shown.
     """
-    return repo.latest_reading_times([m.key for m in ordered_metrics()])
+    return repo.latest_reading_times(
+        [m.key for m in ordered_metrics()], allowed_device_ids=scope.device_ids
+    )
 
 
 @dataclass(frozen=True)
