@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from components.temperature_attribution import temperature_attribution
 from config.metrics import get_metric
 from services.monitoring_service import Freshness, TemperatureAttribution
-from tests.dash_tree import find_by_exact_class, text_of
+from tests.dash_tree import find_by_exact_class, links, text_of
 from tests.test_component_architecture import (
     FORBIDDEN_SERVICE_SYMBOLS,
     _imported_symbols_from_services,
@@ -46,6 +46,10 @@ class TestHasDataRendering:
     def test_renders_device_identity(self):
         card = temperature_attribution(_view())
         assert "29044" in text_of(card)
+
+    def test_device_identity_keeps_its_drill_down_link(self):
+        card = temperature_attribution(_view())
+        assert ("Device 29044 · Transformer ta01", "/devices/d1") in links(card)
 
     def test_renders_transformer_identity_when_requested(self):
         card = temperature_attribution(_view(), show_transformer=True)

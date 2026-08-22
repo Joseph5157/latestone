@@ -13,12 +13,15 @@ from dash import dcc, html
 from components.freshness_presentation import FRESHNESS_PRESENTATION
 from services.monitoring_service import Freshness
 
+DEFAULT_VISIBLE_ITEMS = 5
+
 
 def needs_attention(
     rows: list[dict],
     empty_message: str = (
         "No current data-freshness exceptions."
     ),
+    max_items: int = DEFAULT_VISIBLE_ITEMS,
 ) -> html.Div:
     """Render a compact exception panel above the plants table.
 
@@ -38,13 +41,32 @@ def needs_attention(
     if not rows:
         return _empty_panel(empty_message)
 
+    visible_rows = rows[:max_items]
+    total = len(rows)
+    disclosure = (
+        f"Showing {len(visible_rows)} of {total} affected plants."
+        if total > len(visible_rows)
+        else f"{total} affected {'plant' if total == 1 else 'plants'}."
+    )
+
     return html.Div(
         className="needs-attention",
         children=[
             html.H2("Needs attention", className="needs-attention__title"),
             html.Div(
+                className="needs-attention__summary-row",
+                children=[
+                    html.P(disclosure, className="needs-attention__summary"),
+                    dcc.Link(
+                        "View full fleet",
+                        href="#fleet-plants",
+                        className="needs-attention__all",
+                    ),
+                ],
+            ),
+            html.Div(
                 className="needs-attention__list",
-                children=[_row(r) for r in rows],
+                children=[_row(r) for r in visible_rows],
             ),
         ],
     )

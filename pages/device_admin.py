@@ -79,6 +79,8 @@ def layout() -> html.Div:
                 rows=[],
                 link_column_id="device",
                 state_column_id="freshness",
+                administrative_state_column_id="status",
+                responsive=True,
             ),
             # Assignment drawer (opens on Assign action)
             assign_device_drawer(),

@@ -23,14 +23,20 @@ def layout() -> html.Div:
                     ("Register", None),
                 ]),
             ),
-            html.H1("Register Device"),
-            html.P(
-                "Add a new device to the monitoring hierarchy.",
-                className="page__subtitle",
+            html.Header(
+                className="admin-page-heading admin-page-heading--registration",
+                children=[
+                    html.Div("Administration", className="admin-page-heading__eyebrow"),
+                    html.H1("Register Device"),
+                    html.P(
+                        "Create an RTL identity in the monitoring hierarchy.",
+                        className="admin-page-heading__description",
+                    ),
+                ],
             ),
             # Scope notice
             html.Div(
-                className="status-panel status-panel--inactive",
+                className="admin-boundary-note device-register-boundary",
                 children=[
                     html.Strong("Registers device identity only. "),
                     html.Span(
@@ -46,12 +52,23 @@ def layout() -> html.Div:
                 id="device-register-form",
                 className="device-register-form",
                 children=[
+                    html.Div(
+                        className="device-register-form__heading",
+                        children=[
+                            html.Div("Registration details", className="admin-section-heading__eyebrow"),
+                            html.H2("Device identity and placement"),
+                            html.P(
+                                [html.Span("*", className="required-marker"), " Required field"],
+                                className="device-register-form__required-note",
+                            ),
+                        ],
+                    ),
                     # Device Code
                     html.Div(
                         className="device-register-form__field",
                         children=[
                             html.Label(
-                                "Device Code",
+                                ["RTL UID / Device Code", html.Span(" *", className="required-marker")],
                                 htmlFor="device-register-code",
                                 className="device-register-form__label",
                             ),
@@ -61,6 +78,7 @@ def layout() -> html.Div:
                                 placeholder="e.g. 29017",
                                 className="device-register-form__input",
                                 maxLength=10,
+                                required=True,
                             ),
                             html.P(
                                 id="device-register-code-error",
@@ -73,7 +91,7 @@ def layout() -> html.Div:
                         className="device-register-form__field",
                         children=[
                             html.Label(
-                                "Plant",
+                                ["Plant", html.Span(" *", className="required-marker")],
                                 htmlFor="device-register-plant",
                                 className="device-register-form__label",
                             ),
@@ -95,7 +113,7 @@ def layout() -> html.Div:
                         className="device-register-form__field",
                         children=[
                             html.Label(
-                                "Transformer",
+                                ["Transformer", html.Span(" *", className="required-marker")],
                                 htmlFor="device-register-transformer",
                                 className="device-register-form__label",
                             ),
@@ -106,6 +124,10 @@ def layout() -> html.Div:
                                 searchable=True,
                                 disabled=True,
                                 className="device-register-form__dropdown",
+                            ),
+                            html.P(
+                                "Choose a plant first to load its transformers.",
+                                className="device-register-form__helper",
                             ),
                             html.P(
                                 id="device-register-transformer-error",
@@ -160,6 +182,10 @@ def layout() -> html.Div:
                 style={"display": "none"},
                 children=[
                     html.H2("Review Registration"),
+                    html.P(
+                        "You are about to create this application device record.",
+                        className="device-register-review__description",
+                    ),
                     html.Div(id="device-register-review-summary"),
                     html.Div(
                         className="device-register-form__actions",

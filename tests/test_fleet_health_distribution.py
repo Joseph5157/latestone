@@ -5,7 +5,10 @@ something the counts do not support.
 """
 from __future__ import annotations
 
-from components.fleet_summary import fleet_health_distribution
+from components.fleet_summary import (
+    fleet_health_distribution,
+    systemic_freshness_summary,
+)
 from services.monitoring_service import Freshness
 from tests.dash_tree import find_by_exact_class, text_of
 
@@ -90,6 +93,14 @@ class TestLegend:
         ]
         assert counts == ["0", "120", "0"]
 
+    def test_primary_health_summary_and_all_counts_coexist(self):
+        block = fleet_health_distribution({F: 0, S: 120, N: 0})
+        rendered = text_of(block)
+        assert "Data Health" in rendered
+        assert "120 stale" in rendered
+        assert all(label in rendered for label in ("Fresh", "Stale", "No data"))
+        assert all(count in rendered for count in ("0", "120"))
+
     def test_legend_renders_even_when_total_is_zero(self):
         """The empty-bar state above the legend must not swallow the legend
         row - all three states stay nameable even with nothing to show."""
@@ -125,3 +136,24 @@ class TestComponentUsesSuppliedCountsOnly:
         first = fleet_health_distribution({F: 5, S: 3, N: 1})
         second = fleet_health_distribution({F: 5, S: 3, N: 1})
         assert repr(first) == repr(second)
+
+
+class TestSystemicFreshnessSummary:
+    def test_all_stale_renders_real_count(self):
+        block = systemic_freshness_summary({F: 0, S: 120, N: 0})
+        assert "Fleet-wide freshness issue" in text_of(block)
+        assert "All 120 monitoring devices are stale" in text_of(block)
+
+    def test_all_no_data_renders_real_count(self):
+        block = systemic_freshness_summary({F: 0, S: 0, N: 12})
+        assert "All 12 monitoring devices have no data" in text_of(block)
+
+    def test_mixed_population_has_no_systemic_summary(self):
+        assert systemic_freshness_summary({F: 1, S: 119, N: 0}) is None
+
+    def test_empty_population_has_no_systemic_summary(self):
+        assert systemic_freshness_summary({F: 0, S: 0, N: 0}) is None
+
+    def test_copy_does_not_invent_alarm_or_severity_terms(self):
+        rendered = text_of(systemic_freshness_summary({F: 0, S: 5, N: 0})).lower()
+        assert not any(term in rendered for term in ("critical", "major", "alarm", "outage"))

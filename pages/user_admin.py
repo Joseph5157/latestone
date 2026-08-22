@@ -20,14 +20,30 @@ def layout() -> html.Div:
             app_header(
                 breadcrumb_children=breadcrumb([("User Administration", None)]),
             ),
-            html.H1("User Administration"),
-            html.P(
-                "Manage application users and access.",
-                className="page__subtitle",
+            html.Header(
+                className="admin-page-heading",
+                children=[
+                    html.Div(
+                        children=[
+                            html.Div("Administration", className="admin-page-heading__eyebrow"),
+                            html.H1("User Administration"),
+                            html.P(
+                                "Manage application users, roles, and account status.",
+                                className="admin-page-heading__description",
+                            ),
+                        ],
+                    ),
+                    html.Button(
+                        "Add User",
+                        id="user-admin-add-btn",
+                        n_clicks=0,
+                        className="user-admin-toolbar__add-btn",
+                    ),
+                ],
             ),
             # Prototype notice
             html.Div(
-                className="status-panel status-panel--inactive",
+                className="admin-boundary-note",
                 children=[
                     html.Strong("Prototype. "),
                     html.Span(
@@ -36,22 +52,39 @@ def layout() -> html.Div:
                     ),
                 ],
             ),
-            # Toolbar — search, status filter, add user button
+            html.Div(
+                className="admin-section-heading",
+                children=[
+                    html.Div(
+                        children=[
+                            html.Div("Inventory", className="admin-section-heading__eyebrow"),
+                            html.H2("Application users"),
+                        ],
+                    ),
+                    html.P("Search by user or identifier, then filter by lifecycle status."),
+                ],
+            ),
+            # Toolbar — search and status filter. Add User is the page action.
             html.Div(
                 className="user-admin-toolbar",
                 children=[
-                    dcc.Input(
-                        id="user-admin-search",
-                        type="text",
-                        placeholder="Search users...",
-                        className="user-admin-toolbar__search",
-                        debounce=True,
+                    html.Div(
+                        className="user-admin-toolbar__control user-admin-toolbar__control--search",
+                        children=[
+                            html.Label("Search", htmlFor="user-admin-search"),
+                            dcc.Input(
+                                id="user-admin-search", type="text",
+                                placeholder="User or identifier…",
+                                className="user-admin-toolbar__search", debounce=True,
+                            ),
+                        ],
                     ),
                     html.Div(
-                        className="user-admin-toolbar__filters",
+                        className="user-admin-toolbar__control user-admin-toolbar__filters",
                         children=[
                             html.Label(
-                                "Status:",
+                                "Account status",
+                                htmlFor="user-admin-status-filter",
                                 className="user-admin-toolbar__label",
                             ),
                             dcc.Dropdown(
@@ -66,12 +99,6 @@ def layout() -> html.Div:
                                 className="user-admin-toolbar__dropdown",
                             ),
                         ],
-                    ),
-                    html.Button(
-                        "Add User",
-                        id="user-admin-add-btn",
-                        n_clicks=0,
-                        className="user-admin-toolbar__add-btn",
                     ),
                 ],
             ),
@@ -91,7 +118,9 @@ def layout() -> html.Div:
                 ],
                 rows=[],
                 link_column_id="username",
-                state_column_id="status",
+                administrative_state_column_id="status",
+                responsive=True,
+                markdown_link_target="_self",
             ),
             # User form drawer (opens on Add/Edit)
             user_form_drawer(),

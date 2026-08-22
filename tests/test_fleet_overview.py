@@ -185,9 +185,9 @@ class TestFleetKpiCards:
         health = _health([("p1", "d1", FRESH_TS), ("p1", "d2", STALE_TS)])
         return fleet_kpi_cards(plants=30, transformers=71, devices=120, health=health)
 
-    def test_renders_the_four_required_cards(self):
+    def test_renders_structural_counts_without_a_competing_health_card(self):
         labels = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__label")]
-        assert labels == ["Plants", "Transformers", "Devices", "Data Health"]
+        assert labels == ["Plants", "Transformers", "Devices"]
 
     def test_hierarchy_totals_come_from_the_counts_not_the_health_rows(self):
         """Devices shows every active device, including any the freshness query
@@ -195,9 +195,9 @@ class TestFleetKpiCards:
         values = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__value")]
         assert values[:3] == ["30", "71", "120"]
 
-    def test_data_health_card_reports_the_rollup(self):
-        values = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__value")]
-        assert values[3] == "1 stale"
+    def test_primary_health_is_not_repeated_as_a_fourth_equal_weight_card(self):
+        labels = [text_of(el) for el in find_by_class(self._cards(), "kpi-card__label")]
+        assert "Data Health" not in labels
 
 
 class TestEntitySummaryBlockContract:
@@ -229,16 +229,11 @@ class TestEntitySummaryBlockContract:
         [health_card] = find_by_exact_class(block, "kpi-card")
         assert "kpi-card--accent" not in health_card.className
 
-    def test_fleet_kpi_cards_delegates_to_entity_summary_block(self):
-        """The public wrappers exist for call-site clarity, not a second
-        implementation — same output either way."""
+    def test_fleet_kpi_cards_keeps_health_in_the_separate_primary_block(self):
         health = _health([("p1", "d1", FRESH_TS), ("p1", "d2", STALE_TS)])
-        via_wrapper = fleet_kpi_cards(plants=30, transformers=71, devices=120, health=health)
-        via_block = entity_summary_block(
-            counts=[("Plants", 30), ("Transformers", 71), ("Devices", 120)],
-            health_counts=health.counts,
-        )
-        assert repr(via_wrapper) == repr(via_block)
+        block = fleet_kpi_cards(plants=30, transformers=71, devices=120, health=health)
+        assert "kpi-row--fleet-structure" in block.className
+        assert "stale" not in text_of(block).lower()
 
 
 class TestSingleSourceOfFreshness:
@@ -508,3 +503,11 @@ def test_the_layout_column_spec_matches_the_callback_that_replaces_it():
         if getattr(n, "id", None) == "plants-table"
     )
     assert table.columns == PLANT_COLUMNS
+
+
+def test_fleet_table_uses_shared_responsive_presentation():
+    from pages.plants_overview import layout
+    from tests.dash_tree import find_by_class
+
+    wrappers = find_by_class(layout(), "entity-table-wrapper--responsive")
+    assert len(wrappers) == 1

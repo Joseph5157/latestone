@@ -1011,6 +1011,10 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr)) 1.5fr;
 }
 .kpi-row--fleet .kpi-card__value { font-size: var(--fs-fleet-kpi); }
+.kpi-row--fleet-structure {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: var(--sp-2);
+}
 
 /* ---------- Administration summary ---------- */
 /* Three cards, so the row overrides .kpi-row's 4-column default rather than
@@ -1034,13 +1038,30 @@ body {
    because the Unassigned RTLs panel below belongs to this section: the cards
    and the list they summarise should group visually rather than read as two
    independent blocks. */
+.fleet-administration {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--color-border);
+}
+
 .admin-summary { margin-bottom: var(--sp-2); }
 
 .admin-summary__heading {
-  font-size: var(--fs-section);
+  font-size: 12px;
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
   margin: 0 0 var(--sp-2);
+}
+
+.fleet-administration .kpi-card {
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.fleet-administration .kpi-card__value {
+  font-size: 22px;
 }
 
 /* ---------- Unassigned RTLs (ADMIN-3) ---------- */
@@ -1162,6 +1183,43 @@ body {
   margin-bottom: var(--sp-3);
 }
 
+.health-distribution--primary {
+  border-left: 4px solid var(--color-brand);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) calc(var(--sp-4) - 3px);
+}
+
+.health-distribution__heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.health-distribution__title {
+  margin: 0 0 2px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.health-distribution__primary-value {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.health-distribution__secondary {
+  margin: 0 0 2px;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+  text-align: right;
+}
+
 .health-distribution__bar {
   display: flex;
   height: 10px;
@@ -1221,6 +1279,40 @@ body {
   color: var(--color-text);
 }
 
+/* Exact-condition fleet summary. This is operational context, not an alarm:
+   neutral brand border, no red fill and no invented severity label. */
+.systemic-freshness {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: 11px var(--sp-4);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.systemic-freshness__marker {
+  flex: 0 0 auto;
+  width: 3px;
+  min-height: 38px;
+  border-radius: 2px;
+  background: var(--state-stale-text);
+}
+
+.systemic-freshness__title {
+  margin: 0 0 2px;
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.systemic-freshness__detail {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}
+
 /* ---------- Needs Attention panel ---------- */
 /* Compact exception list sitting between the distribution bar and the plants
    table. Surface + border + radius matches every other card-shaped block on
@@ -1246,6 +1338,35 @@ body {
   font-size: var(--fs-body);
   color: var(--color-muted);
   margin: 0;
+}
+
+.needs-attention__summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin: calc(-1 * var(--sp-1)) 0 var(--sp-1);
+}
+
+.needs-attention__summary {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+}
+
+.needs-attention__all {
+  color: var(--color-accent);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.needs-attention__all:hover { text-decoration: underline; }
+.needs-attention__all:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
 }
 
 .needs-attention__row {
@@ -1317,6 +1438,40 @@ body {
   outline: none;
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);
+}
+
+.fleet-inventory__title {
+  margin: var(--sp-6) 0 var(--sp-2);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--fs-section);
+  color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+  .health-distribution__heading-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .health-distribution__primary-value { font-size: 21px; }
+  .health-distribution__secondary { text-align: left; }
+  .health-distribution__legend { gap: var(--sp-3); }
+  .systemic-freshness { padding: 10px var(--sp-3); }
+  .needs-attention { padding: var(--sp-3); }
+  .needs-attention__summary-row { align-items: flex-start; }
+  .needs-attention__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 4px var(--sp-2);
+  }
+  .needs-attention__entity { max-width: none; }
+  .needs-attention__type { display: none; }
+  .needs-attention__detail,
+  .needs-attention__age { grid-column: 2 / -1; margin-left: 0; }
+  .needs-attention__link { grid-column: 3; grid-row: 1; }
+  .fleet-administration { margin-top: var(--sp-4); }
+  .fleet-inventory__title { margin-top: var(--sp-4); }
 }
 
 /* ---------- Device Administration toolbar ---------- */
@@ -1433,6 +1588,209 @@ body {
 /* ---------- Entity Table ---------- */
 .entity-table-wrapper { overflow-x: auto; }
 .entity-table-wrapper .dash-table-container { max-width: 100%; }
+
+/* Administrative lifecycle is a neutral outlined label. Monitoring freshness
+   keeps the semantic text colours generated by entity_table.py. Their shapes
+   differ as well as their labels, so the axes remain distinguishable without
+   turning administrative state into another traffic-light system. */
+.entity-table-wrapper--administrative-axis td[data-dash-column="status"] .dash-cell-value {
+  display: inline-block;
+  width: fit-content;
+  padding: 2px 7px;
+  border: 1px solid #cbd2d9;
+  border-radius: 3px;
+  background: #f8fafc;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.entity-table-wrapper--freshness-axis td[data-dash-column="freshness"] {
+  border-left: 2px solid #d8dde3;
+}
+
+/* UI-1 responsive entity presentation.
+   This is deliberately opt-in (`responsive=True` in entity_table) so the
+   first implementation slice changes Fleet Overview and Device Management
+   only. The DataTable remains the single interactive component: filtering,
+   paging, active-cell navigation and callbacks still operate on the same DOM
+   and data. Below 768px CSS rearranges each data row into a labelled record
+   card, avoiding a second mobile dataset or callback path. */
+@media (max-width: 768px) {
+  .entity-table-wrapper--responsive {
+    overflow: visible;
+  }
+
+  .entity-table-wrapper--responsive .dash-table-container,
+  .entity-table-wrapper--responsive .dash-spreadsheet-container,
+  .entity-table-wrapper--responsive .dash-spreadsheet-inner {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .entity-table-wrapper--responsive .dash-spreadsheet-inner table {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Column filters are a desktop table control. Device Management retains its
+     dedicated search/status toolbar; Fleet keeps sorting/filtering on desktop
+     while mobile prioritises exception scanning and drill-down. */
+  .entity-table-wrapper--responsive thead {
+    display: none;
+  }
+
+  .entity-table-wrapper--responsive tbody {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .entity-table-wrapper--responsive tbody tr {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    height: auto !important;
+    min-height: 0 !important;
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-brand);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface) !important;
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05);
+    overflow: hidden;
+  }
+
+  /* Dash DataTable mounts both the column header and the filter controls as
+     `<tr><th>` rows inside tbody rather than using a thead. Only records have
+     td children; hide the two table-control rows in the mobile presentation.
+     `:has()` is available in the supported Chrome target and keeps this
+     independent of Dash's generated row order or class names. */
+  .entity-table-wrapper--responsive tbody tr:not(:has(td)) {
+    display: none !important;
+  }
+
+  .entity-table-wrapper--responsive .dash-spreadsheet-inner tbody td {
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    min-height: 50px;
+    padding: 8px 10px !important;
+    border: 0 !important;
+    border-bottom: 1px solid #edf0f3 !important;
+    background: transparent !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    text-align: left !important;
+  }
+
+  .entity-table-wrapper--responsive tbody td::before {
+    content: attr(data-dash-column);
+    color: var(--color-muted);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+  }
+
+  .entity-table-wrapper--responsive tbody td[data-dash-column="plant"]::before { content: "Plant"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="country"]::before { content: "Country"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="fuel"]::before { content: "Fuel"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="capacity_mw"]::before { content: "Capacity (MW)"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="transformers"]::before { content: "Transformers"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="devices"]::before { content: "Devices"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="device"]::before { content: "RTL UID"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="transformer"]::before { content: "Transformer"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="status"]::before { content: "Administrative status"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="freshness"]::before { content: "Data freshness"; }
+  .entity-table-wrapper--responsive tbody td[data-dash-column="actions"]::before { content: "Actions"; }
+
+  .entity-table-wrapper--responsive tbody td[data-dash-column="plant"],
+  .entity-table-wrapper--responsive tbody td[data-dash-column="device"],
+  .entity-table-wrapper--responsive tbody td[data-dash-column="freshness"],
+  .entity-table-wrapper--responsive tbody td[data-dash-column="actions"] {
+    grid-column: 1 / -1;
+  }
+
+  /* Device Management pairs the two explicitly labelled status axes in one
+     row. Fleet has no administrative axis, so its freshness summary keeps the
+     full record width. */
+  #device-admin-table tbody td[data-dash-column="freshness"] {
+    grid-column: auto;
+    border-left: 2px solid currentColor !important;
+  }
+  #device-admin-table tbody td[data-dash-column="plant"] {
+    grid-column: auto;
+    min-height: 50px;
+    font-size: var(--fs-body);
+    font-weight: 400;
+    background: transparent !important;
+  }
+
+  /* Fleet mobile records are operational summaries, not miniature copies of
+     the seven-column desktop inventory. Country, fuel and capacity remain in
+     the desktop table; narrow screens lead with identity, equipment counts
+     and data freshness. */
+  #plants-table tbody td[data-dash-column="country"],
+  #plants-table tbody td[data-dash-column="fuel"],
+  #plants-table tbody td[data-dash-column="capacity_mw"] {
+    display: none !important;
+  }
+
+  #plants-table tbody td[data-dash-column="plant"]::after {
+    content: "Open plant \2192";
+    align-self: flex-start;
+    margin-top: 3px;
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .entity-table-wrapper--responsive tbody td[data-dash-column="plant"],
+  .entity-table-wrapper--responsive tbody td[data-dash-column="device"] {
+    min-height: 54px;
+    font-size: 14px;
+    font-weight: 650;
+    background: #f8fafc !important;
+  }
+
+  .entity-table-wrapper--responsive tbody td[data-dash-column="freshness"],
+  .entity-table-wrapper--responsive tbody td[data-dash-column="actions"] {
+    border-bottom: 0 !important;
+  }
+
+  .entity-table-wrapper--responsive tbody td[data-dash-column="actions"] p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .entity-table-wrapper--responsive tbody td[data-dash-column="actions"] a {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    padding: 4px 9px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
 
 /* OBS-2 — never silently clip identity or metadata text.
    The ellipsis itself is set on the `td` through style_cell in
@@ -1564,9 +1922,19 @@ body {
 }
 
 .temperature-attribution__identity {
+  display: block;
   font-size: var(--fs-body);
-  color: var(--color-text);
+  color: var(--color-accent);
+  font-weight: 600;
   margin-bottom: var(--sp-1);
+  text-decoration: none;
+}
+
+.temperature-attribution__identity:hover { text-decoration: underline; }
+.temperature-attribution__identity:focus-visible {
+  outline: none;
+  border-radius: 2px;
+  box-shadow: var(--focus-ring);
 }
 
 .temperature-attribution__coverage,
@@ -1582,6 +1950,171 @@ body {
   font-size: var(--fs-body);
   color: var(--color-muted);
   margin: var(--sp-1) 0;
+}
+
+/* ---------- Plant / Transformer operational hierarchy (UI-3) ---------- */
+/* One control-sheet surface establishes the story before the metric matrix:
+   scoped identity, structural counts, data freshness, then temperature
+   attribution. The wrapper is the top-level visual object; its children are
+   deliberately quieter than standalone Fleet cards. */
+.detail-operational-summary {
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-brand);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.detail-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.detail-section-heading h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--fs-section);
+}
+
+.detail-section-heading p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+}
+
+.detail-operational-summary .entity-context {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.detail-operational-summary__signals {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(270px, 0.9fr);
+  align-items: stretch;
+  gap: var(--sp-3);
+}
+
+.detail-operational-summary__signals > div { min-width: 0; }
+
+.detail-operational-summary .kpi-row--fleet {
+  height: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.detail-operational-summary .kpi-card {
+  min-height: 100%;
+  padding: var(--sp-3);
+  border-color: #dfe4e9;
+  box-shadow: none;
+  background: #f8fafc;
+}
+
+.detail-operational-summary .kpi-card__value { font-size: 24px; }
+
+.detail-operational-summary .temperature-attribution {
+  height: 100%;
+  margin: 0;
+  padding: var(--sp-3);
+  border-color: #dfe4e9;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.detail-operational-summary .temperature-attribution__value {
+  font-size: 24px;
+}
+
+.detail-metric-section {
+  padding-top: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.detail-metric-section .metric-health-overview {
+  gap: 1px;
+  padding: 1px;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-border);
+}
+
+.detail-metric-section .metric-health-tile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  gap: 2px var(--sp-2);
+  min-height: 76px;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface);
+}
+
+.detail-metric-section .metric-health-tile__label {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-metric-section .metric-health-tile .freshness-badge {
+  justify-self: end;
+}
+
+.detail-metric-section .metric-health-tile__breakdown,
+.detail-metric-section .metric-health-tile__coverage {
+  grid-column: 1 / -1;
+  min-height: 0;
+  margin: 0;
+  font-size: var(--fs-meta);
+}
+
+.detail-inventory__title {
+  margin: 0 0 var(--sp-2);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: var(--fs-section);
+}
+
+/* Lifecycle is context, not monitoring condition. Keep inactive detail pages
+   neutral while freshness retains its dedicated badge/column language. */
+.page--plant-detail .status-panel--inactive,
+.page--transformer-detail .status-panel--inactive {
+  background: #f8fafc;
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+@media (max-width: 900px) {
+  .detail-operational-summary__signals { grid-template-columns: 1fr; }
+  .detail-operational-summary .temperature-attribution { height: auto; }
+}
+
+@media (max-width: 560px) {
+  .detail-operational-summary { padding: var(--sp-3); }
+  .detail-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .detail-operational-summary .entity-context { gap: var(--sp-3) var(--sp-5); }
+  .detail-operational-summary .kpi-row--fleet { grid-template-columns: 1fr; }
+  .detail-metric-section .metric-health-overview { grid-template-columns: 1fr; }
+  .detail-metric-section .metric-health-tile { min-height: 0; }
 }
 
 /* ---------- Pages ---------- */
@@ -1655,14 +2188,47 @@ body {
 
 /* ---------- Responsive: Header ---------- */
 @media (max-width: 768px) {
-  .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 5px;
+    padding: 7px 12px;
+    margin-bottom: 10px;
+  }
+  .header__brand { min-width: 0; font-size: 13px; }
+  .header__logo { height: 19px; }
+  .header__breadcrumb { grid-column: 1 / -1; min-width: 0; }
+  .header__freshness { grid-column: 1; grid-row: 2; }
+  .header__logout-wrapper { grid-column: 2; grid-row: 1; }
+  .header__logout { padding: 4px 9px; font-size: 12px; }
+
+  .page,
+  .page--monitoring { padding-inline: 12px; }
+
   /* The selector stacks rather than disappearing. It is now the only way to
      reach a device under another plant in one step, so hiding it on narrow
      screens would remove the feature instead of collapsing it. */
-  .equipment-selector-bar { flex-direction: column; align-items: stretch; gap: 8px; }
-  .hierarchy-selector { flex-direction: column; }
+  .equipment-selector-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px 12px 6px;
+  }
+  .equipment-selector-bar__label { font-size: 9px; line-height: 1.2; }
+  .hierarchy-selector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    min-width: 0;
+  }
   /* Same wrapper-not-field target as the desktop rule above. */
-  .hierarchy-selector .dash-dropdown { max-width: none; }
+  .hierarchy-selector .dash-dropdown {
+    min-width: 0;
+    max-width: none;
+  }
+  .hierarchy-selector .dash-dropdown:first-child { grid-column: 1 / -1; }
 }
 
 /* ---------- Quick Trends ---------- */
@@ -1737,7 +2303,300 @@ body {
   .trend-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 }
 
-/* ==========================================================================
+/* ---------- Device detail hierarchy (UI-4) ---------- */
+.page--device-dashboard .device-page-heading {
+  margin: var(--sp-3) 0 var(--sp-4);
+  max-width: 760px;
+}
+
+.page--device-dashboard .device-page-heading__eyebrow,
+.page--device-dashboard .device-section__eyebrow {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.page--device-dashboard .device-page-heading__title {
+  color: var(--color-text);
+  font-size: clamp(26px, 2.4vw, 34px);
+  line-height: 1.12;
+  margin: 2px 0 3px;
+  overflow-wrap: anywhere;
+}
+
+.page--device-dashboard .device-page-heading__description,
+.page--device-dashboard .device-section__heading p {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.page--device-dashboard .device-section {
+  margin-bottom: var(--sp-5);
+  min-width: 0;
+}
+
+.page--device-dashboard .device-section__heading {
+  margin-bottom: var(--sp-2);
+}
+
+.page--device-dashboard .device-section__heading h2 {
+  color: var(--color-text);
+  font-size: 17px;
+  line-height: 1.3;
+  margin: 1px 0 0;
+}
+
+.page--device-dashboard .device-section__heading--inline {
+  align-items: end;
+  display: flex;
+  gap: var(--sp-4);
+  justify-content: space-between;
+}
+
+.page--device-dashboard .device-current-state {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+.page--device-dashboard .equipment-context {
+  background: var(--color-bg);
+  border-color: #d8dde3;
+  margin-bottom: var(--sp-2);
+}
+
+.page--device-dashboard .equipment-context__item {
+  min-width: 0;
+}
+
+.page--device-dashboard .equipment-context__value,
+.page--device-dashboard .breadcrumb__link,
+.page--device-dashboard .breadcrumb__current {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.page--device-dashboard .breadcrumb {
+  min-width: 0;
+}
+
+.page--device-dashboard .equipment-context__item--administrative .equipment-context__value {
+  align-self: flex-start;
+  background: #f8fafc;
+  border: 1px solid #cbd2d9;
+  border-radius: 3px;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+.page--device-dashboard #snapshot-strip {
+  min-height: 0;
+}
+
+.page--device-dashboard .metric-snapshot-strip {
+  gap: 1px;
+  margin-bottom: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+}
+
+.page--device-dashboard .snapshot-tile {
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+}
+
+.page--device-dashboard .snapshot-tile--active {
+  background: var(--color-accent-bg);
+  box-shadow: inset 0 -3px 0 var(--color-accent);
+}
+
+/* Keep the state scan compact on laptop/tablet widths. The generic snapshot
+   rules step down too aggressively at exactly 1024px for this grouped surface. */
+@media (max-width: 1199px) {
+  .page--device-dashboard .metric-snapshot-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.page--device-dashboard .snapshot-tile a:focus-visible,
+.page--device-dashboard .trend-cell__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.page--device-dashboard .device-telemetry {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--sp-5);
+}
+
+.page--device-dashboard .metric-controls {
+  align-items: end;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0;
+  padding: var(--sp-3);
+}
+
+.page--device-dashboard .metric-control {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.page--device-dashboard .metric-control > label,
+.page--device-dashboard .metric-control > legend {
+  color: var(--color-muted);
+  display: block;
+  float: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0 0 4px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.page--device-dashboard .metric-control--metric { flex: 0 1 240px; }
+.page--device-dashboard .metric-dropdown { min-width: 180px; }
+.page--device-dashboard .metric-dropdown .Select-control {
+  border-color: #aeb7c2;
+  border-radius: 3px;
+  box-shadow: none;
+  min-height: 36px;
+}
+.page--device-dashboard .metric-dropdown.is-focused .Select-control {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.page--device-dashboard .period-radio {
+  background: var(--color-surface);
+  border: 1px solid #aeb7c2;
+  border-radius: 3px;
+  display: inline-flex;
+  gap: 0;
+  overflow: hidden;
+}
+
+.page--device-dashboard .period-radio label {
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 600;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 58px;
+  padding: 0 10px;
+  position: relative;
+}
+.page--device-dashboard .period-radio label:last-child { border-right: 0; }
+.page--device-dashboard .period-radio label:has(input:checked) {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+.page--device-dashboard .period-radio input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+.page--device-dashboard .period-radio label:focus-within {
+  box-shadow: inset 0 0 0 2px #ffffff, inset 0 0 0 4px var(--color-accent);
+}
+
+.page--device-dashboard .device-chart-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.page--device-dashboard .chart-loading { margin-bottom: 0; }
+
+@media (min-width: 1200px) {
+  .page--device-dashboard .trend-grid {
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    gap: 1px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: hidden;
+  }
+  .page--device-dashboard .trend-cell { border: 0; border-radius: 0; }
+  .page--device-dashboard .trend-cell--selected {
+    box-shadow: inset 0 3px 0 var(--color-accent);
+  }
+}
+
+.page--device-dashboard .device-readings .readings-table-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+@media (max-width: 767px) {
+  .page--device-dashboard .device-section__heading--inline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .page--device-dashboard .equipment-context { gap: var(--sp-3); }
+  .page--device-dashboard .equipment-context__item:last-child {
+    margin-left: 0;
+    width: 100%;
+  }
+  .page--device-dashboard .equipment-context__item:last-child .equipment-context__value {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .page--device-dashboard .metric-controls { align-items: stretch; }
+  .page--device-dashboard .metric-control--metric,
+  .page--device-dashboard .metric-control--period,
+  .page--device-dashboard .metric-control--custom { flex: 1 1 100%; width: 100%; }
+  .page--device-dashboard .metric-dropdown { min-width: 0; }
+  .page--device-dashboard .period-radio { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .page--device-dashboard .period-radio label { min-width: 0; padding: 0 6px; }
+  .page--device-dashboard .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .page--device-dashboard .metric-snapshot-strip {
+    display: flex;
+    gap: 1px;
+    overflow-x: auto;
+    padding-bottom: 0;
+    scroll-snap-type: x mandatory;
+  }
+  .page--device-dashboard .snapshot-tile {
+    flex: 0 0 142px;
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 419px) {
+  .page--device-dashboard .device-current-state { padding: var(--sp-2); }
+  .page--device-dashboard .period-radio { grid-template-columns: repeat(2, 1fr); }
+  .page--device-dashboard .period-radio label:nth-child(2) { border-right: 0; }
+  .page--device-dashboard .period-radio label:nth-child(-n+2) { border-bottom: 1px solid var(--color-border); }
+}
+
+/* ===========================================================================
    Device Registration Form (Phase 4)
    ========================================================================== */
 
@@ -2129,7 +2988,7 @@ body {
 .user-form-drawer__field-label {
   display: block;
   font-size: var(--fs-body);
-  font-weight: 600,
+  font-weight: 600;
   color: var(--color-text);
   margin-bottom: var(--sp-1);
 }
@@ -2188,6 +3047,377 @@ body {
 
 .user-form-drawer__btn--primary:hover {
   opacity: 0.9;
+}
+
+/* ===========================================================================
+   Administrative workflows — Users + Registration (UI-5)
+   Restrained management surfaces: clear task identity, neutral lifecycle
+   language, and compact operational-boundary notes rather than alerts.
+   ========================================================================== */
+.page--user-admin .admin-page-heading,
+.page--device-register .admin-page-heading {
+  align-items: end;
+  display: flex;
+  gap: var(--sp-5);
+  justify-content: space-between;
+  margin: var(--sp-3) 0 var(--sp-4);
+}
+
+.page--device-register .admin-page-heading--registration {
+  display: block;
+}
+
+.admin-page-heading__eyebrow,
+.admin-section-heading__eyebrow,
+.user-form-drawer__eyebrow {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.085em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.page--user-admin .admin-page-heading h1,
+.page--device-register .admin-page-heading h1 {
+  color: var(--color-text);
+  font-size: clamp(25px, 2.3vw, 32px);
+  line-height: 1.15;
+  margin: 2px 0 3px;
+}
+
+.admin-page-heading__description,
+.admin-section-heading > p,
+.user-form-drawer__description {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.admin-boundary-note {
+  background: #f8fafc;
+  border: 1px solid #d8dde3;
+  border-left: 3px solid #7b8794;
+  border-radius: var(--radius-sm);
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-bottom: var(--sp-5);
+  padding: 9px 12px;
+}
+
+.admin-boundary-note strong { color: #374151; }
+
+.admin-section-heading {
+  align-items: end;
+  display: flex;
+  gap: var(--sp-4);
+  justify-content: space-between;
+  margin-bottom: var(--sp-2);
+}
+
+.admin-section-heading h2,
+.device-register-form__heading h2 {
+  color: var(--color-text);
+  font-size: 17px;
+  line-height: 1.3;
+  margin: 1px 0 0;
+}
+
+.required-marker {
+  color: #b42318;
+  font-weight: 750;
+}
+
+.field-optional {
+  color: var(--color-muted);
+  float: right;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  margin-left: var(--sp-2);
+  text-transform: uppercase;
+}
+
+/* User inventory */
+.page--user-admin .user-admin-toolbar {
+  align-items: end;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-3);
+}
+
+.page--user-admin .user-admin-toolbar__control {
+  min-width: 0;
+}
+
+.page--user-admin .user-admin-toolbar__control--search {
+  flex: 1 1 280px;
+}
+
+.page--user-admin .user-admin-toolbar__control > label {
+  color: var(--color-muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.page--user-admin .user-admin-toolbar__search {
+  min-height: 36px;
+  width: 100%;
+}
+
+.page--user-admin .user-admin-toolbar__filters {
+  align-items: stretch;
+  display: block;
+  flex: 0 1 180px;
+}
+
+.page--user-admin .user-admin-toolbar__dropdown .Select-control,
+.page--user-admin .user-form-drawer__dropdown .Select-control,
+.page--device-register .device-register-form__dropdown .Select-control {
+  border-color: #aeb7c2;
+  border-radius: 4px;
+  min-height: 36px;
+}
+
+.page--user-admin .user-admin-toolbar__dropdown.is-focused .Select-control,
+.page--user-admin .user-form-drawer__dropdown.is-focused .Select-control,
+.page--device-register .device-register-form__dropdown.is-focused .Select-control {
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+}
+
+.page--user-admin .user-admin-toolbar__add-btn {
+  flex: 0 0 auto;
+  margin-left: 0;
+  min-height: 38px;
+}
+
+.page--user-admin .user-admin-toolbar__add-btn:focus-visible,
+.user-form-drawer__btn:focus-visible,
+.user-form-drawer__close:focus-visible,
+.device-register-form__btn:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.page--user-admin #user-admin-summary {
+  margin-bottom: var(--sp-2);
+}
+
+.page--user-admin .entity-table-wrapper--administrative-axis td[data-dash-column="role"] .dash-cell-value {
+  color: #374151;
+  font-weight: 600;
+}
+
+/* User drawer */
+.user-form-drawer__panel {
+  border-left: 1px solid var(--color-border);
+  padding: var(--sp-5);
+  width: 440px;
+}
+
+.user-form-drawer__header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+}
+
+.user-form-drawer__header h2 {
+  font-size: 20px;
+  margin: 2px 0;
+}
+
+.user-form-drawer__close {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.user-form-drawer__field-label {
+  font-weight: 650;
+}
+
+.user-form-drawer__input {
+  min-height: 38px;
+}
+
+.user-form-drawer__role-note {
+  color: #5f6b78;
+  line-height: 1.45;
+  margin: 7px 0 0;
+  padding-left: 18px;
+}
+
+.user-form-drawer__role-note li { margin: 2px 0; }
+
+.admin-boundary-note--drawer {
+  margin: var(--sp-3) 0 0;
+}
+
+.user-form-drawer__actions {
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+}
+
+.user-form-drawer__btn--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Registration */
+.page--device-register .device-register-boundary {
+  margin-bottom: var(--sp-3);
+  max-width: 680px;
+}
+
+.page--device-register .device-register-form {
+  max-width: 560px;
+  padding: var(--sp-5);
+}
+
+.device-register-form__heading {
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+}
+
+.device-register-form__required-note {
+  color: var(--color-muted);
+  font-size: 11px;
+  margin: 4px 0 0;
+}
+
+.page--device-register .device-register-form__label {
+  font-weight: 650;
+}
+
+.page--device-register .device-register-form__input {
+  min-height: 38px;
+}
+
+.device-register-form__helper {
+  color: #5f6b78;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 5px 0 0;
+}
+
+.page--device-register .device-register-form__dropdown.is-disabled .Select-control,
+.page--device-register .device-register-form__dropdown .Select-control.is-disabled {
+  background: #eef1f4;
+  border-color: #d3d9df;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.page--device-register .device-register-form__actions {
+  border-top: 1px solid var(--color-border);
+  justify-content: flex-end;
+  padding-top: var(--sp-4);
+}
+
+.page--device-register .device-register-review__description {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 3px 0 var(--sp-4);
+}
+
+.page--device-register .device-register-review__row {
+  align-items: start;
+  gap: var(--sp-4);
+}
+
+.page--device-register .device-register-review__label {
+  flex: 0 0 42%;
+  font-size: 11px;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.page--device-register .device-register-review__value {
+  font-weight: 650;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .page--user-admin .admin-page-heading {
+    align-items: flex-start;
+  }
+
+  #user-admin-table tbody td[data-dash-column="username"]::before { content: "User"; }
+  #user-admin-table tbody td[data-dash-column="identifier"]::before { content: "Identifier"; }
+  #user-admin-table tbody td[data-dash-column="role"]::before { content: "Role"; }
+  #user-admin-table tbody td[data-dash-column="status"]::before { content: "Account status"; }
+  #user-admin-table tbody td[data-dash-column="actions"]::before { content: "Management"; }
+
+  #user-admin-table tbody tr {
+    grid-template-columns: minmax(0, 1fr) minmax(108px, 0.55fr);
+  }
+
+  #user-admin-table tbody td[data-dash-column="username"],
+  #user-admin-table tbody td[data-dash-column="identifier"] {
+    grid-column: 1 / -1;
+  }
+
+  #user-admin-table tbody td[data-dash-column="username"] {
+    background: #f8fafc !important;
+    font-size: 14px;
+    font-weight: 650;
+  }
+
+  #user-admin-table tbody td[data-dash-column="username"] .dash-cell-value,
+  #user-admin-table tbody td[data-dash-column="identifier"] .dash-cell-value {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  #user-admin-table tbody td[data-dash-column="actions"] {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .page--user-admin .admin-page-heading {
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .page--user-admin .user-admin-toolbar__add-btn { width: 100%; }
+  .admin-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .page--user-admin .user-admin-toolbar__control,
+  .page--user-admin .user-admin-toolbar__filters { flex: 1 1 100%; width: 100%; }
+  .page--user-admin .user-admin-toolbar__dropdown { min-width: 0; width: 100%; }
+  .user-form-drawer__panel { padding: var(--sp-4); width: 100%; }
+  .user-form-drawer__actions { flex-wrap: wrap-reverse; }
+  .user-form-drawer__btn { flex: 1 1 140px; }
+  .page--device-register .device-register-form { padding: var(--sp-4); width: 100%; }
+  .page--device-register .device-register-form__actions { flex-wrap: wrap-reverse; }
+  .page--device-register .device-register-form__btn { flex: 1 1 130px; }
 }
 
 /* ==========================================================================

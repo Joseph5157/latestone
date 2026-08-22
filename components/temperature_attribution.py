@@ -9,10 +9,11 @@ reading is still eligible to be "hottest".
 """
 from __future__ import annotations
 
-from dash import html
+from dash import dcc, html
 
 from components.freshness_badge import UTC_FORMAT, freshness_badge
 from config.metrics import format_value
+from routes import device_href
 from services.monitoring_service import TemperatureAttribution
 
 LABEL = "Hottest Device"
@@ -78,8 +79,10 @@ def temperature_attribution(
                 format_value(view.metric, view.value),
                 className="temperature-attribution__value",
             ),
-            html.Div(
-                " · ".join(identity_parts), className="temperature-attribution__identity"
+            dcc.Link(
+                " · ".join(identity_parts),
+                className="temperature-attribution__identity",
+                href=device_href(view.device_id),
             ),
             freshness_badge(view.freshness),
             html.Div(_coverage_text(view), className="temperature-attribution__coverage"),

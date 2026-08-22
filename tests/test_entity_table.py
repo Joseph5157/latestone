@@ -107,3 +107,40 @@ def test_every_other_column_ellipsises_rather_than_clipping():
 def test_rows_are_denser_than_the_default():
     table = entity_table(table_id="t", columns=[], rows=[])
     assert table.children[0].style_cell["padding"] == "11px 12px"
+
+
+def test_responsive_presentation_is_opt_in():
+    default = entity_table(table_id="default", columns=[], rows=[])
+    responsive = entity_table(
+        table_id="responsive", columns=[], rows=[], responsive=True
+    )
+
+    assert default.className == "entity-table-wrapper"
+    assert responsive.className == "entity-table-wrapper entity-table-wrapper--responsive"
+
+
+def test_administrative_and_freshness_axes_have_distinct_hooks():
+    table = entity_table(
+        table_id="axes",
+        columns=[
+            {"name": "Status", "id": "status"},
+            {"name": "Data", "id": "freshness"},
+        ],
+        rows=[],
+        state_column_id="freshness",
+        administrative_state_column_id="status",
+    )
+
+    classes = set(table.className.split())
+    assert "entity-table-wrapper--administrative-axis" in classes
+    assert "entity-table-wrapper--freshness-axis" in classes
+
+
+def test_markdown_target_is_opt_in_and_scoped_to_one_table():
+    default = entity_table(table_id="default", columns=[], rows=[])
+    same_tab = entity_table(
+        table_id="same-tab", columns=[], rows=[], markdown_link_target="_self"
+    )
+
+    assert default.children[0].markdown_options is None
+    assert same_tab.children[0].markdown_options == {"link_target": "_self"}

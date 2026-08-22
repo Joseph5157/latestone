@@ -195,6 +195,24 @@ class TestNeedsAttentionComponent:
         assert plant_links[0] == ("Open", "/plants/p1")
         assert plant_links[1] == ("Open", "/plants/p2")
 
+    def test_discloses_the_actual_affected_total(self):
+        panel = needs_attention(self._rows())
+        assert "2 affected plants" in text_of(panel)
+
+    def test_large_population_renders_only_representative_subset(self):
+        rows = [
+            {
+                "id": f"p{i}", "entity": f"Plant {i}", "type": "Plant",
+                "issue": "Stale · 1 of 1 devices", "last_update": "2h ago",
+                "href": f"/plants/p{i}", "_state": "stale", "_severity": 1,
+            }
+            for i in range(30)
+        ]
+        panel = needs_attention(rows)
+        assert len(find_by_class(panel, "needs-attention__row")) == 5
+        assert "Showing 5 of 30 affected plants" in text_of(panel)
+        assert ("View full fleet", "#fleet-plants") in links(panel)
+
     def test_empty_state_message(self):
         panel = needs_attention([])
         assert "No current data-freshness exceptions." in text_of(panel)
