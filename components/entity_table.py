@@ -41,6 +41,8 @@ def entity_table(
     sort_by: str | None = None,
     link_column_id: str | None = None,
     state_column_id: str | None = None,
+    administrative_state_column_id: str | None = None,
+    responsive: bool = False,
 ) -> html.Div:
     """Render a sortable, filterable DataTable.
 
@@ -55,6 +57,13 @@ def entity_table(
         target="_blank", which would break in-app navigation.
     state_column_id: column coloured by each row's hidden `_state` key.
         Rows must carry `_state`; see freshness_style_rules.
+    administrative_state_column_id: identifies an administrative lifecycle
+        column for presentation only. It is intentionally separate from
+        `state_column_id`, which means monitoring freshness.
+    responsive: opt this table into the shared narrow-screen record-card
+        presentation. The underlying DataTable, data, filtering, paging and
+        active-cell behaviour stay unchanged; CSS only changes how its rows
+        are arranged below the responsive breakpoint.
     """
     # Derived from the column spec rather than a per-page list: 900 < 1,000 <
     # 12,000 only reads correctly right-aligned, and the columns that need it
@@ -82,8 +91,16 @@ def entity_table(
         if link_column_id
         else []
     )
+    wrapper_classes = ["entity-table-wrapper"]
+    if responsive:
+        wrapper_classes.append("entity-table-wrapper--responsive")
+    if state_column_id:
+        wrapper_classes.append("entity-table-wrapper--freshness-axis")
+    if administrative_state_column_id:
+        wrapper_classes.append("entity-table-wrapper--administrative-axis")
+
     return html.Div(
-        className="entity-table-wrapper",
+        className=" ".join(wrapper_classes),
         children=[
             dash_table.DataTable(
                 id=table_id,

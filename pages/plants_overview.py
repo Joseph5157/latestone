@@ -71,6 +71,7 @@ def layout() -> html.Div:
                 rows=[],
                 link_column_id="plant",
                 state_column_id="freshness",
+                responsive=True,
             ),
         ],
     )

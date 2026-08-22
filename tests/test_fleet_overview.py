@@ -508,3 +508,11 @@ def test_the_layout_column_spec_matches_the_callback_that_replaces_it():
         if getattr(n, "id", None) == "plants-table"
     )
     assert table.columns == PLANT_COLUMNS
+
+
+def test_fleet_table_uses_shared_responsive_presentation():
+    from pages.plants_overview import layout
+    from tests.dash_tree import find_by_class
+
+    wrappers = find_by_class(layout(), "entity-table-wrapper--responsive")
+    assert len(wrappers) == 1

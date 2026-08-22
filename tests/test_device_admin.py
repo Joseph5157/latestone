@@ -168,6 +168,18 @@ class TestDeviceAdminPageLayout:
         table = find_by_id(page, "device-admin-table")
         assert table is not None
 
+    def test_table_uses_shared_responsive_presentation(self):
+        from pages.device_admin import layout
+        page = layout()
+        wrappers = find_by_class(page, "entity-table-wrapper--responsive")
+        assert len(wrappers) == 1
+
+    def test_table_distinguishes_administrative_and_freshness_axes(self):
+        from pages.device_admin import layout
+        page = layout()
+        assert len(find_by_class(page, "entity-table-wrapper--administrative-axis")) == 1
+        assert len(find_by_class(page, "entity-table-wrapper--freshness-axis")) == 1
+
     def test_register_button_exists(self):
         from pages.device_admin import layout
         page = layout()
