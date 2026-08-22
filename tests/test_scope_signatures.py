@@ -24,6 +24,7 @@ SCOPED_REPOSITORY_FUNCTIONS = [
     "list_transformers",
     "count_hierarchy_by_plant",
     "latest_reading_times",
+    "latest_metric_readings",
 ]
 
 #: Service functions that carry a DeviceScope down to them.
@@ -38,6 +39,7 @@ SCOPED_SERVICE_FUNCTIONS = [
 SCOPED_MONITORING_FUNCTIONS = [
     "latest_reading_rows",
     "get_fleet_health",
+    "latest_metric_readings",
 ]
 
 

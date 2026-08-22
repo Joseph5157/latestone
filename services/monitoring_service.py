@@ -526,7 +526,11 @@ def metric_health_from_rows(
 
 
 def latest_metric_readings(
-    metric: str, *, plant_id: str | None = None, transformer_id: str | None = None
+    metric: str,
+    *,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+    scope: DeviceScope,
 ) -> list[DeviceMetricReading]:
     """The one attribution fetch for one Plant or Transformer render.
 
@@ -535,7 +539,12 @@ def latest_metric_readings(
     repository directly, even where there is no aggregation to add on top of
     what the repository already returns.
     """
-    return repo.latest_metric_readings(metric, plant_id=plant_id, transformer_id=transformer_id)
+    return repo.latest_metric_readings(
+        metric,
+        plant_id=plant_id,
+        transformer_id=transformer_id,
+        allowed_device_ids=scope.device_ids,
+    )
 
 
 @dataclass(frozen=True)

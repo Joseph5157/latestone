@@ -597,6 +597,7 @@ def latest_metric_readings(
     *,
     plant_id: str | None = None,
     transformer_id: str | None = None,
+    allowed_device_ids: frozenset[str] | None,
     include_inactive: bool = False,
 ) -> list[DeviceMetricReading]:
     """Newest reading of ONE metric for every device beneath one entity.
@@ -650,30 +651,35 @@ def latest_metric_readings(
     if not include_inactive:
         params["active"] = ACTIVE_STATUS
 
+    scope_clause, scope_params = _scope_clause("d", allowed_device_ids)
+    params.update(scope_params)
+
+    statement = _scoped(
+        text(
+            f"""
+            SELECT t.plant_id, t.transformer_id, t.transformer_code,
+                   d.device_id, d.device_code,
+                   :metric AS metric,
+                   latest.reading_ts, latest.value
+            FROM {_SCHEMA}.devices d
+            JOIN {_SCHEMA}.transformers t
+              ON t.transformer_id = d.transformer_id
+            LEFT JOIN LATERAL (
+                SELECT rr.reading_ts, rr.value
+                FROM {_SCHEMA}.readings rr
+                WHERE rr.device_id = d.device_id AND rr.metric = :metric
+                ORDER BY rr.reading_ts DESC
+                LIMIT 1
+            ) latest ON TRUE
+            WHERE TRUE{status_filter}{scope_sql}{scope_clause}
+            ORDER BY t.transformer_code, d.device_code
+            """
+        ),
+        allowed_device_ids,
+    )
+
     with session_scope() as session:
-        rows = session.execute(
-            text(
-                f"""
-                SELECT t.plant_id, t.transformer_id, t.transformer_code,
-                       d.device_id, d.device_code,
-                       :metric AS metric,
-                       latest.reading_ts, latest.value
-                FROM {_SCHEMA}.devices d
-                JOIN {_SCHEMA}.transformers t
-                  ON t.transformer_id = d.transformer_id
-                LEFT JOIN LATERAL (
-                    SELECT rr.reading_ts, rr.value
-                    FROM {_SCHEMA}.readings rr
-                    WHERE rr.device_id = d.device_id AND rr.metric = :metric
-                    ORDER BY rr.reading_ts DESC
-                    LIMIT 1
-                ) latest ON TRUE
-                WHERE TRUE{status_filter}{scope_sql}
-                ORDER BY t.transformer_code, d.device_code
-                """
-            ),
-            params,
-        ).all()
+        rows = session.execute(statement, params).all()
 
     return [_to_device_metric_reading(r) for r in rows]
 

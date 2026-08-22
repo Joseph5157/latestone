@@ -240,7 +240,7 @@ class TestBuildPlantDetailViewQueryCounts:
         calls = []
         monkeypatch.setattr(
             repo, "latest_metric_readings",
-            lambda metric, plant_id=None, transformer_id=None, include_inactive=False: (
+            lambda metric, plant_id=None, transformer_id=None, allowed_device_ids=None, include_inactive=False: (
                 calls.append((metric, plant_id, transformer_id)) or []
             ),
         )

@@ -379,7 +379,7 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime, *, scope: Devi
     )
 
     temperature_readings = monitoring_service.latest_metric_readings(
-        ATTRIBUTION_METRIC_KEY, plant_id=plant_id
+        ATTRIBUTION_METRIC_KEY, plant_id=plant_id, scope=scope
     )
     attribution = monitoring_service.hottest_temperature(temperature_readings, now=rendered_at)
 
@@ -428,7 +428,7 @@ def build_transformer_detail_view(
     )
 
     temperature_readings = monitoring_service.latest_metric_readings(
-        ATTRIBUTION_METRIC_KEY, transformer_id=transformer_id
+        ATTRIBUTION_METRIC_KEY, transformer_id=transformer_id, scope=scope
     )
     attribution = monitoring_service.hottest_temperature(temperature_readings, now=rendered_at)
 

@@ -277,6 +277,27 @@ def test_latest_reading_times_empty_scope_returns_nothing():
     ) == []
 
 
+def test_latest_metric_readings_constrained_to_visible_devices():
+    _seed_tree("sc-p15", "sc-p15-t1", ["sc-m1", "sc-m2"])
+
+    rows = repo.latest_metric_readings(
+        "temperature",
+        transformer_id="sc-p15-t1",
+        allowed_device_ids=frozenset({"sc-m2"}),
+    )
+
+    assert {r.device_id for r in rows} == {"sc-m2"}
+
+
+def test_latest_metric_readings_empty_scope_returns_nothing():
+    _seed_tree("sc-p16", "sc-p16-t1", ["sc-m9"])
+    assert repo.latest_metric_readings(
+        "temperature",
+        transformer_id="sc-p16-t1",
+        allowed_device_ids=frozenset(),
+    ) == []
+
+
 def test_notification_rows_are_empty_for_an_empty_scope():
     """Spec §7.1(1): notifications derive from latest_reading_times rather
     than a query of their own, which makes them the easiest surface to leave

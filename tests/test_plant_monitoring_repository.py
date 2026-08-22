@@ -384,40 +384,55 @@ class TestLatestMetricReadings:
     TRANSFORMER = "plant-11-t1"  # a single-device transformer
 
     def test_returns_one_row_per_device_beneath_a_plant(self):
-        rows = repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+        rows = repo.latest_metric_readings(
+            "temperature", plant_id=self.PLANT, allowed_device_ids=None
+        )
         assert len(rows) == 7
         assert len({r.device_id for r in rows}) == len(rows), "a device appeared twice"
 
     def test_scopes_to_one_transformer(self):
-        rows = repo.latest_metric_readings("temperature", transformer_id=self.TRANSFORMER)
+        rows = repo.latest_metric_readings(
+            "temperature", transformer_id=self.TRANSFORMER, allowed_device_ids=None
+        )
         assert len(rows) == 1
         assert rows[0].transformer_id == self.TRANSFORMER
 
     def test_a_transformer_scope_is_a_subset_of_its_plant(self):
         plant_devices = {
-            r.device_id for r in repo.latest_metric_readings("temperature", plant_id="plant-11")
+            r.device_id
+            for r in repo.latest_metric_readings(
+                "temperature", plant_id="plant-11", allowed_device_ids=None
+            )
         }
         transformer_devices = {
             r.device_id
-            for r in repo.latest_metric_readings("temperature", transformer_id=self.TRANSFORMER)
+            for r in repo.latest_metric_readings(
+                "temperature", transformer_id=self.TRANSFORMER, allowed_device_ids=None
+            )
         }
         assert transformer_devices
         assert transformer_devices <= plant_devices
 
     def test_carries_the_identity_needed_to_attribute_a_reading(self):
         """A maximum nobody can trace back to a device is not attribution."""
-        row = repo.latest_metric_readings("temperature", plant_id=self.PLANT)[0]
+        row = repo.latest_metric_readings(
+            "temperature", plant_id=self.PLANT, allowed_device_ids=None
+        )[0]
         assert row.device_code and row.transformer_code
         assert row.device_id and row.transformer_id
         assert row.plant_id == self.PLANT
         assert row.metric == "temperature"
 
     def test_returns_only_the_requested_metric(self):
-        rows = repo.latest_metric_readings("voltage", plant_id=self.PLANT)
+        rows = repo.latest_metric_readings(
+            "voltage", plant_id=self.PLANT, allowed_device_ids=None
+        )
         assert {r.metric for r in rows} == {"voltage"}
 
     def test_reports_the_newest_reading_for_a_device(self):
-        rows = repo.latest_metric_readings("temperature", transformer_id=self.TRANSFORMER)
+        rows = repo.latest_metric_readings(
+            "temperature", transformer_id=self.TRANSFORMER, allowed_device_ids=None
+        )
         newest = repo.get_latest_reading(rows[0].device_id, "temperature")
         assert rows[0].reading_ts == newest.timestamp
         assert rows[0].value == pytest.approx(newest.value)
@@ -438,7 +453,10 @@ class TestLatestMetricReadings:
             for d in hierarchy_service.list_devices(t.transformer_id, scope=UNRESTRICTED)
         }
         actual = {
-            r.device_id for r in repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+            r.device_id
+            for r in repo.latest_metric_readings(
+                "temperature", plant_id=self.PLANT, allowed_device_ids=None
+            )
         }
         assert actual == expected
 
@@ -446,11 +464,13 @@ class TestLatestMetricReadings:
         """Without one this would seek every device in the fleet — the
         unbounded reading query the module docstring rules out."""
         with pytest.raises(ValueError):
-            repo.latest_metric_readings("temperature")
+            repo.latest_metric_readings("temperature", allowed_device_ids=None)
 
     def test_metric_is_bound_not_interpolated(self):
         injected = "'); DROP TABLE plant_monitoring.readings; --"
-        rows = repo.latest_metric_readings(injected, plant_id=self.PLANT)
+        rows = repo.latest_metric_readings(
+            injected, plant_id=self.PLANT, allowed_device_ids=None
+        )
         # Devices still listed; every one simply has no reading of that "metric".
         assert len(rows) == 7
         assert all(r.value is None and r.reading_ts is None for r in rows)
@@ -459,9 +479,13 @@ class TestLatestMetricReadings:
     def test_stays_within_budget(self):
         """Bounded index seeks, not a range scan. The first call in a process
         is discarded: it carries engine/connection setup, not query cost."""
-        repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+        repo.latest_metric_readings(
+            "temperature", plant_id=self.PLANT, allowed_device_ids=None
+        )
         with measure_time() as t:
-            rows = repo.latest_metric_readings("temperature", plant_id=self.PLANT)
+            rows = repo.latest_metric_readings(
+                "temperature", plant_id=self.PLANT, allowed_device_ids=None
+            )
         t.row_count = len(rows)
         assert_timing(t, BUDGET_LATEST_METRIC, min_rows=7)
 
