@@ -223,3 +223,35 @@ def test_hierarchy_counts_are_computed_over_the_visible_population():
 def test_hierarchy_counts_empty_scope_yields_no_plants():
     _seed_tree("sc-p12", "sc-p12-t1", ["sc-c9"])
     assert repo.count_hierarchy_by_plant(allowed_device_ids=frozenset()) == {}
+
+
+def test_hierarchy_counts_transformer_count_agrees_with_list_transformers():
+    """A plant with a mix of visible and invisible transformers must report
+    the transformer count list_transformers would actually list, not every
+    transformer that happens to hold a status-eligible row."""
+    _seed_tree("sc-p13", "sc-p13-t1", ["sc-p13-d1"])
+    with session_scope() as session:
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.transformers "
+                f"(transformer_id, plant_id, transformer_code) "
+                f"VALUES ('sc-p13-t2', 'sc-p13', 't2') ON CONFLICT DO NOTHING"
+            )
+        )
+        session.execute(
+            text(
+                f"INSERT INTO {repo._SCHEMA}.devices "
+                f"(device_id, transformer_id, device_code) "
+                f"VALUES ('sc-p13-d2', 'sc-p13-t2', 'd2') ON CONFLICT DO NOTHING"
+            )
+        )
+
+    scope = frozenset({"sc-p13-d1"})
+
+    counts = repo.count_hierarchy_by_plant(allowed_device_ids=scope)
+    listed_transformers = repo.list_transformers("sc-p13", allowed_device_ids=scope)
+
+    assert counts["sc-p13"] == (1, 1)
+    assert counts["sc-p13"][0] == len(listed_transformers), (
+        "the transformer count must agree with what list_transformers actually lists"
+    )
