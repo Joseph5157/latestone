@@ -16,6 +16,7 @@ from callbacks.listings import (
 )
 from components.fleet_summary import transformer_kpi_cards
 from config.metrics import ATTRIBUTION_METRIC_KEY, ordered_metrics
+from services.device_scope import UNRESTRICTED
 from services.monitoring_service import Freshness, fleet_health_from_rows
 from tests.dash_tree import find_by_class, find_by_id, text_of
 
@@ -152,7 +153,10 @@ class TestInvestigationChainConsistency:
 def _stub_devices(monkeypatch, devices=()):
     from repositories import plant_monitoring_repository as repo
 
-    monkeypatch.setattr(repo, "list_devices", lambda transformer_id: list(devices))
+    monkeypatch.setattr(
+        repo, "list_devices",
+        lambda transformer_id, *, allowed_device_ids: list(devices),
+    )
 
 
 class TestBuildTransformerDetailViewQueryCounts:
@@ -167,7 +171,7 @@ class TestBuildTransformerDetailViewQueryCounts:
         )
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
-        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         assert len(calls) == 1
 
     def test_fetches_latest_metric_readings_exactly_once_scoped_to_the_transformer(self, monkeypatch):
@@ -183,7 +187,7 @@ class TestBuildTransformerDetailViewQueryCounts:
             ),
         )
 
-        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         assert calls == [(ATTRIBUTION_METRIC_KEY, None, "t1")]
 
     def test_no_per_metric_query_loop(self, monkeypatch):
@@ -197,7 +201,7 @@ class TestBuildTransformerDetailViewQueryCounts:
         )
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
-        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         assert len(reading_calls) == 1
         assert len(reading_calls[0]) == len(ordered_metrics())
 
@@ -230,7 +234,7 @@ class TestBuildTransformerDetailViewQueryCounts:
         monkeypatch.setattr(ms, "metric_health_from_rows", spy_metric)
         monkeypatch.setattr(ms, "hottest_temperature", spy_hot)
 
-        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         assert seen["fleet"] == seen["metric"] == seen["hot"] == NOW
 
 
@@ -242,7 +246,7 @@ class TestBuildTransformerDetailViewContent:
         monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
-        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         assert result["context_fields"] == [
             ("Plant", "Itaipu"),
             ("Transformer", "aa12"),
@@ -256,7 +260,7 @@ class TestBuildTransformerDetailViewContent:
         monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
-        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         assert len(result["metric_health_items"]) == 8
 
     def test_existing_device_table_rows_still_populate(self, monkeypatch):
@@ -266,7 +270,7 @@ class TestBuildTransformerDetailViewContent:
         monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
 
-        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         assert [r["id"] for r in result["table_rows"]] == ["d1"]
 
     def test_stale_attribution_reading_survives_into_the_view(self, monkeypatch):
@@ -283,7 +287,7 @@ class TestBuildTransformerDetailViewContent:
         monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [stale_reading])
 
-        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         attribution = result["attribution"]
         assert attribution.has_data is True
         assert attribution.value == 41.0
@@ -306,7 +310,7 @@ class TestBuildTransformerDetailViewContent:
         monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, include_inactive=False: [])
         monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [reading])
 
-        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW)
+        result = build_transformer_detail_view("t1", "Itaipu", "aa12", NOW, scope=UNRESTRICTED)
         card = temperature_attribution(result["attribution"], show_transformer=False)
         assert "aa12" not in text_of(card)
         assert "29044" in text_of(card)

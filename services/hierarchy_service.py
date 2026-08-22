@@ -15,6 +15,7 @@ from repositories.plant_monitoring_repository import (
     PlantRecord,
     TransformerRecord,
 )
+from services.device_scope import DeviceScope
 
 ACTIVE = "active"
 
@@ -31,8 +32,23 @@ def list_transformers(plant_id: str, include_inactive: bool = False) -> list[Tra
     return _active_only(repo.list_transformers(plant_id), include_inactive)
 
 
-def list_devices(transformer_id: str, include_inactive: bool = False) -> list[DeviceRecord]:
-    return _active_only(repo.list_devices(transformer_id), include_inactive)
+def list_devices(
+    transformer_id: str, *, scope: DeviceScope, include_inactive: bool = False
+) -> list[DeviceRecord]:
+    """Devices under one transformer, within the caller's scope.
+
+    `scope` is keyword-only and undefaulted for the same reason
+    `allowed_device_ids` is: the fail-open seam closes at both boundaries or
+    at neither.
+
+    Scope and `include_inactive` are independent filters and both apply. Scope
+    narrows the population; it never widens it past an existing filter, so an
+    assigned-but-inactive device stays hidden under the active-only default.
+    """
+    return _active_only(
+        repo.list_devices(transformer_id, allowed_device_ids=scope.device_ids),
+        include_inactive,
+    )
 
 
 def get_plant_or_none(plant_id: str) -> PlantRecord | None:

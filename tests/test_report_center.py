@@ -22,6 +22,7 @@ from config.reports import (
     all_report_keys,
 )
 from pages.report_center import layout
+from services.device_scope import UNRESTRICTED
 
 
 # ---------------------------------------------------------------------------
@@ -301,7 +302,7 @@ class TestCascadeOptions:
         assert options == []
 
     def test_device_options_empty_without_transformer(self):
-        options = _device_options("")
+        options = _device_options("", UNRESTRICTED)
         assert options == []
 
 

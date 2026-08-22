@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import String, bindparam, text
 
 from config.settings import monitoring
 from db.engine import session_scope
@@ -183,10 +183,20 @@ def _scope_clause(alias: str, allowed_device_ids) -> tuple[str, dict]:
 
 
 def _scoped(statement, allowed_device_ids):
-    """Declare the expanding bindparam when the statement is constrained."""
+    """Declare the expanding bindparam when the statement is constrained.
+
+    `type_=String` is required, not decorative: device ids are varchar, and
+    when `allowed_device_ids` is empty SQLAlchemy has no values to infer a
+    type from, so an untyped expanding bindparam defaults to Integer and
+    renders `IN (SELECT CAST(NULL AS INTEGER) WHERE 1!=1)` — a type mismatch
+    against a varchar column on Postgres. That failure mode only surfaces
+    when the empty-set case actually executes against real SQL.
+    """
     if allowed_device_ids is None:
         return statement
-    return statement.bindparams(bindparam(_SCOPE_PARAM, expanding=True))
+    return statement.bindparams(
+        bindparam(_SCOPE_PARAM, expanding=True, type_=String)
+    )
 
 
 def list_plants() -> list[PlantRecord]:
@@ -230,13 +240,27 @@ def get_transformer(transformer_id: str) -> TransformerRecord | None:
     return _to_transformer(row) if row else None
 
 
-def list_devices(transformer_id: str) -> list[DeviceRecord]:
+def list_devices(
+    transformer_id: str, *, allowed_device_ids: frozenset[str] | None
+) -> list[DeviceRecord]:
+    """Devices under one transformer, constrained to a visible set.
+
+    `allowed_device_ids` is keyword-only and undefaulted on purpose: a default
+    of None would let an omitted argument silently return the whole
+    transformer, which is a fail-open seam wearing the costume of a safe
+    default (ROLE-3 invariant 8).
+    """
+    scope_sql, scope_params = _scope_clause("devices", allowed_device_ids)
+    statement = _scoped(
+        text(f"SELECT {_DEVICE_COLUMNS} "
+             f"FROM {_SCHEMA}.devices AS devices "
+             f"WHERE devices.transformer_id = :transformer_id{scope_sql} "
+             f"ORDER BY devices.device_code"),
+        allowed_device_ids,
+    )
     with session_scope() as session:
         rows = session.execute(
-            text(f"SELECT {_DEVICE_COLUMNS} "
-                 f"FROM {_SCHEMA}.devices WHERE transformer_id = :transformer_id "
-                 f"ORDER BY device_code"),
-            {"transformer_id": transformer_id},
+            statement, {"transformer_id": transformer_id, **scope_params}
         ).all()
     return [_to_device(r) for r in rows]
 

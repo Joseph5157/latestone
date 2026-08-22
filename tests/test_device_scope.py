@@ -98,3 +98,11 @@ def test_scope_from_session_resolves_a_valid_administrator_session():
         "role": "administrator",
     }
     assert device_scope.scope_from_session(session) == UNRESTRICTED
+
+
+def test_hierarchy_service_list_devices_requires_scope():
+    """Invariant 8 at the service boundary."""
+    from services import hierarchy_service
+
+    with pytest.raises(TypeError):
+        hierarchy_service.list_devices("any-transformer")

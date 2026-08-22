@@ -29,6 +29,7 @@ from config.metrics import ATTRIBUTION_METRIC_KEY
 from components.freshness_badge import format_last_reading
 from routes import device_href
 from services import admin_overview_service, hierarchy_service, monitoring_service
+from services.device_scope import DeviceScope, scope_from_session
 from services.monitoring_service import Freshness, aggregate_freshness, reading_age, severity_rank
 
 logger = logging.getLogger(__name__)
@@ -345,7 +346,7 @@ def _format_capacity_mw(value) -> str | None:
     return f"{float(value):g} MW"
 
 
-def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
+def build_plant_detail_view(plant_id: str, rendered_at: datetime, *, scope: DeviceScope) -> dict:
     """Everything the Plant page needs, from one `latest_reading_rows()` fetch
     and one `latest_metric_readings()` fetch — never one query per section.
 
@@ -353,11 +354,17 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
     Health, Metric Health, the attribution card's freshness) so the whole
     render answers "as of one instant", the same rule `get_fleet_health`
     already applies on the Fleet screen.
+
+    `scope` is resolved once by the enclosing callback and passed down —
+    never re-resolved here — so every section of this one render agrees on
+    which devices are visible.
     """
     plant = hierarchy_service.get_plant_or_none(plant_id)
     transformers = hierarchy_service.list_transformers(plant_id)
     device_counts = {
-        t.transformer_id: len(hierarchy_service.list_devices(t.transformer_id))
+        t.transformer_id: len(
+            hierarchy_service.list_devices(t.transformer_id, scope=scope)
+        )
         for t in transformers
     }
     total_devices = sum(device_counts.values())
@@ -400,6 +407,7 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime) -> dict:
 
 def build_transformer_detail_view(
     transformer_id: str, plant_name: str, transformer_code: str, rendered_at: datetime,
+    *, scope: DeviceScope,
 ) -> dict:
     """Everything the Transformer page needs, from one `latest_reading_rows()`
     fetch and one `latest_metric_readings()` fetch.
@@ -407,8 +415,11 @@ def build_transformer_detail_view(
     `plant_name`/`transformer_code` come from `page-context` (already resolved
     by the router) rather than a repository call — they are the two Entity
     Context fields that need no new query at all.
+
+    `scope` is resolved once by the enclosing callback and passed down; see
+    `build_plant_detail_view`.
     """
-    devices = hierarchy_service.list_devices(transformer_id)
+    devices = hierarchy_service.list_devices(transformer_id, scope=scope)
 
     rows = monitoring_service.latest_reading_rows()
     health = monitoring_service.fleet_health_from_rows(rows, rendered_at)
@@ -531,9 +542,10 @@ def register(app) -> None:
         Output("plant-metric-health", "children"),
         Output("plant-attribution", "children"),
         Input("page-context", "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_plant_detail(context):
+    def populate_plant_detail(context, auth_data):
         if not context or context.get("route") != "plant":
             return (no_update,) * 7
         plant_id = context.get("plant_id")
@@ -542,10 +554,14 @@ def register(app) -> None:
         # and the attribution card's freshness must not disagree about which
         # instant "now" was.
         rendered_at = datetime.now(timezone.utc)
+        # Resolved once for the whole render, same reasoning as `rendered_at`:
+        # re-resolving per section could let two parts of one screen disagree
+        # about which devices are visible.
+        scope = scope_from_session(auth_data)
         result: dict = {}
 
         def build():
-            result.update(build_plant_detail_view(plant_id, rendered_at))
+            result.update(build_plant_detail_view(plant_id, rendered_at, scope=scope))
             return result["table_rows"]
 
         rows, columns, error = listing_outputs(
@@ -577,9 +593,10 @@ def register(app) -> None:
         Output("transformer-metric-health", "children"),
         Output("transformer-attribution", "children"),
         Input("page-context", "data"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_transformer_detail(context):
+    def populate_transformer_detail(context, auth_data):
         if not context or context.get("route") != "transformer":
             return (no_update,) * 7
         transformer_id = context.get("transformer_id")
@@ -587,12 +604,14 @@ def register(app) -> None:
         transformer_code = context.get("transformer_code", "")
 
         rendered_at = datetime.now(timezone.utc)
+        scope = scope_from_session(auth_data)
         result: dict = {}
 
         def build():
             result.update(
                 build_transformer_detail_view(
-                    transformer_id, plant_name, transformer_code, rendered_at
+                    transformer_id, plant_name, transformer_code, rendered_at,
+                    scope=scope,
                 )
             )
             return result["table_rows"]

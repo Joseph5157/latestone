@@ -10,6 +10,7 @@ from repositories.plant_monitoring_repository import (
     TransformerRecord,
 )
 from services import hierarchy_service as svc
+from services.device_scope import UNRESTRICTED
 
 
 def _plant(plant_id: str, status: str = "active") -> PlantRecord:
@@ -49,9 +50,11 @@ class TestActiveFiltering:
         monkeypatch.setattr(
             svc.repo,
             "list_devices",
-            lambda tid: [_device("d1", "t1"), _device("d2", "t1", "inactive")],
+            lambda tid, *, allowed_device_ids: [
+                _device("d1", "t1"), _device("d2", "t1", "inactive")
+            ],
         )
-        assert [d.device_id for d in svc.list_devices("t1")] == ["d1"]
+        assert [d.device_id for d in svc.list_devices("t1", scope=UNRESTRICTED)] == ["d1"]
 
 
 class TestParentValidation:

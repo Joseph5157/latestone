@@ -14,6 +14,7 @@ from dash import Input, Output, State, no_update, html
 
 from config.reports import get_report, REPORTS
 from services import hierarchy_service
+from services.device_scope import DeviceScope, scope_from_session
 
 logger = logging.getLogger(__name__)
 
@@ -72,12 +73,12 @@ def _transformer_options(plant_id: str) -> list[dict]:
     ]
 
 
-def _device_options(transformer_id: str) -> list[dict]:
+def _device_options(transformer_id: str, scope: DeviceScope) -> list[dict]:
     if not transformer_id:
         return []
     return [
         {"label": d.device_code, "value": d.device_id}
-        for d in hierarchy_service.list_devices(transformer_id)
+        for d in hierarchy_service.list_devices(transformer_id, scope=scope)
     ]
 
 
@@ -279,11 +280,12 @@ def register(app) -> None:
         Output("report-device", "options"),
         Output("report-device", "disabled"),
         Input("report-transformer", "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_report_devices(transformer_id):
+    def populate_report_devices(transformer_id, auth_data):
         try:
-            options = _device_options(transformer_id)
+            options = _device_options(transformer_id, scope_from_session(auth_data))
             return options, not options
         except Exception:
             logger.exception("Failed to populate report devices for %r", transformer_id)

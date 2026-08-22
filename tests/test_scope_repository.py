@@ -104,3 +104,60 @@ def test_scope_clause_empty_set_is_still_a_constraint():
     sql, params = repo._scope_clause("d", frozenset())
     assert "d.device_id IN" in sql
     assert params["allowed_device_ids"] == []
+
+
+def test_list_devices_unrestricted_returns_every_device():
+    _seed_tree("sc-p3", "sc-p3-t1", ["sc-u1", "sc-u2"])
+    rows = repo.list_devices("sc-p3-t1", allowed_device_ids=None)
+    assert sorted(r.device_id for r in rows) == ["sc-u1", "sc-u2"]
+
+
+def test_list_devices_constrained_returns_only_scoped_devices():
+    _seed_tree("sc-p4", "sc-p4-t1", ["sc-a1", "sc-a2", "sc-a3"])
+    rows = repo.list_devices(
+        "sc-p4-t1", allowed_device_ids=frozenset({"sc-a1", "sc-a3"})
+    )
+    assert sorted(r.device_id for r in rows) == ["sc-a1", "sc-a3"]
+
+
+def test_list_devices_empty_scope_returns_nothing():
+    """Invariant 8, proven against real SQL: the empty expanding bindparam
+    must match nothing, not everything."""
+    _seed_tree("sc-p5", "sc-p5-t1", ["sc-z1", "sc-z2"])
+    rows = repo.list_devices("sc-p5-t1", allowed_device_ids=frozenset())
+    assert rows == []
+
+
+def test_list_devices_requires_the_scope_keyword():
+    """Invariant 8: an omitted argument must never mean 'show everything'."""
+    with pytest.raises(TypeError):
+        repo.list_devices("sc-p5-t1")
+
+
+def test_scope_narrows_but_never_widens_past_the_status_filter():
+    """Spec §4.3: scope and include_inactive are independent and both apply.
+
+    An assigned-but-inactive device stays hidden under the active-only
+    default — assignment membership must not resurrect it.
+    """
+    from services import hierarchy_service
+    from services.device_scope import DeviceScope
+
+    _seed_tree("sc-p5b", "sc-p5b-t1", ["sc-inact"])
+    with session_scope() as session:
+        session.execute(
+            text(
+                f"UPDATE {repo._SCHEMA}.devices SET status = 'inactive' "
+                f"WHERE device_id = 'sc-inact'"
+            )
+        )
+
+    scope = DeviceScope(frozenset({"sc-inact"}))
+
+    assert hierarchy_service.list_devices("sc-p5b-t1", scope=scope) == []
+    assert [
+        d.device_id
+        for d in hierarchy_service.list_devices(
+            "sc-p5b-t1", scope=scope, include_inactive=True
+        )
+    ] == ["sc-inact"]

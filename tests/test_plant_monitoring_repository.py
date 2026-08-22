@@ -79,7 +79,7 @@ class TestHierarchy:
 
     def test_devices_belong_to_requested_transformer(self):
         with measure_time() as t:
-            devices = repo.list_devices("plant-01-t1")
+            devices = repo.list_devices("plant-01-t1", allowed_device_ids=None)
         assert devices
         assert all(d.transformer_id == "plant-01-t1" for d in devices)
         t.row_count = len(devices)
@@ -427,11 +427,12 @@ class TestLatestMetricReadings:
         database where everything happens to be active.
         """
         from services import hierarchy_service
+        from services.device_scope import UNRESTRICTED
 
         expected = {
             d.device_id
             for t in hierarchy_service.list_transformers(self.PLANT)
-            for d in hierarchy_service.list_devices(t.transformer_id)
+            for d in hierarchy_service.list_devices(t.transformer_id, scope=UNRESTRICTED)
         }
         actual = {
             r.device_id for r in repo.latest_metric_readings("temperature", plant_id=self.PLANT)

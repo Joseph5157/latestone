@@ -33,6 +33,7 @@ from components.equipment_selector import (
 )
 from routes import device_href
 from services import hierarchy_service
+from services.device_scope import DeviceScope, scope_from_session
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +74,15 @@ def transformer_options(plant_id) -> tuple[list[dict], bool, None]:
     return options, False, None
 
 
-def device_options(transformer_id) -> tuple[list[dict], bool, None]:
-    """Options, disabled-state, and a cleared value for the device field."""
+def device_options(transformer_id, scope: DeviceScope) -> tuple[list[dict], bool, None]:
+    """Options, disabled-state, and a cleared value for the device field.
+
+    `scope` is resolved once by the enclosing callback and passed down, not
+    re-resolved here.
+    """
     if not transformer_id:
         return [], True, None
-    devices = hierarchy_service.list_devices(transformer_id)
+    devices = hierarchy_service.list_devices(transformer_id, scope=scope)
     options = [{"label": d.device_code, "value": d.device_id} for d in devices]
     return options, False, None
 
@@ -139,11 +144,12 @@ def register(app) -> None:
         Output(DEVICE_ID, "disabled"),
         Output(DEVICE_ID, "value"),
         Input(TRANSFORMER_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def _populate_devices(transformer_id):
+    def _populate_devices(transformer_id, auth_data):
         try:
-            return device_options(transformer_id)
+            return device_options(transformer_id, scope_from_session(auth_data))
         except Exception:
             logger.exception(
                 "Equipment selector failed for transformer_id=%r", transformer_id
