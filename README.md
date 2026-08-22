@@ -72,9 +72,19 @@ role='administrator', status=u.status, email_address=u.email_address, \
 mobile_number=u.mobile_number)"
 ```
 
+The role on that row now decides what the application shows you. An
+Administrator sees the whole fleet plus the Administration section on the Fleet
+Overview. A General user sees the whole fleet and may change nothing. A
+Technician sees only the RTLs currently assigned to them, and the plants,
+transformers and fleet counts they see are computed over that same set — so a
+technician with no assignments sees an empty fleet rather than everything.
+Reaching an out-of-scope resource by typing its URL gives "No access", which is
+kept distinct from the "not found" a genuinely nonexistent id produces.
+
 Note that the session is held in a browser-side store and the data callbacks
-do not verify it independently. This establishes a consistent identity, not a
-secure authorization boundary — see `docs/CODE_AUDIT.md`, "Security posture".
+do not verify it independently. This establishes a consistent identity and a
+consistent set of answers, not a secure authorization boundary — see
+`docs/CODE_AUDIT.md`, "Security posture".
 
 ## Reseeding
 

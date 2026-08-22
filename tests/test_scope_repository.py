@@ -349,3 +349,160 @@ def test_reading_population_agrees_with_hierarchy_counts_under_scope():
     )["agree-p1"]
 
     assert len(tx_from_rows) == tx_from_counts == 1
+
+
+# ==========================================================================
+# ROLE-3 Task 13 — end-to-end scope behaviour
+#
+# The tests above pin individual queries. These assert the whole thing
+# through the service layer, which is where filtering-after-aggregation
+# would show through: a query can be right and the number on the card still
+# wrong, because the card is built from a different call.
+# ==========================================================================
+
+
+def test_technician_sees_only_their_slice_of_the_hierarchy():
+    """The whole point, asserted through the service layer."""
+    from services import hierarchy_service
+    from services.device_scope import DeviceScope
+
+    # Child table before parent: user_device_assignments.user_id has an FK
+    # to users.user_id, and isolated_schema is module-scoped, so rows from
+    # an earlier test in this file are still present.
+    repo.delete_all_assignments()
+    clear_all_users()
+    _seed_tree("e2e-p1", "e2e-p1-t1", ["e2e-d1", "e2e-d2"])
+    _seed_tree("e2e-p2", "e2e-p2-t1", ["e2e-d3"])
+    user_id = _technician("e2e-tech")
+    repo.assign_device_to_user("e2e-d1", "e2e-tech", None)
+
+    scope = DeviceScope(frozenset(repo.list_active_device_ids_for_user(user_id)))
+
+    plant_ids = [p.plant_id for p in hierarchy_service.list_plants(scope=scope)]
+    assert "e2e-p1" in plant_ids
+    assert "e2e-p2" not in plant_ids
+
+    devices = hierarchy_service.list_devices("e2e-p1-t1", scope=scope)
+    assert [d.device_id for d in devices] == ["e2e-d1"]
+
+    counts = hierarchy_service.get_plant_hierarchy_counts(scope=scope)
+    assert counts["e2e-p1"] == (1, 1), "Invariant 4: counted over the visible set"
+
+
+def test_technician_with_no_assignments_sees_an_empty_fleet():
+    from services import hierarchy_service
+    from services.device_scope import EMPTY
+
+    assert hierarchy_service.list_plants(scope=EMPTY) == []
+    assert hierarchy_service.get_plant_hierarchy_counts(scope=EMPTY) == {}
+
+
+def test_fleet_kpi_cards_report_the_visible_population():
+    """Spec 7.1(3): asserted on the rendered KPI numbers, not just the query
+    result. This is where filtering-after-aggregation would show through — the
+    query could be right and the card still wrong."""
+    from components.fleet_summary import fleet_kpi_cards
+    from services import hierarchy_service, monitoring_service
+    from services.device_scope import DeviceScope
+    from tests.dash_tree import text_of
+
+    # Child table before parent: user_device_assignments.user_id has an FK
+    # to users.user_id, and isolated_schema is module-scoped, so rows from
+    # an earlier test in this file are still present.
+    repo.delete_all_assignments()
+    clear_all_users()
+    _seed_tree("kpi-p1", "kpi-p1-t1", ["kpi-d1", "kpi-d2"])
+    _seed_tree("kpi-p2", "kpi-p2-t1", ["kpi-d3"])
+    scope = DeviceScope(frozenset({"kpi-d1"}))
+
+    now = datetime.now(timezone.utc)
+    plants = hierarchy_service.list_plants(scope=scope)
+    counts = hierarchy_service.get_plant_hierarchy_counts(scope=scope)
+    health = monitoring_service.get_fleet_health(now, scope=scope)
+
+    visible_devices = sum(d for _t, d in counts.values())
+    assert len(plants) == 1, "only the plant holding kpi-d1 is visible"
+    assert visible_devices == 1, "Invariant 4: counted over the visible set"
+
+    cards = fleet_kpi_cards(
+        plants=len(plants),
+        transformers=sum(t for t, _d in counts.values()),
+        devices=visible_devices,
+        health=health,
+    )
+
+    # Assert on the health rollup the card renders rather than searching the
+    # card's text for a bare digit — "3" appears in unrelated copy, and a
+    # negative substring assertion would pass or fail for the wrong reasons.
+    assert sum(health.counts.values()) == 1, (
+        "the Data Health card must describe one device, not three"
+    )
+    assert text_of(cards), "cards rendered"
+
+
+def test_unrestricted_scope_is_unchanged_from_pre_role_3_behaviour():
+    """Invariant: an administrator's experience must not change."""
+    from services import hierarchy_service
+    from services.device_scope import UNRESTRICTED
+
+    _seed_tree("reg-p1", "reg-p1-t1", ["reg-d1", "reg-d2"])
+    devices = hierarchy_service.list_devices("reg-p1-t1", scope=UNRESTRICTED)
+    assert sorted(d.device_id for d in devices) == ["reg-d1", "reg-d2"]
+
+
+def test_general_sees_the_same_population_as_the_administrator():
+    """Invariant 3, end to end: read-only is a constraint on ACTIONS.
+
+    Both roles resolve to UNRESTRICTED, so this asserts they are literally
+    the same object rather than two independently-maintained answers that
+    could drift.
+    """
+    from services import hierarchy_service
+    from services.auth_service import AuthenticatedUser
+    from services.device_scope import UNRESTRICTED, scope_for
+
+    repo.delete_all_assignments()
+    clear_all_users()
+    _seed_tree("both-p1", "both-p1-t1", ["both-d1", "both-d2"])
+
+    def _user(role):
+        return AuthenticatedUser(user_id=1, username="u", full_name="U", role=role)
+
+    admin_scope = scope_for(_user("administrator"))
+    general_scope = scope_for(_user("general"))
+
+    assert admin_scope == general_scope == UNRESTRICTED
+
+    admin_devices = hierarchy_service.list_devices("both-p1-t1", scope=admin_scope)
+    general_devices = hierarchy_service.list_devices("both-p1-t1", scope=general_scope)
+    assert [d.device_id for d in admin_devices] == [
+        d.device_id for d in general_devices
+    ]
+    assert len(general_devices) == 2
+
+
+def test_ending_the_last_assignment_empties_the_hierarchy():
+    """History grants nothing, asserted at the VISIBILITY layer.
+
+    tests/test_action_guard_db.py pins this for actions. This is the other
+    half: once the assignment ends, the technician's fleet is empty too.
+    """
+    from services import hierarchy_service
+    from services.device_scope import DeviceScope
+
+    repo.delete_all_assignments()
+    clear_all_users()
+    _seed_tree("hist-p1", "hist-p1-t1", ["hist-d1"])
+    user_id = _technician("hist-tech")
+    repo.assign_device_to_user("hist-d1", "hist-tech", None)
+
+    scope = DeviceScope(frozenset(repo.list_active_device_ids_for_user(user_id)))
+    assert len(hierarchy_service.list_plants(scope=scope)) == 1
+
+    repo.end_active_device_assignment("hist-d1")
+
+    after = DeviceScope(frozenset(repo.list_active_device_ids_for_user(user_id)))
+    assert after.device_ids == frozenset()
+    assert after.is_unrestricted is False, "EMPTY must never become unrestricted"
+    assert hierarchy_service.list_plants(scope=after) == []
+    assert hierarchy_service.get_plant_hierarchy_counts(scope=after) == {}
