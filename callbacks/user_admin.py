@@ -26,7 +26,6 @@ from services.prototype_users import (
     get_user,
     upsert_user,
     clear_all_users,
-    seed_demo_user,
     CONFIRMED_ROLES,
 )
 
@@ -94,10 +93,17 @@ def _build_user_rows(users: list[dict], search_term: str = "", status_filter: st
 
 
 def register(app) -> None:
-    """Register user administration callbacks on the Dash app."""
+    """Register user administration callbacks on the Dash app.
 
-    # Initialize mock users on first load
-    seed_demo_user()
+    Registration wires callbacks and nothing else. It used to call
+    `seed_demo_user()` here — a leftover from the in-memory prototype store,
+    where seeding was free. Against PostgreSQL it made importing `app` open a
+    connection, so the app could not be imported (or its pure-logic tests
+    collected) without a running database, and a module import performed a
+    write. Nothing is lost by dropping it: every path that reads users seeds
+    first — `auth_service.authenticate()` before its lookup, and
+    `prototype_users.get_all_users()` / `.get_user()` on entry.
+    """
 
     @app.callback(
         Output("user-admin-table", "data"),

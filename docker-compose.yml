@@ -9,17 +9,20 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-powerplant_demo}
       POSTGRES_USER: ${POSTGRES_USER:-powerplant}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_local_only}
-      # The init script creates the schema under this name, so the DDL and the
-      # application's PLANT_MONITORING_SCHEMA can never disagree.
-      PLANT_MONITORING_SCHEMA: ${PLANT_MONITORING_SCHEMA:-plant_monitoring}
+      # PLANT_MONITORING_SCHEMA is deliberately NOT passed to the container.
+      # The schema is created by `alembic upgrade head`, which reads the value
+      # from config.settings in the *application's* environment. Handing it to
+      # postgres as well would imply the container has a say in where schema
+      # lives, and that second opinion is exactly what BOOTSTRAP-1 removed.
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
+      # Data only. Nothing is mounted into /docker-entrypoint-initdb.d: this
+      # container starts an EMPTY database and Alembic builds every table in
+      # it. Mounting schema DDL here made postgres create the baseline tables
+      # that 001_baseline then tried to create again, so `alembic upgrade head`
+      # failed on any fresh clone. See tests/test_bootstrap_contract.py.
       - powerplant_pgdata:/var/lib/postgresql/data
-      # The template is not named *.sql, so postgres runs only the script,
-      # which substitutes the schema name before piping the DDL to psql.
-      - ./db/init_plant_monitoring.sh:/docker-entrypoint-initdb.d/01_init_plant_monitoring.sh:ro
-      - ./db/init_plant_monitoring.sql.template:/docker-entrypoint-initdb.d/init_plant_monitoring.sql.template:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-powerplant} -d ${POSTGRES_DB:-powerplant_demo}"]
       interval: 5s
