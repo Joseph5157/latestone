@@ -11,47 +11,71 @@ full context.
 
 ## Setup
 
+From a fresh clone on a machine that has never run this project:
+
 ```bash
 # 1. Clone/open the project, then create your local env file
-cp .env.example .env
+cp .env.example .env                 # PowerShell: Copy-Item .env.example .env
 
 # 2. Install Python dependencies
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate            # PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# 3. Start PostgreSQL
-docker compose up -d
+# 3. Start an EMPTY PostgreSQL
+docker compose up -d postgres        # omit `postgres` to get pgAdmin on :5050 too
 
-# 4. Seed development data (30 plants, 120 devices, ~1.38M readings)
+# 4. Build the schema — creates it and applies every migration
+alembic upgrade head
+
+# 5. Seed development data (30 plants, 71 transformers, 120 devices, ~1.38M readings)
 python -m db.seed_plant_monitoring --reset
 
-# 5. Run the app
+# 6. Seed the administration demo (5 technicians, 96 of 120 RTLs assigned)
+python -m db.seed_admin_demo --reset
+
+# 7. Run the app
 python app.py
 ```
-
-### Upgrading an existing checkout
-
-The schema DDL moved from `db/init_plant_monitoring.sql` to
-`db/init_plant_monitoring.sql.template` plus `db/init_plant_monitoring.sh`, so
-the schema name honours `PLANT_MONITORING_SCHEMA` instead of being hard-coded.
-
-If you already have a `powerplant_demo_postgres` container, recreate it rather
-than restarting it:
-
-```bash
-docker compose up -d          # recreates with the new mounts
-```
-
-`docker start <container>` will fail with exit 127, because the old container
-still bind-mounts the file that was renamed — and Docker silently recreates the
-missing source as an empty directory. Your data is safe either way: it lives in
-the `powerplant_pgdata` volume, not the container. Delete any stray
-`db/init_plant_monitoring.sql` *directory* if one appears.
 
 Open http://localhost:8050 and log in with the credentials you set as
 `DEMO_USERNAME` / `DEMO_PASSWORD` in `.env`. There is no fallback credential:
 if they are unset, every login is refused.
+
+Stop the database with `docker compose stop` (keeps your data) or
+`docker compose down -v` (destroys the volume, so step 4 onwards runs again).
+
+### Alembic owns the schema
+
+`docker compose up` starts an **empty** database and nothing else.
+`alembic upgrade head` creates the schema and every table in it.
+
+Postgres' `/docker-entrypoint-initdb.d` hook is deliberately unused. It
+previously created the four baseline tables on first container init, which
+meant `alembic upgrade head` then failed trying to create tables that already
+existed — `001_baseline` uses `op.create_table`, which has no `IF NOT EXISTS`.
+A fresh clone could not migrate, and the seed could not run either, because it
+writes columns that migration 002 adds. `alembic stamp 001_baseline` worked
+around that only by hiding which component owned the schema.
+
+**No `alembic stamp` is needed on a fresh database, ever.**
+`tests/test_bootstrap_contract.py` pins this.
+
+### Upgrading a checkout that predates this change
+
+Your data lives in the `powerplant_pgdata` volume, not the container, so
+recreating the container does not touch it:
+
+```bash
+docker compose up -d postgres        # recreates without the init mounts
+alembic upgrade head                 # no-op if you are already at head
+```
+
+If you have a database created by the old init script that has **no**
+`alembic_version` table, that one — and only that one — still needs
+`alembic stamp 001_baseline` once before `alembic upgrade head`.
+
+## Signing in
 
 The credential pair is checked by `services/auth_service.py`; the identity
 behind it — `user_id`, `full_name` and `role` — is loaded from the
@@ -176,11 +200,12 @@ powerplant-dashboard/
 │   └── plant_monitoring_repository.py  # ALL raw SQL, hierarchy + readings
 ├── db/
 │   ├── engine.py                   # SQLAlchemy engine/session
-│   ├── init_plant_monitoring.sql.template  # Schema DDL (@SCHEMA@ placeholder)
-│   ├── init_plant_monitoring.sh    # Substitutes PLANT_MONITORING_SCHEMA at init
+│   ├── init_plant_monitoring.sql.template  # Reference only — NOT mounted
+│   ├── init_plant_monitoring.sh    # Reference only — Alembic owns the schema
 │   ├── generators.py               # Deterministic multi-metric data generation
 │   ├── hierarchy.py                # 71 transformers, 120 devices
-│   └── seed_plant_monitoring.py    # Bulk seed via COPY (~1.38M rows)
+│   ├── seed_plant_monitoring.py    # Bulk seed via COPY (~1.38M rows)
+│   └── seed_admin_demo.py          # Opt-in technicians + RTL assignments
 ├── assets/
 │   └── app.css                     # Responsive styling
 └── tests/

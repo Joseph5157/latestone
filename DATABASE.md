@@ -14,10 +14,17 @@ The development schema is `plant_monitoring`, separate from the client's `trfr_t
 
 ### DDL
 
-Generated from `db/init_plant_monitoring.sql.template`, which is the single
-source of truth. `db/init_plant_monitoring.sh` substitutes
-`PLANT_MONITORING_SCHEMA` for `@SCHEMA@` at container init; the default is
-shown here.
+**Alembic is the single source of truth for the schema.** Every table is
+created by `alembic upgrade head`, which starts from
+`alembic/versions/001_baseline.py` and applies each later migration in turn.
+The schema name comes from `PLANT_MONITORING_SCHEMA` via `config.settings`,
+read by `alembic/env.py`; the default is shown here.
+
+`db/init_plant_monitoring.sql.template` and `db/init_plant_monitoring.sh` are
+retained for reference only. They are **no longer mounted** into the postgres
+container — while they were, Docker created the baseline tables and
+`001_baseline` then failed trying to create the same tables again, so no fresh
+clone could migrate. See `tests/test_bootstrap_contract.py`.
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS plant_monitoring;

@@ -37,7 +37,7 @@ cp .env.example .env
 Windows PowerShell: `copy .env.example .env`
 
 The defaults in this file are ready to use as-is for local use — including
-demo login credentials (see step 6).
+demo login credentials (see step 7).
 
 **3. Install Python dependencies**
 
@@ -52,20 +52,38 @@ Activate the virtual environment first:
 **4. Start the database**
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
-This starts a local PostgreSQL container (Docker Desktop must be running
-first). It only needs a few seconds to initialize on first run.
+This starts an **empty** local PostgreSQL container (Docker Desktop must be
+running first). It takes a few seconds on first run and creates no tables —
+step 5 does that. Leave off `postgres` if you also want pgAdmin, which is
+optional and appears on http://localhost:5050.
 
-**5. Load the sample data**
+**5. Build the database schema**
+
+```bash
+alembic upgrade head
+```
+Creates the schema and applies every migration. This is the only thing that
+defines the database structure — you never need `alembic stamp` on a fresh
+database. Re-running it when you are already up to date does nothing.
+
+**6. Load the sample data**
 
 ```bash
 python -m db.seed_plant_monitoring --reset
+python -m db.seed_admin_demo --reset
 ```
-Loads 30 days of readings (~1.38 million rows) across 30 plants, 71
-transformers and 120 devices. Takes about 30 seconds.
+The first loads 30 days of readings (~1.38 million rows) across 30 plants, 71
+transformers and 120 devices, and takes about 30 seconds. The second adds the
+administration demo: 5 technicians, with 96 of the 120 devices assigned and 24
+left unassigned so the Administrator screens have something to show.
 
-**6. Run the dashboard**
+Readings are timestamped relative to **when you run the seed**, so a database
+seeded days ago will show its data as stale. Re-run the first command to
+refresh it.
+
+**7. Run the dashboard**
 
 ```bash
 python app.py
@@ -84,8 +102,8 @@ they are ever unset, login is refused entirely.
 Once installed, you don't repeat the full setup — just:
 
 ```bash
-docker compose up -d      # start the database (if not already running)
-.venv\Scripts\activate    # Windows — or: source .venv/bin/activate
+docker compose up -d postgres   # start the database (if not already running)
+.venv\Scripts\activate          # Windows — or: source .venv/bin/activate
 python app.py
 ```
 
@@ -121,13 +139,15 @@ The device dashboard is the main operator view:
 | Problem | Fix |
 |---|---|
 | `docker compose up` fails / hangs | Open Docker Desktop first and wait for it to fully start. |
-| Port already in use | Something else on your PC is using 5432 or 8050. Change `POSTGRES_PORT` / `DASH_PORT` in `.env`. |
+| Port already in use | Something else on your PC is using the database or app port. Change `POSTGRES_PORT` / `DASH_PORT` in `.env` (the default database port is 5436). |
 | Login always fails | Confirm `DEMO_USERNAME` and `DEMO_PASSWORD` are set in `.env` — there's no built-in fallback. |
 | Dashboard loads but shows no data | Re-run `python -m db.seed_plant_monitoring --reset`. |
+| Readings all look stale | The seed timestamps data at the moment it runs. Re-run `python -m db.seed_plant_monitoring --reset`. |
+| `relation ... does not exist` | Step 5 was skipped. Run `alembic upgrade head`, then the seeds. |
 
 ## Running the tests (optional)
 
 ```bash
 python -m pytest -m "not db" -v   # logic only, no database needed
-python -m pytest -v                # full suite, requires steps 4–5 done
+python -m pytest -v                # full suite, requires steps 4–6 done
 ```

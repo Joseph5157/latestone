@@ -272,19 +272,26 @@ class TestBuildDefinitionStatus:
 # ---------------------------------------------------------------------------
 
 class TestScopeLabel:
+    """Only the fleet label is pure: every other scope resolves an equipment
+    name through `hierarchy_service`, which reads the database. Those cases
+    carry `db` so the pure-logic suite stays runnable without Docker."""
+
     def test_fleet(self):
         assert _scope_label("fleet") == "Entire Fleet"
 
+    @pytest.mark.db
     def test_plant(self):
         result = _scope_label("plant", plant_id="p1")
         assert "Plant:" in result
 
+    @pytest.mark.db
     def test_transformer(self):
         result = _scope_label(
             "transformer", plant_id="p1", transformer_id="t1", device_scope=UNRESTRICTED
         )
         assert "Transformer:" in result
 
+    @pytest.mark.db
     def test_device(self):
         result = _scope_label("device", device_id="d1")
         assert "Device:" in result
@@ -295,7 +302,10 @@ class TestScopeLabel:
 # ---------------------------------------------------------------------------
 
 class TestCascadeOptions:
+    @pytest.mark.db
     def test_plant_options_returns_list(self):
+        """Reads the plant list from the database; the empty-input cases below
+        return before any query and stay in the pure-logic suite."""
         options = _plant_options(UNRESTRICTED)
         assert isinstance(options, list)
 
