@@ -265,4 +265,3 @@ def register(app) -> None:
         if period_value == "custom":
             return {"display": "block"}
         return {"display": "none"}
-
