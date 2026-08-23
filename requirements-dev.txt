@@ -1,0 +1,13 @@
+# Development/verification dependencies.
+#
+# Kept separate from requirements.txt so the runtime install stays minimal:
+# running the application needs none of this. Install it when you want to run
+# the test suite, which is the quickest way to confirm your setup is sound.
+#
+#   pip install -r requirements-dev.txt
+#   python -m pytest -m "not db"     # logic only, no database needed
+#   python -m pytest                 # full suite, needs a migrated database
+
+-r requirements.txt
+
+pytest==9.1.1

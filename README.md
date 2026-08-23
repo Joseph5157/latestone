@@ -147,6 +147,12 @@ readings should never silently create a staff list.
 
 ## Running tests
 
+The test runner is not part of the runtime install:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
 Pure-logic tests (no Docker required):
 
 ```bash
