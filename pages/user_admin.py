@@ -41,14 +41,15 @@ def layout() -> html.Div:
                     ),
                 ],
             ),
-            # Prototype notice
+            # Environment and integration notice
             html.Div(
                 className="admin-boundary-note",
                 children=[
-                    html.Strong("Prototype. "),
+                    html.Strong("Demo environment. "),
                     html.Span(
-                        "User management is not connected to a production "
-                        "identity system. Changes are not persisted."
+                        "User accounts, roles, and status changes are stored in "
+                        "the local application database. Production "
+                        "identity-provider integration is not yet connected."
                     ),
                 ],
             ),
