@@ -18,6 +18,7 @@ from services.authorization import (
     EXPORT_DATA,
     MANAGE_ASSIGNMENT,
     PROGRAM_RTL,
+    REGISTER_DEVICE,
     TOGGLE_MESSAGE_FORWARDING,
 )
 from services.device_scope import DeviceScope
@@ -211,3 +212,44 @@ class TestTheGuardOwnsTheRule:
         # Strip the module docstring before looking for role literals in code.
         for role in ('"administrator"', "'administrator'", '"technician"', "'technician'"):
             assert role not in body.split('"""')[-1], role
+
+
+class TestRequireCapability:
+    """The device-less guard.
+
+    `require_action` cannot express registration: it takes a device_id and
+    resolves an assignment against it, and at registration time no device
+    exists. This guard answers the role question alone and must never touch
+    the assignment read to do it.
+    """
+
+    def test_administrator_passes(self, monkeypatch):
+        calls = []
+        _patch_scope(monkeypatch, DeviceScope(None), calls)
+
+        action_guard.require_capability(_user("administrator"), REGISTER_DEVICE)
+
+        assert calls == [], "a device-less capability must not resolve a scope"
+
+    @pytest.mark.parametrize("role", ["technician", "general"])
+    def test_other_roles_are_refused(self, monkeypatch, role):
+        calls = []
+        _patch_scope(monkeypatch, DeviceScope(None), calls)
+
+        with pytest.raises(AuthorizationError):
+            action_guard.require_capability(_user(role), REGISTER_DEVICE)
+
+        assert calls == []
+
+    def test_no_user_is_refused(self):
+        with pytest.raises(AuthorizationError):
+            action_guard.require_capability(None, REGISTER_DEVICE)
+
+    def test_unknown_capability_is_refused(self):
+        with pytest.raises(AuthorizationError):
+            action_guard.require_capability(_user("administrator"), "read_minds")
+
+    @pytest.mark.parametrize("role", ["Administrator", "", "admin"])
+    def test_an_unrecognised_role_is_refused(self, role):
+        with pytest.raises(AuthorizationError):
+            action_guard.require_capability(_user(role), REGISTER_DEVICE)

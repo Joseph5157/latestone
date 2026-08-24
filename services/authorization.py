@@ -115,10 +115,18 @@ class AuthorizationError(Exception):
     """
 
 
-#: Page content a role may see. Not a route and not an action: the
-#: Administration block on /plants is content inside a page every role may
-#: open, so neither of the other two tables can express it.
+#: Permissions where NO DEVICE IS INVOLVED. Not routes, and not device
+#: actions: neither of the other two tables can express them.
+#:
+#: Two shapes qualify. Page content inside a page every role may open
+#: (VIEW_ADMINISTRATION_OVERVIEW — the Administration block on /plants). And a
+#: mutation whose target does not exist yet (REGISTER_DEVICE — the device is
+#: what is being created, so there is no device_id to scope and no assignment
+#: to resolve). What unites them is the absence of a device, which is exactly
+#: what ACTION_POLICY requires; it is not a claim that they are the same kind
+#: of thing.
 VIEW_ADMINISTRATION_OVERVIEW = "view_administration_overview"
+REGISTER_DEVICE = "register_device"
 
 PROGRAM_RTL = "program_rtl"
 TOGGLE_MESSAGE_FORWARDING = "toggle_message_forwarding"
@@ -126,10 +134,17 @@ DEACTIVATE_RTL = "deactivate_rtl"
 MANAGE_ASSIGNMENT = "manage_assignment"
 EXPORT_DATA = "export_data"
 
-#: capability -> roles. Page content, role-only: no device is involved, so
-#: there is no assignment condition to apply.
+#: capability -> roles. Role-only: no device is involved, so there is no
+#: assignment condition to apply and no database read to make one.
+#:
+#: REGISTER_DEVICE mirrors ROUTE_POLICY["device_register"] and is asserted
+#: equal to it in the tests. Deliberately NOT derived from it: the route
+#: answers "may you open the page", this answers "may you perform the write",
+#: and a page that becomes reachable to more roles must not silently widen
+#: who may write.
 CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     VIEW_ADMINISTRATION_OVERVIEW: _ADMIN_ONLY,
+    REGISTER_DEVICE: _ADMIN_ONLY,
 }
 
 _NO_ROLE: frozenset[str] = frozenset()

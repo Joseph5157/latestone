@@ -29,6 +29,7 @@ from services.authorization import (
     GENERAL,
     MANAGE_ASSIGNMENT,
     PROGRAM_RTL,
+    REGISTER_DEVICE,
     ROUTE_POLICY,
     TECHNICIAN,
     TOGGLE_MESSAGE_FORWARDING,
@@ -418,3 +419,36 @@ class TestAuthorizationError:
         """
         assert issubclass(AuthorizationError, Exception)
         assert not issubclass(AuthorizationError, ValueError)
+
+
+class TestRegisterDeviceCapability:
+    """Registration is a DEVICE-LESS permission.
+
+    At the moment of the check no device exists — the device is what is being
+    created — so this cannot live in ACTION_POLICY, which is keyed on a
+    device_id and resolves an assignment against it. It belongs to
+    CAPABILITY_POLICY, whose defining property is that no device is involved
+    and there is therefore no assignment condition to apply.
+    """
+
+    def test_registration_is_administrator_only(self):
+        assert may_perform_capability(ADMINISTRATOR, REGISTER_DEVICE) is True
+        assert may_perform_capability(TECHNICIAN, REGISTER_DEVICE) is False
+        assert may_perform_capability(GENERAL, REGISTER_DEVICE) is False
+
+    @pytest.mark.parametrize("role", [None, 0, [], object()])
+    def test_non_string_role_is_refused(self, role):
+        assert may_perform_capability(role, REGISTER_DEVICE) is False
+
+    def test_registration_is_not_a_device_action(self):
+        """No device exists yet, so there is nothing for ACTION_POLICY to scope."""
+        assert REGISTER_DEVICE not in ACTION_POLICY
+
+    def test_capability_and_route_agree(self):
+        """The page and the write behind it are gated to the same roles.
+
+        Not derived from one another — asserted equal, so a change to either
+        that forgets the other fails here rather than shipping a page an
+        administrator can open and no one can submit (or worse, the reverse).
+        """
+        assert CAPABILITY_POLICY[REGISTER_DEVICE] == ROUTE_POLICY["device_register"]

@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from callbacks import device_assign, device_manage
+from callbacks import device_assign, device_manage, device_register
+from services import hierarchy_service
 
 ADMINISTRATOR_SESSION = {
     "authenticated": True,
@@ -259,3 +260,88 @@ class TestCallbacksDoNotContainTheRule:
             or re.search(r'["\'](administrator|technician|general)["\']\s*==', line)
         ]
         assert offenders == [], offenders
+
+
+# --------------------------------------------------------------------------
+# Device registration — the device-less guard
+# --------------------------------------------------------------------------
+
+
+class _RegisterSpy:
+    """Stands in for the registration service and records whether it ran.
+
+    The assertion here IS "was the mutation reached", so the boundary itself
+    is what has to be observed. A denied role must not get this far.
+    """
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        return object()
+
+
+def _silence_label_lookups(monkeypatch):
+    """Stop the review-label reads from needing a database.
+
+    Only used for the permitted case. A refused caller must not reach these
+    at all, which is what leaving them un-patched proves.
+    """
+    monkeypatch.setattr(hierarchy_service, "list_plants", lambda **kw: [])
+    monkeypatch.setattr(hierarchy_service, "list_transformers", lambda *a, **kw: [])
+
+
+class TestDeviceRegistration:
+    """The submit callback authorizes before it writes.
+
+    ROUTE_POLICY already gates the page administrator-only, but the callback
+    answers whoever invokes it and the session travels in a browser-side
+    store. These tests call the handler directly — the path a caller
+    bypassing the router takes — which is the only way this refusal is
+    observable at all.
+    """
+
+    def _call(self, session):
+        handler = _handlers(device_register)["_submit_registration"]
+        return handler(1, "dv1", "plant-01", "plant-01-t1", "active", session)
+
+    def test_administrator_reaches_the_registration_service(self, monkeypatch):
+        spy = _RegisterSpy()
+        _silence_label_lookups(monkeypatch)
+        monkeypatch.setattr(device_register, "register_device", spy)
+
+        self._call(ADMINISTRATOR_SESSION)
+
+        assert spy.calls, "an administrator must reach register_device"
+
+    @pytest.mark.parametrize(
+        "session",
+        [TECHNICIAN_SESSION, GENERAL_SESSION, STALE_SESSION, None],
+        ids=["technician", "general", "stale", "no-session"],
+    )
+    def test_denied_callers_never_reach_the_database(self, monkeypatch, session):
+        """No write, and no read either — the guard runs before the label
+        lookups, so a refused caller touches the database not at all.
+
+        The label lookups are deliberately NOT patched here: if the guard were
+        placed after them this test would fail in the no-database suite.
+        """
+        spy = _RegisterSpy()
+        monkeypatch.setattr(device_register, "register_device", spy)
+
+        result = self._call(session)
+
+        assert spy.calls == [], "a refused caller must not reach register_device"
+        assert result[4] == {"display": "block"}, "the error slot must be shown"
+        assert _is_refusal(result[5]), "the shared refusal notice must be rendered"
+
+    def test_refusal_does_not_reveal_the_policy(self, monkeypatch):
+        """The notice names no role, action or device."""
+        monkeypatch.setattr(device_register, "register_device", _RegisterSpy())
+
+        result = self._call(TECHNICIAN_SESSION)
+
+        rendered = _rendered_text(result[5]).lower()
+        for leak in ("technician", "register_device", "administrator"):
+            assert leak not in rendered

@@ -13,8 +13,11 @@ import logging
 
 from dash import Input, Output, State, no_update, html
 
-from components.status_panels import error_panel
+from components.status_panels import action_refused_notice, error_panel
 from services import device_scope, hierarchy_service
+from services.action_guard import require_capability
+from services.auth_service import from_session
+from services.authorization import AuthorizationError, REGISTER_DEVICE
 from services.device_registration import RegistrationError, register_device
 
 logger = logging.getLogger(__name__)
@@ -211,12 +214,32 @@ def register(app) -> None:
         State("device-register-plant", "value"),
         State("device-register-transformer", "value"),
         State("device-register-status", "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def _submit_registration(n_clicks, code, plant_id, transformer_id, status):
+    def _submit_registration(
+        n_clicks, code, plant_id, transformer_id, status, auth_data
+    ):
         """Submit — exactly one registration attempt per click."""
         if not n_clicks:
             return (no_update,) * 6
+
+        # BEFORE ANY DATABASE ACCESS, including the label reads below. The
+        # route is administrator-only, but this callback answers whoever
+        # invokes it and the session lives in a browser-side store, so the
+        # refusal has to exist here too. The callback supplies identity and
+        # capability and nothing else — it compares no role of its own.
+        try:
+            require_capability(from_session(auth_data), REGISTER_DEVICE)
+        except AuthorizationError:
+            return (
+                no_update,               # form stays hidden (still on review)
+                no_update,               # review stays visible
+                no_update,               # success stays hidden
+                no_update,
+                {"display": "block"},    # error visible
+                action_refused_notice(),
+            )
 
         # Administration surface: fleet-wide, like list_all_devices (spec
         # §4.6) — see _plant_options() above.
