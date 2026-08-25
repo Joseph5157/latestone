@@ -34,6 +34,10 @@ MESSAGE_FORWARDING_DISABLED = "MESSAGE_FORWARDING_DISABLED"
 #: surrogate key travels inside new_values, never in entity_id.
 RTL_PROGRAM_REQUESTED = "RTL_PROGRAM_REQUESTED"
 
+#: Active-list deactivation (OPS-DEACT-1), also against the stable device
+#: entity. Only the genuine is_active true→false transition is audited.
+RTL_DEACTIVATED = "RTL_DEACTIVATED"
+
 ENTITY_DEVICE = "device"
 ENTITY_ASSIGNMENT = "device_assignment"
 ENTITY_USER = "user"

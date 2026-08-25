@@ -262,8 +262,22 @@ class TestMessageForwarding:
 
 
 # --------------------------------------------------------------------------
-# Deactivate
+# Deactivate (OPS-DEACT-1: persisted active-list transition behind the guard)
 # --------------------------------------------------------------------------
+
+
+class _DeactivationSpy:
+    """Stands in for the deactivation service and records whether it ran."""
+
+    def __init__(self, outcome="deactivated"):
+        import types
+
+        self.calls = []
+        self.result = types.SimpleNamespace(outcome=outcome)
+
+    def __call__(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.result
 
 
 class TestDeactivateRtl:
@@ -271,14 +285,77 @@ class TestDeactivateRtl:
         handler = _handlers(device_manage)["confirm_deactivate_rtl"]
         return handler(1, DEVICE_ID, session)
 
-    def test_administrator_succeeds(self):
-        assert not _is_refusal(self._call(ADMINISTRATOR_SESSION))
+    def test_administrator_reaches_the_service_with_session_identity(
+        self, monkeypatch
+    ):
+        spy = _DeactivationSpy()
+        monkeypatch.setattr(
+            device_manage.rtl_deactivation_service, "deactivate_rtl", spy
+        )
 
-    def test_general_is_refused(self):
+        self._call(ADMINISTRATOR_SESSION)
+
+        assert spy.calls == [
+            {
+                "device_id": DEVICE_ID,
+                "actor_user_id": ADMINISTRATOR_SESSION["user_id"],
+            }
+        ], "the transition must be recorded against the acting session's identity"
+
+    def test_general_is_refused_and_never_reaches_the_service(self, monkeypatch):
+        spy = _DeactivationSpy()
+        monkeypatch.setattr(
+            device_manage.rtl_deactivation_service, "deactivate_rtl", spy
+        )
+
         assert _is_refusal(self._call(GENERAL_SESSION))
+        assert spy.calls == []
 
-    def test_no_session_is_refused(self):
-        assert _is_refusal(self._call(None))
+    @pytest.mark.parametrize("session", [STALE_SESSION, None], ids=["stale", "no-session"])
+    def test_broken_sessions_are_refused_before_the_write(self, monkeypatch, session):
+        spy = _DeactivationSpy()
+        monkeypatch.setattr(
+            device_manage.rtl_deactivation_service, "deactivate_rtl", spy
+        )
+
+        assert _is_refusal(self._call(session))
+        assert spy.calls == []
+
+    def test_service_failure_shows_friendly_panel_not_a_crash(self, monkeypatch):
+        def explode(**kwargs):
+            raise device_manage.rtl_deactivation_service.DeactivationError("boom")
+
+        monkeypatch.setattr(
+            device_manage.rtl_deactivation_service, "deactivate_rtl", explode
+        )
+
+        result = self._call(ADMINISTRATOR_SESSION)
+
+        assert not _is_refusal(result)
+        assert "not deactivated" in _rendered_text(result).lower()
+
+    def test_each_outcome_renders_its_truthful_wording(self, monkeypatch):
+        """DEACT-D7: three distinct outcomes, each stating exactly what
+        happened and none claiming RTL Master communication."""
+        cases = {
+            "deactivated": [
+                "rtl deactivated",
+                "removed from the active list in this application",
+                "no command has been sent to the rtl master",
+            ],
+            "not_on_active_list": ["rtl is not on the active list"],
+            "already_inactive": ["rtl is already inactive"],
+        }
+        for outcome, required in cases.items():
+            spy = _DeactivationSpy(outcome=outcome)
+            monkeypatch.setattr(
+                device_manage.rtl_deactivation_service, "deactivate_rtl", spy
+            )
+            rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION)).lower()
+            for phrase in required:
+                assert phrase in rendered, f"{outcome}: missing {phrase!r}"
+            for banned in ("queued", "command sent", "prototype"):
+                assert banned not in rendered
 
 
 # --------------------------------------------------------------------------

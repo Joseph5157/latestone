@@ -2129,3 +2129,137 @@ def list_recent_programming_requests(
             {"device_id": device_id, "limit": limit},
         ).all()
     return [_to_programming_request(row) for row in rows]
+
+
+# ---------------------------------------------------------------------------
+# RTL active-list state (DB-1: OPS-DEACT-1). Single row per device; absence
+# IS the off-list state (DEACT-D1) and reads never manufacture rows. The
+# only mutation is is_active true→false (DEACT-D3): no activation path
+# exists anywhere (DEACT-D4). Deliberately independent of devices.status
+# (RTL-ACT-05).
+# ---------------------------------------------------------------------------
+
+_ACTIVE_STATE_COLUMNS = (
+    "device_id, is_active, activated_at, deactivated_at, updated_at"
+)
+
+
+@dataclass(frozen=True)
+class ActiveStateRecord:
+    """One device's active-list membership row. ``None`` timestamps mean
+    that transition has never happened for this device."""
+
+    device_id: str
+    is_active: bool
+    activated_at: datetime | None
+    deactivated_at: datetime | None
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class ActiveStateChange:
+    """Result of a deactivation attempt (DEACT-D1/D2/D3 outcomes).
+
+    - absent:          previous/current None, changed False (no insert)
+    - already inactive: previous == current row, changed False (no write)
+    - transitioned:     changed True, before/after images for the audit
+    """
+
+    previous: ActiveStateRecord | None
+    current: ActiveStateRecord | None
+    changed: bool
+
+
+def _to_active_state(row) -> ActiveStateRecord:
+    return ActiveStateRecord(
+        device_id=row[0],
+        is_active=bool(row[1]),
+        activated_at=row[2],
+        deactivated_at=row[3],
+        updated_at=row[4],
+    )
+
+
+def get_device_active_state(device_id: str) -> ActiveStateRecord | None:
+    """A device's active-list row, or None when it has none.
+
+    Callers decide what absence means; the service layer owns the DEACT-D1
+    rule that no row presents as off-list.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"SELECT {_ACTIVE_STATE_COLUMNS} "
+                f"FROM {_SCHEMA}.rtl_active_state WHERE device_id = :device_id"
+            ),
+            {"device_id": device_id},
+        ).first()
+    return _to_active_state(row) if row else None
+
+
+def deactivate_device_active_state(
+    device_id: str, *, session=None
+) -> ActiveStateChange:
+    """Deactivate one device's active-list membership, classifying the outcome.
+
+    OPS-FWD-1 shape: the caller's transaction may be supplied via
+    ``session`` (service-level mutation+audit composition); without one,
+    the function opens and commits its own transaction exactly like the
+    other refactored mutations do.
+
+    Semantics frozen at review (DEACT-D1/D2/D3):
+
+    - No row            -> genuine no-op. Absence already IS the off-list
+      state; writing an inactive row here would manufacture state.
+    - Already inactive  -> genuine no-op. Timestamps are last-TRANSITION
+      markers, so re-applying must not churn them.
+    - Active            -> the changed flag flips; deactivated_at/updated_at
+      come from now() (DB clock) and activated_at is preserved untouched.
+      The pre-read uses ``SELECT ... FOR UPDATE`` — the approved
+      before-image idiom — so two concurrent deactivations cannot both
+      classify as transitions.
+    """
+
+    def _run(s):
+        before_row = s.execute(
+            text(
+                f"SELECT {_ACTIVE_STATE_COLUMNS} "
+                f"FROM {_SCHEMA}.rtl_active_state "
+                f"WHERE device_id = :device_id FOR UPDATE"
+            ),
+            {"device_id": device_id},
+        ).first()
+
+        if before_row is None:
+            # DEACT-D1: absent means off-list already.
+            return ActiveStateChange(previous=None, current=None, changed=False)
+
+        if not before_row[1]:
+            # DEACT-D2: re-applying the stored state changes nothing.
+            record = _to_active_state(before_row)
+            return ActiveStateChange(
+                previous=record, current=record, changed=False
+            )
+
+        row = s.execute(
+            text(
+                f"""
+                UPDATE {_SCHEMA}.rtl_active_state
+                SET is_active = FALSE, deactivated_at = now(), updated_at = now()
+                WHERE device_id = :device_id
+                RETURNING {_ACTIVE_STATE_COLUMNS}
+                """
+            ),
+            {"device_id": device_id},
+        ).first()
+
+        return ActiveStateChange(
+            previous=_to_active_state(before_row),
+            current=_to_active_state(row),
+            changed=True,
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)

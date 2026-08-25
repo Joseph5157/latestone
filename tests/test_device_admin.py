@@ -282,8 +282,18 @@ class TestDeviceManageDrawerLayout:
         assert button is not None
         assert button.children == "Record Program Request"
 
-    def test_has_prototype_notices(self):
+    def test_has_no_prototype_language_left(self):
+        """OPS-DEACT-1: all three drawer actions are persisted; no panel
+        may describe itself as a prototype any more."""
         from components.device_manage_drawer import device_manage_drawer
+        from tests.dash_tree import text_of
         drawer = device_manage_drawer()
-        text = str(drawer)
-        assert "Prototype" in text or "prototype" in text
+        assert "prototype" not in text_of(drawer).lower()
+
+    def test_deactivate_button_names_the_action_only(self):
+        """DEACT-D7: no '(Prototype)' suffix and no transport implication."""
+        from components.device_manage_drawer import device_manage_drawer
+        from tests.dash_tree import find_by_id
+        button = find_by_id(device_manage_drawer(), "deactivate-confirm-btn")
+        assert button is not None
+        assert button.children == "Deactivate RTL"

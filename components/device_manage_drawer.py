@@ -1,11 +1,11 @@
 """Device management drawer — single workflow for Program RTL, Message Forwarding, Deactivate.
 
 Opened from the "Manage" action in the device admin table. Contains three
-sub-actions as tab-like sections. Program RTL records a persisted pending
-programming request (OPS-PROG-1) and Message Forwarding persists a per-user
-preference (OPS-FWD-1); neither sends anything to the RTL Master. Deactivate
-remains prototype-only: no backend command is issued, no production state
-is changed.
+sub-actions as tab-like sections. All are persisted (Program RTL records a
+pending programming request per OPS-PROG-1, Message Forwarding stores a
+per-user preference per OPS-FWD-1, Deactivate transitions rtl_active_state
+per OPS-DEACT-1); none communicates with the RTL Master — no SMS is sent,
+no backend command is issued to hardware.
 """
 from __future__ import annotations
 
@@ -306,23 +306,25 @@ def device_manage_drawer() -> html.Div:
                                 className="manage-drawer__confirm-box",
                                 children=[
                                     html.P(
-                                        "This will remove the RTL from active "
-                                        "monitoring in the production workflow.",
+                                        "This removes the RTL from the "
+                                        "active list recorded in this "
+                                        "application.",
                                     ),
                                     html.P(
-                                        "The device will no longer be monitored "
-                                        "for temperature data or alarms.",
+                                        "Administrative device status and "
+                                        "technician assignments are not "
+                                        "changed.",
                                     ),
                                 ],
                             ),
                             html.Div(
                                 className="status-panel status-panel--inactive",
                                 children=[
-                                    html.Strong("Prototype only. "),
+                                    html.Strong("Active-list state is local. "),
                                     html.Span(
-                                        "Production active-list state was not "
-                                        "changed. In production, this action "
-                                        "requires appropriate role authorization."
+                                        "Deactivation updates this "
+                                        "application's record. No command is "
+                                        "yet sent to the RTL Master."
                                     ),
                                 ],
                             ),
@@ -336,7 +338,7 @@ def device_manage_drawer() -> html.Div:
                                         n_clicks=0,
                                     ),
                                     html.Button(
-                                        "Confirm Deactivation (Prototype)",
+                                        "Deactivate RTL",
                                         id=DEACTIVATE_CONFIRM_BTN,
                                         className="manage-drawer__btn manage-drawer__btn--danger",
                                         n_clicks=0,

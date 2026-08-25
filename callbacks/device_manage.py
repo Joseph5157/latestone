@@ -1,12 +1,10 @@
 """Device Management callbacks — Manage drawer workflow, Program RTL, Message Forwarding, Deactivate.
 
-Message Forwarding is persisted per-user as of OPS-FWD-1 (FWD-D1): the
-preference lives in message_forwarding keyed on the acting user, the device
-drawer only authorizes the action. Program RTL persists a pending
-programming request as of OPS-PROG-1 (PROG-D1..D7): the request row lives in
-rtl_programming_requests keyed on the acting user and target device. Only
-Deactivate remains prototype-only — no SMS transport, no active-list
-mutation, no scheduler.
+All three drawer actions are persisted as of OPS-DEACT-1: Message
+Forwarding per-user (OPS-FWD-1), Program RTL as a pending programming
+request (OPS-PROG-1), Deactivate as an active-list transition in
+rtl_active_state (OPS-DEACT-1). None of them communicates with the RTL
+Master — no SMS transport, no command delivery, no scheduler.
 """
 from __future__ import annotations
 
@@ -15,7 +13,11 @@ import logging
 from dash import Input, Output, State, no_update, html
 
 from components.status_panels import action_refused_notice
-from services import message_forwarding_service, rtl_programming_service
+from services import (
+    message_forwarding_service,
+    rtl_deactivation_service,
+    rtl_programming_service,
+)
 from services.action_guard import require_action
 from services.auth_service import from_session
 from services.authorization import (
@@ -310,25 +312,74 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def confirm_deactivate_rtl(n_clicks, device_id, auth_data):
-        """Prototype confirm — no real active-list mutation."""
+        """Persist one active-list deactivation (OPS-DEACT-1).
+
+        The guard authorizes before anything is written; the service then
+        classifies the outcome (DEACT-D1/D2/D3) and stores transition +
+        audit atomically when a genuine true→false change occurred.
+        """
         if not n_clicks:
             return no_update
 
+        user = from_session(auth_data)
+
+        # Authorized BEFORE the write below: a refusal that lands after
+        # the mutation has already happened is not a refusal.
         try:
-            require_action(from_session(auth_data), DEACTIVATE_RTL, device_id=device_id)
+            require_action(user, DEACTIVATE_RTL, device_id=device_id)
         except AuthorizationError:
             return action_refused_notice()
 
-        logger.info("Prototype Deactivate RTL: device=%s", device_id)
+        try:
+            result = rtl_deactivation_service.deactivate_rtl(
+                device_id=device_id,
+                actor_user_id=user.user_id,
+            )
+        except rtl_deactivation_service.DeactivationError as exc:
+            return html.Div(
+                className="status-panel status-panel--inactive",
+                children=[
+                    html.Strong("Not deactivated. "),
+                    html.Span(str(exc)),
+                ],
+            )
 
+        logger.info(
+            "RTL deactivation for device %s resolved as %s",
+            device_id,
+            result.outcome,
+        )
+
+        if result.outcome == rtl_deactivation_service.OUTCOME_DEACTIVATED:
+            return html.Div(
+                className="status-panel status-panel--success",
+                children=[
+                    html.Strong("RTL deactivated. "),
+                    html.Span(
+                        "This RTL has been removed from the active list in "
+                        "this application. No command has been sent to the "
+                        "RTL Master."
+                    ),
+                ],
+            )
+        if (
+            result.outcome
+            == rtl_deactivation_service.OUTCOME_NOT_ON_ACTIVE_LIST
+        ):
+            return html.Div(
+                className="status-panel status-panel--inactive",
+                children=[
+                    html.Strong("RTL is not on the active list. "),
+                    html.Span(
+                        "Nothing was changed because this application has "
+                        "no active-list entry for the device."
+                    ),
+                ],
+            )
         return html.Div(
-            className="status-panel status-panel--success",
+            className="status-panel status-panel--inactive",
             children=[
-                html.Strong("Prototype: RTL deactivation requested. "),
-                html.Span(
-                    f"UID {device_id or '—'} would be removed from the "
-                    "active monitoring list. Production active-list state "
-                    "was not changed."
-                ),
+                html.Strong("RTL is already inactive. "),
+                html.Span("No change was made."),
             ],
         )
