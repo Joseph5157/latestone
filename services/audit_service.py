@@ -15,7 +15,11 @@ lives only in repositories.plant_monitoring_repository.insert_audit_log.
 Strict actor rule (review decision D2): UI mutations must pass the
 authenticated session's ``user_id`` — never a username for re-resolution,
 never None. A missing/invalid actor fails the whole operation; NULL user_id
-in audit_log stays reserved for future system-originated actions.
+in audit_log stays reserved for explicitly system-originated operations
+(ACT-D5, INGEST-D6): ``record(..., system_originated=True)`` requires
+``actor_user_id=None`` AND an operation in ``config.audit.SYSTEM_OPERATIONS``
+— a deliberately minimal allowlist, so the human strict-actor invariant is
+untouched by default and no synthetic system user exists.
 """
 from __future__ import annotations
 
@@ -24,6 +28,7 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from repositories import plant_monitoring_repository as repo
+from config import audit as audit_cfg
 
 
 class AuditError(Exception):
@@ -51,16 +56,37 @@ def record(
     entity_id: str,
     old_values: dict | None = None,
     new_values: dict | None = None,
-    actor_user_id: int,
+    actor_user_id: int | None,
+    system_originated: bool = False,
 ) -> None:
     """Write one audit row inside ``session``'s open transaction.
 
-    Raises AuditError when the actor is missing/malformed (strict D2) so
-    the caller's service can fail the operation before anything commits.
-    Database-level failures (unknown user_id FK, serialization) propagate
-    from the INSERT and roll back the enclosing transaction the same way.
+    Human-originated path (the default): raises AuditError when the actor
+    is missing/malformed (strict D2) so the caller's service can fail the
+    operation before anything commits.
+
+    System-originated path (``system_originated=True``, ACT-D5): the actor
+    must be exactly ``None`` — passing a real user id is rejected so a
+    system action can never be misattributed to a human — and the
+    operation must be in ``config.audit.SYSTEM_OPERATIONS``. There is no
+    synthetic system user; user_id simply stays NULL.
+
+    Database-level failures (unknown FK, serialization) propagate from the
+    INSERT and roll back the enclosing transaction the same way.
     """
-    if not isinstance(actor_user_id, int) or isinstance(actor_user_id, bool):
+    if system_originated:
+        if actor_user_id is not None:
+            raise AuditError(
+                f"{operation} is system-originated and must not carry a "
+                "human actor_user_id."
+            )
+        if operation not in audit_cfg.SYSTEM_OPERATIONS:
+            raise AuditError(
+                f"{operation} is not an approved system-originated "
+                "operation; extend config.audit.SYSTEM_OPERATIONS "
+                "deliberately, never by accident."
+            )
+    elif not isinstance(actor_user_id, int) or isinstance(actor_user_id, bool):
         raise AuditError(
             f"{operation} requires an authenticated actor_user_id "
             "(audit trail cannot record this action without one)."

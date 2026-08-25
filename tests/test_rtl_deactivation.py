@@ -41,17 +41,24 @@ class TestDeactivationVocabulary:
             with pytest.raises(deact.DeactivationError):
                 deact.deactivate_rtl(device_id="any-d1", actor_user_id=bad)
 
-    def test_no_activation_path_exists(self):
-        """DEACT-D4: nothing in the repository or service may set
-        is_active=true or emulate ingestion."""
-        for module in (repo, deact):
-            names = [n for n in dir(module) if not n.startswith("_")]
-            assert not any(
-                n.lower().startswith("activate") or "set_active" in n.lower()
-                for n in names
-            )
-        # The only mutation exposed is a deactivation.
+    def test_no_activation_path_in_this_slice(self):
+        """DEACT-D4: nothing in THIS deactivation slice may set
+        is_active=true or emulate ingestion.
+
+        Scoped to the deactivation service as of INGEST-1: the activation
+        path itself now exists (repo.activate_device_active_state, driven
+        only by services/device_event_service.py per ACT-D6/ACT-D7) — but
+        no UI/callback may reach it, and this module must never touch it.
+        """
+        names = [n for n in dir(deact) if not n.startswith("_")]
+        assert not any(
+            n.lower().startswith("activate") or "set_active" in n.lower()
+            for n in names
+        )
+        # The only active-state mutation exposed here is a deactivation;
+        # activation lives behind the ingestion service, never a callback.
         assert callable(repo.deactivate_device_active_state)
+        assert callable(repo.activate_device_active_state)
 
 
 # ---------------------------------------------------------------------------

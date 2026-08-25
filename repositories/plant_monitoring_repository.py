@@ -2132,11 +2132,179 @@ def list_recent_programming_requests(
 
 
 # ---------------------------------------------------------------------------
-# RTL active-list state (DB-1: OPS-DEACT-1). Single row per device; absence
-# IS the off-list state (DEACT-D1) and reads never manufacture rows. The
-# only mutation is is_active true→false (DEACT-D3): no activation path
-# exists anywhere (DEACT-D4). Deliberately independent of devices.status
-# (RTL-ACT-05).
+# Device events (DB-1: INGEST-1). Normalized append-only event history
+# (INGEST-D3): every accepted call inserts a new row — there is no dedup,
+# because the schema offers no legitimate idempotency key (INGEST-D10).
+# ``event_ts`` is the caller-supplied source occurrence time (INGEST-D4);
+# ``created_at`` is the DB ingestion clock. Attribution must satisfy
+# ck_device_events_attribution; identity RESOLUTION policy lives in
+# services/device_event_service.py, never here.
+# ---------------------------------------------------------------------------
+
+_DEVICE_EVENT_COLUMNS = (
+    "event_id, device_id, transformer_id, reported_uid, event_type, "
+    "severity, event_ts, temperature, battery_voltage, message, source, "
+    "created_at"
+)
+
+
+def insert_device_event(
+    *,
+    event_type: str,
+    event_ts: datetime,
+    device_id: str | None = None,
+    transformer_id: str | None = None,
+    reported_uid: str | None = None,
+    severity: str | None = None,
+    temperature=None,
+    battery_voltage=None,
+    message: str | None = None,
+    source: str | None = None,
+    session=None,
+) -> int:
+    """Append one normalized device_events row and return its event_id.
+
+    Pure persistence: no validation beyond what the database enforces (the
+    attribution CHECK and FKs). The service layer owns shape validation and
+    identity resolution. When ``session`` is omitted the insert commits on
+    its own — which no ingestion flow should rely on, because INGEST-D5
+    requires event + activation + audit to share one transaction.
+    """
+
+    def _run(s) -> int:
+        row = s.execute(
+            text(
+                f"""
+                INSERT INTO {_SCHEMA}.device_events
+                    (device_id, transformer_id, reported_uid, event_type,
+                     severity, event_ts, temperature, battery_voltage,
+                     message, source)
+                VALUES
+                    (:device_id, :transformer_id, :reported_uid, :event_type,
+                     :severity, :event_ts, :temperature, :battery_voltage,
+                     :message, :source)
+                RETURNING event_id
+                """
+            ),
+            {
+                "device_id": device_id,
+                "transformer_id": transformer_id,
+                "reported_uid": reported_uid,
+                "event_type": event_type,
+                "severity": severity,
+                "event_ts": event_ts,
+                "temperature": temperature,
+                "battery_voltage": battery_voltage,
+                "message": message,
+                "source": source,
+            },
+        ).first()
+        return int(row[0])
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+def get_device_event(event_id: int) -> dict | None:
+    """One device_events row as a plain dict, or None when absent.
+
+    Test/read-back helper for the ingestion slice; not a UI query.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"SELECT {_DEVICE_EVENT_COLUMNS} "
+                f"FROM {_SCHEMA}.device_events WHERE event_id = :event_id"
+            ),
+            {"event_id": event_id},
+        ).first()
+    if row is None:
+        return None
+    keys = (
+        "event_id", "device_id", "transformer_id", "reported_uid",
+        "event_type", "severity", "event_ts", "temperature",
+        "battery_voltage", "message", "source", "created_at",
+    )
+    return dict(zip(keys, row))
+
+
+def find_device_ids_by_code(
+    device_code: str, transformer_id: str | None = None, *, session=None
+) -> list[str]:
+    """Registered device_ids whose ``device_code`` matches a reported UID.
+
+    Identity resolution primitive (INGEST-D2). The schema's ONLY uniqueness
+    guarantee is UNIQUE (transformer_id, device_code) — ``device_code``
+    alone is NOT globally unique even though today's seed generation makes
+    it so in practice; this function never assumes otherwise.
+
+    - With ``transformer_id``: resolves the composite identity, which the
+      constraint caps at one row.
+    - Without it: returns EVERY match, possibly several — the caller (not
+      this function) decides that an ambiguous UID resolves to nothing.
+    """
+
+    def _run(s) -> list[str]:
+        if transformer_id is not None:
+            rows = s.execute(
+                text(
+                    f"SELECT device_id FROM {_SCHEMA}.devices "
+                    f"WHERE device_code = :code AND transformer_id = :t "
+                    f"ORDER BY device_id"
+                ),
+                {"code": device_code, "t": transformer_id},
+            ).all()
+        else:
+            rows = s.execute(
+                text(
+                    f"SELECT device_id FROM {_SCHEMA}.devices "
+                    f"WHERE device_code = :code ORDER BY device_id"
+                ),
+                {"code": device_code},
+            ).all()
+        return [r[0] for r in rows]
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+def device_id_registered(device_id: str, *, session=None) -> bool:
+    """Whether ``device_id`` names an existing devices row.
+
+    Resolution primitive for the trusted-explicit-device_id path
+    (INGEST-D2): an explicit id is honoured only when it is actually
+    registered — never assumed valid.
+    """
+
+    def _run(s) -> bool:
+        return (
+            s.execute(
+                text(
+                    f"SELECT 1 FROM {_SCHEMA}.devices "
+                    f"WHERE device_id = :device_id"
+                ),
+                {"device_id": device_id},
+            ).first()
+            is not None
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+# ---------------------------------------------------------------------------
+# RTL active-list state (DB-1: OPS-DEACT-1 / INGEST-1). Single row per
+# device; absence IS the off-list state (DEACT-D1) and reads never
+# manufacture rows. Mutations are exactly the two transitions: true→false
+# (deactivation, DEACT-D3) and absent/false→true (activation, ACT-D4);
+# active→active is a no-op on both sides (ACT-D3). Deliberately independent
+# of devices.status (RTL-ACT-05).
 # ---------------------------------------------------------------------------
 
 _ACTIVE_STATE_COLUMNS = (
@@ -2158,11 +2326,17 @@ class ActiveStateRecord:
 
 @dataclass(frozen=True)
 class ActiveStateChange:
-    """Result of a deactivation attempt (DEACT-D1/D2/D3 outcomes).
+    """Result of an active-state mutation attempt.
+
+    Deactivation outcomes (DEACT-D1/D2/D3):
 
     - absent:          previous/current None, changed False (no insert)
     - already inactive: previous == current row, changed False (no write)
     - transitioned:     changed True, before/after images for the audit
+
+    Activation outcomes (ACT-D3/D4) mirror this: absent→active and
+    inactive→active return changed True (previous None or the inactive
+    row); active→active returns changed False with both images set.
     """
 
     previous: ActiveStateRecord | None
@@ -2246,6 +2420,89 @@ def deactivate_device_active_state(
                 f"""
                 UPDATE {_SCHEMA}.rtl_active_state
                 SET is_active = FALSE, deactivated_at = now(), updated_at = now()
+                WHERE device_id = :device_id
+                RETURNING {_ACTIVE_STATE_COLUMNS}
+                """
+            ),
+            {"device_id": device_id},
+        ).first()
+
+        return ActiveStateChange(
+            previous=_to_active_state(before_row),
+            current=_to_active_state(row),
+            changed=True,
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+def activate_device_active_state(
+    device_id: str, *, session=None
+) -> ActiveStateChange:
+    """Activate one device's active-list membership, classifying the outcome.
+
+    INGEST-1 counterpart to :func:`deactivate_device_active_state`, with the
+    frozen ACT-D3/D4 semantics:
+
+    - No row            -> first activation (absent → active): INSERT an
+      active row; activated_at/updated_at come from now() (DB clock).
+    - Already inactive  -> reactivation (inactive → active): is_active flips,
+      activated_at/updated_at refresh from now(); deactivated_at is
+      preserved untouched.
+    - Already active    -> genuine no-op (ACT-D3). Timestamps are last-
+      TRANSITION markers, so re-applying must not churn them and the caller
+      must not audit (no duplicate activation audit).
+
+    The pre-read uses ``SELECT ... FOR UPDATE`` — the approved before-image
+    idiom — so two concurrent activations cannot both classify as
+    transitions. The caller supplies ``session`` to share the ingestion
+    transaction (INGEST-D5 atomicity); without one, the function opens and
+    commits its own transaction like every other refactored mutation.
+    """
+
+    def _run(s):
+        before_row = s.execute(
+            text(
+                f"SELECT {_ACTIVE_STATE_COLUMNS} "
+                f"FROM {_SCHEMA}.rtl_active_state "
+                f"WHERE device_id = :device_id FOR UPDATE"
+            ),
+            {"device_id": device_id},
+        ).first()
+
+        if before_row is None:
+            # ACT-D4: absent → active = FIRST activation. Insert the row
+            # with activated_at from the DB clock.
+            row = s.execute(
+                text(
+                    f"""
+                    INSERT INTO {_SCHEMA}.rtl_active_state
+                        (device_id, is_active, activated_at, updated_at)
+                    VALUES (:device_id, TRUE, now(), now())
+                    RETURNING {_ACTIVE_STATE_COLUMNS}
+                    """
+                ),
+                {"device_id": device_id},
+            ).first()
+            return ActiveStateChange(
+                previous=None, current=_to_active_state(row), changed=True
+            )
+
+        if before_row[1]:
+            # ACT-D3: already-active startup is a no-op — zero churn.
+            record = _to_active_state(before_row)
+            return ActiveStateChange(
+                previous=record, current=record, changed=False
+            )
+
+        row = s.execute(
+            text(
+                f"""
+                UPDATE {_SCHEMA}.rtl_active_state
+                SET is_active = TRUE, activated_at = now(), updated_at = now()
                 WHERE device_id = :device_id
                 RETURNING {_ACTIVE_STATE_COLUMNS}
                 """

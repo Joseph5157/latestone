@@ -38,6 +38,20 @@ RTL_PROGRAM_REQUESTED = "RTL_PROGRAM_REQUESTED"
 #: entity. Only the genuine is_active true→false transition is audited.
 RTL_DEACTIVATED = "RTL_DEACTIVATED"
 
+#: Active-list activation (INGEST-1), also against the stable device entity.
+#: Only the genuine absent→active / inactive→active transition is audited;
+#: an already-active startup is a no-op with no audit row (ACT-D3). Always
+#: written system-originated — a startup event has no human actor (ACT-D5).
+RTL_ACTIVATED = "RTL_ACTIVATED"
+
+#: The complete allowlist of operations that may be audited with a NULL
+#: actor via ``audit_service.record(..., system_originated=True)``.
+#: Deliberately minimal (ACT-D5): each entry must correspond to an actually
+#: implemented system-originated feature. Add future operations (e.g. the
+#: 18:30 forwarding disable reusing MESSAGE_FORWARDING_DISABLED) only when
+#: those features are implemented, never speculatively.
+SYSTEM_OPERATIONS = frozenset({RTL_ACTIVATED})
+
 ENTITY_DEVICE = "device"
 ENTITY_ASSIGNMENT = "device_assignment"
 ENTITY_USER = "user"
