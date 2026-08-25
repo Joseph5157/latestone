@@ -30,6 +30,10 @@ USER_UPDATED = "USER_UPDATED"
 MESSAGE_FORWARDING_ENABLED = "MESSAGE_FORWARDING_ENABLED"
 MESSAGE_FORWARDING_DISABLED = "MESSAGE_FORWARDING_DISABLED"
 
+#: Written against the stable device entity (PROG-D5): the request row's
+#: surrogate key travels inside new_values, never in entity_id.
+RTL_PROGRAM_REQUESTED = "RTL_PROGRAM_REQUESTED"
+
 ENTITY_DEVICE = "device"
 ENTITY_ASSIGNMENT = "device_assignment"
 ENTITY_USER = "user"

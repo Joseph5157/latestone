@@ -79,8 +79,23 @@ def _rendered_text(result) -> str:
 
 
 # --------------------------------------------------------------------------
-# Program RTL
+# Program RTL (OPS-PROG-1: persisted pending request behind the guard)
 # --------------------------------------------------------------------------
+
+
+class _ProgrammingSpy:
+    """Stands in for the programming service and records whether it ran."""
+
+    def __init__(self):
+        import types
+
+        self.calls = []
+        #: A persisted-looking row: the callback renders its request_id.
+        self.result = types.SimpleNamespace(request_id=101)
+
+    def __call__(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.result
 
 
 class TestProgramRtl:
@@ -88,27 +103,82 @@ class TestProgramRtl:
         handler = _handlers(device_manage)["confirm_program_rtl"]
         return handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", session)
 
-    def test_administrator_succeeds(self):
-        result = self._call(ADMINISTRATOR_SESSION)
-        assert not _is_refusal(result)
+    def test_administrator_reaches_the_service_with_session_identity(
+        self, monkeypatch
+    ):
+        spy = _ProgrammingSpy()
+        monkeypatch.setattr(
+            device_manage.rtl_programming_service, "record_request", spy
+        )
 
-    def test_general_is_refused(self):
+        self._call(ADMINISTRATOR_SESSION)
+
+        assert spy.calls == [
+            {
+                "device_id": DEVICE_ID,
+                "master_msisdn": "0700000000",
+                "actor_user_id": ADMINISTRATOR_SESSION["user_id"],
+            }
+        ], "the request must be recorded against the acting session's identity"
+
+    def test_general_is_refused_and_never_reaches_the_service(self, monkeypatch):
+        spy = _ProgrammingSpy()
+        monkeypatch.setattr(
+            device_manage.rtl_programming_service, "record_request", spy
+        )
+
         assert _is_refusal(self._call(GENERAL_SESSION))
+        assert spy.calls == []
 
-    def test_a_stale_session_is_refused(self):
-        """`from_session` rejects the pre-ROLE-1 payload, and the guard
-        refuses a None identity rather than treating it as unrestricted."""
-        assert _is_refusal(self._call(STALE_SESSION))
+    @pytest.mark.parametrize("session", [STALE_SESSION, None], ids=["stale", "no-session"])
+    def test_broken_sessions_are_refused_before_the_write(self, monkeypatch, session):
+        spy = _ProgrammingSpy()
+        monkeypatch.setattr(
+            device_manage.rtl_programming_service, "record_request", spy
+        )
 
-    def test_no_session_is_refused(self):
-        assert _is_refusal(self._call(None))
+        assert _is_refusal(self._call(session))
+        assert spy.calls == []
 
     def test_the_refusal_names_no_policy_detail(self):
         """The panel states the outcome. It does not echo the role, the
         action or the device id back at the operator."""
-        text = _rendered_text(self._call(GENERAL_SESSION))
+        handler = _handlers(device_manage)["confirm_program_rtl"]
+        text = _rendered_text(handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", GENERAL_SESSION))
         assert "general" not in text.lower()
         assert DEVICE_ID not in text
+
+    def test_service_failure_shows_friendly_panel_not_a_crash(self, monkeypatch):
+        def explode(**kwargs):
+            raise device_manage.rtl_programming_service.ProgrammingError("boom")
+
+        monkeypatch.setattr(
+            device_manage.rtl_programming_service, "record_request", explode
+        )
+
+        result = self._call(ADMINISTRATOR_SESSION)
+
+        assert not _is_refusal(result)
+        rendered = _rendered_text(result).lower()
+        assert "not recorded" in rendered
+
+    def test_confirmation_states_persistence_without_claiming_transport(
+        self, monkeypatch
+    ):
+        """PROG-D7 honesty boundary: a recorded request must never be worded
+        as though a command was queued/sent or the RTL was programmed."""
+        spy = _ProgrammingSpy()
+        monkeypatch.setattr(
+            device_manage.rtl_programming_service, "record_request", spy
+        )
+
+        rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION)).lower()
+
+        assert "programming request recorded" in rendered
+        assert "no command has yet been sent to the rtl master" in rendered
+        assert "not confirmed programmed" in rendered
+        for banned in ("command queued", "command sent", "prototype"):
+            assert banned not in rendered
 
 
 # --------------------------------------------------------------------------

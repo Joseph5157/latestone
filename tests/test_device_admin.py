@@ -260,13 +260,27 @@ class TestDeviceManageDrawerLayout:
         assert find_by_id(drawer, "program-rtl-transformer") is not None
         assert find_by_id(drawer, "program-rtl-msisdn") is not None
 
-    def test_msisdn_field_is_disabled(self):
+    def test_msisdn_field_is_enabled_for_manual_entry(self):
+        """PROG-D1: no trustworthy Master MSISDN source exists, so the field
+        is operator-entered — empty by default, never prefilled from
+        devices.msisdn, bounded by the schema's 20-character limit."""
         from components.device_manage_drawer import device_manage_drawer
         drawer = device_manage_drawer()
         from tests.dash_tree import find_by_id
         msisdn = find_by_id(drawer, "program-rtl-msisdn")
         assert msisdn is not None
-        assert msisdn.disabled is True
+        assert getattr(msisdn, "disabled", False) is False
+        assert not getattr(msisdn, "value", None)
+        assert msisdn.maxLength == 20
+
+    def test_program_button_records_a_request(self):
+        """PROG-D7: the button must not imply anything is sent."""
+        from components.device_manage_drawer import device_manage_drawer
+        drawer = device_manage_drawer()
+        from tests.dash_tree import find_by_id
+        button = find_by_id(drawer, "program-rtl-confirm-btn")
+        assert button is not None
+        assert button.children == "Record Program Request"
 
     def test_has_prototype_notices(self):
         from components.device_manage_drawer import device_manage_drawer

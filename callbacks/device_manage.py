@@ -2,8 +2,11 @@
 
 Message Forwarding is persisted per-user as of OPS-FWD-1 (FWD-D1): the
 preference lives in message_forwarding keyed on the acting user, the device
-drawer only authorizes the action. Program RTL and Deactivate remain
-prototype-only — no SMS transport, no active-list mutation, no scheduler.
+drawer only authorizes the action. Program RTL persists a pending
+programming request as of OPS-PROG-1 (PROG-D1..D7): the request row lives in
+rtl_programming_requests keyed on the acting user and target device. Only
+Deactivate remains prototype-only — no SMS transport, no active-list
+mutation, no scheduler.
 """
 from __future__ import annotations
 
@@ -12,7 +15,7 @@ import logging
 from dash import Input, Output, State, no_update, html
 
 from components.status_panels import action_refused_notice
-from services import message_forwarding_service
+from services import message_forwarding_service, rtl_programming_service
 from services.action_guard import require_action
 from services.auth_service import from_session
 from services.authorization import (
@@ -178,25 +181,55 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def confirm_program_rtl(n_clicks, device_id, uid, transformer, msisdn, auth_data):
-        """Prototype confirm — no real SMS or command sent."""
+        """Persist one programming request (OPS-PROG-1).
+
+        The guard authorizes before anything is written; the service then
+        validates the operator-supplied Master MSISDN (PROG-D1) and stores
+        request + audit atomically. There is no prototype fallback: a
+        failure renders a friendly panel and nothing was recorded.
+        """
         if not n_clicks:
             return no_update
 
+        user = from_session(auth_data)
+
+        # Authorized BEFORE the write below: a refusal that lands after
+        # the mutation has already happened is not a refusal.
         try:
-            require_action(from_session(auth_data), PROGRAM_RTL, device_id=device_id)
+            require_action(user, PROGRAM_RTL, device_id=device_id)
         except AuthorizationError:
             return action_refused_notice()
 
-        logger.info("Prototype Program RTL: uid=%s, transformer=%s", uid, transformer)
+        try:
+            record = rtl_programming_service.record_request(
+                device_id=device_id,
+                master_msisdn=msisdn,
+                actor_user_id=user.user_id,
+            )
+        except rtl_programming_service.ProgrammingError as exc:
+            return html.Div(
+                className="status-panel status-panel--inactive",
+                children=[
+                    html.Strong("Not recorded. "),
+                    html.Span(str(exc)),
+                ],
+            )
+
+        logger.info(
+            "Programming request %s recorded for device %s",
+            record.request_id,
+            device_id,
+        )
 
         return html.Div(
             className="status-panel status-panel--success",
             children=[
-                html.Strong("Prototype: Command queued. "),
+                html.Strong("Programming request recorded. "),
                 html.Span(
-                    f"Settings for UID {uid or '—'} would be uploaded to "
-                    f"transformer {transformer or '—'}. "
-                    "No production command was sent."
+                    f"Request {record.request_id} for UID "
+                    f"{uid or record.device_id} is saved and pending. "
+                    "No command has yet been sent to the RTL Master, and "
+                    "the physical RTL is not confirmed programmed."
                 ),
             ],
         )

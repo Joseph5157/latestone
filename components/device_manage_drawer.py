@@ -1,8 +1,11 @@
 """Device management drawer — single workflow for Program RTL, Message Forwarding, Deactivate.
 
 Opened from the "Manage" action in the device admin table. Contains three
-sub-actions as tab-like sections. All are prototype-only: no SMS is sent,
-no backend command is issued, no production state is changed.
+sub-actions as tab-like sections. Program RTL records a persisted pending
+programming request (OPS-PROG-1) and Message Forwarding persists a per-user
+preference (OPS-FWD-1); neither sends anything to the RTL Master. Deactivate
+remains prototype-only: no backend command is issued, no production state
+is changed.
 """
 from __future__ import annotations
 
@@ -143,8 +146,8 @@ def device_manage_drawer() -> html.Div:
                         children=[
                             html.H3("Program RTL"),
                             html.P(
-                                "Upload settings to this RTL device. Fields "
-                                "marked with * are required for production programming.",
+                                "Record a programming request for this RTL "
+                                "device. The field marked with * is required.",
                                 className="manage-drawer__section-desc",
                             ),
                             html.Div(
@@ -190,8 +193,8 @@ def device_manage_drawer() -> html.Div:
                                             dcc.Input(
                                                 id=PROGRAM_RTL_MSISDN_ID,
                                                 type="text",
-                                                disabled=True,
-                                                placeholder="Not available in current frontend data",
+                                                maxLength=20,
+                                                placeholder="Enter the RTL Master MSISDN",
                                                 className="manage-drawer__input",
                                             ),
                                         ],
@@ -201,11 +204,12 @@ def device_manage_drawer() -> html.Div:
                             html.Div(
                                 className="status-panel status-panel--inactive",
                                 children=[
-                                    html.Strong("Prototype only. "),
+                                    html.Strong("Requests are recorded, not sent. "),
                                     html.Span(
-                                        "No programming command was sent to the "
-                                        "RTL Master. Production programming requires "
-                                        "backend integration."
+                                        "The programming request is stored in "
+                                        "this application. No command is yet "
+                                        "sent to the RTL Master and delivery "
+                                        "requires future backend integration."
                                     ),
                                 ],
                             ),
@@ -219,7 +223,7 @@ def device_manage_drawer() -> html.Div:
                                         n_clicks=0,
                                     ),
                                     html.Button(
-                                        "Send Program Command (Prototype)",
+                                        "Record Program Request",
                                         id=PROGRAM_RTL_CONFIRM_BTN,
                                         className="manage-drawer__btn manage-drawer__btn--primary",
                                         n_clicks=0,

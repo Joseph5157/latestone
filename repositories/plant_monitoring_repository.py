@@ -2012,3 +2012,120 @@ def update_device_metadata(
             {"device_id": device_id, **provided},
         ).first()
     return _to_device(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# RTL programming requests (DB-1: OPS-PROG-1). Append-only request history —
+# every deliberate submission inserts a new row (PROG-D3); no dedupe, no
+# status progression, no completion writes (PROG-D6). The schema's defaults
+# supply status='pending', requested_at=now() and NULL completion columns.
+# ---------------------------------------------------------------------------
+
+_PROGRAMMING_REQUEST_COLUMNS = (
+    "request_id, device_id, transformer_id, requested_by, master_msisdn, "
+    "requested_at, request_method, status"
+)
+
+
+@dataclass(frozen=True)
+class ProgrammingRequestRecord:
+    """One persisted programming-request row.
+
+    ``transformer_id`` is a point-in-time snapshot taken from the device's
+    current transformer at insert time (migration 005), not a live join.
+    ``completed_at``/``error_message`` are deliberately not carried: this
+    slice never writes them, so they are always NULL by construction.
+    """
+
+    request_id: int
+    device_id: str
+    transformer_id: str
+    requested_by: int
+    master_msisdn: str
+    requested_at: datetime
+    request_method: str
+    status: str
+
+
+def _to_programming_request(row) -> ProgrammingRequestRecord:
+    return ProgrammingRequestRecord(*row)
+
+
+def create_programming_request(
+    device_id: str,
+    *,
+    master_msisdn: str,
+    requested_by: int,
+    request_method: str,
+    session=None,
+) -> ProgrammingRequestRecord:
+    """Insert one pending programming-request row and return it.
+
+    OPS-FWD-1/AUD-1 shape: the caller's transaction may be supplied via
+    ``session`` (service-level mutation+audit composition); without one,
+    the function opens and commits its own transaction exactly like the
+    other refactored mutations do. ``requested_at`` comes from the column's
+    server default (DB clock) — never host Python time.
+
+    ``transformer_id`` is resolved from the device row in the same INSERT,
+    so the snapshot cannot drift from the device the request names even
+    under a concurrent move. An unknown device_id inserts nothing; that
+    surfaces as ValueError rather than a bare FK IntegrityError.
+    """
+    if not isinstance(device_id, str) or not device_id:
+        raise ValueError("A programming request requires a device_id.")
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"""
+                INSERT INTO {_SCHEMA}.rtl_programming_requests
+                    (device_id, transformer_id, requested_by, master_msisdn,
+                     request_method)
+                SELECT d.device_id, d.transformer_id, :requested_by,
+                       :master_msisdn, :request_method
+                FROM {_SCHEMA}.devices d
+                WHERE d.device_id = :device_id
+                RETURNING {_PROGRAMMING_REQUEST_COLUMNS}
+                """
+            ),
+            {
+                "device_id": device_id,
+                "requested_by": requested_by,
+                "master_msisdn": master_msisdn,
+                "request_method": request_method,
+            },
+        ).first()
+        if row is None:
+            raise ValueError(f"Unknown device_id: {device_id!r}")
+        return _to_programming_request(row)
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+def list_recent_programming_requests(
+    device_id: str, *, limit: int = 5
+) -> list[ProgrammingRequestRecord]:
+    """A device's most recent programming requests, newest first.
+
+    Read-back path for the drawer: confirmation state comes from
+    PostgreSQL, never callback memory. Uses
+    ix_rtl_programming_requests_device_ts (device_id, requested_at DESC).
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT {_PROGRAMMING_REQUEST_COLUMNS}
+                FROM {_SCHEMA}.rtl_programming_requests
+                WHERE device_id = :device_id
+                ORDER BY requested_at DESC, request_id DESC
+                LIMIT :limit
+                """
+            ),
+            {"device_id": device_id, "limit": limit},
+        ).all()
+    return [_to_programming_request(row) for row in rows]
