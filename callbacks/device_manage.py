@@ -1,7 +1,9 @@
 """Device Management callbacks — Manage drawer workflow, Program RTL, Message Forwarding, Deactivate.
 
-All operations are prototype-only. No SMS is sent, no backend command is issued,
-no production state is changed.
+Message Forwarding is persisted per-user as of OPS-FWD-1 (FWD-D1): the
+preference lives in message_forwarding keyed on the acting user, the device
+drawer only authorizes the action. Program RTL and Deactivate remain
+prototype-only — no SMS transport, no active-list mutation, no scheduler.
 """
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ import logging
 from dash import Input, Output, State, no_update, html
 
 from components.status_panels import action_refused_notice
+from services import message_forwarding_service
 from services.action_guard import require_action
 from services.auth_service import from_session
 from services.authorization import (
@@ -37,20 +40,6 @@ from components.device_manage_drawer import (
 )
 
 logger = logging.getLogger(__name__)
-
-# In-memory prototype state for device management actions
-# device_id -> {"forwarding": "enabled"|"disabled"}
-_mock_device_state: dict[str, dict] = {}
-
-
-def get_mock_device_state(device_id: str) -> dict:
-    """Get prototype state for a device (for testing)."""
-    return _mock_device_state.get(device_id, {"forwarding": "disabled"})
-
-
-def clear_mock_device_state() -> None:
-    """Reset mock device state (for testing)."""
-    _mock_device_state.clear()
 
 
 def register(app) -> None:
@@ -123,27 +112,43 @@ def register(app) -> None:
         Output("manage-forwarding-panel", "style", allow_duplicate=True),
         Output("manage-deactivate-panel", "style", allow_duplicate=True),
         Output("manage-action-menu", "style", allow_duplicate=True),
+        Output(MSG_FWD_TOGGLE_ID, "value", allow_duplicate=True),
         Input("manage-menu-program", "n_clicks"),
         Input("manage-menu-forwarding", "n_clicks"),
         Input("manage-menu-deactivate", "n_clicks"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def navigate_to_action(program_clicks, forwarding_clicks, deactivate_clicks):
-        """Show the selected action panel, hide the menu."""
+    def navigate_to_action(program_clicks, forwarding_clicks, deactivate_clicks, auth_data):
+        """Show the selected action panel, hide the menu.
+
+        FWD-D7: the forwarding control is prefilled from PostgreSQL when its
+        panel opens, so what the operator sees is the stored state — never
+        callback memory. A read failure leaves the control untouched rather
+        than silently displaying a state that may not be true.
+        """
         ctx = __import__("dash").callback_context
         if not ctx.triggered:
-            return (no_update,) * 5
+            return (no_update,) * 6
 
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
         if trigger_id == "manage-menu-program":
-            return "program", {"display": "block"}, {"display": "none"}, {"display": "none"}, {"display": "none"}
+            return "program", {"display": "block"}, {"display": "none"}, {"display": "none"}, {"display": "none"}, no_update
         if trigger_id == "manage-menu-forwarding":
-            return "forwarding", {"display": "none"}, {"display": "block"}, {"display": "none"}, {"display": "none"}
+            prefill = no_update
+            try:
+                user = from_session(auth_data)
+                if user is not None:
+                    state = message_forwarding_service.get_state(user.user_id)
+                    prefill = "enabled" if state.enabled else "disabled"
+            except Exception:
+                logger.exception("Failed to read forwarding state for prefill")
+            return "forwarding", {"display": "none"}, {"display": "block"}, {"display": "none"}, {"display": "none"}, prefill
         if trigger_id == "manage-menu-deactivate":
-            return "deactivate", {"display": "none"}, {"display": "none"}, {"display": "block"}, {"display": "none"}
+            return "deactivate", {"display": "none"}, {"display": "none"}, {"display": "block"}, {"display": "none"}, no_update
 
-        return (no_update,) * 5
+        return (no_update,) * 6
 
     # --- Back buttons return to menu ---
     @app.callback(
@@ -206,36 +211,60 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def confirm_message_forwarding(n_clicks, device_id, forwarding_state, auth_data):
-        """Prototype confirm — no real forwarding state changed."""
+        """Persist the ACTING USER's forwarding preference (OPS-FWD-1).
+
+        The device_id authorizes — nothing else. FWD-D1: no device
+        dimension is stored; FWD-D8: the confirmation states exactly what
+        happened (preference saved) and what has not (delivery, 18:30).
+        """
         if not n_clicks:
             return no_update
+
+        user = from_session(auth_data)
 
         # Authorized BEFORE the state write below: a refusal that lands after
         # the mutation has already happened is not a refusal.
         try:
             require_action(
-                from_session(auth_data), TOGGLE_MESSAGE_FORWARDING, device_id=device_id
+                user, TOGGLE_MESSAGE_FORWARDING, device_id=device_id
             )
         except AuthorizationError:
             return action_refused_notice()
 
-        # Store prototype state
-        if device_id:
-            if device_id not in _mock_device_state:
-                _mock_device_state[device_id] = {"forwarding": "disabled"}
-            _mock_device_state[device_id]["forwarding"] = forwarding_state
+        try:
+            message_forwarding_service.set_forwarding(
+                enabled=(forwarding_state == "enabled"),
+                actor_user_id=user.user_id,
+            )
+        except message_forwarding_service.ForwardingError:
+            return html.Div(
+                className="status-panel status-panel--inactive",
+                children=[
+                    html.Strong("Not saved. "),
+                    html.Span(
+                        "The message forwarding preference could not be "
+                        "stored. Please try again."
+                    ),
+                ],
+            )
 
-        label = "Enabled" if forwarding_state == "enabled" else "Disabled"
-        logger.info("Prototype Message Forwarding: device=%s, state=%s", device_id, forwarding_state)
+        if forwarding_state == "enabled":
+            detail = (
+                "Message forwarding enabled for your account. "
+                "Delivery integration is not yet connected."
+            )
+        else:
+            detail = "Message forwarding disabled for your account."
+
+        logger.info(
+            "Message forwarding preference saved (requested=%s)", forwarding_state
+        )
 
         return html.Div(
             className="status-panel status-panel--success",
             children=[
-                html.Strong("Prototype: Forwarding state updated. "),
-                html.Span(
-                    f"Message forwarding would be {label.lower()} for this "
-                    "device. Production message forwarding was not changed."
-                ),
+                html.Strong("Preference saved. "),
+                html.Span(detail),
             ],
         )
 

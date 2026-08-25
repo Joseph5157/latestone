@@ -263,11 +263,11 @@ def device_manage_drawer() -> html.Div:
                             html.Div(
                                 className="status-panel status-panel--inactive",
                                 children=[
-                                    html.Strong("Prototype state only. "),
+                                    html.Strong("Preference is stored for your account. "),
                                     html.Span(
-                                        "Production message forwarding was not "
-                                        "changed. In production, forwarding is "
-                                        "automatically disabled at 6:30 PM daily."
+                                        "Message delivery integration and the "
+                                        "documented 18:30 automatic disable are "
+                                        "not yet connected."
                                     ),
                                 ],
                             ),
@@ -281,7 +281,7 @@ def device_manage_drawer() -> html.Div:
                                         n_clicks=0,
                                     ),
                                     html.Button(
-                                        "Apply (Prototype)",
+                                        "Apply",
                                         id=MSG_FWD_CONFIRM_BTN,
                                         className="manage-drawer__btn manage-drawer__btn--primary",
                                         n_clicks=0,

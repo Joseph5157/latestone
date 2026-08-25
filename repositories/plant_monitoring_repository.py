@@ -967,6 +967,17 @@ def get_user_by_username(username: str) -> UserRecord | None:
     return _to_user(row) if row else None
 
 
+def get_user_by_id(user_id: int) -> UserRecord | None:
+    """Lookup by persistent identity — used by audit payload builders that
+    start from an actor's ``user_id`` (strict D2) and never a username."""
+    with session_scope() as session:
+        row = session.execute(
+            text(f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users WHERE user_id = :user_id"),
+            {"user_id": user_id},
+        ).first()
+    return _to_user(row) if row else None
+
+
 def create_or_update_user(
     username: str,
     full_name: str,
@@ -1090,6 +1101,159 @@ def delete_all_users() -> None:
     with session_scope() as session:
         session.execute(text(f"DELETE FROM {_SCHEMA}.audit_log"))
         session.execute(text(f"DELETE FROM {_SCHEMA}.users"))
+
+
+# ---------------------------------------------------------------------------
+# Message forwarding state (OPS-FWD-1: backs services/message_forwarding_service.py)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class MessageForwardingRecord:
+    """One user's forwarding membership row. ``None`` timestamps mean that
+    transition has never happened for this account."""
+
+    user_id: int
+    enabled: bool
+    enabled_at: datetime | None
+    disabled_at: datetime | None
+
+
+@dataclass(frozen=True)
+class ForwardingChange:
+    """Result of a forwarding write (FWD-D2/D3 no-op semantics).
+
+    ``changed`` is False — and ``current`` None — only for the two genuine
+    no-ops: disabling an account with no row (FWD-D2: nothing is inserted,
+    nothing is audited), or re-applying the state already stored (FWD-D3).
+    A real transition returns before/after images for the audit payload.
+    """
+
+    previous: MessageForwardingRecord | None
+    current: MessageForwardingRecord | None
+    changed: bool
+
+
+def _to_forwarding_record(row) -> MessageForwardingRecord:
+    return MessageForwardingRecord(
+        user_id=row[0],
+        enabled=bool(row[1]),
+        enabled_at=row[2],
+        disabled_at=row[3],
+    )
+
+
+def get_message_forwarding(user_id: int) -> MessageForwardingRecord | None:
+    """A user's forwarding row, or None when they have never toggled.
+
+    Callers decide what absence means; the service layer owns the FWD-D2
+    rule that no row presents as disabled.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"SELECT user_id, enabled, enabled_at, disabled_at "
+                f"FROM {_SCHEMA}.message_forwarding WHERE user_id = :user_id"
+            ),
+            {"user_id": user_id},
+        ).first()
+    return _to_forwarding_record(row) if row else None
+
+
+def set_message_forwarding(
+    user_id: int, enabled: bool, *, session=None
+) -> ForwardingChange:
+    """Set one user's forwarding state and classify the outcome.
+
+    OPS-FWD-1 shape: the caller's transaction may be supplied via
+    ``session`` (service-level mutation+audit composition). Without one,
+    the function opens and commits its own transaction exactly like the
+    AUD-1 refactored mutations do.
+
+    Semantics frozen at review (FWD-D2/D3/D4):
+
+    - No row + disable  -> genuine no-op. Nothing is inserted; the table's
+      default-off means absence already IS the disabled state.
+    - Same-state write  -> genuine no-op. Timestamps are last-TRANSITION
+      markers, so re-applying must not churn them.
+    - Real transition   -> the changed flag flips and only the matching
+      timestamp moves; its opposite is preserved. All times come from the
+      database clock via now(), consistent with AUD-1.
+
+    The pre-read uses ``SELECT ... FOR UPDATE`` inside the transaction —
+    the same approved before-image idiom as ``create_or_update_user``, not
+    MVCC system columns.
+    """
+
+    def _run(s):
+        before_row = s.execute(
+            text(
+                f"SELECT user_id, enabled, enabled_at, disabled_at "
+                f"FROM {_SCHEMA}.message_forwarding "
+                f"WHERE user_id = :user_id FOR UPDATE"
+            ),
+            {"user_id": user_id},
+        ).first()
+
+        if before_row is None:
+            if not enabled:
+                # FWD-D2: absent means disabled already; writing a row here
+                # would manufacture state (and an audit event) from nothing.
+                return ForwardingChange(previous=None, current=None, changed=False)
+            row = s.execute(
+                text(
+                    f"""
+                    INSERT INTO {_SCHEMA}.message_forwarding
+                        (user_id, enabled, enabled_at, updated_at)
+                    VALUES (:user_id, TRUE, now(), now())
+                    RETURNING user_id, enabled, enabled_at, disabled_at
+                    """
+                ),
+                {"user_id": user_id},
+            ).first()
+        else:
+            if bool(before_row[1]) == enabled:
+                # FWD-D3: re-applying the stored state changes nothing.
+                record = _to_forwarding_record(before_row)
+                return ForwardingChange(
+                    previous=record, current=record, changed=False
+                )
+            if enabled:
+                row = s.execute(
+                    text(
+                        f"""
+                        UPDATE {_SCHEMA}.message_forwarding
+                        SET enabled = TRUE, enabled_at = now(), updated_at = now()
+                        WHERE user_id = :user_id
+                        RETURNING user_id, enabled, enabled_at, disabled_at
+                        """
+                    ),
+                    {"user_id": user_id},
+                ).first()
+            else:
+                row = s.execute(
+                    text(
+                        f"""
+                        UPDATE {_SCHEMA}.message_forwarding
+                        SET enabled = FALSE, disabled_at = now(), updated_at = now()
+                        WHERE user_id = :user_id
+                        RETURNING user_id, enabled, enabled_at, disabled_at
+                        """
+                    ),
+                    {"user_id": user_id},
+                ).first()
+
+        return ForwardingChange(
+            previous=(
+                _to_forwarding_record(before_row) if before_row is not None else None
+            ),
+            current=_to_forwarding_record(row),
+            changed=True,
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
 
 
 # ---------------------------------------------------------------------------

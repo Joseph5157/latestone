@@ -112,33 +112,83 @@ class TestProgramRtl:
 
 
 # --------------------------------------------------------------------------
-# Message forwarding
+# Message forwarding (OPS-FWD-1: persisted per-user behind the guard)
 # --------------------------------------------------------------------------
 
 
+class _ForwardingSpy:
+    """Stands in for the forwarding service and records whether it ran."""
+
+    def __init__(self):
+        self.calls = []
+        self.result = object()
+
+    def __call__(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.result
+
+
 class TestMessageForwarding:
-    def _call(self, session, device_id=DEVICE_ID):
+    def _call(self, session, device_id=DEVICE_ID, state="enabled"):
         handler = _handlers(device_manage)["confirm_message_forwarding"]
-        return handler(1, device_id, "enabled", session)
+        return handler(1, device_id, state, session)
 
-    def test_administrator_succeeds(self):
-        device_manage.clear_mock_device_state()
-        result = self._call(ADMINISTRATOR_SESSION)
-        assert not _is_refusal(result)
-        assert device_manage.get_mock_device_state(DEVICE_ID)["forwarding"] == "enabled"
+    def test_authorized_caller_reaches_the_service_with_session_identity(
+        self, monkeypatch
+    ):
+        spy = _ForwardingSpy()
+        monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-    def test_general_is_refused_and_changes_nothing(self):
-        """The refusal must land BEFORE the state write, not after it."""
-        device_manage.clear_mock_device_state()
+        self._call(ADMINISTRATOR_SESSION)
+
+        assert spy.calls == [
+            {"enabled": True, "actor_user_id": ADMINISTRATOR_SESSION["user_id"]}
+        ], "the mutation must target the acting USER, never the device"
+
+    def test_general_is_refused_and_never_reaches_the_service(self, monkeypatch):
+        spy = _ForwardingSpy()
+        monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
         assert _is_refusal(self._call(GENERAL_SESSION))
+        assert spy.calls == []
 
-        assert device_manage.get_mock_device_state(DEVICE_ID)["forwarding"] == "disabled"
+    @pytest.mark.parametrize("session", [STALE_SESSION, None], ids=["stale", "no-session"])
+    def test_broken_sessions_are_refused_before_the_write(self, monkeypatch, session):
+        spy = _ForwardingSpy()
+        monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-    def test_no_session_changes_nothing(self):
-        device_manage.clear_mock_device_state()
-        assert _is_refusal(self._call(None))
-        assert device_manage.get_mock_device_state(DEVICE_ID)["forwarding"] == "disabled"
+        assert _is_refusal(self._call(session))
+        assert spy.calls == []
+
+    def test_disable_reaches_the_service_as_false(self, monkeypatch):
+        spy = _ForwardingSpy()
+        monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
+
+        self._call(ADMINISTRATOR_SESSION, state="disabled")
+
+        assert spy.calls == [{"enabled": False, "actor_user_id": ADMINISTRATOR_SESSION["user_id"]}]
+
+    def test_service_failure_shows_friendly_panel_not_a_crash(self, monkeypatch):
+        def explode(**kwargs):
+            raise device_manage.message_forwarding_service.ForwardingError("boom")
+
+        monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", explode)
+
+        result = self._call(ADMINISTRATOR_SESSION)
+
+        assert not _is_refusal(result)
+        assert "not saved" in _rendered_text(result).lower()
+
+    def test_confirmation_does_not_claim_delivery_is_real(self, monkeypatch):
+        """FWD-D8 honesty boundary: persisting a preference must never be
+        worded as though messages are now actually being forwarded."""
+        spy = _ForwardingSpy()
+        monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
+
+        rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION)).lower()
+
+        assert "delivery integration is not yet connected" in rendered
+        assert "will now be forwarded" not in rendered
 
 
 # --------------------------------------------------------------------------
