@@ -33,7 +33,10 @@ from __future__ import annotations
 
 import logging
 
+from config import audit as audit_cfg
+from db.engine import session_scope
 from repositories import plant_monitoring_repository as repo
+from services import audit_service
 
 logger = logging.getLogger(__name__)
 
@@ -94,17 +97,60 @@ def get_user(username: str) -> dict | None:
     return _to_dict(user) if user else None
 
 
-def upsert_user(username: str, identifier: str = "", role: str = "general",
-                status: str = "active") -> None:
-    """Add or update a user. Validates role against CONFIRMED_ROLES."""
+def upsert_user(
+    username: str,
+    identifier: str = "",
+    role: str = "general",
+    status: str = "active",
+    *,
+    actor_user_id: int,
+) -> None:
+    """Add or update a user, auditing which happened. Validates role against
+    CONFIRMED_ROLES.
+
+    AUD-1: create-vs-update is decided inside the transaction from an
+    explicit FOR UPDATE before-image (approved review decision — no reliance
+    on PostgreSQL system columns), and the audit row commits atomically with
+    the mutation. Entity id is the stable str(user_id) (review decision).
+    """
     role = role if role in CONFIRMED_ROLES else "general"
-    repo.create_or_update_user(
-        username=username,
-        full_name=username,
-        role=role,
-        status=status,
-        email_address=identifier or None,
-    )
+    try:
+        with session_scope() as session:
+            record, created, before = repo.create_or_update_user(
+                username=username,
+                full_name=username,
+                role=role,
+                status=status,
+                email_address=identifier or None,
+                session=session,
+                with_change_info=True,
+            )
+
+            def _fields(u) -> dict:
+                return {
+                    "username": u.username,
+                    "full_name": u.full_name,
+                    "email_address": u.email_address,
+                    "role": u.role,
+                    "status": u.status,
+                }
+
+            audit_service.record(
+                session,
+                operation=audit_cfg.USER_CREATED if created else audit_cfg.USER_UPDATED,
+                entity_type=audit_cfg.ENTITY_USER,
+                entity_id=str(record.user_id),
+                old_values=None if created else _fields(before),
+                new_values=_fields(record),
+                actor_user_id=actor_user_id,
+            )
+    except audit_service.AuditError as exc:
+        logger.error(
+            "Audit failure blocked user save: username=%s actor=%s",
+            username,
+            actor_user_id,
+        )
+        raise ValueError(str(exc)) from exc
 
 
 def remove_user(username: str) -> None:

@@ -1,4 +1,4 @@
-"""Tests for device registration — layout, validation, review, persistence.
+﻿"""Tests for device registration â€” layout, validation, review, persistence.
 
 Layout/validation/review tests exercise pure logic (no Dash runtime, no
 database). Persistence tests (DB-4) are database-backed and use the
@@ -161,7 +161,7 @@ def _seed_transformer(transformer_id: str, plant_id: str = "test-p1") -> None:
 
 
 def _insert_raw_device(device_id: str, transformer_id: str, device_code: str) -> None:
-    """Insert a device row directly, bypassing register_device — used to set
+    """Insert a device row directly, bypassing register_device â€” used to set
     up a gap scenario (e.g. -d1, -d2, -d4) for the MAX-suffix generation test.
     """
     with session_scope() as session:
@@ -182,21 +182,30 @@ class TestDeviceRegistrationPersistence:
 
     def setup_method(self):
         with session_scope() as session:
+            session.execute(text(f"DELETE FROM {repo._SCHEMA}.audit_log"))
             session.execute(text(f"DELETE FROM {repo._SCHEMA}.devices"))
             session.execute(text(f"DELETE FROM {repo._SCHEMA}.transformers"))
             session.execute(text(f"DELETE FROM {repo._SCHEMA}.plants"))
         _seed_transformer("test-p1-t1")
         _seed_transformer("test-p1-t2")
+        # AUD-1: register_device requires an authenticated actor; create one
+        # at the repository level (no audit row) and attribute writes to it.
+        self.admin_id = repo.create_or_update_user(
+            username="register-admin",
+            full_name="register-admin",
+            role="administrator",
+            status="active",
+        ).user_id
 
     def test_valid_registration_persists(self):
-        device = register_device("test-p1-t1", "29101")
+        device = register_device("test-p1-t1", "29101", actor_user_id=self.admin_id)
         assert device.device_code == "29101"
         fetched = repo.get_device(device.device_id)
         assert fetched is not None
         assert fetched.device_code == "29101"
 
     def test_registration_survives_a_separate_process(self, isolated_schema):
-        device = register_device("test-p1-t1", "29102")
+        device = register_device("test-p1-t1", "29102", actor_user_id=self.admin_id)
         env = dict(os.environ)
         env["PLANT_MONITORING_SCHEMA"] = isolated_schema
         result = subprocess.run(
@@ -211,25 +220,25 @@ class TestDeviceRegistrationPersistence:
 
     def test_empty_transformer_id_fails_safely(self):
         with pytest.raises(RegistrationError):
-            register_device("", "29103")
+            register_device("", "29103", actor_user_id=self.admin_id)
 
     def test_nonexistent_transformer_fails_safely(self):
         with pytest.raises(RegistrationError):
-            register_device("does-not-exist", "29104")
+            register_device("does-not-exist", "29104", actor_user_id=self.admin_id)
 
     def test_duplicate_device_code_in_same_transformer_fails(self):
-        register_device("test-p1-t1", "29105")
+        register_device("test-p1-t1", "29105", actor_user_id=self.admin_id)
         with pytest.raises(RegistrationError):
-            register_device("test-p1-t1", "29105")
+            register_device("test-p1-t1", "29105", actor_user_id=self.admin_id)
 
     def test_same_device_code_in_different_transformers_succeeds(self):
-        d1 = register_device("test-p1-t1", "29106")
-        d2 = register_device("test-p1-t2", "29106")
+        d1 = register_device("test-p1-t1", "29106", actor_user_id=self.admin_id)
+        d2 = register_device("test-p1-t2", "29106", actor_user_id=self.admin_id)
         assert d1.device_id != d2.device_id
         assert d1.device_code == d2.device_code == "29106"
 
     def test_generated_device_id_follows_transformer_dn_pattern(self):
-        device = register_device("test-p1-t1", "29107")
+        device = register_device("test-p1-t1", "29107", actor_user_id=self.admin_id)
         assert device.device_id == "test-p1-t1-d1"
 
     def test_generation_uses_max_suffix_not_count(self):
@@ -238,20 +247,20 @@ class TestDeviceRegistrationPersistence:
         _insert_raw_device("test-p1-t1-d2", "test-p1-t1", "10002")
         _insert_raw_device("test-p1-t1-d4", "test-p1-t1", "10004")
 
-        device = register_device("test-p1-t1", "10005")
+        device = register_device("test-p1-t1", "10005", actor_user_id=self.admin_id)
 
         # COUNT+1 would compute 3+1=4, colliding with the existing -d4.
         assert device.device_id == "test-p1-t1-d5"
 
     def test_new_device_has_null_operational_metadata(self):
-        device = register_device("test-p1-t1", "29108")
+        device = register_device("test-p1-t1", "29108", actor_user_id=self.admin_id)
         assert device.msisdn is None
         assert device.hardware_version is None
         assert device.firmware_version is None
         assert device.installed_at is None
 
     def test_update_device_metadata_persists_all_four_fields(self):
-        device = register_device("test-p1-t1", "29109")
+        device = register_device("test-p1-t1", "29109", actor_user_id=self.admin_id)
         installed = datetime(2026, 1, 1, tzinfo=timezone.utc)
         updated = update_device_metadata(
             device.device_id,
@@ -266,7 +275,7 @@ class TestDeviceRegistrationPersistence:
         assert updated.installed_at == installed
 
     def test_partial_metadata_update_preserves_other_fields(self):
-        device = register_device("test-p1-t1", "29116")
+        device = register_device("test-p1-t1", "29116", actor_user_id=self.admin_id)
         installed = datetime(2026, 1, 1, tzinfo=timezone.utc)
         update_device_metadata(
             device.device_id,
@@ -276,7 +285,7 @@ class TestDeviceRegistrationPersistence:
             installed_at=installed,
         )
 
-        # Omit everything except firmware_version — an omitted argument
+        # Omit everything except firmware_version â€” an omitted argument
         # must leave that column unchanged, not NULL it out.
         updated = update_device_metadata(device.device_id, firmware_version="1.4.4")
 
@@ -289,29 +298,29 @@ class TestDeviceRegistrationPersistence:
         assert update_device_metadata("does-not-exist", firmware_version="1.0.0") is None
 
     def test_created_at_is_database_generated(self):
-        device = register_device("test-p1-t1", "29110")
+        device = register_device("test-p1-t1", "29110", actor_user_id=self.admin_id)
         assert device.created_at is not None
 
     def test_updated_at_changes_on_metadata_update(self):
-        device = register_device("test-p1-t1", "29111")
+        device = register_device("test-p1-t1", "29111", actor_user_id=self.admin_id)
         assert device.updated_at is not None
         updated = update_device_metadata(device.device_id, msisdn="+15551111")
         assert updated.updated_at > device.updated_at
 
     def test_newly_registered_active_device_appears_in_admin_devices(self):
         from services import hierarchy_service
-        device = register_device("test-p1-t1", "29112", "active")
+        device = register_device("test-p1-t1", "29112", "active", actor_user_id=self.admin_id)
         all_devices = hierarchy_service.list_all_devices()
         assert any(d.device_id == device.device_id for d in all_devices)
 
     def test_new_device_with_no_readings_has_no_fake_readings(self):
-        device = register_device("test-p1-t1", "29113")
+        device = register_device("test-p1-t1", "29113", actor_user_id=self.admin_id)
         readings = repo.get_latest_readings_for_device(device.device_id)
         assert readings == {}
 
     def test_inactive_registration_excluded_by_default_listing(self):
         from services import hierarchy_service
-        device = register_device("test-p1-t1", "29114", "inactive")
+        device = register_device("test-p1-t1", "29114", "inactive", actor_user_id=self.admin_id)
         all_devices = hierarchy_service.list_all_devices()
         assert not any(d.device_id == device.device_id for d in all_devices)
         # Still reachable directly, matching existing inactive-equipment behavior.
@@ -323,7 +332,7 @@ class TestDeviceRegistrationPersistence:
             before = session.execute(
                 text(f"SELECT COUNT(*) FROM {repo._SCHEMA}.readings")
             ).scalar_one()
-        register_device("test-p1-t1", "29115")
+        register_device("test-p1-t1", "29115", actor_user_id=self.admin_id)
         with session_scope() as session:
             after = session.execute(
                 text(f"SELECT COUNT(*) FROM {repo._SCHEMA}.readings")

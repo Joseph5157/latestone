@@ -10,6 +10,7 @@ device/metric/time-range filtering.
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -108,6 +109,20 @@ class AssignmentRecord:
     assigned_at: datetime
     assigned_by: int | None
     ended_at: datetime | None
+
+
+@dataclass(frozen=True)
+class AssignmentChange:
+    """Result of an assignment attempt when callers need before/after state
+    (AUD-1 audit composition). ``changed`` is False only for the genuine
+    no-op — re-assigning the technician who already holds the device — in
+    which case no rows were written and ``previous``/``current`` are the
+    same pre-existing active row.
+    """
+
+    previous: AssignmentRecord | None
+    current: AssignmentRecord
+    changed: bool
 
 
 def _to_plant(row) -> PlantRecord:
@@ -837,41 +852,96 @@ def create_or_update_user(
     status: str,
     email_address: str | None = None,
     mobile_number: str | None = None,
-) -> UserRecord:
+    *,
+    session=None,
+    with_change_info: bool = False,
+):
     """Insert a new user, or update the existing row for that username.
 
-    A native ``INSERT ... ON CONFLICT (username) DO UPDATE`` rather than a
-    check-then-write: atomic, and matches ``users.username``'s UNIQUE
-    constraint as the single source of truth for "does this user exist".
+    AUD-1 shape: the caller's transaction may be supplied via ``session``
+    (service-level mutation+audit composition). Without one, the function
+    opens and commits its own transaction exactly as before.
+
+    Create/update classification is decided by an explicit
+    ``SELECT ... FOR UPDATE`` of any existing row inside the same
+    transaction (approved review decision: no reliance on PostgreSQL MVCC
+    system columns). The pre-read row doubles as the exact before image for
+    auditing; absent means INSERT (USER_CREATED), present means UPDATE
+    (USER_UPDATED) with a real old/new pair.
+
+    Trade-off accepted by review: two transactions racing to create the
+    same username no longer merge via ON CONFLICT — the loser surfaces an
+    IntegrityError instead, i.e. an explicit retry rather than a silent
+    overwrite. Admin-UI concurrency makes this negligible.
+
+    With ``with_change_info=True`` returns ``(UserRecord, created, before)``
+    where ``before`` is None for creates; otherwise returns just UserRecord.
     """
-    with session_scope() as session:
-        row = session.execute(
+
+    def _run(s):
+        before_row = s.execute(
             text(
-                f"""
-                INSERT INTO {_SCHEMA}.users
-                    (username, full_name, email_address, mobile_number, role, status)
-                VALUES
-                    (:username, :full_name, :email_address, :mobile_number, :role, :status)
-                ON CONFLICT (username) DO UPDATE SET
-                    full_name = EXCLUDED.full_name,
-                    email_address = EXCLUDED.email_address,
-                    mobile_number = EXCLUDED.mobile_number,
-                    role = EXCLUDED.role,
-                    status = EXCLUDED.status,
-                    updated_at = now()
-                RETURNING {_USER_COLUMNS}
-                """
+                f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users "
+                f"WHERE username = :username FOR UPDATE"
             ),
-            {
-                "username": username,
-                "full_name": full_name,
-                "email_address": email_address,
-                "mobile_number": mobile_number,
-                "role": role,
-                "status": status,
-            },
+            {"username": username},
         ).first()
-    return _to_user(row)
+        created = before_row is None
+
+        if created:
+            row = s.execute(
+                text(
+                    f"""
+                    INSERT INTO {_SCHEMA}.users
+                        (username, full_name, email_address, mobile_number, role, status)
+                    VALUES
+                        (:username, :full_name, :email_address, :mobile_number, :role, :status)
+                    RETURNING {_USER_COLUMNS}
+                    """
+                ),
+                {
+                    "username": username,
+                    "full_name": full_name,
+                    "email_address": email_address,
+                    "mobile_number": mobile_number,
+                    "role": role,
+                    "status": status,
+                },
+            ).first()
+        else:
+            row = s.execute(
+                text(
+                    f"""
+                    UPDATE {_SCHEMA}.users SET
+                        full_name = :full_name,
+                        email_address = :email_address,
+                        mobile_number = :mobile_number,
+                        role = :role,
+                        status = :status,
+                        updated_at = now()
+                    WHERE username = :username
+                    RETURNING {_USER_COLUMNS}
+                    """
+                ),
+                {
+                    "username": username,
+                    "full_name": full_name,
+                    "email_address": email_address,
+                    "mobile_number": mobile_number,
+                    "role": role,
+                    "status": status,
+                },
+            ).first()
+
+        record = _to_user(row)
+        if not with_change_info:
+            return record
+        return record, created, _to_user(before_row) if before_row else None
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
 
 
 def delete_user_by_username(username: str) -> None:
@@ -888,11 +958,15 @@ def delete_user_by_username(username: str) -> None:
 def delete_all_users() -> None:
     """Test/prototype support only. No ON DELETE CASCADE exists from the
     DB-1 workflow tables (user_device_assignments, rtl_programming_requests,
-    message_forwarding, audit_log) that FK to users.user_id — this will
-    raise IntegrityError once those are populated by a later phase. At DB-2
-    none of them are wired yet, so an unconditional DELETE is safe today.
+    message_forwarding, audit_log) that FK to users.user_id.
+
+    AUD-1 update: audit_log is now populated by audited service flows, so
+    this reset removes those rows first — deleting a user must not leave
+    audit entries dangling. Callers that also created assignment rows still
+    need delete_all_assignments() first, as before.
     """
     with session_scope() as session:
+        session.execute(text(f"DELETE FROM {_SCHEMA}.audit_log"))
         session.execute(text(f"DELETE FROM {_SCHEMA}.users"))
 
 
@@ -985,26 +1059,36 @@ def list_active_device_ids_for_user(user_id: int) -> list[str]:
 def assign_device_to_user(
     device_id: str,
     technician_username: str,
-    assigned_by_username: str | None = None,
-) -> AssignmentRecord:
+    assigned_by_user_id: int | None = None,
+    *,
+    session=None,
+    with_change_info: bool = False,
+):
     """Atomically (re)assign a device to a technician, preserving history.
 
-    One transaction: resolve the technician (and, if given, the actor)
-    username to a user_id, validate the technician's role, lock the
-    device's current active row (``SELECT ... FOR UPDATE``), then either
-    leave it alone (same technician — no duplicate history row), or close
-    it and insert a new active row.
+    One transaction: resolve the technician username to a user_id, validate
+    the technician's role, lock the device's current active row
+    (``SELECT ... FOR UPDATE``), then either leave it alone (same technician
+    — no duplicate history row), or close it and insert a new active row.
 
-    The partial unique index ``ux_user_device_assignments_active_device``
-    remains the final concurrency guard; the row lock here narrows the
-    race window but this function does not rely on application logic alone
-    to enforce "one active assignment per device".
+    AUD-1 shape: the caller's transaction may be supplied via ``session``.
+    The acting administrator is recorded directly as ``assigned_by_user_id``
+    (the previous ``assigned_by_username`` parameter was never called with a
+    non-null value, so it was replaced rather than duplicated). The FOR
+    UPDATE select now fetches the full active row so a genuine reassignment
+    can report the closed row's before image.
+
+    With ``with_change_info=True`` returns an :class:`AssignmentChange`
+    whose ``changed`` flag is False only for the genuine no-op (same
+    technician — nothing was written); otherwise returns just the resulting
+    AssignmentRecord.
 
     Raises ValueError if the username does not exist or is not an active
     technician.
     """
-    with session_scope() as session:
-        tech_row = session.execute(
+
+    def _run(s):
+        tech_row = s.execute(
             text(
                 f"SELECT user_id, role FROM {_SCHEMA}.users "
                 f"WHERE username = :username"
@@ -1019,41 +1103,33 @@ def assign_device_to_user(
                 f"User {technician_username!r} has role {role!r}, not 'technician'"
             )
 
-        assigned_by_id = None
-        if assigned_by_username is not None:
-            actor_row = session.execute(
-                text(f"SELECT user_id FROM {_SCHEMA}.users WHERE username = :username"),
-                {"username": assigned_by_username},
-            ).first()
-            assigned_by_id = actor_row[0] if actor_row else None
-
-        current = session.execute(
+        current = s.execute(
             text(
-                f"SELECT assignment_id, user_id FROM {_SCHEMA}.user_device_assignments "
-                f"WHERE device_id = :device_id AND ended_at IS NULL FOR UPDATE"
+                f"""
+                SELECT {_ASSIGNMENT_COLUMNS}
+                FROM {_SCHEMA}.user_device_assignments a
+                JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                WHERE a.device_id = :device_id AND a.ended_at IS NULL
+                FOR UPDATE OF a
+                """
             ),
             {"device_id": device_id},
         ).first()
 
-        if current is not None and current[1] == tech_user_id:
+        if current is not None and current[2] == tech_user_id:
             # Already assigned to this technician — externally-visible state
             # is unchanged, and closing+reinserting would create a
-            # duplicate history row for no behavioral difference.
-            row = session.execute(
-                text(
-                    f"""
-                    SELECT {_ASSIGNMENT_COLUMNS}
-                    FROM {_SCHEMA}.user_device_assignments a
-                    JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
-                    WHERE a.assignment_id = :assignment_id
-                    """
-                ),
-                {"assignment_id": current[0]},
-            ).first()
-            return _to_assignment(row)
+            # duplicate history row for no behavioral difference. Report it
+            # as changed=False so audit composition can suppress the row (D1).
+            record = _to_assignment(current)
+            if with_change_info:
+                return AssignmentChange(previous=record, current=record, changed=False)
+            return record
+
+        previous_record = _to_assignment(current) if current is not None else None
 
         if current is not None:
-            session.execute(
+            s.execute(
                 text(
                     f"UPDATE {_SCHEMA}.user_device_assignments "
                     f"SET ended_at = now() WHERE assignment_id = :assignment_id"
@@ -1061,7 +1137,7 @@ def assign_device_to_user(
                 {"assignment_id": current[0]},
             )
 
-        new_row = session.execute(
+        new_row = s.execute(
             text(
                 f"""
                 INSERT INTO {_SCHEMA}.user_device_assignments
@@ -1074,37 +1150,89 @@ def assign_device_to_user(
             {
                 "device_id": device_id,
                 "user_id": tech_user_id,
-                "assigned_by": assigned_by_id,
+                "assigned_by": assigned_by_user_id,
             },
         ).first()
 
-    return AssignmentRecord(
-        assignment_id=new_row[0],
-        device_id=new_row[1],
-        user_id=new_row[2],
-        username=technician_username,
-        assigned_at=new_row[3],
-        assigned_by=new_row[4],
-        ended_at=new_row[5],
-    )
+        record = AssignmentRecord(
+            assignment_id=new_row[0],
+            device_id=new_row[1],
+            user_id=new_row[2],
+            username=technician_username,
+            assigned_at=new_row[3],
+            assigned_by=new_row[4],
+            ended_at=new_row[5],
+        )
+        if with_change_info:
+            return AssignmentChange(previous=previous_record, current=record, changed=True)
+        return record
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
 
 
 def end_active_device_assignment(
-    device_id: str, ended_at: datetime | None = None
-) -> None:
-    """Close the active assignment for a device, if any. No-op otherwise —
-    matches the current UI's "clear technician" behavior for a device that
-    has no assignment.
+    device_id: str, ended_at: datetime | None = None, *, session=None
+) -> list[AssignmentRecord]:
+    """Close the active assignment(s) for a device, if any.
+
+    AUD-1 shape: closes via UPDATE ... RETURNING and reports exactly which
+    rows were closed (with technician username resolved in the same
+    transaction), so callers can audit a genuine unassignment and stay
+    silent when there was nothing to close. The partial unique index means
+    at most one active row exists per device; the return is a list for
+    statement-level honesty rather than an assumed singleton.
+
+    Existing callers that ignore the return value are unaffected.
     """
-    with session_scope() as session:
-        session.execute(
+
+    def _run(s):
+        closed_rows = s.execute(
             text(
-                f"UPDATE {_SCHEMA}.user_device_assignments "
-                f"SET ended_at = COALESCE(:ended_at, now()) "
-                f"WHERE device_id = :device_id AND ended_at IS NULL"
+                f"""
+                UPDATE {_SCHEMA}.user_device_assignments
+                SET ended_at = COALESCE(:ended_at, now())
+                WHERE device_id = :device_id AND ended_at IS NULL
+                RETURNING assignment_id, device_id, user_id,
+                          assigned_at, assigned_by, ended_at
+                """
             ),
             {"device_id": device_id, "ended_at": ended_at},
-        )
+        ).fetchall()
+
+        closed: list[AssignmentRecord] = []
+        for row in closed_rows:
+            (
+                assignment_id,
+                closed_device_id,
+                user_id_,
+                assigned_at,
+                assigned_by,
+                closed_ended_at,
+            ) = row
+            username_row = s.execute(
+                text(f"SELECT username FROM {_SCHEMA}.users WHERE user_id = :uid"),
+                {"uid": user_id_},
+            ).first()
+            closed.append(
+                AssignmentRecord(
+                    assignment_id=assignment_id,
+                    device_id=closed_device_id,
+                    user_id=user_id_,
+                    username=username_row[0] if username_row else "",
+                    assigned_at=assigned_at,
+                    assigned_by=assigned_by,
+                    ended_at=closed_ended_at,
+                )
+            )
+        return closed
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
 
 
 def delete_all_assignments() -> None:
@@ -1373,7 +1501,11 @@ def list_unassigned_devices(
 # ---------------------------------------------------------------------------
 
 def create_device(
-    transformer_id: str, device_code: str, status: str = "active"
+    transformer_id: str,
+    device_code: str,
+    status: str = "active",
+    *,
+    session=None,
 ) -> DeviceRecord:
     """Register a new device under a transformer. Create-only — there is no
     ON CONFLICT/upsert path; a duplicate is always an error, never a merge.
@@ -1381,6 +1513,10 @@ def create_device(
     One transaction: validate the transformer exists, pre-check the
     (transformer_id, device_code) pair for a friendlier error than a raw
     constraint violation, generate device_id, then insert.
+
+    AUD-1 shape: the caller's transaction may be supplied via ``session``
+    (service-level mutation+audit composition); without one the function
+    opens and commits its own transaction exactly as before.
 
     device_id follows the existing seed-time convention from
     db/hierarchy.py: ``{transformer_id}-d{n}``. ``n`` is one more than the
@@ -1401,15 +1537,16 @@ def create_device(
     Raises sqlalchemy.exc.IntegrityError for the rare concurrent-write race
     that the pre-check could not see.
     """
-    with session_scope() as session:
-        transformer_row = session.execute(
+
+    def _run(s):
+        transformer_row = s.execute(
             text(f"SELECT 1 FROM {_SCHEMA}.transformers WHERE transformer_id = :transformer_id"),
             {"transformer_id": transformer_id},
         ).first()
         if transformer_row is None:
             raise ValueError(f"Unknown transformer_id: {transformer_id!r}")
 
-        duplicate_row = session.execute(
+        duplicate_row = s.execute(
             text(
                 f"SELECT 1 FROM {_SCHEMA}.devices "
                 f"WHERE transformer_id = :transformer_id AND device_code = :device_code"
@@ -1422,7 +1559,7 @@ def create_device(
                 f"transformer {transformer_id!r}"
             )
 
-        next_index = session.execute(
+        next_index = s.execute(
             text(
                 f"""
                 SELECT COALESCE(
@@ -1435,9 +1572,9 @@ def create_device(
             ),
             {"transformer_id": transformer_id},
         ).scalar_one()
-        device_id = f"{transformer_id}-d{next_index}"
+        new_device_id = f"{transformer_id}-d{next_index}"
 
-        row = session.execute(
+        row = s.execute(
             text(
                 f"""
                 INSERT INTO {_SCHEMA}.devices (device_id, transformer_id, device_code, status)
@@ -1446,14 +1583,73 @@ def create_device(
                 """
             ),
             {
-                "device_id": device_id,
+                "device_id": new_device_id,
                 "transformer_id": transformer_id,
                 "device_code": device_code,
                 "status": status,
             },
         ).first()
+        return _to_device(row)
 
-    return _to_device(row)
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+def insert_audit_log(
+    *,
+    operation: str,
+    entity_type: str,
+    entity_id: str,
+    old_values: dict | None = None,
+    new_values: dict | None = None,
+    actor_user_id: int | None = None,
+    session=None,
+) -> int:
+    """Append one audit_log row and return its audit_id.
+
+    AUD-1 write path. ``actor_user_id`` is deliberately NOT resolved from a
+    username here: UI mutations must pass the authenticated session's
+    user_id directly (strict-actor review decision), and NULL remains
+    reserved for future system-originated operations. The users FK is the
+    validity check — an unknown actor id fails the surrounding transaction.
+
+    JSONB payloads arrive as plain dicts of JSON-safe primitives and are
+    serialized here; occurred_at comes from the column's server default
+    (DB clock). When ``session`` is omitted the insert commits on its own —
+    which no service-level flow should rely on, because mutation+audit must
+    share one transaction.
+    """
+
+    def _run(s) -> int:
+        row = s.execute(
+            text(
+                f"""
+                INSERT INTO {_SCHEMA}.audit_log
+                    (user_id, operation, entity_type, entity_id,
+                     old_values, new_values)
+                VALUES
+                    (:user_id, :operation, :entity_type, :entity_id,
+                     CAST(:old_values AS jsonb), CAST(:new_values AS jsonb))
+                RETURNING audit_id
+                """
+            ),
+            {
+                "user_id": actor_user_id,
+                "operation": operation,
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "old_values": json.dumps(old_values) if old_values is not None else None,
+                "new_values": json.dumps(new_values) if new_values is not None else None,
+            },
+        ).first()
+        return int(row[0])
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
 
 
 class _Unset:

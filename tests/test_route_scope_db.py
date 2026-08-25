@@ -1,19 +1,19 @@
-"""Route scope gating against a real database (ROLE-3 Task 9).
+﻿"""Route scope gating against a real database (ROLE-3 Task 9).
 
 WHY THIS FILE EXISTS SEPARATELY FROM tests/test_route_scope.py.
 
 Those tests patch `routing.scope_from_session` so they can state each gating
 outcome without a database. That makes them precise about the RULE and
 completely blind to the WIRING: if the router resolved scope from the wrong
-function — or from the raw `auth-store` role instead of the validated
-identity — every one of them would still pass.
+function â€” or from the raw `auth-store` role instead of the validated
+identity â€” every one of them would still pass.
 
 These tests patch nothing. A real technician row, a real assignment row, and
 a real session payload go in; the assignment lookup, `from_session`
 validation and `DeviceScope` resolution all run for real. This is the test
 that fails if the router is wired to the wrong resolver.
 
-Runs against a disposable schema — never the developer's real
+Runs against a disposable schema â€” never the developer's real
 plant_monitoring.* tables. See tests/conftest.py::isolated_schema.
 """
 from __future__ import annotations
@@ -85,14 +85,26 @@ def _seed_tree() -> None:
             )
 
 
+def _auditor_id() -> int:
+    """AUD-1: audited service writes require an authenticated actor; this
+    one is created at repository level (no audit row)."""
+    return repo.create_or_update_user(
+        username="route-scope-auditor",
+        full_name="route-scope-auditor",
+        role="administrator",
+        status="active",
+    ).user_id
+
+
 def _technician_session(username: str, *, assigned: list[str]) -> dict:
     """A real user row, real assignments, and the session payload for them."""
-    # Child table (assignments) before parent (users): a prior test in this
-    # module-scoped schema may have left assignment rows FK-referencing its
-    # users.
+    # Audit rows before assignments before users: each FK-references the
+    # table created before it in earlier flows.
+    with session_scope() as session:
+        session.execute(text(f"DELETE FROM {repo._SCHEMA}.audit_log"))
     repo.delete_all_assignments()
     clear_all_users()
-    upsert_user(username, role="technician")
+    upsert_user(username, role="technician", actor_user_id=_auditor_id())
     record = repo.get_user_by_username(username)
     assert record is not None
     for device_id in assigned:

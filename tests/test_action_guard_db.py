@@ -78,13 +78,29 @@ def _seed_tree() -> None:
 
 
 def _reset_people() -> None:
-    # Child table before parent: assignment rows FK-reference users.
+    # Audit rows before assignments before users (each FK-references the
+    # table created before it in earlier AUD-1 flows).
+    with session_scope() as session:
+        session.execute(text(f"DELETE FROM {repo._SCHEMA}.audit_log"))
     repo.delete_all_assignments()
     clear_all_users()
 
 
+def _auditor_id() -> int:
+    """AUD-1: service-level user writes need an authenticated actor. This
+    one is created directly at repository level (no audit row) and used to
+    attribute the fixture users' audit entries.
+    """
+    return repo.create_or_update_user(
+        username="ag-auditor",
+        full_name="ag-auditor",
+        role="administrator",
+        status="active",
+    ).user_id
+
+
 def _make_user(username: str, role: str) -> AuthenticatedUser:
-    upsert_user(username, role=role)
+    upsert_user(username, role=role, actor_user_id=_auditor_id())
     record = repo.get_user_by_username(username)
     assert record is not None
     return AuthenticatedUser(

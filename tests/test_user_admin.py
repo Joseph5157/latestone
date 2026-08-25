@@ -17,6 +17,7 @@ from services.prototype_users import (
     upsert_user,
     CONFIRMED_ROLES,
 )
+from repositories import plant_monitoring_repository as repo
 from components.user_form_drawer import user_form_drawer
 from pages.user_admin import layout
 
@@ -166,7 +167,13 @@ class TestValidateUserForm:
 
     def test_duplicate_username_fails(self):
         clear_all_users()
-        upsert_user("alice", "", "general", "active")
+        upsert_user(
+            "alice", "", "general", "active",
+            actor_user_id=repo.create_or_update_user(
+                username="ua-auditor", full_name="ua-auditor",
+                role="administrator", status="active",
+            ).user_id,
+        )
 
         errors = _validate_user_form("alice")
         assert "username" in errors

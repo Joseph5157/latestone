@@ -37,6 +37,7 @@ NOW = datetime(2026, 8, 20, 12, 0, 0, tzinfo=timezone.utc)
 def _reset_hierarchy() -> None:
     """Empty the tables these tests own, in FK-safe order."""
     with session_scope() as session:
+        session.execute(text(f"DELETE FROM {repo._SCHEMA}.audit_log"))
         session.execute(text(f"DELETE FROM {repo._SCHEMA}.user_device_assignments"))
         session.execute(text(f"DELETE FROM {repo._SCHEMA}.devices"))
         session.execute(text(f"DELETE FROM {repo._SCHEMA}.transformers"))
@@ -536,7 +537,13 @@ class TestCountDevicesRegisteredBetween:
         # remove it.
         from services.device_registration import register_device
 
-        device = register_device("p-alpha-t1", "40009")
+        device = register_device(
+            "p-alpha-t1", "40009",
+            actor_user_id=repo.create_or_update_user(
+                username="overview-auditor", full_name="overview-auditor",
+                role="administrator", status="active",
+            ).user_id,
+        )
         db_now = _database_now()
 
         assert repo.get_device(device.device_id) is not None

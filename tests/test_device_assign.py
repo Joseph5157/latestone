@@ -1,4 +1,4 @@
-"""Tests for device assignment drawer — layout, mock adapter, cascade logic, technician assignment.
+﻿"""Tests for device assignment drawer â€” layout, mock adapter, cascade logic, technician assignment.
 
 All tests exercise pure logic (no Dash runtime, no database).
 """
@@ -34,7 +34,7 @@ from sqlalchemy import text
 
 def _seed_device(device_id: str, plant_id: str = "test-p1", transformer_id: str = "test-p1-t1") -> None:
     """Insert a minimal plant/transformer/device row so device_id satisfies
-    user_device_assignments' FK to devices. Idempotent — safe to call once
+    user_device_assignments' FK to devices. Idempotent â€” safe to call once
     per test against the module-shared isolated_schema.
     """
     with session_scope() as session:
@@ -140,7 +140,7 @@ class TestAssignDrawerLayout:
 
 
 # ---------------------------------------------------------------------------
-# Mock adapter — asset assignment
+# Mock adapter â€” asset assignment
 # ---------------------------------------------------------------------------
 
 class TestMockAssignment:
@@ -177,11 +177,21 @@ class TestTechnicianAssignmentPersistence:
     pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
 
     def setup_method(self):
+        with session_scope() as session:
+            session.execute(text(f"DELETE FROM {repo._SCHEMA}.audit_log"))
         clear_all_assignments()
         clear_all_users()
-        upsert_user("bob", "bob@example.com", "technician", "active")
-        upsert_user("carol", "carol@example.com", "technician", "active")
-        upsert_user("dave", "dave@example.com", "general", "active")
+        # AUD-1: service-level writes require an authenticated actor; create
+        # one at repository level (no audit row) before any audited call.
+        self.admin_id = repo.create_or_update_user(
+            username="assign-admin",
+            full_name="assign-admin",
+            role="administrator",
+            status="active",
+        ).user_id
+        upsert_user("bob", "bob@example.com", "technician", "active", actor_user_id=self.admin_id)
+        upsert_user("carol", "carol@example.com", "technician", "active", actor_user_id=self.admin_id)
+        upsert_user("dave", "dave@example.com", "general", "active", actor_user_id=self.admin_id)
         _seed_device("device-1")
         _seed_device("device-2")
 
@@ -189,7 +199,7 @@ class TestTechnicianAssignmentPersistence:
         assert get_assigned_technician("device-1") is None
 
     def test_assignment_persists_across_calls(self):
-        assign_technician("device-1", "bob")
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
         assert get_assigned_technician("device-1") == "bob"
 
     def test_assignment_survives_a_separate_process(self, isolated_schema):
@@ -197,7 +207,7 @@ class TestTechnicianAssignmentPersistence:
         import subprocess
         import sys
 
-        assign_technician("device-1", "bob")
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
 
         env = dict(os.environ)
         env["PLANT_MONITORING_SCHEMA"] = isolated_schema
@@ -211,13 +221,13 @@ class TestTechnicianAssignmentPersistence:
         assert result.stdout.strip() == "bob"
 
     def test_one_technician_can_own_multiple_devices(self):
-        assign_technician("device-1", "bob")
-        assign_technician("device-2", "bob")
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
+        assign_technician("device-2", "bob", actor_user_id=self.admin_id)
         assert sorted(list_devices_for_technician("bob")) == ["device-1", "device-2"]
 
     def test_reassignment_closes_old_and_creates_new_active_row(self):
-        assign_technician("device-1", "bob")
-        assign_technician("device-1", "carol")
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
+        assign_technician("device-1", "carol", actor_user_id=self.admin_id)
         assert get_assigned_technician("device-1") == "carol"
 
         history = list_assignment_history("device-1")
@@ -226,30 +236,30 @@ class TestTechnicianAssignmentPersistence:
         assert history[1].ended_at is None
 
     def test_assigning_same_technician_twice_does_not_duplicate_history(self):
-        assign_technician("device-1", "bob")
-        assign_technician("device-1", "bob")
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
         history = list_assignment_history("device-1")
         assert len(history) == 1
         assert history[0].ended_at is None
 
     def test_non_technician_cannot_be_assigned(self):
         with pytest.raises(ValueError):
-            assign_technician("device-1", "dave")
+            assign_technician("device-1", "dave", actor_user_id=self.admin_id)
         assert get_assigned_technician("device-1") is None
 
     def test_unassign_clears_active_assignment(self):
-        assign_technician("device-1", "bob")
-        unassign_technician("device-1")
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
+        unassign_technician("device-1", actor_user_id=self.admin_id)
         assert get_assigned_technician("device-1") is None
 
     def test_unassign_when_nothing_assigned_is_a_safe_no_op(self):
-        unassign_technician("device-1")
+        unassign_technician("device-1", actor_user_id=self.admin_id)
         assert get_assigned_technician("device-1") is None
 
     def test_device_to_transformer_relationship_is_unchanged(self):
         # Technician assignment must never touch the asset-assignment mock.
         clear_mock_assignments()
-        assign_technician("device-1", "bob")
+        assign_technician("device-1", "bob", actor_user_id=self.admin_id)
         assert get_mock_assignment("device-1") is None
 
 
@@ -262,25 +272,33 @@ class TestTechnicianOptions:
     # the isolated test schema (tests/conftest.py), never the real users table.
     # This class shares that schema (module-scoped) with
     # TestTechnicianAssignmentPersistence below, so assignment rows left by
-    # that class's tests must be cleared first — user_device_assignments FKs
+    # that class's tests must be cleared first â€” user_device_assignments FKs
     # to users.user_id, and clear_all_users() alone would violate it (DB-3).
     pytestmark = [pytest.mark.db, pytest.mark.usefixtures("isolated_schema")]
 
     def setup_method(self):
+        with session_scope() as session:
+            session.execute(text(f"DELETE FROM {repo._SCHEMA}.audit_log"))
         clear_all_assignments()
         clear_all_users()
         clear_mock_assignments()
+        self.admin_id = repo.create_or_update_user(
+            username="assign-admin",
+            full_name="assign-admin",
+            role="administrator",
+            status="active",
+        ).user_id
 
     def test_technician_options_include_only_technicians(self):
-        upsert_user("alice", "", "administrator", "active")
-        upsert_user("bob", "", "technician", "active")
-        upsert_user("charlie", "", "general", "active")
+        upsert_user("alice", "", "administrator", "active", actor_user_id=self.admin_id)
+        upsert_user("bob", "", "technician", "active", actor_user_id=self.admin_id)
+        upsert_user("charlie", "", "general", "active", actor_user_id=self.admin_id)
         options = get_technician_options()
         assert len(options) == 1
         assert options[0]["value"] == "bob"
 
     def test_technician_options_exclude_inactive(self):
-        upsert_user("bob", "", "technician", "inactive")
+        upsert_user("bob", "", "technician", "inactive", actor_user_id=self.admin_id)
         options = get_technician_options()
         assert len(options) == 0
 

@@ -1,6 +1,6 @@
-"""Repository-level scope constraint tests.
+﻿"""Repository-level scope constraint tests.
 
-Runs against a disposable schema — never the developer's real
+Runs against a disposable schema â€” never the developer's real
 plant_monitoring.* tables. See tests/conftest.py::isolated_schema.
 """
 from __future__ import annotations
@@ -50,8 +50,19 @@ def _seed_tree(plant_id: str, transformer_id: str, device_ids: list[str]) -> Non
             )
 
 
+def _auditor_id() -> int:
+    """AUD-1: audited service writes require an authenticated actor; this
+    one is created at repository level (no audit row)."""
+    return repo.create_or_update_user(
+        username="scope-auditor",
+        full_name="scope-auditor",
+        role="administrator",
+        status="active",
+    ).user_id
+
+
 def _technician(username: str) -> int:
-    upsert_user(username, role="technician")
+    upsert_user(username, role="technician", actor_user_id=_auditor_id())
     record = repo.get_user_by_username(username)
     assert record is not None
     return record.user_id
@@ -137,10 +148,10 @@ def test_list_devices_requires_the_scope_keyword():
 
 
 def test_scope_narrows_but_never_widens_past_the_status_filter():
-    """Spec §4.3: scope and include_inactive are independent and both apply.
+    """Spec Â§4.3: scope and include_inactive are independent and both apply.
 
     An assigned-but-inactive device stays hidden under the active-only
-    default — assignment membership must not resurrect it.
+    default â€” assignment membership must not resurrect it.
     """
     from services import hierarchy_service
     from services.device_scope import DeviceScope
@@ -299,7 +310,7 @@ def test_latest_metric_readings_empty_scope_returns_nothing():
 
 
 def test_notification_rows_are_empty_for_an_empty_scope():
-    """Spec §7.1(1): notifications derive from latest_reading_times rather
+    """Spec Â§7.1(1): notifications derive from latest_reading_times rather
     than a query of their own, which makes them the easiest surface to leave
     unscoped by accident."""
     from services.device_scope import EMPTY
@@ -352,7 +363,7 @@ def test_reading_population_agrees_with_hierarchy_counts_under_scope():
 
 
 # ==========================================================================
-# ROLE-3 Task 13 — end-to-end scope behaviour
+# ROLE-3 Task 13 â€” end-to-end scope behaviour
 #
 # The tests above pin individual queries. These assert the whole thing
 # through the service layer, which is where filtering-after-aggregation
@@ -399,7 +410,7 @@ def test_technician_with_no_assignments_sees_an_empty_fleet():
 
 def test_fleet_kpi_cards_report_the_visible_population():
     """Spec 7.1(3): asserted on the rendered KPI numbers, not just the query
-    result. This is where filtering-after-aggregation would show through — the
+    result. This is where filtering-after-aggregation would show through â€” the
     query could be right and the card still wrong."""
     from components.fleet_summary import fleet_kpi_cards
     from services import hierarchy_service, monitoring_service
@@ -432,7 +443,7 @@ def test_fleet_kpi_cards_report_the_visible_population():
     )
 
     # Assert on the health rollup the card renders rather than searching the
-    # card's text for a bare digit — "3" appears in unrelated copy, and a
+    # card's text for a bare digit â€” "3" appears in unrelated copy, and a
     # negative substring assertion would pass or fail for the wrong reasons.
     assert sum(health.counts.values()) == 1, (
         "the Data Health card must describe one device, not three"

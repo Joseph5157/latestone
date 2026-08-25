@@ -247,9 +247,8 @@ def register(app) -> None:
         # widen their own scope. The rule lives in the policy table; this
         # callback only supplies identity, action and target.
         try:
-            require_action(
-                from_session(auth_data), MANAGE_ASSIGNMENT, device_id=device_id
-            )
+            user = from_session(auth_data)
+            require_action(user, MANAGE_ASSIGNMENT, device_id=device_id)
         except AuthorizationError:
             # Leave the drawer open and change nothing. The operator keeps
             # their context and no partial assignment is written.
@@ -263,10 +262,13 @@ def register(app) -> None:
                 device_id, transformer_id,
             )
 
-        # Store technician assignment (persisted, DB-3)
+        # Store technician assignment (persisted, DB-3; audited AUD-1 with
+        # the acting administrator as both assigned_by and audit actor)
         if technician:
             try:
-                prototype_assignments.assign_technician(device_id, technician)
+                prototype_assignments.assign_technician(
+                    device_id, technician, actor_user_id=user.user_id
+                )
                 logger.info(
                     "Technician assignment: device %s -> technician %s",
                     device_id, technician,
@@ -278,7 +280,9 @@ def register(app) -> None:
                 )
         elif prototype_assignments.get_assigned_technician(device_id) is not None:
             # Clear technician assignment if none selected
-            prototype_assignments.unassign_technician(device_id)
+            prototype_assignments.unassign_technician(
+                device_id, actor_user_id=user.user_id
+            )
             logger.info(
                 "Technician assignment cleared: device %s",
                 device_id,

@@ -230,7 +230,8 @@ def register(app) -> None:
         # refusal has to exist here too. The callback supplies identity and
         # capability and nothing else — it compares no role of its own.
         try:
-            require_capability(from_session(auth_data), REGISTER_DEVICE)
+            user = from_session(auth_data)
+            require_capability(user, REGISTER_DEVICE)
         except AuthorizationError:
             return (
                 no_update,               # form stays hidden (still on review)
@@ -262,7 +263,12 @@ def register(app) -> None:
         )
 
         try:
-            register_device(transformer_id, code.strip(), status or "active")
+            register_device(
+                transformer_id,
+                code.strip(),
+                status or "active",
+                actor_user_id=user.user_id,
+            )
         except RegistrationError as exc:
             logger.info("Device registration failed: %s", exc)
             return (

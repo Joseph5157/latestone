@@ -21,6 +21,7 @@ from components.user_form_drawer import (
     USER_CANCEL_BTN,
     USER_DISMISS_BTN,
 )
+from services.auth_service import from_session
 from services.prototype_users import (
     get_all_users,
     get_user,
@@ -225,11 +226,22 @@ def register(app) -> None:
         State(USER_IDENTIFIER_ID, "value"),
         State(USER_ROLE_ID, "value"),
         State(USER_STATUS_ID, "value"),
+        State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_user_form(n_clicks, existing_username, username, identifier, role, status):
-        """Prototype confirm — stores in memory, no identity system write."""
+    def confirm_user_form(n_clicks, existing_username, username, identifier, role, status, auth_data):
+        """Persist the user form (DB-2) with an audited, actor-attributed write.
+
+        AUD-1 strict-actor rule: without a valid authenticated session there
+        is no one to attribute the change to, so the operation fails closed
+        and nothing is written (the drawer stays open).
+        """
         if not n_clicks:
+            return no_update, no_update, no_update
+
+        user = from_session(auth_data)
+        if user is None:
+            logger.warning("User save refused: no valid session.")
             return no_update, no_update, no_update
 
         errors = _validate_user_form(username)
@@ -246,9 +258,12 @@ def register(app) -> None:
             from services.prototype_users import remove_user
             remove_user(existing_username)
 
-        upsert_user(username, identifier, role, status or "active")
+        upsert_user(
+            username, identifier, role, status or "active",
+            actor_user_id=user.user_id,
+        )
 
-        logger.info("Prototype user %s: %s (role=%s)", "updated" if existing_username else "added", username, role)
+        logger.info("Audited user %s: %s (role=%s)", "updated" if existing_username else "added", username, role)
 
         # Close drawer
         return "", {"display": "none"}, username
