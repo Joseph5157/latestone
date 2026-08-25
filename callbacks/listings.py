@@ -28,6 +28,7 @@ from components.temperature_attribution import temperature_attribution
 from components.unassigned_rtls import unassigned_rtl_panel
 from config.metrics import ATTRIBUTION_METRIC_KEY
 from components.freshness_badge import format_last_reading
+from components.freshness_presentation import FRESHNESS_PRESENTATION
 from routes import device_href
 from services import admin_overview_service, hierarchy_service, monitoring_service
 from services.auth_service import from_session
@@ -179,50 +180,204 @@ def sort_device_rows_exception_first(rows: list[dict]) -> list[dict]:
 
 
 # --------------------------------------------------------------------------
-# Needs Attention row builder
+# Needs Attention exception queue
+#
+# ENT-2: the queue is a grouped Plant -> Transformer -> RTL tree rather than a
+# flat plant list. Only NON-FRESH branches appear — a fresh transformer or
+# fresh RTL is the absence of an exception and is omitted. Plant and
+# transformer rows carry roll-up state as context; RTL rows are the actionable
+# leaves. Every state, count and timestamp is read off the ONE FleetHealth the
+# screen already fetched — this section issues no telemetry query at all.
 # --------------------------------------------------------------------------
 
-#: Entity type label for the panel's "Type" column. Only plants are listed;
-#: transformers and devices roll up through the same FleetHealth.plants tree.
-_NEEDS_ATTENTION_TYPE = "Plant"
+#: Cap on rendered ACTIONABLE RTL LEAVES. Plant and transformer headings are
+#: hierarchy context and never consume it (ENT-2 gate decision), so five RTLs
+#: may render under two or three automatically included parent rows instead of
+#: the queue showing four headers and one exception while claiming five.
+NEEDS_ATTENTION_MAX_RTLS = 5
 
 
-def build_needs_attention_rows(
+def build_exception_queue(
     plants, health, rendered_at,
-) -> list[dict]:
-    """Plants whose rollup is NO_DATA or STALE, exception-first, formatted.
+    device_codes: dict[str, str] | None = None,
+    transformer_codes: dict[str, str] | None = None,
+) -> dict:
+    """The grouped exception tree, presentation-ready.
 
-    FRESH plants are the *absence* of an exception and are excluded — this is
-    an exceptions list, not a summary. The KPI cards and distribution bar
-    already summarise the full fleet.
+    `health` is the same single-fetch FleetHealth everything else on this page
+    reads; this function performs no queries of its own. Operator-facing codes
+    arrive as plain dicts (resolved once by the caller via one bulk hierarchy
+    lookup) and fall back to raw ids when a code is unknown — an identifier is
+    truthful where a guessed name would not be.
 
-    A plant missing from the health tree is NO_DATA over zero devices, the
-    same rule the fleet table applies (``build_plant_rows``).
+    Returns::
 
-    ``rendered_at`` is the same ``datetime.now(timezone.utc)`` taken once at
-    the start of ``populate_overview`` — the age column and the freshness
-    labels agree about which moment "now" was.
+        {
+          "groups": [ {plant row, "children": [ {transformer row, "children":
+                      [RTL leaf rows]} ]} ],
+          "total_rtls": int,   # affected RTLs across all affected plants
+          "shown_rtls": int,   # after the leaf cap
+          "plant_count": int,  # plants represented in "groups"
+        }
+
+    Ordering is exception-first at every level: NO_DATA before STALE, then
+    name/code — the same rule as every listing on this page.
     """
-    rows: list[dict] = []
+    device_codes = device_codes or {}
+    transformer_codes = transformer_codes or {}
+
+    def _code(mapping: dict[str, str], key: str) -> str:
+        return mapping.get(key) or key
+
+    plant_groups: list[dict] = []
+    total_rtls = 0
+
+    affected_plants = []
     for p in plants:
         rollup = health.plants.get(p.plant_id) or aggregate_freshness([])
         if rollup.state is Freshness.FRESH:
             continue
+        affected_plants.append((p, rollup))
+    affected_plants.sort(key=lambda pair: (-severity_rank(pair[1].state), pair[0].name))
+
+    for p, plant_rollup in affected_plants:
         last_updated = health.plant_last_updated.get(p.plant_id)
-        last_update_text = format_last_reading(
-            last_updated, reading_age(last_updated, rendered_at)
-        )
-        rows.append({
+        group: dict = {
+            "kind": "plant",
             "id": p.plant_id,
             "entity": p.name,
-            "type": _NEEDS_ATTENTION_TYPE,
-            "issue": rollup.label("devices"),
-            "last_update": last_update_text,
+            "issue": plant_rollup.label("devices"),
+            "last_update": format_last_reading(
+                last_updated, reading_age(last_updated, rendered_at)
+            ),
             "href": f"/plants/{p.plant_id}",
-            "_state": rollup.state.value,
-            "_severity": severity_rank(rollup.state),
-        })
-    return sort_needs_attention_rows(rows)
+            "_state": plant_rollup.state.value,
+            "_severity": severity_rank(plant_rollup.state),
+            "children": [],
+        }
+        group_leaves = 0
+
+        transformer_rollups = health.transformers_for_plant(p.plant_id)
+        affected_transformers = [
+            (tid, rollup)
+            for tid, rollup in transformer_rollups.items()
+            if rollup.state is not Freshness.FRESH
+        ]
+        # Codes may be absent (unscoped index misses); fall back to sorting by
+        # whatever we would display.
+        affected_transformers.sort(
+            key=lambda pair: (
+                -severity_rank(pair[1].state),
+                transformer_codes.get(pair[0], pair[0]),
+            )
+        )
+
+        for tid, t_rollup in affected_transformers:
+            leaves = []
+            device_rollups = health.devices_for_transformer(tid)
+            affected_devices = [
+                (did, rollup)
+                for did, rollup in device_rollups.items()
+                if rollup.state is not Freshness.FRESH
+            ]
+            affected_devices.sort(
+                key=lambda pair: (
+                    -severity_rank(pair[1].state),
+                    device_codes.get(pair[0], pair[0]),
+                )
+            )
+
+            for did, d_rollup in affected_devices:
+                ts = health.device_last_updated.get(did)
+                leaves.append({
+                    "kind": "device",
+                    "id": did,
+                    "entity": _code(device_codes, did),
+                    "issue": FRESHNESS_PRESENTATION[d_rollup.state].label,
+                    "last_update": format_last_reading(
+                        ts, reading_age(ts, rendered_at)
+                    ),
+                    "href": device_href(did),
+                    "_state": d_rollup.state.value,
+                    "_severity": severity_rank(d_rollup.state),
+                })
+
+            group_leaves += len(leaves)
+            t_last = health.last_updated_for_transformer(tid)
+            group["children"].append({
+                "kind": "transformer",
+                "id": tid,
+                "entity": _code(transformer_codes, tid),
+                "issue": t_rollup.label("devices"),
+                "last_update": format_last_reading(
+                    t_last, reading_age(t_last, rendered_at)
+                ),
+                "href": f"/plants/{p.plant_id}/{tid}",
+                "_state": t_rollup.state.value,
+                "_severity": severity_rank(t_rollup.state),
+                "children": leaves,
+            })
+
+        total_rtls += group_leaves
+        plant_groups.append(group)
+
+    # Cap on leaves only. A plant with zero leaves (e.g. present in the plant
+    # list but absent from the freshness tree — NO_DATA over zero devices) is
+    # still an exception and renders as a header-only group without consuming
+    # the cap.
+    remaining = NEEDS_ATTENTION_MAX_RTLS
+    shown_groups: list[dict] = []
+    shown_rtls = 0
+    for group in plant_groups:
+        group_has_leaves = any(t["children"] for t in group["children"])
+        shown_children = []
+        for t in group["children"]:
+            if remaining <= 0:
+                break
+            take = t["children"][:remaining]
+            if take:
+                shown_children.append({**t, "children": take})
+                remaining -= len(take)
+                shown_rtls += len(take)
+        if shown_children or not group_has_leaves:
+            shown_groups.append({**group, "children": shown_children})
+
+    return {
+        "groups": sort_needs_attention_tree(shown_groups),
+        "total_rtls": total_rtls,
+        "shown_rtls": shown_rtls,
+        "plant_count": len(shown_groups),
+    }
+
+
+def sort_needs_attention_tree(groups: list[dict]) -> list[dict]:
+    """Groups arrive in severity order from the builder; kept as a named hook
+    so the ordering rule stays testable independently of tree construction."""
+    return groups
+
+
+def hierarchy_code_index(plants, health) -> dict:
+    """Operator-facing codes for the exception queue, in ONE bulk read.
+
+    Returns ``{"device_codes": ..., "transformer_codes": ...}``. Called only
+    when at least one plant is non-FRESH — a healthy fleet pays nothing. The
+    index is a superset of any scoped population's needs (active managed
+    RTLs), and missing entries degrade to raw ids inside the builder, never to
+    a fabricated name.
+    """
+    has_exceptions = any(
+        (health.plants.get(p.plant_id) or aggregate_freshness([])).state
+        is not Freshness.FRESH
+        for p in plants
+    )
+    if not has_exceptions:
+        return {"device_codes": {}, "transformer_codes": {}}
+    device_codes: dict[str, str] = {}
+    transformer_codes: dict[str, str] = {}
+    for row in hierarchy_service.list_all_devices():
+        device_codes.setdefault(row.device_id, row.device_code)
+        transformer_codes.setdefault(row.transformer_id, row.transformer_code)
+    return {"device_codes": device_codes, "transformer_codes": transformer_codes}
 
 
 def sort_needs_attention_rows(rows: list[dict]) -> list[dict]:
@@ -550,7 +705,10 @@ def register(app) -> None:
             admin.append(administration_section(auth_data, rendered_at))
             attention.append(
                 needs_attention(
-                    build_needs_attention_rows(plants, health, rendered_at)
+                    build_exception_queue(
+                        plants, health, rendered_at,
+                        **hierarchy_code_index(plants, health),
+                    )
                 )
             )
             subtitle.append(fleet_subtitle_text(len(plants)))

@@ -27,9 +27,13 @@ def layout() -> html.Div:
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="plants-error", className="listing-error"),
+            # Reading order (ENT-2): state -> exceptions -> hierarchy ->
+            # inventory -> administration. Everything above the inventory is
+            # monitoring; administration is deliberately last and secondary.
             html.Section(
                 className="fleet-monitoring-summary",
                 children=[
+                    html.H2("Operating status", className="fleet-section__title"),
                     # Structural fleet totals and the primary Data Health block
                     # are filled from the same callback/FleetHealth instance.
                     html.Div(id="fleet-kpis"),
@@ -39,22 +43,10 @@ def layout() -> html.Div:
             # Presentation-only exact-condition summary, built from the same
             # already-available health counts. Empty for mixed populations.
             html.Div(id="fleet-systemic-state"),
-            # Representative investigation queue. The component discloses the
-            # total and links to the authoritative inventory below.
+            # Grouped exception queue (Plant -> Transformer -> RTL). The
+            # component discloses truthful totals and links to the
+            # authoritative inventory below.
             html.Div(id="needs-attention"),
-            # Filled by the same callback from one AdminOverviewSummary, at the
-            # same instant as the freshness figures above. Administration is a
-            # separate axis from monitoring: these cards count Managed RTLs,
-            # the Devices card above counts Monitoring Devices, and the two
-            # populations are labelled rather than reconciled. The section
-            # heading is supplied by the component, not this layout, so a
-            # failed read drops the heading with the cards.
-            #
-            # Holds the whole Administration section: the three cards and the
-            # Unassigned RTLs panel beneath them (ADMIN-3), both built from
-            # the same summary in the same error boundary. One slot, so a
-            # failed read cannot leave half a section standing.
-            html.Div(id="admin-summary", className="fleet-administration"),
             html.H2(
                 "Fleet / Plants",
                 id="fleet-plants",
@@ -82,5 +74,20 @@ def layout() -> html.Div:
                 state_column_id="freshness",
                 responsive=True,
             ),
+            # Filled by the same callback from one AdminOverviewSummary, at the
+            # same instant as the freshness figures above. Administration is a
+            # separate axis from monitoring: these cards count Managed RTLs,
+            # the Devices card above counts Monitoring Devices, and the two
+            # populations are labelled rather than reconciled. The section
+            # heading is supplied by the component, not this layout, so a
+            # failed read drops the heading with the cards.
+            #
+            # Holds the whole Administration section: the three cards and the
+            # Unassigned RTLs panel beneath them (ADMIN-3), both built from
+            # the same summary in the same error boundary. One slot, so a
+            # failed read cannot leave half a section standing. It sits BELOW
+            # the fleet inventory by design: an operator opens this page for
+            # state, exceptions and plants — never for administration.
+            html.Div(id="admin-summary", className="fleet-administration"),
         ],
     )

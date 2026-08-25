@@ -1314,11 +1314,12 @@ body {
 }
 
 /* ---------- Needs Attention panel ---------- */
-/* Compact exception list sitting between the distribution bar and the plants
-   table. Surface + border + radius matches every other card-shaped block on
-   the Fleet screen; the heading uses --fs-section like any other content
-   section. Each row is one exception — not a full DataTable, not a gauge,
-   just the facts the operator needs to decide which plant to inspect. */
+/* Grouped exception queue between the systemic banner and the plants table.
+   Surface + border + radius matches every other card-shaped block on the
+   Fleet screen; the heading uses --fs-section like any other content section.
+   Plant rows are context (roll-up state), transformer rows narrow the search,
+   RTL leaf rows are the actionable exceptions with direct drill-through.
+   Colour stays on the freshness tokens — never a new severity palette. */
 .needs-attention {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1378,6 +1379,61 @@ body {
   font-size: var(--fs-body);
 }
 
+/* Grouped queue (ENT-2). The plant header carries the group; transformer and
+   RTL rows indent beneath it behind a single quiet rule so the hierarchy is
+   readable without a tree widget. Indentation uses the spacing scale only. */
+.needs-attention__group { margin-top: var(--sp-2); }
+.needs-attention__group:first-of-type { margin-top: 0; }
+
+.needs-attention__subtree {
+  margin-left: var(--sp-4);
+  padding-left: var(--sp-3);
+  border-left: 1px solid var(--color-border);
+}
+
+.needs-attention__branch .needs-attention__row,
+.needs-attention__subtree .needs-attention__row:first-of-type {
+  border-top: 0;
+}
+
+.needs-attention__row--group .needs-attention__entity {
+  font-weight: 700;
+}
+
+.needs-attention__row--transformer,
+.needs-attention__row--device {
+  padding: calc(var(--sp-1) + 1px) 0;
+}
+
+.needs-attention__entity-link {
+  color: var(--color-text);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.needs-attention__row--device .needs-attention__entity-link {
+  max-width: 200px;
+}
+.needs-attention__entity-link:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.needs-attention__entity-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Directional cue on the actionable leaf only — context rows get none, so
+   the chevron itself signals "this row goes somewhere". */
+.needs-attention__chevron {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
 .needs-attention__row:first-of-type {
   border-top: 0;
 }
@@ -1412,11 +1468,6 @@ body {
   max-width: 260px;
 }
 
-.needs-attention__type {
-  color: var(--color-muted);
-  white-space: nowrap;
-}
-
 .needs-attention__detail {
   color: var(--color-muted);
 }
@@ -1448,6 +1499,15 @@ body {
   color: var(--color-text);
 }
 
+/* Section heading for the Operating status block — same language as
+   .needs-attention__title so the page keeps one heading idiom. */
+.fleet-section__title {
+  font-size: var(--fs-section);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 var(--sp-2);
+}
+
 @media (max-width: 640px) {
   .health-distribution__heading-row {
     align-items: flex-start;
@@ -1465,11 +1525,18 @@ body {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 4px var(--sp-2);
   }
-  .needs-attention__entity { max-width: none; }
-  .needs-attention__type { display: none; }
+  .needs-attention__entity,
+  .needs-attention__entity-link { max-width: none; }
   .needs-attention__detail,
   .needs-attention__age { grid-column: 2 / -1; margin-left: 0; }
-  .needs-attention__link { grid-column: 3; grid-row: 1; }
+  .needs-attention__link,
+  .needs-attention__chevron { grid-column: 3; grid-row: 1; }
+  /* Indent collapses on narrow screens; the left rule alone still shows the
+     hierarchy without spending horizontal space the rows need. */
+  .needs-attention__subtree {
+    margin-left: var(--sp-2);
+    padding-left: var(--sp-2);
+  }
   .fleet-administration { margin-top: var(--sp-4); }
   .fleet-inventory__title { margin-top: var(--sp-4); }
 }

@@ -59,8 +59,9 @@ class TestPageSlot:
         slot = find_by_id(plants_overview.layout(), "admin-summary")
         assert not slot.children
 
-    def test_slot_sits_after_monitoring_and_needs_attention(self):
-        """Administration is secondary to monitoring and its exception queue."""
+    def test_slot_sits_after_monitoring_needs_attention_and_inventory(self):
+        """ENT-2 reading order: state -> exceptions -> hierarchy -> inventory
+        -> administration. Administration is last and secondary."""
         ids = [
             n.id
             for n in plants_overview.layout().children
@@ -68,7 +69,7 @@ class TestPageSlot:
             in {"fleet-systemic-state", "needs-attention", "admin-summary", "fleet-plants"}
         ]
         assert ids == [
-            "fleet-systemic-state", "needs-attention", "admin-summary", "fleet-plants"
+            "fleet-systemic-state", "needs-attention", "fleet-plants", "admin-summary"
         ]
 
 

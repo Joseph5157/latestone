@@ -11,7 +11,7 @@ This is the only place that branches on MetricConfig.aggregation.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 
@@ -292,6 +292,15 @@ class FleetHealth:
     #: a stale plant's age can never disagree with its label about which moment
     #: "now" was.
     plant_last_updated: dict[str, datetime | None]
+    #: device_id -> newest reading timestamp seen for that device (any metric).
+    #: Derived from the same rows as everything else — no second telemetry
+    #: fetch. Feeds the Needs Attention queue's per-RTL age column.
+    device_last_updated: dict[str, datetime | None] = field(default_factory=dict)
+    #: device_id -> transformer_id, captured from the same rows the rollups
+    #: were built from (the join is already in the query). Backs
+    #: `devices_for_transformer` so an exception tree can be walked without a
+    #: second definition of the hierarchy.
+    _device_transformer: dict[str, str] = field(default_factory=dict)
 
     @property
     def device_count(self) -> int:
@@ -308,6 +317,29 @@ class FleetHealth:
             for tid, rollup in self.transformers.items()
             if self._transformer_plant.get(tid) == plant_id
         }
+
+    def devices_for_transformer(self, transformer_id: str) -> dict[str, FreshnessRollup]:
+        """This transformer's device rollups, from the same fetch.
+
+        Unknown transformer selects nothing. Mirrors `transformers_for_plant`
+        so exception drill-through needs no hierarchy query to walk the tree.
+        """
+        return {
+            device_id: rollup
+            for device_id, rollup in self.devices.items()
+            if self._device_transformer.get(device_id) == transformer_id
+        }
+
+    def last_updated_for_transformer(self, transformer_id: str) -> datetime | None:
+        """Newest reading beneath one transformer, derived from its devices'
+        own timestamps. Never a second query: the same facts the rollup was
+        built from answer "how old" as well as "how healthy"."""
+        newest: datetime | None = None
+        for device_id in self.devices_for_transformer(transformer_id):
+            ts = self.device_last_updated.get(device_id)
+            if ts is not None and (newest is None or ts > newest):
+                newest = ts
+        return newest
 
     def device_counts_for_plant(self, plant_id: str) -> dict[Freshness, int]:
         """Per-state device counts within one plant, for a plant-scoped card.
@@ -337,6 +369,7 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
     device_transformer: dict[str, str] = {}
     transformer_plant: dict[str, str] = {}
     plant_last_updated: dict[str, datetime | None] = {}
+    device_last_updated: dict[str, datetime | None] = {}
     for row in rows:
         device_metric_states.setdefault(row.device_id, []).append(
             evaluate_freshness(row.reading_ts, reference)
@@ -354,6 +387,11 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
             current = plant_last_updated.get(row.plant_id)
             if current is None or row.reading_ts > current:
                 plant_last_updated[row.plant_id] = row.reading_ts
+            # Same facts, per device. max() over the metric rows because any
+            # one metric's newest sample is the device's newest delivery.
+            current_device = device_last_updated.get(row.device_id)
+            if current_device is None or row.reading_ts > current_device:
+                device_last_updated[row.device_id] = row.reading_ts
 
     devices = {
         device_id: aggregate_freshness(states)
@@ -384,6 +422,8 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
         counts=counts,
         _transformer_plant=transformer_plant,
         plant_last_updated=plant_last_updated,
+        device_last_updated=device_last_updated,
+        _device_transformer=device_transformer,
     )
 
 
