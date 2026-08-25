@@ -1,8 +1,9 @@
 """Notification Center callbacks — wire notification data to the page.
 
-All operations are frontend-only. Notification categories are confirmed by the
-RTL Functional Specification (§3, §11). No files are produced or delivered.
-No SMS/email/backend claims are made.
+Derives the formal >24h no-data notification (BR008) plus persisted
+device_events through the shared event-semantics layer (EVT-CONSUME-1).
+Display-only: no files are produced, no SMS/email is sent, no notification
+history is persisted.
 """
 from __future__ import annotations
 
@@ -11,8 +12,10 @@ import logging
 from dash import Input, Output, State, no_update, html
 
 from services import monitoring_service
+from services.auth_service import from_session
+from services.authorization import ADMINISTRATOR
 from services.device_scope import scope_from_session
-from services.notification_service import build_current_notifications, notification_summary
+from services.notification_service import current_notifications, notification_summary
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +38,23 @@ def register(app) -> None:
             return no_update, no_update, no_update, no_update, no_update
 
         try:
-            # Get fleet-wide latest reading data, constrained to what this
-            # caller may see — resolved once per render (ROLE-3 invariant).
+            # Resolve the caller once per render (ROLE-3 invariant): scope
+            # constrains device-backed rows; only administrators see the
+            # quarantined unregistered-UID surface (EVT-D5 — an unknown UID
+            # belongs to no device scope, so nobody scoped can own it).
             scope = scope_from_session(auth_data)
+            user = from_session(auth_data)
+            is_admin = user is not None and user.role == ADMINISTRATOR
+
             rows = monitoring_service.latest_reading_rows(scope=scope)
 
-            # Build formal notifications (>24h no-data)
-            notifications = build_current_notifications(rows)
+            # Formal >24h no-data + persisted device_events (via the shared
+            # event-semantics layer, EVT-D1/D3).
+            notifications = current_notifications(
+                reading_rows=rows,
+                scope=scope,
+                include_unregistered=is_admin,
+            )
 
             # Summary
             summary = notification_summary(notifications)

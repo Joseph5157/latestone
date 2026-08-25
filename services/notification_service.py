@@ -129,6 +129,53 @@ def build_current_notifications(
     return notifications
 
 
+def current_notifications(
+    *,
+    reading_rows,
+    scope,
+    include_unregistered: bool = False,
+    now: datetime | None = None,
+) -> list[NotificationRow]:
+    """The Notification Center's full derivation: BR008 + persisted events.
+
+    Composition point (EVT-D3, simplified per review): the BR008 builder
+    above keeps deriving from latest readings exactly as before; persisted
+    device_events flow through services/event_semantics — the single owner
+    of event meaning (EVT-D1) — and the two row sets merge here. Category
+    availability is determined by the semantics registry itself, NOT by a
+    new category capability flag.
+
+    ``include_unregistered`` is the admin-only gate for quarantined
+    invalid_uid rows (EVT-D5): an unregistered UID belongs to no device
+    scope, so technicians and general users never receive those rows.
+    """
+    reference = now or datetime.now(timezone.utc)
+    notifications = build_current_notifications(reading_rows, reference)
+
+    # Deferred import: event_semantics imports NotificationRow from this
+    # module, keeping the dependency one-way at import time.
+    from repositories import plant_monitoring_repository as repo
+    from services.event_semantics import (
+        NOTIFICATION_QUERY_LIMIT,
+        build_event_notifications,
+        mapped_event_types,
+    )
+
+    # No ``since`` bound: Notification Center events do not expire (review
+    # correction to EVT-D8). NOTIFICATION_QUERY_LIMIT is a technical
+    # pilot-safety capacity bound on the query, never a retention rule.
+    events = repo.list_recent_device_events(
+        event_types=mapped_event_types(),
+        allowed_device_ids=scope.device_ids,
+        include_unattributed=include_unregistered,
+        limit=NOTIFICATION_QUERY_LIMIT,
+    )
+    notifications.extend(
+        build_event_notifications(events, include_unregistered=include_unregistered)
+    )
+    return notifications
+
+
 def notification_summary(notifications: list[NotificationRow]) -> dict:
     """Build summary statistics for the Notification Center."""
     return {

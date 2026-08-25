@@ -2230,6 +2230,110 @@ def get_device_event(event_id: int) -> dict | None:
     return dict(zip(keys, row))
 
 
+@dataclass(frozen=True)
+class DeviceEventRecord:
+    """One persisted device event, typed for consumer read paths.
+
+    ``event_ts`` is the source occurrence time and ``created_at`` the DB
+    ingestion clock (INGEST-D4); consumers display/order by ``event_ts``
+    only (EVT-D9). Numeric payloads are converted to float for display;
+    they are presentation payload — never a classification input
+    (EVT-D4).
+    """
+
+    event_id: int
+    device_id: str | None
+    transformer_id: str | None
+    reported_uid: str | None
+    event_type: str
+    severity: str | None
+    event_ts: datetime
+    temperature: float | None
+    battery_voltage: float | None
+    message: str | None
+    source: str | None
+    created_at: datetime
+
+
+def _to_device_event(row) -> DeviceEventRecord:
+    return DeviceEventRecord(
+        event_id=row[0],
+        device_id=row[1],
+        transformer_id=row[2],
+        reported_uid=row[3],
+        event_type=row[4],
+        severity=row[5],
+        event_ts=row[6],
+        temperature=float(row[7]) if row[7] is not None else None,
+        battery_voltage=float(row[8]) if row[8] is not None else None,
+        message=row[9],
+        source=row[10],
+        created_at=row[11],
+    )
+
+
+def list_recent_device_events(
+    *,
+    event_types: Sequence[str],
+    since: datetime | None = None,
+    allowed_device_ids: frozenset[str] | None = None,
+    include_unattributed: bool = False,
+    limit: int = 500,
+) -> list[DeviceEventRecord]:
+    """Recent events of the given types, scoped at the SQL level.
+
+    The single consumer read API (EVT-D2): Notification Center, report
+    projections and future delivery code all read through this one
+    function instead of each re-querying device_events.
+
+    - ``event_types`` must be non-empty; the caller names what it consumes.
+    - ``since`` is an OPTIONAL occurrence-time bound (``event_ts``); the
+      Notification Center passes none — it has no retention/expiry rule
+      (review correction to EVT-D8). Ordering is ``event_ts DESC,
+      event_id DESC`` (INGEST-D4 tiebreak).
+    - ``limit`` is a technical pilot-safety capacity bound, not product
+      semantics.
+    - Scope follows the ROLE-BLIND ``_scope_clause`` idiom: ``None`` means
+      unrestricted, an EMPTY frozenset matches nothing. Unattributed rows
+      (``invalid_uid`` quarantines with no device) are excluded unless
+      ``include_unattributed=True`` — an admin-only surface (EVT-D5) that
+      scope alone cannot express, because an unregistered UID belongs to
+      no device set.
+    - No index migration backs this yet; pilot volumes do not justify DDL
+      (EVT-D2).
+    """
+    if not event_types:
+        return []
+
+    def _run(s) -> list[DeviceEventRecord]:
+        unattributed_sql = (
+            "" if include_unattributed else " AND e.device_id IS NOT NULL"
+        )
+        since_sql = "" if since is None else " AND e.event_ts >= :since"
+        scope_sql, scope_params = _scope_clause("e", allowed_device_ids)
+        statement = text(
+            f"""
+            SELECT {_DEVICE_EVENT_COLUMNS}
+            FROM {_SCHEMA}.device_events e
+            WHERE e.event_type IN :event_types{since_sql}{unattributed_sql}{scope_sql}
+            ORDER BY e.event_ts DESC, e.event_id DESC
+            LIMIT :limit
+            """
+        ).bindparams(bindparam("event_types", expanding=True, type_=String))
+        params = {
+            "event_types": list(event_types),
+            "limit": limit,
+            **scope_params,
+        }
+        if since is not None:
+            params["since"] = since
+        rows = s.execute(_scoped(statement, allowed_device_ids), params).all()
+        return [_to_device_event(row) for row in rows]
+
+    with session_scope() as own:
+        return _run(own)
+
+
 def find_device_ids_by_code(
     device_code: str, transformer_id: str | None = None, *, session=None
 ) -> list[str]:

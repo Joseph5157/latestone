@@ -33,5 +33,20 @@ EVENT_TYPE_STARTUP = "startup"
 #: ``device_events.reported_uid``; ``device_id`` stays NULL.
 EVENT_TYPE_INVALID_UID = "invalid_uid"
 
+#: Further legacy-vocabulary names (migration 006) that consumers bind
+#: semantics to. Defining a name here grants it NO behaviour — behaviour
+#: exists only where services/event_semantics.py maps it.
+EVENT_TYPE_CHECK_IN = "check_in"
+EVENT_TYPE_BATTERY_LOW = "battery_low"
+EVENT_TYPE_POWER_DOWN = "power_down"
+EVENT_TYPE_SENSOR_ERROR = "sensor_error"
 
-__all__ = ["EVENT_TYPE_STARTUP", "EVENT_TYPE_INVALID_UID"]
+
+__all__ = [
+    "EVENT_TYPE_BATTERY_LOW",
+    "EVENT_TYPE_CHECK_IN",
+    "EVENT_TYPE_INVALID_UID",
+    "EVENT_TYPE_POWER_DOWN",
+    "EVENT_TYPE_SENSOR_ERROR",
+    "EVENT_TYPE_STARTUP",
+]
