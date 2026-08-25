@@ -821,6 +821,118 @@ def installed_rtls_report_rows(
     return [_to_installed_rtls_record(r) for r in rows]
 
 
+@dataclass(frozen=True)
+class RtlAlarms30dRecord:
+    """One qualifying alarm event's row for the RTL Alarms (30 Days)
+    report (REPORT-3).
+
+    ``event_transformer_id``/``event_transformer_code`` carry the
+    event-time snapshot written at ingestion; ``current_transformer_code``
+    is the device's present transformer. Which one populates the report
+    cell is the R3-D6 rule and lives in the SERVICE, not here.
+    ``alarm_at`` is the source occurrence time (EVT-D9); battery/temperature
+    are display payload (EVT-D4).
+    """
+
+    event_id: int
+    event_type: str
+    alarm_at: datetime
+    event_transformer_id: str | None
+    event_transformer_code: str | None
+    current_transformer_code: str | None
+    device_code: str | None
+    firmware_version: str | None
+    temperature: float | None
+    battery_voltage: float | None
+
+
+def rtl_alarms_30d_report_rows(
+    *,
+    event_types: Sequence[str],
+    since: datetime,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+    device_id: str | None = None,
+    allowed_device_ids: frozenset[str] | None,
+) -> list[RtlAlarms30dRecord]:
+    """Qualifying alarm events for the RTL Alarms (30 Days) report.
+
+    REPORT-3 (R3-D2): one dedicated joined query — events plus the device/
+    transformer metadata every row needs, in a single pass.
+
+    - ``event_types`` is supplied by the caller; the SERVICE derives it
+      from EventSemantics.is_reportable_alarm (R3-D1), so this layer never
+      re-states which types are alarms.
+    - INNER JOIN devices: only resolved events can be alarms (EVT-D6);
+      quarantined unattributed rows cannot appear.
+    - Scope is ROLE-3 device set ∩ asset-scope selection, both ANDed here
+      (R3-D7) — identical mechanics to installed_rtls_report_rows.
+    - Ordered ``event_ts DESC, event_id DESC`` (R3-D4 / INGEST-D4
+      tiebreak). One row per persisted qualifying event (R3-D3); no
+      collapsing, no dedup.
+    """
+    if not event_types:
+        return []
+
+    params: dict = {"event_types": list(event_types), "since": since}
+
+    asset_sql = ""
+    if device_id is not None:
+        asset_sql += " AND d.device_id = :device_id"
+        params["device_id"] = device_id
+    if transformer_id is not None:
+        asset_sql += " AND d.transformer_id = :transformer_id"
+        params["transformer_id"] = transformer_id
+    if plant_id is not None:
+        asset_sql += " AND t.plant_id = :plant_id"
+        params["plant_id"] = plant_id
+
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    params.update(scope_params)
+
+    statement = _scoped(
+        text(
+            f"""
+            SELECT e.event_id, e.event_type, e.event_ts,
+                   e.transformer_id, t_evt.transformer_code,
+                   t_cur.transformer_code,
+                   d.device_code, d.firmware_version,
+                   e.temperature, e.battery_voltage
+            FROM {_SCHEMA}.device_events e
+            JOIN {_SCHEMA}.devices d
+              ON d.device_id = e.device_id
+            JOIN {_SCHEMA}.transformers t_cur
+              ON t_cur.transformer_id = d.transformer_id
+            LEFT JOIN {_SCHEMA}.transformers t_evt
+              ON t_evt.transformer_id = e.transformer_id
+            WHERE e.event_type IN :event_types
+              AND e.event_ts >= :since{asset_sql}{scope_sql}
+            ORDER BY e.event_ts DESC, e.event_id DESC
+            """
+        ).bindparams(bindparam("event_types", expanding=True, type_=String)),
+        allowed_device_ids,
+    )
+
+    with session_scope() as session:
+        rows = session.execute(statement, params).all()
+
+    return [
+        RtlAlarms30dRecord(
+            event_id=r[0],
+            event_type=r[1],
+            alarm_at=r[2],
+            event_transformer_id=r[3],
+            event_transformer_code=r[4],
+            current_transformer_code=r[5],
+            device_code=r[6],
+            firmware_version=r[7],
+            temperature=float(r[8]) if r[8] is not None else None,
+            battery_voltage=float(r[9]) if r[9] is not None else None,
+        )
+        for r in rows
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Reading queries
 # ---------------------------------------------------------------------------

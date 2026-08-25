@@ -21,6 +21,7 @@ from services.report_service import (
     InstalledRtlsRow,
     ReportError,
     installed_rtls_rows,
+    rtl_alarms_30d_rows,
 )
 
 logger = logging.getLogger(__name__)
@@ -166,6 +167,22 @@ def _build_definition_status(report_key: str) -> html.Div:
             ],
         )
 
+    if report.key == "rtl_alarms_30d":
+        # REPORT-3: alarm rows come from persisted application events.
+        # Same honesty convention as REPORT-2 — no file-generation claims.
+        return html.Div(
+            className="status-panel status-panel--inactive",
+            children=[
+                html.P(html.Strong("Alarm data is sourced from persisted device events. ")),
+                html.P(
+                    "The report covers the last 30 days (fixed by the report "
+                    "definition). OU, Zone, Sector, CNC and Feeder are "
+                    "unavailable until the client asset-hierarchy mapping is "
+                    "confirmed; they are shown as placeholders."
+                ),
+            ],
+        )
+
     return html.Div(
         className="status-panel status-panel--inactive",
         children=[
@@ -257,6 +274,90 @@ def _build_installed_rtls_report(
         children=[
             html.H4(f"Installed RTLs — {len(rows)} device(s)"),
             _build_installed_rtls_table(rows),
+        ],
+    )
+
+
+def _build_rtl_alarms_table(rows: list[RtlAlarms30dRow]) -> html.Div:
+    """Render RTL Alarms (30 Days) as the real data table (REPORT-3).
+
+    Presentation-only mapping: None taxonomy fields become "—" (R2-D2);
+    battery/temperature render "—" when the device did not send a value
+    (EVT-D4 — display payload, never a classification input). Alarm labels
+    arrive already resolved through the shared semantics layer.
+    """
+    decimals = get_metric("temperature").precision
+    data = [
+        {
+            "ou": row.ou or "—",
+            "zone": row.zone or "—",
+            "sector": row.sector or "—",
+            "cnc": row.cnc or "—",
+            "feeder": row.feeder_name or "—",
+            "transformer": row.transformer or "—",
+            "uid": row.uid or "—",
+            "battery_voltage": (
+                f"{row.battery_voltage:.2f}"
+                if row.battery_voltage is not None else "—"
+            ),
+            "alarm_at": row.alarm_at.strftime("%Y-%m-%d %H:%M UTC"),
+            "temperature": (
+                f"{row.temperature:.{decimals}f}"
+                if row.temperature is not None else "—"
+            ),
+            "alarm_label": row.alarm_label,
+            "firmware_version": row.firmware_version or "—",
+        }
+        for row in rows
+    ]
+    columns = [
+        {"name": name, "id": cid}
+        for cid, name in [
+            ("ou", "OU"),
+            ("zone", "Zone"),
+            ("sector", "Sector"),
+            ("cnc", "CNC"),
+            ("feeder", "Feeder"),
+            ("transformer", "Transformer"),
+            ("uid", "UID"),
+            ("battery_voltage", "Battery(V)"),
+            ("alarm_at", "Alarm Date & Time"),
+            ("temperature", "Temperature (°C)"),
+            ("alarm_label", "Alarm"),
+            ("firmware_version", "Firmware"),
+        ]
+    ]
+    return entity_table("rtl-alarms-30d-report-table", columns, data)
+
+
+def _build_rtl_alarms_report(
+    asset_scope: str, plant_id, transformer_id, device_id, device_scope: DeviceScope
+) -> html.Div:
+    """Gather → service → format for RTL Alarms (30 Days). A zero-row
+    result is a legitimate empty report, not an error (R3-D8)."""
+    try:
+        rows = rtl_alarms_30d_rows(
+            plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
+            transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
+            device_id=device_id if asset_scope == "device" else None,
+            device_scope=device_scope,
+        )
+    except ReportError:
+        return html.Div(
+            className="status-panel status-panel--inactive",
+            children=[
+                html.H4("Report unavailable"),
+                html.P(
+                    "The RTL Alarms (30 Days) report could not be loaded. "
+                    "Please try again."
+                ),
+            ],
+        )
+
+    return html.Div(
+        children=[
+            html.H4(f"RTL Alarms (30 Days) — {len(rows)} alarm event(s)"),
+            _build_rtl_alarms_table(rows),
         ],
     )
 
@@ -478,10 +579,19 @@ def register(app) -> None:
         report = get_report(report_key)
         report_label = report.label if report else "Unknown"
 
-        # REPORT-2: Installed RTLs is the first data-backed report. The
-        # other two keep their explicit prototype panels (R2-D5).
+        # REPORT-2: Installed RTLs is the first data-backed report.
+        # REPORT-3: RTL Alarms (30 Days) is the second — real event rows,
+        # still no file generation (R3-D8). Everything else keeps its
+        # explicit prototype panels (R2-D5).
         if report and report.key == "installed_rtls":
             result = _build_installed_rtls_report(
+                asset_scope, plant_id, transformer_id, device_id,
+                scope_from_session(auth_data),
+            )
+            return {"display": "block"}, result
+
+        if report and report.key == "rtl_alarms_30d":
+            result = _build_rtl_alarms_report(
                 asset_scope, plant_id, transformer_id, device_id,
                 scope_from_session(auth_data),
             )

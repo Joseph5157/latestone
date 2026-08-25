@@ -149,6 +149,32 @@ def _category_label(category_key: str) -> str:
     return category.label
 
 
+def alarm_label_for_event_type(event_type: str) -> str:
+    """The report-facing alarm label for one event type (R3-D5).
+
+    Single-sourced through the same semantics → category mapping as
+    notifications, so report code never spells out "Battery Alarm" etc.
+    itself. Raises for non-alarm types — callers must have filtered via
+    ``is_reportable_alarm`` first.
+    """
+    semantics = semantics_for(event_type)
+    if (
+        not semantics.is_reportable_alarm
+        or semantics.notification_category_key is None
+    ):
+        raise ValueError(f"{event_type!r} is not a reportable alarm type.")
+    return _category_label(semantics.notification_category_key)
+
+
+def reportable_alarm_event_types() -> tuple[str, ...]:
+    """Exactly the types the REP-01 alarm report includes (R3-D1)."""
+    return tuple(
+        event_type
+        for event_type, semantics in _SEMANTICS.items()
+        if semantics.is_reportable_alarm
+    )
+
+
 def build_event_notifications(
     events,
     *,
@@ -327,8 +353,10 @@ __all__ = [
     "NOTIFICATION_QUERY_LIMIT",
     "UNREGISTERED_NOTIFICATION_TYPE",
     "alarm_event_projections",
+    "alarm_label_for_event_type",
     "build_event_notifications",
     "mapped_event_types",
     "notification_backed_event_types",
+    "reportable_alarm_event_types",
     "semantics_for",
 ]

@@ -256,10 +256,16 @@ class TestBuildPreview:
 
 class TestBuildDefinitionStatus:
     def test_status_for_valid_report(self):
+        """REPORT-3: rtl_alarms_30d is now data-backed, so its honesty
+        notice states the real source instead of 'mapping incomplete'."""
         status = _build_definition_status("rtl_alarms_30d")
         text = str(status)
-        assert "Report definition confirmed" in text
-        assert "Production data mapping incomplete" in text
+        assert "persisted device events" in text
+        assert "last 30 days" in text
+
+    def test_status_for_installed_rtls_is_data_backed(self):
+        status = _build_definition_status("installed_rtls")
+        assert "current application database" in str(status)
 
     def test_status_for_unknown_returns_empty(self):
         status = _build_definition_status("nonexistent")
