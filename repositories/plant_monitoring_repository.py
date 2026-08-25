@@ -699,6 +699,128 @@ def latest_metric_readings(
     return [_to_device_metric_reading(r) for r in rows]
 
 
+@dataclass(frozen=True)
+class InstalledRtlsRecord:
+    """One registered RTL's row for the Installed RTLs report (REPORT-2).
+
+    `last_recorded_at`/`last_temperature` are nullable: a device that has
+    never reported stays in the report with NULLs rather than silently
+    disappearing — a never-reporting RTL is arguably the most operationally
+    interesting row an inventory report can show.
+    """
+
+    plant_id: str
+    transformer_id: str
+    transformer_code: str
+    device_id: str
+    device_code: str
+    status: str
+    last_recorded_at: datetime | None
+    last_temperature: float | None
+
+
+def _to_installed_rtls_record(row) -> InstalledRtlsRecord:
+    return InstalledRtlsRecord(
+        plant_id=row[0],
+        transformer_id=row[1],
+        transformer_code=row[2],
+        device_id=row[3],
+        device_code=row[4],
+        status=row[5],
+        last_recorded_at=row[6],
+        last_temperature=float(row[7]) if row[7] is not None else None,
+    )
+
+
+def installed_rtls_report_rows(
+    *,
+    temperature_metric: str,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+    device_id: str | None = None,
+    allowed_device_ids: frozenset[str] | None,
+) -> list[InstalledRtlsRecord]:
+    """Every registered device in scope, for the Installed RTLs report.
+
+    DELIBERATELY NO STATUS FILTER (R2-D3). The client's report carries an
+    "RTL Status" column, so filtering administrative inactive devices out at
+    query time would redefine "Installed RTLs" as "Active RTLs" and hollow
+    out that column. This is also the one place the codebase treats
+    administrative `devices.status` as report *output* rather than a
+    population filter; if the client later confirms installed means active,
+    that business rule gets applied here, explicitly.
+
+    Two independent LATERAL seeks against `ix_readings_device_metric_ts`,
+    the same bounded-seek shape as `latest_reading_times`:
+
+    - latest_any   — newest reading of ANY metric. R2-D1 development
+      semantic: "Timestamp of Last Recorded Data" means general device
+      communication freshness, pending client confirmation.
+    - latest_temp  — newest temperature value only.
+
+    They are not required to agree; an RTL whose temperature channel lags
+    its other metrics shows two different timestamps by design.
+
+    `temperature_metric` is passed in rather than read from config so this
+    layer stays free of presentation concerns, exactly as in
+    `latest_reading_times`.
+
+    Scope is the intersection of the caller's ROLE-3 device set and the
+    report's asset-scope selection, both ANDed here — never resolved in two
+    different places. Zero readings keep the row (LEFT JOIN, not INNER).
+    """
+    params: dict = {"temp_metric": temperature_metric}
+
+    asset_sql = ""
+    if device_id is not None:
+        asset_sql += " AND d.device_id = :device_id"
+        params["device_id"] = device_id
+    if transformer_id is not None:
+        asset_sql += " AND d.transformer_id = :transformer_id"
+        params["transformer_id"] = transformer_id
+    if plant_id is not None:
+        asset_sql += " AND t.plant_id = :plant_id"
+        params["plant_id"] = plant_id
+
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    params.update(scope_params)
+
+    statement = _scoped(
+        text(
+            f"""
+            SELECT t.plant_id, d.transformer_id, t.transformer_code,
+                   d.device_id, d.device_code, d.status,
+                   latest_any.reading_ts, latest_temp.value
+            FROM {_SCHEMA}.devices d
+            JOIN {_SCHEMA}.transformers t
+              ON t.transformer_id = d.transformer_id
+            LEFT JOIN LATERAL (
+                SELECT rr.reading_ts
+                FROM {_SCHEMA}.readings rr
+                WHERE rr.device_id = d.device_id
+                ORDER BY rr.reading_ts DESC
+                LIMIT 1
+            ) latest_any ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT rr.value
+                FROM {_SCHEMA}.readings rr
+                WHERE rr.device_id = d.device_id AND rr.metric = :temp_metric
+                ORDER BY rr.reading_ts DESC
+                LIMIT 1
+            ) latest_temp ON TRUE
+            WHERE TRUE{asset_sql}{scope_sql}
+            ORDER BY t.transformer_code, d.device_code
+            """
+        ),
+        allowed_device_ids,
+    )
+
+    with session_scope() as session:
+        rows = session.execute(statement, params).all()
+
+    return [_to_installed_rtls_record(r) for r in rows]
+
+
 # ---------------------------------------------------------------------------
 # Reading queries
 # ---------------------------------------------------------------------------

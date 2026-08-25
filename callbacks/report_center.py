@@ -12,9 +12,16 @@ from datetime import datetime, timedelta, timezone
 
 from dash import Input, Output, State, no_update, html
 
+from config.metrics import get_metric
 from config.reports import get_report, REPORTS
+from components.entity_table import entity_table
 from services import hierarchy_service
 from services.device_scope import DeviceScope, scope_from_session
+from services.report_service import (
+    InstalledRtlsRow,
+    ReportError,
+    installed_rtls_rows,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +150,22 @@ def _build_definition_status(report_key: str) -> html.Div:
     if not report:
         return html.Div(style={"display": "none"})
 
+    if report.key == "installed_rtls":
+        # REPORT-2: this report is data-backed. The honesty notice now
+        # states what is real and what is still missing, rather than a
+        # blanket "no backend yet".
+        return html.Div(
+            className="status-panel status-panel--inactive",
+            children=[
+                html.P(html.Strong("Installed RTL data is sourced from the current application database. ")),
+                html.P(
+                    "OU, Zone, Sector, CNC and Feeder Name are unavailable "
+                    "until the client asset-hierarchy mapping is confirmed. "
+                    "They are shown as placeholders in the generated report."
+                ),
+            ],
+        )
+
     return html.Div(
         className="status-panel status-panel--inactive",
         children=[
@@ -154,6 +177,86 @@ def _build_definition_status(report_key: str) -> html.Div:
                 "The columns above reflect the client-confirmed report layout. "
                 "Actual data availability depends on the backend report service."
             ),
+        ],
+    )
+
+
+def _build_installed_rtls_table(rows: list[InstalledRtlsRow]) -> html.Div:
+    """Render Installed RTLs as the real data table (REPORT-2).
+
+    Presentation-only mapping from domain rows to table cells:
+    R2-D2 — a None taxonomy field becomes "—"; the service layer never
+    emits placeholder text, so a future exporter can still tell
+    "unmapped" apart from report data. Timestamps and temperatures keep
+    their raw typed values in `InstalledRtlsRow` and are formatted here.
+    """
+    decimals = get_metric("temperature").precision
+    data = [
+        {
+            "ou": row.ou or "—",
+            "zone": row.zone or "—",
+            "sector": row.sector or "—",
+            "cnc": row.cnc or "—",
+            "feeder_name": row.feeder_name or "—",
+            "transformer": row.transformer,
+            "uid": row.uid,
+            "last_recorded_at": (
+                row.last_recorded_at.strftime("%Y-%m-%d %H:%M UTC")
+                if row.last_recorded_at else "—"
+            ),
+            "last_temperature": (
+                f"{row.last_temperature:.{decimals}f}"
+                if row.last_temperature is not None else "—"
+            ),
+            "rtl_status": row.rtl_status,
+        }
+        for row in rows
+    ]
+    columns = [
+        {"name": name, "id": cid}
+        for cid, name in [
+            ("ou", "OU"),
+            ("zone", "Zone"),
+            ("sector", "Sector"),
+            ("cnc", "CNC"),
+            ("feeder_name", "Feeder Name"),
+            ("transformer", "Transformer"),
+            ("uid", "UID"),
+            ("last_recorded_at", "Timestamp of Last Recorded Data"),
+            ("last_temperature", "Last Recorded Temperature (°C)"),
+            ("rtl_status", "RTL Status"),
+        ]
+    ]
+    return entity_table("installed-rtls-report-table", columns, data)
+
+
+def _build_installed_rtls_report(
+    asset_scope: str, plant_id, transformer_id, device_id, device_scope: DeviceScope
+) -> html.Div:
+    """Gather → service → format. Errors surface as friendly panels."""
+    try:
+        rows = installed_rtls_rows(
+            plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
+            transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
+            device_id=device_id if asset_scope == "device" else None,
+            device_scope=device_scope,
+        )
+    except ReportError:
+        return html.Div(
+            className="status-panel status-panel--inactive",
+            children=[
+                html.H4("Report unavailable"),
+                html.P(
+                    "The Installed RTLs report could not be loaded. "
+                    "Please try again."
+                ),
+            ],
+        )
+
+    return html.Div(
+        children=[
+            html.H4(f"Installed RTLs — {len(rows)} device(s)"),
+            _build_installed_rtls_table(rows),
         ],
     )
 
@@ -374,6 +477,15 @@ def register(app) -> None:
 
         report = get_report(report_key)
         report_label = report.label if report else "Unknown"
+
+        # REPORT-2: Installed RTLs is the first data-backed report. The
+        # other two keep their explicit prototype panels (R2-D5).
+        if report and report.key == "installed_rtls":
+            result = _build_installed_rtls_report(
+                asset_scope, plant_id, transformer_id, device_id,
+                scope_from_session(auth_data),
+            )
+            return {"display": "block"}, result
 
         # Build scope description
         scope_desc = _scope_label(
