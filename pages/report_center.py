@@ -1,8 +1,10 @@
 """Report Center page — layout only, no queries.
 
-Frontend shell for report generation and history. Report types are confirmed
-by the RTL Functional Specification (§11). Report generation, formats,
-scheduling, and delivery remain prototype-only.
+Frontend shell for report generation, CSV export (development default),
+and history. Report types are confirmed by the RTL Functional
+Specification (§11). The client-approved production report format and
+delivery channel remain unresolved (REQ-1A §16); Installed RTLs and RTL
+Alarms (30 Days) are data-backed, Maximum Temperature stays prototype.
 """
 from __future__ import annotations
 
@@ -26,14 +28,19 @@ def layout() -> html.Div:
                 "Generate and view monitoring reports.",
                 className="page__subtitle",
             ),
-            # Prototype notice
+            # Honesty notice — replaces the former blanket prototype banner:
+            # two reports are data-backed and downloadable as development-
+            # default CSV; the client-approved production format is pending.
             html.Div(
                 className="status-panel status-panel--inactive",
                 children=[
-                    html.Strong("Prototype. "),
+                    html.Strong("Export format note. "),
                     html.Span(
-                        "Report generation is not connected to a production "
-                        "reporting service. No files are produced or delivered."
+                        "CSV is the current development export format; "
+                        "the client-approved production format is still "
+                        "pending. No files are emailed or delivered "
+                        "elsewhere. Maximum Temperature remains a "
+                        "prototype until its reporting period is confirmed."
                     ),
                 ],
             ),
@@ -201,16 +208,30 @@ def layout() -> html.Div:
                                     ),
                                 ],
                             ),
-                            # Generate Button
+                            # Actions: preview (Generate) and export (Download
+                            # CSV) are deliberately separate actions (R4-D2).
                             html.Div(
                                 className="report-form__actions",
                                 children=[
                                     html.Button(
-                                        "Generate (Prototype)",
+                                        "Generate Preview",
                                         id="report-generate-btn",
                                         n_clicks=0,
                                         disabled=True,
                                         className="report-form__btn report-form__btn--primary",
+                                    ),
+                                    html.Button(
+                                        "Download CSV",
+                                        id="report-download-btn",
+                                        n_clicks=0,
+                                        disabled=True,
+                                        className="report-form__btn",
+                                    ),
+                                    dcc.Download(id="report-download"),
+                                    html.Div(
+                                        id="report-export-status",
+                                        style={"display": "none",
+                                               "marginTop": "4px"},
                                     ),
                                 ],
                             ),

@@ -10,13 +10,23 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from dash import Input, Output, State, no_update, html
+from dash import Input, Output, State, dcc, no_update, html
 
 from config.metrics import get_metric
 from config.reports import get_report, REPORTS
 from components.entity_table import entity_table
 from services import hierarchy_service
+from services.action_guard import require_action
+from services.auth_service import from_session
+from services.authorization import AuthorizationError, EXPORT_DATA
 from services.device_scope import DeviceScope, scope_from_session
+from services.report_export import (
+    EXPORT_FORMAT_LABEL,
+    EXPORTABLE_REPORTS,
+    installed_rtls_document,
+    render_export,
+    rtl_alarms_document,
+)
 from services.report_service import (
     InstalledRtlsRow,
     ReportError,
@@ -632,3 +642,111 @@ def register(app) -> None:
         )
 
         return {"display": "block"}, result
+
+    # ---- CSV export (REPORT-4) — separate action from Generate (R4-D2) ----
+
+    def _gather_export_rows(report_key, asset_scope, plant_id, transformer_id,
+                            device_id, device_scope):
+        """Rebuild the report through the SAME service functions and
+        parameters the preview uses (R4-D7) — the exporter never invents
+        query semantics of its own."""
+        if report_key == "installed_rtls":
+            return installed_rtls_rows(
+                plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
+                transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
+                device_id=device_id if asset_scope == "device" else None,
+                device_scope=device_scope,
+            )
+        if report_key == "rtl_alarms_30d":
+            return rtl_alarms_30d_rows(
+                plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
+                transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
+                device_id=device_id if asset_scope == "device" else None,
+                device_scope=device_scope,
+            )
+        raise ReportError(f"{report_key!r} is not an exportable report.")
+
+    @app.callback(
+        Output("report-download-btn", "disabled"),
+        Input("report-type", "value"),
+        prevent_initial_call=True,
+    )
+    def toggle_download_button(report_key):
+        """Download exists only for data-backed reports (R4-D9): REP-03
+        never exposes one."""
+        return report_key not in EXPORTABLE_REPORTS
+
+    @app.callback(
+        Output("report-download", "data"),
+        Output("report-export-status", "children"),
+        Output("report-export-status", "style"),
+        Input("report-download-btn", "n_clicks"),
+        State("report-type", "value"),
+        State("report-asset-scope", "value"),
+        State("report-plant", "value"),
+        State("report-transformer", "value"),
+        State("report-device", "value"),
+        State("auth-store", "data"),
+        prevent_initial_call=True,
+    )
+    def download_report_csv(
+        n_clicks, report_key, asset_scope, plant_id, transformer_id,
+        device_id, auth_data,
+    ):
+        if not n_clicks or not report_key:
+            return no_update, no_update, no_update
+
+        # R4-D3: the established guard, before any rows are fetched.
+        user = from_session(auth_data)
+        try:
+            require_action(user, EXPORT_DATA)
+        except AuthorizationError:
+            logger.warning(
+                "Refused export attempt for %r by %r",
+                report_key, getattr(user, "username", None),
+            )
+            return (
+                no_update,
+                html.Div(className="status-panel status-panel--inactive",
+                         children="You are not permitted to export reports."),
+                {"display": "block"},
+            )
+
+        try:
+            scope = scope_from_session(auth_data)
+            rows = _gather_export_rows(
+                report_key, asset_scope, plant_id, transformer_id,
+                device_id, scope,
+            )
+            now = datetime.now(timezone.utc)
+            scope_desc = _scope_label(
+                asset_scope, plant_id, transformer_id, device_id,
+                device_scope=scope,
+            )
+            if report_key == "installed_rtls":
+                document = installed_rtls_document(rows, scope_label=scope_desc, now=now)
+            elif report_key == "rtl_alarms_30d":
+                document = rtl_alarms_document(rows, scope_label=scope_desc, now=now)
+            else:
+                raise ReportError(f"{report_key!r} is not an exportable report.")
+
+            content, mime, filename = render_export(report_key, document)
+        except ReportError:
+            logger.exception("Failed to build %s export", report_key)
+            return (
+                no_update,
+                html.Div(className="status-panel status-panel--inactive",
+                         children="The export could not be generated. Please try again."),
+                {"display": "block"},
+            )
+
+        status = html.Div(
+            className="status-panel status-panel--inactive",
+            children=[
+                html.P(html.Strong(f"Exported {len(document.rows)} row(s). ")),
+                html.P(EXPORT_FORMAT_LABEL),
+            ],
+        )
+        return dcc.send_bytes(content.encode("utf-8"), filename), status, {
+            "display": "block",
+        }
