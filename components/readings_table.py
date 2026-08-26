@@ -40,17 +40,25 @@ def readings_table(table_id: str = "readings-table", metric: MetricConfig | None
                 data=[],
                 page_size=15,
                 style_as_list_view=True,
+                # ENT-6B: aligned with entity_table's shared cell treatment.
+                # No font-family/font-size here — the vendor stylesheet sets
+                # neither, so cells inherit the body's Inter at page size
+                # exactly as entity tables do; declaring it inline was drift.
                 style_cell={
-                    "fontFamily": "Inter, system-ui, sans-serif",
-                    "fontSize": "13px",
-                    "padding": "8px 12px",
+                    "padding": "11px 12px",
                     "textAlign": "left",
                 },
+                # Same header and zebra values as entity_table so both table
+                # families read as one system. Header rule colour uses the
+                # border token rather than a second literal grey.
                 style_header={
-                    "backgroundColor": "#f3f4f6",
+                    "backgroundColor": "#f9fafb",
                     "fontWeight": "600",
-                    "borderBottom": "1px solid #d1d5db",
+                    "borderBottom": "1px solid var(--color-border)",
                 },
+                style_data_conditional=[
+                    {"if": {"row_index": "odd"}, "backgroundColor": "#f9fafb"},
+                ],
             )
         ],
     )

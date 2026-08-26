@@ -88,7 +88,9 @@ def entity_table(
         [
             {
                 "if": {"column_id": link_column_id},
-                "color": "#2563eb",
+                # Token, not a hex literal: this is --color-accent, and an
+                # accent change must not leave this link blue behind.
+                "color": "var(--color-accent)",
                 "textDecoration": "underline",
                 "cursor": "pointer",
                 # The identity column wraps instead of truncating. Every other
