@@ -111,7 +111,7 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        self._call(ADMINISTRATOR_SESSION)
+        result, msisdn_error = self._call(ADMINISTRATOR_SESSION)
 
         assert spy.calls == [
             {
@@ -120,6 +120,7 @@ class TestProgramRtl:
                 "actor_user_id": ADMINISTRATOR_SESSION["user_id"],
             }
         ], "the request must be recorded against the acting session's identity"
+        assert msisdn_error == ""
 
     def test_general_is_refused_and_never_reaches_the_service(self, monkeypatch):
         spy = _ProgrammingSpy()
@@ -127,7 +128,8 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        assert _is_refusal(self._call(GENERAL_SESSION))
+        result, _ = self._call(GENERAL_SESSION)
+        assert _is_refusal(result)
         assert spy.calls == []
 
     @pytest.mark.parametrize("session", [STALE_SESSION, None], ids=["stale", "no-session"])
@@ -137,18 +139,22 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        assert _is_refusal(self._call(session))
+        result, _ = self._call(session)
+        assert _is_refusal(result)
         assert spy.calls == []
 
     def test_the_refusal_names_no_policy_detail(self):
         """The panel states the outcome. It does not echo the role, the
         action or the device id back at the operator."""
         handler = _handlers(device_manage)["confirm_program_rtl"]
-        text = _rendered_text(handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", GENERAL_SESSION))
+        result, _ = handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", GENERAL_SESSION)
+        text = _rendered_text(result)
         assert "general" not in text.lower()
         assert DEVICE_ID not in text
 
     def test_service_failure_shows_friendly_panel_not_a_crash(self, monkeypatch):
+        """ENT-5: the safe service message lands in the MSISDN field slot;
+        the callback invents no validation policy of its own."""
         def explode(**kwargs):
             raise device_manage.rtl_programming_service.ProgrammingError("boom")
 
@@ -156,11 +162,10 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", explode
         )
 
-        result = self._call(ADMINISTRATOR_SESSION)
+        result, msisdn_error = self._call(ADMINISTRATOR_SESSION)
 
         assert not _is_refusal(result)
-        rendered = _rendered_text(result).lower()
-        assert "not recorded" in rendered
+        assert msisdn_error == "boom"
 
     def test_confirmation_states_persistence_without_claiming_transport(
         self, monkeypatch
@@ -172,7 +177,8 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION)).lower()
+        result, _ = self._call(ADMINISTRATOR_SESSION)
+        rendered = _rendered_text(result).lower()
 
         assert "programming request recorded" in rendered
         assert "no command has yet been sent to the rtl master" in rendered
@@ -259,6 +265,19 @@ class TestMessageForwarding:
 
         assert "delivery integration is not yet connected" in rendered
         assert "will now be forwarded" not in rendered
+
+    @pytest.mark.parametrize("state", ["enabled", "disabled"], ids=["enable", "disable"])
+    def test_confirmation_states_the_per_user_scope(self, monkeypatch, state):
+        """ENT-5 (FWD-D1): the control lives inside a device drawer but the
+        stored preference is per-account — the copy must make that
+        impossible to misread."""
+        spy = _ForwardingSpy()
+        monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
+
+        rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION, state=state)).lower()
+
+        assert "for your account" in rendered
+        assert "not specifically to this rtl" in rendered
 
 
 # --------------------------------------------------------------------------
@@ -364,23 +383,44 @@ class TestDeactivateRtl:
 
 
 class TestConfirmAssignment:
-    def _call(self, session, technician=None, transformer_id="t9"):
-        handler = _handlers(device_assign)["confirm_assignment"]
-        return handler(1, DEVICE_ID, "p1", transformer_id, technician, session)
+    """ENT-5 outcome grammar: one visible result per confirm, drawer stays
+    open, authorize-before-write, and no asset-assignment mock anywhere."""
 
-    def test_general_is_refused_and_assigns_nothing(self, monkeypatch):
+    def _call(self, session, technician=None):
+        """Runs confirm_assignment and returns its result panel (the
+        secondary-button label is dropped)."""
+        handler = _handlers(device_assign)["confirm_assignment"]
+        result, _close_label = handler(1, DEVICE_ID, technician, session)
+        return result
+
+    def test_administrator_assigns_and_success_is_rendered(self, monkeypatch):
         calls = []
         monkeypatch.setattr(
             device_assign.prototype_assignments,
             "assign_technician",
             lambda *a, **k: calls.append(a),
         )
-        device_assign.clear_mock_assignments()
 
-        self._call(GENERAL_SESSION, technician="someone")
+        result = self._call(ADMINISTRATOR_SESSION, technician="someone")
 
-        assert calls == []
-        assert device_assign.get_mock_assignment(DEVICE_ID) is None
+        assert len(calls) == 1
+        assert calls[0][0] == DEVICE_ID
+        rendered = _rendered_text(result).lower()
+        assert "assignment saved" in rendered
+        assert "someone" in rendered
+
+    def test_general_is_refused_shows_notice_and_assigns_nothing(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            device_assign.prototype_assignments,
+            "assign_technician",
+            lambda *a, **k: calls.append(a),
+        )
+
+        result = self._call(GENERAL_SESSION, technician="someone")
+
+        assert calls == [], "a refusal must perform zero writes"
+        assert _is_refusal(result)
 
     def test_technician_may_not_manage_assignment(self, monkeypatch):
         """Assignment is administrator-only even for a technician who holds
@@ -398,40 +438,84 @@ class TestConfirmAssignment:
         from services.device_scope import DeviceScope
 
         monkeypatch.setattr(guard, "scope_for", lambda user: DeviceScope(frozenset({DEVICE_ID})))
-        device_assign.clear_mock_assignments()
 
-        self._call(TECHNICIAN_SESSION, technician="someone")
+        result = self._call(TECHNICIAN_SESSION, technician="someone")
 
-        assert calls == []
-        assert device_assign.get_mock_assignment(DEVICE_ID) is None
+        assert calls == [], "a refusal must perform zero writes"
+        assert _is_refusal(result)
 
-    def test_administrator_still_assigns(self, monkeypatch):
+    def test_no_session_is_refused_shows_notice_and_assigns_nothing(self, monkeypatch):
         calls = []
         monkeypatch.setattr(
             device_assign.prototype_assignments,
             "assign_technician",
             lambda *a, **k: calls.append(a),
         )
-        device_assign.clear_mock_assignments()
 
-        self._call(ADMINISTRATOR_SESSION, technician="someone")
+        result = self._call(None, technician="someone")
 
-        assert calls, "the administrator's assignment did not go through"
-        assert device_assign.get_mock_assignment(DEVICE_ID) == "t9"
+        assert calls == []
+        assert _is_refusal(result)
 
-    def test_no_session_assigns_nothing(self, monkeypatch):
-        calls = []
+    def test_persistence_failure_cannot_render_success(self, monkeypatch):
+        """ENT-5 verification: a database failure renders a failure panel,
+        never a success presentation."""
+        def explode(*a, **k):
+            raise ValueError("not a technician")
+
         monkeypatch.setattr(
             device_assign.prototype_assignments,
             "assign_technician",
-            lambda *a, **k: calls.append(a),
+            explode,
         )
-        device_assign.clear_mock_assignments()
 
-        self._call(None, technician="someone")
+        result = self._call(ADMINISTRATOR_SESSION, technician="ghost")
 
-        assert calls == []
-        assert device_assign.get_mock_assignment(DEVICE_ID) is None
+        rendered = _rendered_text(result).lower()
+        assert "assignment saved" not in rendered
+        assert "not saved" in rendered
+
+    def test_clearing_the_assignment_is_rendered_as_saved(self, monkeypatch):
+        monkeypatch.setattr(
+            device_assign.prototype_assignments,
+            "get_assigned_technician",
+            lambda device_id: "bob",
+        )
+        unassign_calls = []
+        monkeypatch.setattr(
+            device_assign.prototype_assignments,
+            "unassign_technician",
+            lambda *a, **k: unassign_calls.append(a),
+        )
+
+        result = self._call(ADMINISTRATOR_SESSION, technician=None)
+
+        assert len(unassign_calls) == 1
+        assert "assignment saved" in _rendered_text(result).lower()
+
+    def test_no_selection_and_no_existing_assignment_changes_nothing(self, monkeypatch):
+        writes = []
+
+        monkeypatch.setattr(
+            device_assign.prototype_assignments,
+            "assign_technician",
+            lambda *a, **k: writes.append(("assign", a)),
+        )
+        monkeypatch.setattr(
+            device_assign.prototype_assignments,
+            "unassign_technician",
+            lambda *a, **k: writes.append(("unassign", a)),
+        )
+        monkeypatch.setattr(
+            device_assign.prototype_assignments,
+            "get_assigned_technician",
+            lambda device_id: None,
+        )
+
+        result = self._call(ADMINISTRATOR_SESSION, technician=None)
+
+        assert writes == []
+        assert "nothing to save" in _rendered_text(result).lower()
 
 
 # --------------------------------------------------------------------------

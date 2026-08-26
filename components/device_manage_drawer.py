@@ -21,6 +21,7 @@ MANAGE_BACK_BTN = "manage-back-btn"
 PROGRAM_RTL_UID_ID = "program-rtl-uid"
 PROGRAM_RTL_TRANSFORMER_ID = "program-rtl-transformer"
 PROGRAM_RTL_MSISDN_ID = "program-rtl-msisdn"
+PROGRAM_RTL_MSISDN_ERROR_ID = "program-rtl-msisdn-error"
 PROGRAM_RTL_CONFIRM_BTN = "program-rtl-confirm-btn"
 PROGRAM_RTL_RESULT_ID = "program-rtl-result"
 
@@ -35,13 +36,13 @@ DEACTIVATE_RESULT_ID = "deactivate-result"
 
 
 def device_manage_drawer() -> html.Div:
-    """Hidden modal/drawer with three device management prototype actions.
+    """Hidden modal/drawer with three device management actions.
 
     Layout:
-    - Device info header (read-only)
+    - Header (eyebrow / title / description) with accessible close button
     - Action selector: Program RTL | Message Forwarding | Deactivate RTL
-    - Action-specific content panels
-    - Prototype notice
+    - Action-specific content panels, each ending in a result slot
+    - Honesty notices per action
     - Back / Close buttons
     """
     return html.Div(
@@ -60,12 +61,27 @@ def device_manage_drawer() -> html.Div:
                     html.Div(
                         className="manage-drawer__header",
                         children=[
-                            html.H2("Device Management"),
+                            html.Div(
+                                children=[
+                                    html.Div(
+                                        "Device Management",
+                                        className="manage-drawer__eyebrow",
+                                    ),
+                                    html.H2("Manage RTL"),
+                                    html.P(
+                                        "Programming, forwarding and "
+                                        "active-list actions for this RTL.",
+                                        className="manage-drawer__description",
+                                    ),
+                                ],
+                            ),
                             html.Button(
                                 "\u00d7",
                                 id=MANAGE_CLOSE_BTN,
                                 className="manage-drawer__close",
                                 n_clicks=0,
+                                title="Close device management",
+                                **{"aria-label": "Close device management"},
                             ),
                         ],
                     ),
@@ -123,7 +139,10 @@ def device_manage_drawer() -> html.Div:
                                 n_clicks=0,
                             ),
                             html.P(
-                                "Enable or disable startup/check-in message forwarding.",
+                                "Enable or disable startup/check-in message "
+                                "forwarding for your account. This preference "
+                                "applies to your account, not specifically to "
+                                "this RTL.",
                                 className="manage-drawer__menu-desc",
                             ),
                             html.Button(
@@ -197,6 +216,10 @@ def device_manage_drawer() -> html.Div:
                                                 placeholder="Enter the RTL Master MSISDN",
                                                 className="manage-drawer__input",
                                             ),
+                                            html.P(
+                                                id=PROGRAM_RTL_MSISDN_ERROR_ID,
+                                                className="manage-drawer__field-error",
+                                            ),
                                         ],
                                     ),
                                 ],
@@ -242,7 +265,9 @@ def device_manage_drawer() -> html.Div:
                             html.H3("Message Forwarding"),
                             html.P(
                                 "Enable or disable forwarding of startup/check-in "
-                                "messages to the installation phone number.",
+                                "messages to the installation phone number. This "
+                                "preference applies to your account, not "
+                                "specifically to this RTL.",
                                 className="manage-drawer__section-desc",
                             ),
                             html.Div(
@@ -269,7 +294,9 @@ def device_manage_drawer() -> html.Div:
                                 children=[
                                     html.Strong("Preference is stored for your account. "),
                                     html.Span(
-                                        "Message delivery integration and the "
+                                        "This applies to your account, not "
+                                        "specifically to this RTL. Message "
+                                        "delivery integration and the "
                                         "documented 18:30 automatic disable are "
                                         "not yet connected."
                                     ),

@@ -3574,3 +3574,345 @@ body {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ==========================================================================
+   ENT-5 Operational Workflow Consistency
+   Adds the previously missing .manage-drawer styles (the Device Management
+   drawer rendered as an unstyled inline block before this section) and the
+   few assign-drawer rules its markup referenced but the stylesheet never
+   defined. Existing class families are kept as-is; structural CSS
+   consolidation remains ENT-6 territory.
+   ========================================================================== */
+
+.manage-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.manage-drawer__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.manage-drawer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 100%;
+  height: 100%;
+  background: var(--color-surface);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  overflow-y: auto;
+  padding: var(--sp-6);
+}
+
+.manage-drawer__header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+}
+
+.manage-drawer__header h2 {
+  font-size: var(--fs-section);
+  margin: 2px 0;
+}
+
+.manage-drawer__eyebrow,
+.assign-drawer__eyebrow {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.085em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.manage-drawer__description,
+.assign-drawer__description {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.manage-drawer__close,
+.assign-drawer__close {
+  align-items: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 24px;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+  width: 34px;
+}
+
+.manage-drawer__close:hover,
+.assign-drawer__close:hover {
+  color: var(--color-text);
+}
+
+.manage-drawer__device-info,
+.assign-drawer__device-info {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-4);
+}
+
+.manage-drawer__row,
+.assign-drawer__row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--sp-2) 0;
+}
+
+.manage-drawer__label,
+.assign-drawer__label {
+  color: var(--color-muted);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.manage-drawer__value,
+.assign-drawer__value {
+  color: var(--color-text);
+  font-size: var(--fs-body);
+}
+
+.manage-drawer__divider,
+.assign-drawer__divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--sp-4) 0;
+}
+
+/* Action menu */
+.manage-drawer__menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.manage-drawer__menu h3 {
+  font-size: var(--fs-section);
+  margin: 0 0 var(--sp-2);
+}
+
+.manage-drawer__menu-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  padding: var(--sp-3) var(--sp-4);
+  text-align: left;
+}
+
+.manage-drawer__menu-btn:hover {
+  border-color: var(--color-accent);
+}
+
+.manage-drawer__menu-btn:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.manage-drawer__menu-btn--danger {
+  color: var(--state-error-text);
+}
+
+.manage-drawer__menu-btn--danger:hover {
+  border-color: var(--state-error-text);
+}
+
+.manage-drawer__menu-desc {
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+  margin: 0 0 var(--sp-2);
+}
+
+/* Action panels */
+.manage-drawer__action-panel {
+  margin-top: var(--sp-4);
+}
+
+.manage-drawer__action-panel h3 {
+  font-size: var(--fs-section);
+  margin: 0 0 var(--sp-2);
+}
+
+.manage-drawer__section-desc,
+.assign-drawer__section-desc {
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+  margin: 0 0 var(--sp-4);
+}
+
+.assign-drawer__section-title {
+  font-size: var(--fs-section);
+  margin: 0 0 var(--sp-1);
+}
+
+.manage-drawer__fields {
+  margin: var(--sp-4) 0;
+}
+
+.manage-drawer__field,
+.assign-drawer__field {
+  margin-bottom: var(--sp-4);
+}
+
+.manage-drawer__field-label,
+.assign-drawer__field-label {
+  color: var(--color-text);
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  margin-bottom: var(--sp-1);
+}
+
+.manage-drawer__input {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: var(--fs-body);
+  min-height: 38px;
+  padding: var(--sp-2) var(--sp-3);
+  width: 100%;
+}
+
+.manage-drawer__input:focus {
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.manage-drawer__input[readonly] {
+  background: var(--color-bg);
+  color: var(--color-muted);
+}
+
+.manage-drawer__field-error {
+  color: var(--state-error-text);
+  font-size: var(--fs-meta);
+  margin: var(--sp-1) 0 0;
+  min-height: 1em;
+}
+
+.assign-drawer__empty-state {
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+  font-style: italic;
+  margin: var(--sp-2) 0 0;
+}
+
+.manage-drawer__confirm-box {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-brand);
+  border-radius: 4px;
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-4);
+}
+
+.manage-drawer__confirm-box p {
+  font-size: var(--fs-body);
+  line-height: 1.45;
+  margin: 0 0 var(--sp-2);
+}
+
+.manage-drawer__confirm-box p:last-child {
+  margin-bottom: 0;
+}
+
+/* Footer actions and result slot */
+.manage-drawer__actions,
+.assign-drawer__actions {
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+}
+
+.manage-drawer__btn,
+.assign-drawer__btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-4);
+}
+
+.manage-drawer__btn:focus-visible,
+.assign-drawer__btn:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.manage-drawer__btn--primary,
+.assign-drawer__btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #ffffff;
+}
+
+.manage-drawer__btn--primary:hover,
+.assign-drawer__btn--primary:hover {
+  opacity: 0.9;
+}
+
+.manage-drawer__btn--danger {
+  background: var(--state-error-text);
+  border-color: var(--state-error-text);
+  color: #ffffff;
+}
+
+.manage-drawer__btn--danger:hover {
+  opacity: 0.9;
+}
+
+/* Narrow viewports (390px-class devices): the panel becomes full-width and
+   the action buttons wrap onto their own full-width rows. */
+@media (max-width: 480px) {
+  .assign-drawer__panel,
+  .manage-drawer__panel {
+    padding: var(--sp-4);
+    width: 100%;
+  }
+
+  .assign-drawer__actions,
+  .manage-drawer__actions {
+    flex-wrap: wrap-reverse;
+  }
+
+  .assign-drawer__btn,
+  .manage-drawer__btn {
+    flex: 1 1 140px;
+  }
+}

@@ -16,6 +16,7 @@ USER_STATUS_ID = "user-form-status"
 USER_CONFIRM_BTN = "user-form-confirm-btn"
 USER_CANCEL_BTN = "user-form-cancel-btn"
 USER_DISMISS_BTN = "user-form-dismiss-btn"
+USER_RESULT_ID = "user-form-result"
 
 
 def user_form_drawer() -> html.Div:
@@ -174,6 +175,9 @@ def user_form_drawer() -> html.Div:
                             ),
                         ],
                     ),
+                    # Result slot — refusals render here so a failed save
+                    # is never a silent no-op; the drawer stays open.
+                    html.Div(id=USER_RESULT_ID),
                     # Actions
                     html.Div(
                         className="user-form-drawer__actions",

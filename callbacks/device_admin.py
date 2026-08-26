@@ -80,13 +80,6 @@ def device_row_target(active_cell) -> str | None:
     return device_href(device_id)
 
 
-def _is_view_action(active_cell) -> bool:
-    """True if the clicked action is View."""
-    if not active_cell or active_cell.get("column_id") != "actions":
-        return False
-    return True  # handled by specific callback dispatch
-
-
 def register(app) -> None:
     """Register device administration callbacks on the Dash app."""
 

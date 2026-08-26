@@ -35,6 +35,7 @@ from components.device_manage_drawer import (
     PROGRAM_RTL_UID_ID,
     PROGRAM_RTL_TRANSFORMER_ID,
     PROGRAM_RTL_MSISDN_ID,
+    PROGRAM_RTL_MSISDN_ERROR_ID,
     PROGRAM_RTL_CONFIRM_BTN,
     PROGRAM_RTL_RESULT_ID,
     MSG_FWD_TOGGLE_ID,
@@ -174,6 +175,7 @@ def register(app) -> None:
     # --- Program RTL confirm ---
     @app.callback(
         Output(PROGRAM_RTL_RESULT_ID, "children"),
+        Output(PROGRAM_RTL_MSISDN_ERROR_ID, "children"),
         Input(PROGRAM_RTL_CONFIRM_BTN, "n_clicks"),
         State(MANAGE_DEVICE_ID, "data"),
         State(PROGRAM_RTL_UID_ID, "value"),
@@ -189,9 +191,13 @@ def register(app) -> None:
         validates the operator-supplied Master MSISDN (PROG-D1) and stores
         request + audit atomically. There is no prototype fallback: a
         failure renders a friendly panel and nothing was recorded.
+
+        Validation presentation only: the service remains the sole authority
+        for the MSISDN rules; this callback maps its safe ProgrammingError
+        text into the inline field slot and invents no policy of its own.
         """
         if not n_clicks:
-            return no_update
+            return no_update, no_update
 
         user = from_session(auth_data)
 
@@ -200,7 +206,7 @@ def register(app) -> None:
         try:
             require_action(user, PROGRAM_RTL, device_id=device_id)
         except AuthorizationError:
-            return action_refused_notice()
+            return action_refused_notice(), no_update
 
         try:
             record = rtl_programming_service.record_request(
@@ -209,13 +215,11 @@ def register(app) -> None:
                 actor_user_id=user.user_id,
             )
         except rtl_programming_service.ProgrammingError as exc:
-            return html.Div(
-                className="status-panel status-panel--inactive",
-                children=[
-                    html.Strong("Not recorded. "),
-                    html.Span(str(exc)),
-                ],
+            logger.info(
+                "Programming request not recorded for device %s: %s",
+                device_id, exc,
             )
+            return "", str(exc)
 
         logger.info(
             "Programming request %s recorded for device %s",
@@ -234,7 +238,7 @@ def register(app) -> None:
                     "the physical RTL is not confirmed programmed."
                 ),
             ],
-        )
+        ), ""
 
     # --- Message Forwarding confirm ---
     @app.callback(
@@ -285,11 +289,16 @@ def register(app) -> None:
 
         if forwarding_state == "enabled":
             detail = (
-                "Message forwarding enabled for your account. "
-                "Delivery integration is not yet connected."
+                "Message forwarding enabled for your account. This "
+                "preference applies to your account, not specifically to "
+                "this RTL. Delivery integration is not yet connected."
             )
         else:
-            detail = "Message forwarding disabled for your account."
+            detail = (
+                "Message forwarding disabled for your account. This "
+                "preference applies to your account, not specifically to "
+                "this RTL."
+            )
 
         logger.info(
             "Message forwarding preference saved (requested=%s)", forwarding_state

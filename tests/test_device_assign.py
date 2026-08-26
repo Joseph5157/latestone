@@ -1,4 +1,4 @@
-﻿"""Tests for device assignment drawer â€” layout, mock adapter, cascade logic, technician assignment.
+﻿"""Tests for the device assignment drawer — layout, technician assignment.
 
 All tests exercise pure logic (no Dash runtime, no database).
 """
@@ -7,11 +7,8 @@ from __future__ import annotations
 import pytest
 
 from callbacks.device_assign import (
-    _plant_options,
-    _transformer_options,
-    get_mock_assignment,
-    clear_mock_assignments,
-    _mock_assignments,
+    assign_drawer_open_state,
+    find_device_row,
 )
 from components.assign_device_drawer import assign_device_drawer
 from services.prototype_users import (
@@ -88,20 +85,32 @@ class TestAssignDrawerLayout:
         assert "assign-drawer-current-transformer" in str(drawer)
         assert "assign-drawer-current-plant" in str(drawer)
 
-    def test_layout_has_plant_dropdown(self):
-        drawer = assign_device_drawer()
-        ids = _collect_ids(drawer)
-        assert "assign-plant" in ids
-
-    def test_layout_has_transformer_dropdown(self):
-        drawer = assign_device_drawer()
-        ids = _collect_ids(drawer)
-        assert "assign-transformer" in ids
-
     def test_layout_has_technician_dropdown(self):
         drawer = assign_device_drawer()
         ids = _collect_ids(drawer)
         assert "assign-technician" in ids
+
+    def test_asset_assignment_controls_are_gone(self):
+        """ENT-5 D1/D2: the mock asset-assignment section never changed the
+        real hierarchy, so its controls must not exist any more."""
+        drawer = assign_device_drawer()
+        ids = _collect_ids(drawer)
+        assert "assign-plant" not in ids
+        assert "assign-transformer" not in ids
+        assert "Asset Assignment" not in str(drawer)
+
+    def test_layout_has_footer_cancel_button(self):
+        drawer = assign_device_drawer()
+        ids = _collect_ids(drawer)
+        assert "assign-close-btn" in ids
+
+    def test_confirm_button_has_no_prototype_suffix(self):
+        """ENT-5 D4: truthfulness lives in the boundary notice, not the
+        action label."""
+        drawer = assign_device_drawer()
+        text = str(drawer)
+        assert "Confirm Assignment" in text
+        assert "(Prototype)" not in text
 
     def test_layout_has_confirm_button(self):
         drawer = assign_device_drawer()
@@ -118,15 +127,14 @@ class TestAssignDrawerLayout:
         ids = _collect_ids(drawer)
         assert "assign-device-hidden-id" in ids
 
-    def test_layout_has_prototype_notice(self):
+    def test_layout_has_boundary_notice(self):
+        """ENT-5: the notice discloses what is and is not connected —
+        technician assignment persists; identity system and hierarchy do
+        not change."""
         drawer = assign_device_drawer()
         text = str(drawer)
-        assert "Prototype" in text or "prototype" in text
-
-    def test_layout_has_asset_assignment_section(self):
-        drawer = assign_device_drawer()
-        text = str(drawer)
-        assert "Asset Assignment" in text
+        assert "Assignment is stored and audited" in text
+        assert "No identity-system or hierarchy change" in text
 
     def test_layout_has_technician_assignment_section(self):
         drawer = assign_device_drawer()
@@ -138,37 +146,22 @@ class TestAssignDrawerLayout:
         ids = _collect_ids(drawer)
         assert "assign-technician-empty" in ids
 
+    def test_layout_has_header_grammar(self):
+        """ENT-5: eyebrow / title / description header, shared with the
+        other operational drawers."""
+        drawer = assign_device_drawer()
+        text = str(drawer)
+        assert "assign-drawer__eyebrow" in text
+        assert "Assign Device" in text
+        assert "assign-drawer__description" in text
 
-# ---------------------------------------------------------------------------
-# Mock adapter â€” asset assignment
-# ---------------------------------------------------------------------------
+    def test_layout_has_result_slot(self):
+        """ENT-5 D3: every confirm renders its outcome into a result slot."""
+        drawer = assign_device_drawer()
+        ids = _collect_ids(drawer)
+        assert "assign-result" in ids
+        assert "assign-close-btn" in ids
 
-class TestMockAssignment:
-    def setup_method(self):
-        clear_mock_assignments()
-
-    def test_no_assignment_returns_none(self):
-        assert get_mock_assignment("device-1") is None
-
-    def test_set_and_get_assignment(self):
-        _mock_assignments["device-1"] = "tx-new"
-        assert get_mock_assignment("device-1") == "tx-new"
-
-    def test_clear_assignments(self):
-        _mock_assignments["device-1"] = "tx-new"
-        clear_mock_assignments()
-        assert get_mock_assignment("device-1") is None
-
-    def test_multiple_devices(self):
-        _mock_assignments["d1"] = "tx-1"
-        _mock_assignments["d2"] = "tx-2"
-        assert get_mock_assignment("d1") == "tx-1"
-        assert get_mock_assignment("d2") == "tx-2"
-
-
-# ---------------------------------------------------------------------------
-# Persistent technician assignment (DB-3)
-# ---------------------------------------------------------------------------
 
 class TestTechnicianAssignmentPersistence:
     # assign_technician()/unassign_technician()/etc are database-backed
@@ -257,10 +250,17 @@ class TestTechnicianAssignmentPersistence:
         assert get_assigned_technician("device-1") is None
 
     def test_device_to_transformer_relationship_is_unchanged(self):
-        # Technician assignment must never touch the asset-assignment mock.
-        clear_mock_assignments()
+        # Technician assignment must never move the device in the hierarchy:
+        # devices.transformer_id keeps its seeded value after an assignment.
         assign_technician("device-1", "bob", actor_user_id=self.admin_id)
-        assert get_mock_assignment("device-1") is None
+        with session_scope() as session:
+            row = session.execute(
+                text(
+                    f"SELECT transformer_id FROM {repo._SCHEMA}.devices "
+                    "WHERE device_id = 'device-1'"
+                )
+            ).scalar()
+        assert row == "test-p1-t1"
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +281,6 @@ class TestTechnicianOptions:
             session.execute(text(f"DELETE FROM {repo._SCHEMA}.audit_log"))
         clear_all_assignments()
         clear_all_users()
-        clear_mock_assignments()
         self.admin_id = repo.create_or_update_user(
             username="assign-admin",
             full_name="assign-admin",

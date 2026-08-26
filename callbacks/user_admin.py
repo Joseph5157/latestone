@@ -10,9 +10,11 @@ import logging
 
 from dash import Input, Output, State, no_update, html
 
+from components.status_panels import action_refused_notice
 from components.user_form_drawer import (
     USER_DRAWER_ID,
     USER_HIDDEN_ID,
+    USER_RESULT_ID,
     USER_USERNAME_ID,
     USER_IDENTIFIER_ID,
     USER_ROLE_ID,
@@ -174,7 +176,7 @@ def register(app) -> None:
                 "",  # empty identifier
                 "general",  # default role
                 "active",  # default status
-                "Add User (Prototype)",
+                "Add User",
             )
 
         if trigger_id == "user-admin-table" and active_cell and active_cell.get("column_id") == "actions":
@@ -200,7 +202,7 @@ def register(app) -> None:
                 user.get("identifier", ""),
                 user.get("role", "general"),  # existing role or default
                 user.get("status", "active"),
-                "Save Changes (Prototype)",
+                "Save Changes",
             )
 
         return (no_update,) * 8
@@ -218,6 +220,7 @@ def register(app) -> None:
 
     @app.callback(
         Output("user-form-username-error", "children"),
+        Output(USER_RESULT_ID, "children"),
         Output(USER_DRAWER_ID, "style", allow_duplicate=True),
         Output(USER_HIDDEN_ID, "data", allow_duplicate=True),
         Input(USER_CONFIRM_BTN, "n_clicks"),
@@ -234,20 +237,20 @@ def register(app) -> None:
 
         AUD-1 strict-actor rule: without a valid authenticated session there
         is no one to attribute the change to, so the operation fails closed
-        and nothing is written (the drawer stays open).
+        and nothing is written (the drawer stays open). ENT-5: that refusal
+        is rendered in the drawer's result slot rather than being silent.
         """
         if not n_clicks:
-            return no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update
 
-        user = from_session(auth_data)
-        if user is None:
+        if from_session(auth_data) is None:
             logger.warning("User save refused: no valid session.")
-            return no_update, no_update, no_update
+            return no_update, action_refused_notice(), no_update, no_update
 
         errors = _validate_user_form(username)
         if errors:
             # Show error, keep drawer open
-            return errors.get("username", ""), no_update, no_update
+            return errors.get("username", ""), "", no_update, no_update
 
         username = username.strip()
         identifier = identifier.strip() if identifier else ""
@@ -266,4 +269,4 @@ def register(app) -> None:
         logger.info("Audited user %s: %s (role=%s)", "updated" if existing_username else "added", username, role)
 
         # Close drawer
-        return "", {"display": "none"}, username
+        return "", "", {"display": "none"}, username

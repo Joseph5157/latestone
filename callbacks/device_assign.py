@@ -1,14 +1,18 @@
-"""Device Assignment callbacks — open drawer, cascade, technician selection, mock submit.
-
-Asset (device -> transformer) assignment is frontend-only: the mock adapter
-stores the latest assignment in memory and does not write to any database.
-It is intentionally not persisted — it is redundant with
-devices.transformer_id, which this callback does not touch.
+"""Device Assignment callbacks — open drawer, technician selection, persisted submit.
 
 Technician assignment is persisted (DB-3) via
 services/prototype_assignments.py, backed by
 plant_monitoring.user_device_assignments. Technician *options* come from
 the shared prototype user store, services/prototype_users.py.
+
+There is no asset (device -> transformer) assignment here: moving a device
+between transformers is the registration/hierarchy workflow, and the drawer
+does not offer a control that would imply otherwise (ENT-5 D1/D2).
+
+Outcome grammar (ENT-5): every confirm renders exactly one result into the
+drawer's result slot — success, failure or the shared refusal notice — and
+the drawer stays open so the operator never loses context. Authorization is
+checked before any write; a refusal writes nothing.
 """
 from __future__ import annotations
 
@@ -19,14 +23,15 @@ from dash import Input, Output, State, no_update, html
 from components.assign_device_drawer import (
     ASSIGN_DRAWER_ID,
     ASSIGN_DEVICE_ID,
-    ASSIGN_PLANT_ID,
-    ASSIGN_TRANSFORMER_ID,
+    ASSIGN_RESULT_ID,
     ASSIGN_TECHNICIAN_ID,
     ASSIGN_CONFIRM_BTN,
     ASSIGN_CANCEL_BTN,
+    ASSIGN_CLOSE_BTN,
 )
+from components.status_panels import action_refused_notice
 from routes import parse_assign_request
-from services import device_scope, hierarchy_service, prototype_assignments
+from services import prototype_assignments
 from services.action_guard import require_action
 from services.auth_service import from_session
 from services.authorization import AuthorizationError, MANAGE_ASSIGNMENT
@@ -45,19 +50,6 @@ _NO_TECHNICIANS_STYLE = {
     "fontStyle": "italic",
     "fontSize": "var(--fs-meta)",
 }
-
-# In-memory store for prototype asset assignments: device_id -> transformer_id
-_mock_assignments: dict[str, str] = {}
-
-
-def get_mock_assignment(device_id: str) -> str | None:
-    """Read the mock asset assignment for a device (for testing)."""
-    return _mock_assignments.get(device_id)
-
-
-def clear_mock_assignments() -> None:
-    """Reset the mock asset assignment store (for testing)."""
-    _mock_assignments.clear()
 
 
 def find_device_row(table_data, device_id: str | None) -> dict | None:
@@ -89,6 +81,8 @@ def assign_drawer_open_state(row: dict | None):
 
     Returns None when there is nothing to open — no row, or a row whose
     actions do not include Assign — which each caller turns into `no_update`.
+    Callers append the result-slot clear themselves, so this helper stays
+    purely about opening.
     """
     if not row:
         return None
@@ -118,28 +112,13 @@ def assign_drawer_open_state(row: dict | None):
     )
 
 
-def _plant_options() -> list[dict]:
-    # Administration surface: the device-management population is deliberately
-    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
-    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
-    return [
-        {"label": p.name, "value": p.plant_id}
-        for p in hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
-    ]
-
-
-def _transformer_options(plant_id: str) -> list[dict]:
-    if not plant_id:
-        return []
-    # Administration surface: the device-management population is deliberately
-    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
-    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
-    return [
-        {"label": t.transformer_code, "value": t.transformer_id}
-        for t in hierarchy_service.list_transformers(
-            plant_id, scope=device_scope.UNRESTRICTED
-        )
-    ]
+def _open_outputs(state: dict | None):
+    """The open callbacks' full output tuple: the nine open values, a
+    cleared result slot and the default secondary-button label, so feedback
+    from a previous visit can never bleed into a freshly opened drawer."""
+    if state is None:
+        return (no_update,) * 11
+    return (*state, "", "Cancel")
 
 
 def register(app) -> None:
@@ -155,6 +134,8 @@ def register(app) -> None:
         Output(ASSIGN_TECHNICIAN_ID, "value"),
         Output("assign-technician-empty", "children"),
         Output("assign-technician-empty", "style"),
+        Output(ASSIGN_RESULT_ID, "children"),
+        Output(ASSIGN_CLOSE_BTN, "children"),
         Input("device-admin-table", "active_cell"),
         State("device-admin-table", "data"),
         prevent_initial_call=True,
@@ -162,10 +143,10 @@ def register(app) -> None:
     def open_assign_drawer(active_cell, table_data):
         """Open the assignment drawer when Assign is clicked."""
         if not active_cell or active_cell.get("column_id") != "actions":
-            return (no_update,) * 9
+            return (no_update,) * 11
 
         row = find_device_row(table_data, active_cell.get("row_id"))
-        return assign_drawer_open_state(row) or (no_update,) * 9
+        return _open_outputs(assign_drawer_open_state(row))
 
     @app.callback(
         Output(ASSIGN_DRAWER_ID, "style", allow_duplicate=True),
@@ -177,6 +158,8 @@ def register(app) -> None:
         Output(ASSIGN_TECHNICIAN_ID, "value", allow_duplicate=True),
         Output("assign-technician-empty", "children", allow_duplicate=True),
         Output("assign-technician-empty", "style", allow_duplicate=True),
+        Output(ASSIGN_RESULT_ID, "children", allow_duplicate=True),
+        Output(ASSIGN_CLOSE_BTN, "children", allow_duplicate=True),
         Input("device-admin-table", "data"),
         State("url", "search"),
         prevent_initial_call=True,
@@ -196,111 +179,112 @@ def register(app) -> None:
         nothing.
         """
         row = find_device_row(table_data, parse_assign_request(search))
-        return assign_drawer_open_state(row) or (no_update,) * 9
+        return _open_outputs(assign_drawer_open_state(row))
 
     @app.callback(
         Output(ASSIGN_DRAWER_ID, "style", allow_duplicate=True),
         Input(ASSIGN_CANCEL_BTN, "n_clicks"),
+        Input(ASSIGN_CLOSE_BTN, "n_clicks"),
         Input("assign-drawer-overlay", "n_clicks"),
         prevent_initial_call=True,
     )
-    def close_assign_drawer(cancel_clicks, overlay_clicks):
-        """Close the assignment drawer without making changes."""
+    def close_assign_drawer(cancel_clicks, close_clicks, overlay_clicks):
+        """Close the assignment drawer (×, Cancel/Close button or overlay)."""
         return {"display": "none"}
 
     @app.callback(
-        Output(ASSIGN_TRANSFORMER_ID, "options"),
-        Output(ASSIGN_TRANSFORMER_ID, "disabled"),
-        Input(ASSIGN_PLANT_ID, "value"),
-        prevent_initial_call=True,
-    )
-    def _cascade_transformers(plant_id):
-        """Populate transformer dropdown based on selected plant."""
-        try:
-            options = _transformer_options(plant_id)
-            return options, not options
-        except Exception:
-            logger.exception("Failed to cascade transformers for %r", plant_id)
-            return [], True
-
-    @app.callback(
-        Output(ASSIGN_DRAWER_ID, "style", allow_duplicate=True),
-        Output(ASSIGN_DEVICE_ID, "data", allow_duplicate=True),
+        Output(ASSIGN_RESULT_ID, "children", allow_duplicate=True),
+        Output(ASSIGN_CLOSE_BTN, "children", allow_duplicate=True),
         Input(ASSIGN_CONFIRM_BTN, "n_clicks"),
         State(ASSIGN_DEVICE_ID, "data"),
-        State(ASSIGN_PLANT_ID, "value"),
-        State(ASSIGN_TRANSFORMER_ID, "value"),
         State(ASSIGN_TECHNICIAN_ID, "value"),
         State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_assignment(
-        n_clicks, device_id, plant_id, transformer_id, technician, auth_data
-    ):
-        """Prototype confirm — stores in memory, no database write."""
+    def confirm_assignment(n_clicks, device_id, technician, auth_data):
+        """Persist the technician assignment (DB-3) and render one outcome.
+
+        Managing an assignment is administrator-only, including for a
+        technician who currently holds this device: the assignment is what
+        grants their authority, so being able to edit it would let them
+        widen their own scope. The rule lives in the policy table; this
+        callback only supplies identity, action and target.
+
+        The drawer stays open whatever the outcome: success names what was
+        saved and relabels the secondary action to "Close", failure says
+        nothing was saved, refusal renders the shared notice with zero
+        writes.
+        """
         if not n_clicks or not device_id:
             return no_update, no_update
 
-        # Managing an assignment is administrator-only, including for a
-        # technician who currently holds this device: the assignment is what
-        # grants their authority, so being able to edit it would let them
-        # widen their own scope. The rule lives in the policy table; this
-        # callback only supplies identity, action and target.
         try:
             user = from_session(auth_data)
             require_action(user, MANAGE_ASSIGNMENT, device_id=device_id)
         except AuthorizationError:
-            # Leave the drawer open and change nothing. The operator keeps
-            # their context and no partial assignment is written.
-            return no_update, no_update
+            return action_refused_notice(), no_update
 
-        # Store asset assignment if transformer selected
-        if transformer_id:
-            _mock_assignments[device_id] = transformer_id
-            logger.info(
-                "Prototype asset assignment: device %s -> transformer %s",
-                device_id, transformer_id,
-            )
-
-        # Store technician assignment (persisted, DB-3; audited AUD-1 with
-        # the acting administrator as both assigned_by and audit actor)
-        if technician:
-            try:
+        try:
+            if technician:
                 prototype_assignments.assign_technician(
                     device_id, technician, actor_user_id=user.user_id
+                )
+                detail = (
+                    f"{technician} is assigned to this RTL and recorded as "
+                    "responsible for it."
                 )
                 logger.info(
                     "Technician assignment: device %s -> technician %s",
                     device_id, technician,
                 )
-            except ValueError:
-                logger.exception(
-                    "Failed to assign technician %s to device %s",
-                    technician, device_id,
+            elif prototype_assignments.get_assigned_technician(device_id) is not None:
+                prototype_assignments.unassign_technician(
+                    device_id, actor_user_id=user.user_id
                 )
-        elif prototype_assignments.get_assigned_technician(device_id) is not None:
-            # Clear technician assignment if none selected
-            prototype_assignments.unassign_technician(
-                device_id, actor_user_id=user.user_id
+                detail = "No technician is assigned to this RTL."
+                logger.info("Technician assignment cleared: device %s", device_id)
+            else:
+                # Nothing selected and nothing stored: state the outcome
+                # rather than claiming a save happened.
+                return (
+                    html.Div(
+                        className="status-panel status-panel--inactive",
+                        children=[
+                            html.Strong("Nothing to save. "),
+                            html.Span(
+                                "No technician is assigned to this RTL, so no "
+                                "change was made."
+                            ),
+                        ],
+                    ),
+                    no_update,
+                )
+        except ValueError:
+            logger.exception(
+                "Failed to assign technician %s to device %s",
+                technician, device_id,
             )
-            logger.info(
-                "Technician assignment cleared: device %s",
-                device_id,
+            return (
+                html.Div(
+                    className="status-panel status-panel--inactive",
+                    children=[
+                        html.Strong("Not saved. "),
+                        html.Span(
+                            "The technician assignment could not be stored. "
+                            "Nothing was changed. Please try again."
+                        ),
+                    ],
+                ),
+                "Cancel",
             )
 
-        # Close the drawer
-        return {"display": "none"}, device_id
-
-    @app.callback(
-        Output(ASSIGN_PLANT_ID, "options"),
-        Input(ASSIGN_DRAWER_ID, "style"),
-    )
-    def _populate_plants_on_open(style):
-        """Populate plant dropdown when drawer opens."""
-        if not style or style.get("display") == "none":
-            return no_update
-        try:
-            return _plant_options()
-        except Exception:
-            logger.exception("Failed to populate plant options for assignment")
-            return []
+        return (
+            html.Div(
+                className="status-panel status-panel--success",
+                children=[
+                    html.Strong("Assignment saved. "),
+                    html.Span(detail),
+                ],
+            ),
+            "Close",
+        )

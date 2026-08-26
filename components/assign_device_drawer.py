@@ -1,13 +1,17 @@
-"""Assignment drawer — modal for reassigning a device to a different transformer
-and/or assigning a technician.
+"""Assignment drawer — modal for assigning a technician to an RTL device.
 
-Displayed when the user clicks the "Assign" action in the device admin table.
-This is a prototype component: the assign action uses mock in-memory adapters
-and does not persist to any database.
+Displayed when the user clicks the "Assign" action in the device admin table,
+or opened via an `?assign=` deep link from the Fleet Overview's Unassigned
+RTLs panel.
 
-The drawer has two explicit sections:
-1. Asset Assignment — Plant → Transformer (existing functionality)
-2. Technician Assignment — Assigned Technician (new from Functional Spec)
+Technician assignment is persisted (DB-3) via services/prototype_assignments.py,
+backed by plant_monitoring.user_device_assignments. Technician *options* come
+from the shared prototype user store, services/prototype_users.py.
+
+There is deliberately NO asset (device -> transformer) section: moving a
+device between transformers is the registration/hierarchy workflow, and the
+former mock cascade never wrote to devices.transformer_id — presenting it as
+an assignment implied an operation that does not exist (ENT-5 decision D1).
 """
 from __future__ import annotations
 
@@ -15,21 +19,22 @@ from dash import dcc, html
 
 ASSIGN_DRAWER_ID = "assign-device-drawer"
 ASSIGN_DEVICE_ID = "assign-device-hidden-id"
-ASSIGN_PLANT_ID = "assign-plant"
-ASSIGN_TRANSFORMER_ID = "assign-transformer"
 ASSIGN_TECHNICIAN_ID = "assign-technician"
 ASSIGN_CONFIRM_BTN = "assign-confirm-btn"
 ASSIGN_CANCEL_BTN = "assign-cancel-btn"
+ASSIGN_CLOSE_BTN = "assign-close-btn"
+ASSIGN_RESULT_ID = "assign-result"
 
 
 def assign_device_drawer() -> html.Div:
     """Hidden modal/drawer that opens on assign action.
 
     The drawer contains:
+    - header (eyebrow / title / description) with an accessible close button
     - device info (read-only)
-    - Asset Assignment section: plant dropdown → transformer cascade
     - Technician Assignment section: technician dropdown (from prototype users)
-    - confirm / cancel actions
+    - boundary notice
+    - cancel / confirm actions and a result slot
 
     Options are populated by callback on open; the drawer starts hidden.
     """
@@ -48,12 +53,27 @@ def assign_device_drawer() -> html.Div:
                     html.Div(
                         className="assign-drawer__header",
                         children=[
-                            html.H2("Assign Device"),
+                            html.Div(
+                                children=[
+                                    html.Div(
+                                        "Device Management",
+                                        className="assign-drawer__eyebrow",
+                                    ),
+                                    html.H2("Assign Device"),
+                                    html.P(
+                                        "Assign a technician responsible "
+                                        "for this RTL device.",
+                                        className="assign-drawer__description",
+                                    ),
+                                ],
+                            ),
                             html.Button(
                                 "\u00d7",
                                 id=ASSIGN_CANCEL_BTN,
                                 className="assign-drawer__close",
                                 n_clicks=0,
+                                title="Close assignment form",
+                                **{"aria-label": "Close assignment form"},
                             ),
                         ],
                     ),
@@ -73,67 +93,20 @@ def assign_device_drawer() -> html.Div:
                             html.Div(
                                 className="assign-drawer__row",
                                 children=[
-                                    html.Span("Current Transformer:", className="assign-drawer__label"),
+                                    html.Span("Transformer:", className="assign-drawer__label"),
                                     html.Span(id="assign-drawer-current-transformer", className="assign-drawer__value"),
                                 ],
                             ),
                             html.Div(
                                 className="assign-drawer__row",
                                 children=[
-                                    html.Span("Current Plant:", className="assign-drawer__label"),
+                                    html.Span("Plant:", className="assign-drawer__label"),
                                     html.Span(id="assign-drawer-current-plant", className="assign-drawer__value"),
                                 ],
                             ),
                         ],
                     ),
-                    # Section 1: Asset Assignment
-                    html.Hr(className="assign-drawer__divider"),
-                    html.H3("Asset Assignment", className="assign-drawer__section-title"),
-                    html.P(
-                        "Reassign this device to a different plant/transformer.",
-                        className="assign-drawer__section-desc",
-                    ),
-                    html.Div(
-                        className="assign-drawer__fields",
-                        children=[
-                            html.Div(
-                                className="assign-drawer__field",
-                                children=[
-                                    html.Label(
-                                        "Plant",
-                                        htmlFor=ASSIGN_PLANT_ID,
-                                        className="assign-drawer__field-label",
-                                    ),
-                                    dcc.Dropdown(
-                                        id=ASSIGN_PLANT_ID,
-                                        options=[],
-                                        placeholder="Select plant...",
-                                        searchable=True,
-                                        className="assign-drawer__dropdown",
-                                    ),
-                                ],
-                            ),
-                            html.Div(
-                                className="assign-drawer__field",
-                                children=[
-                                    html.Label(
-                                        "Transformer",
-                                        htmlFor=ASSIGN_TRANSFORMER_ID,
-                                        className="assign-drawer__field-label",
-                                    ),
-                                    dcc.Dropdown(
-                                        id=ASSIGN_TRANSFORMER_ID,
-                                        options=[],
-                                        placeholder="Select transformer...",
-                                        searchable=True,
-                                        disabled=True,
-                                        className="assign-drawer__dropdown",
-                                    ),
-                                ],
-                            ),
-                        ],
-                    ),
-                    # Section 2: Technician Assignment
+                    # Technician Assignment
                     html.Hr(className="assign-drawer__divider"),
                     html.H3("Technician Assignment", className="assign-drawer__section-title"),
                     html.P(
@@ -169,23 +142,36 @@ def assign_device_drawer() -> html.Div:
                             ),
                         ],
                     ),
-                    # Prototype notice
+                    # Boundary notice — technician assignment persists (DB-3);
+                    # the disclosure names what is NOT connected.
                     html.Div(
                         className="status-panel status-panel--inactive",
                         children=[
-                            html.Strong("Prototype. "),
+                            html.Strong("Assignment is stored and audited. "),
                             html.Span(
-                                "This action does not persist to the "
-                                "production database or identity system."
+                                "The technician assignment is saved in this "
+                                "application's database. No identity-system "
+                                "or hierarchy change is made, and no message "
+                                "is sent to the device."
                             ),
                         ],
                     ),
+                    # Result slot — every confirm renders exactly one outcome
+                    # here (success / failure / refusal); the drawer stays
+                    # open so the operator keeps their context.
+                    html.Div(id=ASSIGN_RESULT_ID),
                     # Actions
                     html.Div(
                         className="assign-drawer__actions",
                         children=[
                             html.Button(
-                                "Confirm Assignment (Prototype)",
+                                "Cancel",
+                                id=ASSIGN_CLOSE_BTN,
+                                n_clicks=0,
+                                className="assign-drawer__btn assign-drawer__btn--secondary",
+                            ),
+                            html.Button(
+                                "Confirm Assignment",
                                 id=ASSIGN_CONFIRM_BTN,
                                 n_clicks=0,
                                 className="assign-drawer__btn assign-drawer__btn--primary",
