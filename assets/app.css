@@ -1818,6 +1818,38 @@ body {
   .entity-table-wrapper--responsive td[data-dash-column="notification_type"]::before { content: "Notification"; }
   .entity-table-wrapper--responsive td[data-dash-column="detail"]::before { content: "Detail"; }
 
+  /* Report Center record cards (ENT-6A): the report tables opt into the
+     shared responsive mechanism, so their column ids need labels here like
+     every other opted-in table. */
+  .entity-table-wrapper--responsive td[data-dash-column="ou"]::before { content: "OU"; }
+  .entity-table-wrapper--responsive td[data-dash-column="zone"]::before { content: "Zone"; }
+  .entity-table-wrapper--responsive td[data-dash-column="sector"]::before { content: "Sector"; }
+  .entity-table-wrapper--responsive td[data-dash-column="cnc"]::before { content: "CNC"; }
+  .entity-table-wrapper--responsive td[data-dash-column="feeder"]::before { content: "Feeder"; }
+  .entity-table-wrapper--responsive td[data-dash-column="feeder_name"]::before { content: "Feeder Name"; }
+  .entity-table-wrapper--responsive td[data-dash-column="uid"]::before { content: "UID"; }
+  .entity-table-wrapper--responsive td[data-dash-column="battery_voltage"]::before { content: "Battery (V)"; }
+  .entity-table-wrapper--responsive td[data-dash-column="alarm_at"]::before { content: "Alarm Date & Time"; }
+  .entity-table-wrapper--responsive td[data-dash-column="temperature"]::before { content: "Temperature (\00b0C)"; }
+  .entity-table-wrapper--responsive td[data-dash-column="alarm_label"]::before { content: "Alarm"; }
+  .entity-table-wrapper--responsive td[data-dash-column="firmware_version"]::before { content: "Firmware"; }
+  .entity-table-wrapper--responsive td[data-dash-column="last_recorded_at"]::before { content: "Last Recorded Data"; }
+  .entity-table-wrapper--responsive td[data-dash-column="last_temperature"]::before { content: "Last Temperature (\00b0C)"; }
+  .entity-table-wrapper--responsive td[data-dash-column="rtl_status"]::before { content: "RTL Status"; }
+  #recent-reports-table td[data-dash-column="report"]::before { content: "Report"; }
+  #recent-reports-table td[data-dash-column="scope"]::before { content: "Scope"; }
+  #recent-reports-table td[data-dash-column="requested"]::before { content: "Requested"; }
+
+  /* Long report values stay readable in the two-column card grid by taking
+     the full row width instead of squeezing into a half column. */
+  .entity-table-wrapper--responsive tbody td[data-dash-column="alarm_at"],
+  .entity-table-wrapper--responsive tbody td[data-dash-column="alarm_label"],
+  .entity-table-wrapper--responsive tbody td[data-dash-column="last_recorded_at"],
+  #recent-reports-table tbody td[data-dash-column="report"],
+  #recent-reports-table tbody td[data-dash-column="scope"] {
+    grid-column: 1 / -1;
+  }
+
   .entity-table-wrapper--responsive tbody td[data-dash-column="plant"],
   .entity-table-wrapper--responsive tbody td[data-dash-column="device"],
   .entity-table-wrapper--responsive tbody td[data-dash-column="freshness"],

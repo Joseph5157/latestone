@@ -29,6 +29,7 @@ from services.report_export import (
 )
 from services.report_service import (
     InstalledRtlsRow,
+    RtlAlarms30dRow,
     ReportError,
     installed_rtls_rows,
     rtl_alarms_30d_rows,
@@ -254,7 +255,9 @@ def _build_installed_rtls_table(rows: list[InstalledRtlsRow]) -> html.Div:
             ("rtl_status", "RTL Status"),
         ]
     ]
-    return entity_table("installed-rtls-report-table", columns, data)
+    return entity_table(
+        "installed-rtls-report-table", columns, data, responsive=True
+    )
 
 
 def _build_installed_rtls_report(
@@ -288,6 +291,19 @@ def _build_installed_rtls_report(
     )
 
 
+def _format_alarm_at(value: datetime) -> str:
+    """UTC-normalized "%Y-%m-%d %H:%M UTC" rendering for alarm previews.
+
+    Mirrors report_export._utc so the preview and the CSV export always
+    describe the same instant: timezone-aware values are converted to UTC
+    before formatting; naive values (no tzinfo to convert from) format
+    as-is, exactly as the exporter treats them.
+    """
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc)
+    return value.strftime("%Y-%m-%d %H:%M UTC")
+
+
 def _build_rtl_alarms_table(rows: list[RtlAlarms30dRow]) -> html.Div:
     """Render RTL Alarms (30 Days) as the real data table (REPORT-3).
 
@@ -310,7 +326,7 @@ def _build_rtl_alarms_table(rows: list[RtlAlarms30dRow]) -> html.Div:
                 f"{row.battery_voltage:.2f}"
                 if row.battery_voltage is not None else "—"
             ),
-            "alarm_at": row.alarm_at.strftime("%Y-%m-%d %H:%M UTC"),
+            "alarm_at": _format_alarm_at(row.alarm_at),
             "temperature": (
                 f"{row.temperature:.{decimals}f}"
                 if row.temperature is not None else "—"
@@ -337,7 +353,9 @@ def _build_rtl_alarms_table(rows: list[RtlAlarms30dRow]) -> html.Div:
             ("firmware_version", "Firmware"),
         ]
     ]
-    return entity_table("rtl-alarms-30d-report-table", columns, data)
+    return entity_table(
+        "rtl-alarms-30d-report-table", columns, data, responsive=True
+    )
 
 
 def _build_rtl_alarms_report(

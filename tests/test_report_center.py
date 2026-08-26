@@ -4,6 +4,8 @@ All tests exercise pure logic (no Dash runtime, no database, no reporting servic
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from callbacks.report_center import (
@@ -14,7 +16,11 @@ from callbacks.report_center import (
     _mock_recent_reports,
     _build_preview,
     _build_definition_status,
+    _build_installed_rtls_table,
+    _build_rtl_alarms_table,
+    _format_alarm_at,
 )
+from components.entity_table import entity_table
 from config.reports import (
     REPORTS,
     get_report,
@@ -23,6 +29,7 @@ from config.reports import (
 )
 from pages.report_center import layout
 from services.device_scope import UNRESTRICTED
+from services.report_service import InstalledRtlsRow, RtlAlarms30dRow
 
 
 # ---------------------------------------------------------------------------
@@ -362,6 +369,165 @@ class TestMockRecentReports:
         invented = {"Daily Temperature Summary", "Transformer Load Report", "Energy Consumption Export"}
         for entry in _mock_recent_reports:
             assert entry["report"] not in invented
+
+
+# ---------------------------------------------------------------------------
+# Alarm timestamp UTC normalization (ENT-6A)
+# ---------------------------------------------------------------------------
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+class TestAlarmTimestampUtc:
+    """The alarm preview must render the same instant the CSV export does
+    (ISO-8601 UTC): timezone-aware values convert to UTC before formatting."""
+
+    def test_non_utc_timestamp_converts_to_utc(self):
+        # 13:05 IST == 07:35 UTC — the old code formatted "13:05 UTC",
+        # silently relabelling a non-UTC instant.
+        value = datetime(2026, 8, 26, 13, 5, tzinfo=IST)
+        assert _format_alarm_at(value) == "2026-08-26 07:35 UTC"
+
+    def test_already_utc_timestamp_unchanged(self):
+        value = datetime(2026, 8, 26, 7, 45, tzinfo=timezone.utc)
+        assert _format_alarm_at(value) == "2026-08-26 07:45 UTC"
+
+    def test_naive_timestamp_formats_as_is(self):
+        """Mirrors report_export._utc: no tzinfo means nothing to convert."""
+        value = datetime(2026, 8, 26, 7, 45)
+        assert _format_alarm_at(value) == "2026-08-26 07:45 UTC"
+
+    def test_preview_table_row_carries_converted_value(self):
+        row = RtlAlarms30dRow(
+            ou=None, zone=None, sector=None, cnc=None, feeder_name=None,
+            transformer="T1", uid="29017", battery_voltage=3.9,
+            alarm_at=datetime(2026, 8, 26, 13, 5, tzinfo=IST),
+            temperature=61.5, alarm_label="Overtemperature",
+            firmware_version="1.2.3",
+        )
+        text = str(_build_rtl_alarms_table([row]))
+        assert "2026-08-26 07:35 UTC" in text
+        assert "2026-08-26 13:05" not in text
+
+
+def _alarm_row(**overrides) -> RtlAlarms30dRow:
+    defaults = dict(
+        ou=None, zone=None, sector=None, cnc=None, feeder_name=None,
+        transformer="T1", uid="29017", battery_voltage=3.9,
+        alarm_at=datetime(2026, 8, 26, 7, 45, tzinfo=timezone.utc),
+        temperature=61.5, alarm_label="Overtemperature",
+        firmware_version="1.2.3",
+    )
+    defaults.update(overrides)
+    return RtlAlarms30dRow(**defaults)
+
+
+def _installed_row(**overrides) -> InstalledRtlsRow:
+    defaults = dict(
+        ou=None, zone=None, sector=None, cnc=None, feeder_name=None,
+        transformer="T1", uid="29017",
+        last_recorded_at=datetime(2026, 8, 26, 7, 45, tzinfo=timezone.utc),
+        last_temperature=61.5, rtl_status="active",
+    )
+    defaults.update(overrides)
+    return InstalledRtlsRow(**defaults)
+
+
+def _data_tables(component):
+    tables = []
+    stack = [component]
+    while stack:
+        current = stack.pop()
+        if hasattr(current, "__class__") and current.__class__.__name__ == "DataTable":
+            tables.append(current)
+        if hasattr(current, "children") and current.children is not None:
+            children = current.children
+            stack.extend(children if isinstance(children, list) else [children])
+    return tables
+
+
+def _find_wrapper(component, table_id):
+    for table in _data_tables(component):
+        if table.id == table_id:
+            return component
+    raise AssertionError(f"{table_id} not found")
+
+
+class TestReportTableBuildersIntact:
+    """REP-01 / REP-02 presentation stays intact; zero rows stay valid."""
+
+    def test_installed_rtls_table_columns_and_rows(self):
+        wrapper = _build_installed_rtls_table([_installed_row()])
+        (table,) = _data_tables(wrapper)
+        assert [c["name"] for c in table.columns][:2] == ["OU", "Zone"]
+        assert table.data[0]["uid"] == "29017"
+        assert table.data[0]["rtl_status"] == "active"
+
+    def test_rtl_alarms_table_columns_and_rows(self):
+        wrapper = _build_rtl_alarms_table([_alarm_row()])
+        (table,) = _data_tables(wrapper)
+        assert table.columns[8]["name"] == "Alarm Date & Time"
+        assert table.data[0]["alarm_label"] == "Overtemperature"
+
+    def test_none_taxonomy_renders_placeholder_in_table_only(self):
+        wrapper = _build_rtl_alarms_table([_alarm_row()])
+        (table,) = _data_tables(wrapper)
+        assert table.data[0]["ou"] == "\u2014"
+
+    def test_zero_row_rtl_alarms_table_is_valid(self):
+        wrapper = _build_rtl_alarms_table([])
+        (table,) = _data_tables(wrapper)
+        assert table.data == []
+        assert len(table.columns) == 12
+
+    def test_zero_row_installed_rtls_table_is_valid(self):
+        wrapper = _build_installed_rtls_table([])
+        (table,) = _data_tables(wrapper)
+        assert table.data == []
+        assert len(table.columns) == 10
+
+    def test_both_report_tables_opt_into_responsive_presentation(self):
+        assert "entity-table-wrapper--responsive" in str(
+            _build_installed_rtls_table([]).className
+        )
+        assert "entity-table-wrapper--responsive" in str(
+            _build_rtl_alarms_table([]).className
+        )
+
+
+# ---------------------------------------------------------------------------
+# Layout structure — loading affordance + separate actions (ENT-6A)
+# ---------------------------------------------------------------------------
+
+class TestReportLoadingAndActionsLayout:
+    def test_loading_wrappers_present(self):
+        ids = _collect_ids(layout())
+        # dcc.Loading components carry no id themselves; their presence is
+        # asserted via the CSS hook class rendered on the wrapper div.
+        assert str(layout()).count("report-loading") >= 2
+
+    def test_generation_result_id_still_present_inside_loading(self):
+        assert "report-generation-result" in _collect_ids(layout())
+
+    def test_recent_reports_table_responsive(self):
+        text = str(layout())
+        assert "entity-table-wrapper--responsive" in text
+
+    def test_generate_and_download_remain_separate_buttons(self):
+        ids = _collect_ids(layout())
+        assert "report-generate-btn" in ids
+        assert "report-download-btn" in ids
+
+    def test_demo_status_rendered_muted_not_freshness_green(self):
+        tables = [
+            t for t in _data_tables(layout()) if t.id == "recent-reports-table"
+        ]
+        (table,) = tables
+        status_rule = [
+            rule for rule in table.style_data_conditional
+            if rule.get("if", {}).get("column_id") == "status"
+        ]
+        assert any(rule.get("fontStyle") == "italic" for rule in status_rule)
 
 
 # ---------------------------------------------------------------------------

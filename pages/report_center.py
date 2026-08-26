@@ -77,11 +77,16 @@ def layout() -> html.Div:
                                 className="report-form__status",
                                 style={"display": "none"},
                             ),
-                            # Report Layout Preview
-                            html.Div(
-                                id="report-preview",
-                                className="report-preview",
-                                style={"display": "none"},
+                            # Report Layout Preview — wrapped in dcc.Loading so
+                            # preview/result work shows the shared spinner
+                            # affordance while form controls stay usable.
+                            dcc.Loading(
+                                html.Div(
+                                    id="report-preview",
+                                    className="report-preview",
+                                    style={"display": "none"},
+                                ),
+                                className="report-loading",
                             ),
                             # Asset Scope
                             html.Div(
@@ -235,11 +240,15 @@ def layout() -> html.Div:
                                     ),
                                 ],
                             ),
-                            # Generation result
-                            html.Div(
-                                id="report-generation-result",
-                                className="report-generation-result",
-                                style={"display": "none", "marginTop": "16px"},
+                            # Generation result — own loading wrapper so a
+                            # data-backed report fetch never blocks the page.
+                            dcc.Loading(
+                                html.Div(
+                                    id="report-generation-result",
+                                    className="report-generation-result",
+                                    style={"display": "none", "marginTop": "16px"},
+                                ),
+                                className="report-loading",
                             ),
                         ],
                     ),
@@ -262,6 +271,9 @@ def layout() -> html.Div:
                     # Error slot
                     html.Div(id="recent-reports-error", className="listing-error"),
                     # Recent reports table
+                    # Recent reports table — responsive card presentation
+                    # below 768px; "Demo" status renders muted/italic (not
+                    # freshness green) since these are mock entries.
                     entity_table(
                         table_id="recent-reports-table",
                         columns=[
@@ -273,6 +285,14 @@ def layout() -> html.Div:
                         rows=[],
                         link_column_id="report",
                         state_column_id="status",
+                        responsive=True,
+                        extra_style_data_conditional=[
+                            {
+                                "if": {"column_id": "status"},
+                                "color": "var(--color-muted)",
+                                "fontStyle": "italic",
+                            },
+                        ],
                     ),
                 ],
             ),
