@@ -69,7 +69,7 @@ def layout(plant_name: str = "", status: str = "") -> html.Div:
                     html.Div(id="plant-metric-health"),
                 ],
             ),
-            html.H2("Transformers / RTLs", className="detail-inventory__title"),
+            html.H2("Transformer inventory", className="detail-inventory__title"),
             entity_table(
                 table_id="transformers-table",
                 columns=[

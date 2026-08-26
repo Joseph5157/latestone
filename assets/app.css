@@ -1100,10 +1100,24 @@ body {
 
 .unassigned-rtls__cell--uid { font-weight: 600; white-space: nowrap; }
 
-/* Administrative status, in the same muted secondary colour every other
-   non-freshness label uses. Deliberately not a coloured state badge: those
+/* Administrative status, in the same neutral outlined-chip treatment the
+   administrative-axis tables use (ENT-6C): identical tokens, scoped to this
+   panel's plain HTML table. Deliberately not a coloured state badge: those
    are reserved for data freshness, and active/inactive is a different axis. */
-.unassigned-rtls__cell--status { color: var(--color-muted); white-space: nowrap; }
+.unassigned-rtls__cell--status { white-space: nowrap; }
+
+.unassigned-rtls__status {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid #cbd2d9;
+  border-radius: 3px;
+  background: #f8fafc;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
 
 .unassigned-rtls__cell--action {
   padding-right: 0;

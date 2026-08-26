@@ -51,7 +51,7 @@ class TestPlantHierarchy:
         )
         rendered = text_of(layout)
         assert rendered.index("Operational summary") < rendered.index("Metric health")
-        assert rendered.index("Metric health") < rendered.index("Transformers / RTLs")
+        assert rendered.index("Metric health") < rendered.index("Transformer inventory")
 
     def test_inventory_reuses_responsive_distinct_status_axes(self):
         _assert_table_axes(plant_detail.layout("Itaipu"), "transformers-table")

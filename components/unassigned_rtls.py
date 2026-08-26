@@ -94,7 +94,10 @@ def _row(row) -> html.Tr:
             html.Td(row.plant_name, className="unassigned-rtls__cell"),
             html.Td(row.transformer_code, className="unassigned-rtls__cell"),
             html.Td(
-                _status_label(row.status),
+                # Administrative status carries the same neutral outlined-chip
+                # treatment as the administrative-axis tables (ENT-6C). The
+                # label text and its fallback are unchanged.
+                html.Span(_status_label(row.status), className="unassigned-rtls__status"),
                 className="unassigned-rtls__cell unassigned-rtls__cell--status",
             ),
             html.Td(

@@ -10,7 +10,7 @@ import logging
 
 from dash import Input, Output, State, no_update, html
 
-from components.status_panels import action_refused_notice
+from components.status_panels import action_refused_notice, error_panel
 from components.user_form_drawer import (
     USER_DRAWER_ID,
     USER_HIDDEN_ID,
@@ -128,7 +128,11 @@ def register(app) -> None:
 
             active_count = sum(1 for u in users if u.get("status") == "active")
             inactive_count = sum(1 for u in users if u.get("status") != "active")
-            summary = f"{len(users)} user(s) — {active_count} active, {inactive_count} inactive"
+            # Same grammar as Device Management's summary line (ENT-6C):
+            # "N <noun> total — N active, N inactive", pluralised without
+            # the awkward "(s)" form.
+            noun = "user" if len(users) == 1 else "users"
+            summary = f"{len(users)} {noun} total — {active_count} active, {inactive_count} inactive"
 
             columns = [
                 {"name": "User", "id": "username"},
@@ -142,7 +146,7 @@ def register(app) -> None:
 
         except Exception:
             logger.exception("Failed to load user administration data")
-            return [], [], "Error loading users.", ""
+            return [], [], error_panel(), ""
 
     @app.callback(
         Output(USER_DRAWER_ID, "style"),

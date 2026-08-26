@@ -17,6 +17,7 @@ import logging
 
 from dash import Input, Output, State, no_update, html
 
+from components.status_panels import error_panel
 from services import monitoring_service
 from services.auth_service import from_session
 from services.authorization import ADMINISTRATOR
@@ -144,7 +145,7 @@ def register(app) -> None:
 
         except Exception:
             logger.exception("Failed to load notifications")
-            return [], [], "Error loading notifications.", None, {"display": "none"}
+            return [], [], error_panel(), None, {"display": "none"}
 
     @app.callback(
         Output("url", "pathname", allow_duplicate=True),
