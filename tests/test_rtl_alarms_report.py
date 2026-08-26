@@ -111,6 +111,16 @@ class TestHorizon:
 
         assert captured["since"] == NOW - timedelta(days=30)
 
+    def test_default_reference_time_does_not_raise(self, capture_repo):
+        """DEFECT-1 regression: the production path omits ``now``, so the
+        service must resolve UTC itself (``timezone`` was not imported and
+        the call raised NameError)."""
+        captured, _ = capture_repo
+
+        rtl_alarms_30d_rows(device_scope=SCOPE)
+
+        assert captured["since"] < datetime.now(timezone.utc)
+
 
 # ---------------------------------------------------------------------------
 # R3-D5 — column mapping and label resolution
