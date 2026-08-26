@@ -44,6 +44,8 @@ def entity_table(
     administrative_state_column_id: str | None = None,
     responsive: bool = False,
     markdown_link_target: str | None = None,
+    extra_wrapper_class: str | None = None,
+    extra_style_data_conditional: list[dict] | None = None,
 ) -> html.Div:
     """Render a sortable, filterable DataTable.
 
@@ -68,6 +70,11 @@ def entity_table(
     markdown_link_target: optional target for markdown links in this table.
         User Administration uses ``_self`` so its Edit affordance activates
         the existing cell callback without spawning a duplicate browser tab.
+    extra_wrapper_class: optional additional modifier class on the wrapper,
+        for table-scoped CSS (e.g. a column-level chip treatment).
+    extra_style_data_conditional: optional per-row/cell style overrides
+        appended after the built-in rules (e.g. rendering specific rows'
+        link column as non-clickable plain text).
     """
     # Derived from the column spec rather than a per-page list: 900 < 1,000 <
     # 12,000 only reads correctly right-aligned, and the columns that need it
@@ -102,6 +109,8 @@ def entity_table(
         wrapper_classes.append("entity-table-wrapper--freshness-axis")
     if administrative_state_column_id:
         wrapper_classes.append("entity-table-wrapper--administrative-axis")
+    if extra_wrapper_class:
+        wrapper_classes.append(extra_wrapper_class)
 
     return html.Div(
         className=" ".join(wrapper_classes),
@@ -143,6 +152,7 @@ def entity_table(
                     {"if": {"row_index": "odd"}, "backgroundColor": "#f9fafb"},
                     *(freshness_style_rules(state_column_id)
                       if state_column_id else []),
+                    *(extra_style_data_conditional or []),
                 ],
                 style_cell_conditional=style_cell_conditional,
             )

@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from config.notifications import CATEGORIES, derivable_categories
+from config.notifications import CATEGORIES, all_categories, derivable_categories
 from services.monitoring_service import Freshness, evaluate_freshness
 from routes import device_href
 
@@ -148,6 +148,11 @@ def current_notifications(
     ``include_unregistered`` is the admin-only gate for quarantined
     invalid_uid rows (EVT-D5): an unregistered UID belongs to no device
     scope, so technicians and general users never receive those rows.
+
+    Operator-facing order (ENT-4): this function is the SINGLE ordering
+    authority — newest event first, stable key ascending as tiebreak. The
+    individual builders keep their own deterministic internal order, but
+    only the merged result here defines what the operator scans.
     """
     reference = now or datetime.now(timezone.utc)
     notifications = build_current_notifications(reading_rows, reference)
@@ -173,12 +178,54 @@ def current_notifications(
     notifications.extend(
         build_event_notifications(events, include_unregistered=include_unregistered)
     )
-    return notifications
+    return newest_first(notifications)
+
+
+def newest_first(rows: list[NotificationRow]) -> list[NotificationRow]:
+    """The one operator-facing order: occurred_at DESC, stable key ASC.
+
+    A 20-minute-old battery event outranks a 3-day-old no-data row — row
+    position answers "what happened most recently". The key tiebreak keeps
+    the order deterministic across refreshes when two rows share a
+    timestamp. Rows without a timestamp (none exist today) sort last rather
+    than crashing the sort.
+    """
+    return sorted(
+        rows,
+        key=lambda n: (
+            n.occurred_at is None,                       # undated last
+            -(n.occurred_at.timestamp()) if n.occurred_at else 0.0,
+            n.key,
+        ),
+    )
 
 
 def notification_summary(notifications: list[NotificationRow]) -> dict:
-    """Build summary statistics for the Notification Center."""
+    """Build summary statistics for the Notification Center.
+
+    ``by_type`` counts by category label; rendering order is the caller's
+    concern (the callback walks the configured category order so the summary
+    can never imply priority by count).
+    """
+    by_type: dict[str, int] = {}
+    for n in notifications:
+        by_type[n.notification_type] = by_type.get(n.notification_type, 0) + 1
     return {
         "total": len(notifications),
-        "by_type": {},  # Future: group by notification_type if needed
+        "by_type": by_type,
     }
+
+
+def summary_category_order() -> tuple[str, ...]:
+    """Labels in configured category order, unregistered UID appended.
+
+    The summary walks THIS order so it can never imply priority by count
+    (ENT-4 gate decision): the sequence is the spec-frozen category order
+    from config, and the admin-only quarantine surface reads last when
+    present.
+    """
+    from services.event_semantics import UNREGISTERED_NOTIFICATION_TYPE
+
+    return tuple(c.label for c in all_categories()) + (
+        UNREGISTERED_NOTIFICATION_TYPE,
+    )

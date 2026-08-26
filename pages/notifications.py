@@ -1,8 +1,9 @@
 """Notification Center page — layout only, no queries.
 
-Frontend shell for notification center. Notification categories are confirmed
-by the RTL Functional Specification (§3, §11). Notification generation,
-delivery, and persistence remain prototype-only.
+Notification categories are confirmed by the RTL Functional Specification
+(§3, §11). Notification display is implemented (BR008 derivation plus
+persisted device events); external delivery such as SMS/email is NOT
+connected — the banner below states exactly that distinction, no more.
 """
 from __future__ import annotations
 
@@ -12,6 +13,19 @@ from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.entity_table import entity_table
 from config.notifications import all_categories
+
+#: Per-row override: an unregistered UID has no device route, so its entity
+#: cell must not borrow the clickable link styling (ENT-4 gate decision).
+_UNREGISTERED_PLAIN_TEXT_STYLE = {
+    "if": {
+        "filter_query": '{entity_type} eq "Unregistered UID"',
+        "column_id": "entity_label",
+    },
+    "color": "inherit",
+    "textDecoration": "none",
+    "cursor": "default",
+    "whiteSpace": "nowrap",
+}
 
 
 def layout() -> html.Div:
@@ -26,15 +40,16 @@ def layout() -> html.Div:
                 "Monitor formal business notifications and data freshness status.",
                 className="page__subtitle",
             ),
-            # Prototype notice
+            # Honesty banner. The distinction is display vs delivery: the rows
+            # in this table are real (BR008 + persisted device events), but
+            # nothing is sent anywhere.
             html.Div(
                 className="status-panel status-panel--inactive",
                 children=[
                     html.Strong("Prototype. "),
                     html.Span(
-                        "Notification categories are confirmed by the Functional "
-                        "Specification. Actual notification generation and delivery "
-                        "require backend integration."
+                        "Notification display is implemented; external "
+                        "delivery such as SMS/email is not connected."
                     ),
                 ],
             ),
@@ -42,14 +57,18 @@ def layout() -> html.Div:
             html.Section(
                 className="notification-section",
                 children=[
+                    html.Div(
+                        className="device-section__eyebrow",
+                        children="Notifications",
+                    ),
                     html.H2("Formal Notifications"),
                     html.P(
-                        "Business notification rules confirmed by the RTL Functional "
-                        "Specification (BR008). These are derived from current frontend "
-                        "data where available.",
+                        "Current notifications derived from latest-reading "
+                        "freshness (BR008) and persisted device events, "
+                        "newest first.",
                         className="notification-section__desc",
                     ),
-                    # Summary
+                    # Summary — text-first context for the table (ENT-4 D4).
                     html.Div(
                         id="notification-summary",
                         className="notification-summary",
@@ -60,23 +79,29 @@ def layout() -> html.Div:
                     entity_table(
                         table_id="notification-table",
                         columns=[
-                            {"name": "Last Data", "id": "occurred_at"},
-                            {"name": "Entity", "id": "entity_label", "presentation": "markdown"},
+                            {"name": "Time", "id": "occurred_at"},
+                            {"name": "Entity", "id": "entity_label"},
                             {"name": "Type", "id": "entity_type"},
                             {"name": "Notification", "id": "notification_type"},
                             {"name": "Detail", "id": "detail"},
                         ],
                         rows=[],
                         link_column_id="entity_label",
+                        responsive=True,
+                        extra_wrapper_class="entity-table-wrapper--notification-axis",
+                        extra_style_data_conditional=[
+                            _UNREGISTERED_PLAIN_TEXT_STYLE,
+                        ],
                     ),
-                    # Empty state
+                    # Empty state — truthful across ALL categories; the list
+                    # is BR008 plus persisted events, not only data-loss.
                     html.Div(
                         id="notification-empty",
                         className="status-panel status-panel--inactive",
                         style={"display": "none"},
                         children=[
                             html.P(
-                                "No current >24-hour data-loss notifications."
+                                "No current notifications."
                             ),
                         ],
                     ),
@@ -86,6 +111,10 @@ def layout() -> html.Div:
             html.Section(
                 className="notification-section",
                 children=[
+                    html.Div(
+                        className="device-section__eyebrow",
+                        children="Reference",
+                    ),
                     html.H2("Supported Notification Types"),
                     html.P(
                         "The following notification categories are confirmed by the "

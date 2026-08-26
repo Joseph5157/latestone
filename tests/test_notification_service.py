@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from dash import no_update
+
 from config.notifications import (
     CATEGORIES,
     all_categories,
@@ -261,22 +263,254 @@ class TestNotificationSummary:
     def test_empty_summary(self):
         summary = notification_summary([])
         assert summary["total"] == 0
+        assert summary["by_type"] == {}
 
-    def test_summary_with_notifications(self):
+    def test_summary_counts_by_category_label(self):
         rows = [
-            NotificationRow(
-                key="test",
-                entity_id="d1",
-                entity_label="Device 1",
-                entity_type="Device",
-                notification_type=">24h No Data",
-                detail="test",
-                occurred_at=None,
-                href="/devices/d1",
-            )
+            _row("a", ">24h No Data"),
+            _row("b", ">24h No Data"),
+            _row("c", "Battery Alarm"),
         ]
         summary = notification_summary(rows)
-        assert summary["total"] == 1
+        assert summary["total"] == 3
+        assert summary["by_type"] == {">24h No Data": 2, "Battery Alarm": 1}
+
+
+# ---------------------------------------------------------------------------
+# ENT-4 — merged ordering authority
+# ---------------------------------------------------------------------------
+
+class TestMergedOrderingAuthority:
+    """`current_notifications` owns the operator-facing order: newest first,
+    stable key ascending as tiebreak. Builders keep deterministic internal
+    order; only the merged result defines what the operator scans."""
+
+    def test_newest_first_reorders_builder_output(self):
+        from services.notification_service import newest_first
+
+        older = _row("no_data_24h:d1", ">24h No Data",
+                     occurred_at=NOW - timedelta(days=3))
+        newer = _row("battery_alarm:d2", "Battery Alarm",
+                     occurred_at=NOW - timedelta(minutes=20))
+        merged = newest_first([older, newer])
+        assert [r.key for r in merged] == ["battery_alarm:d2", "no_data_24h:d1"]
+
+    def test_a_recent_event_outranks_an_old_no_data_row(self):
+        """The operational question is 'what happened most recently', so a
+        20-minute-old battery event outranks a 3-day-old no-data row."""
+        from services.notification_service import newest_first
+
+        rows = [
+            _row("no_data_24h:d1", ">24h No Data",
+                 occurred_at=NOW - timedelta(days=3)),
+            _row("battery_alarm:d2", "Battery Alarm",
+                 occurred_at=NOW - timedelta(minutes=20)),
+            _row("power_down:d3", "Power Down",
+                 occurred_at=NOW - timedelta(hours=2)),
+        ]
+        keys = [r.key for r in newest_first(rows)]
+        assert keys == [
+            "battery_alarm:d2", "power_down:d3", "no_data_24h:d1",
+        ]
+
+    def test_equal_timestamps_break_by_stable_key(self):
+        from services.notification_service import newest_first
+
+        same_ts = NOW - timedelta(hours=1)
+        rows = [
+            _row("power_down:d1", "Power Down", occurred_at=same_ts),
+            _row("battery_alarm:d1", "Battery Alarm", occurred_at=same_ts),
+        ]
+        keys = [r.key for r in newest_first(rows)]
+        assert keys == sorted(keys)
+
+    def test_current_notifications_sorts_the_merged_result(self, monkeypatch):
+        """The composition point applies the authority: whatever order the
+        builders returned, the caller receives newest-first."""
+        from repositories import plant_monitoring_repository as repo
+        from services import notification_service as svc
+        from services.device_scope import DeviceScope
+
+        class FakeEvent:
+            def __init__(self, event_id, device_id, event_type, event_ts):
+                self.event_id = event_id
+                self.device_id = device_id
+                self.reported_uid = None
+                self.event_type = event_type
+                self.event_ts = event_ts
+                self.battery_voltage = None
+                self.temperature = None
+                self.message = None
+
+        # BR008 builder emits device-id order; event builder emits stable-key
+        # order. The oldest no-data row must still land last.
+        monkeypatch.setattr(
+            svc, "build_current_notifications",
+            lambda rows, ref: [
+                _row("no_data_24h:d1", ">24h No Data",
+                     occurred_at=NOW - timedelta(days=5)),
+            ],
+        )
+        monkeypatch.setattr(
+            repo, "list_recent_device_events",
+            lambda **kwargs: [
+                FakeEvent(1, "d2", "battery_low", NOW - timedelta(hours=1)),
+            ],
+        )
+
+        result = svc.current_notifications(
+            reading_rows=[], scope=DeviceScope(device_ids=None), now=NOW,
+        )
+        assert [r.key for r in result] == [
+            "battery_alarm:d2", "no_data_24h:d1",
+        ]
+
+
+class TestSummaryCategoryOrder:
+    """D4 refinement: the summary walks the configured category order and
+    appends the admin-only quarantine surface — never count order."""
+
+    def test_order_is_config_order_plus_unregistered(self):
+        from services.notification_service import summary_category_order
+
+        order = summary_category_order()
+        assert order == tuple(
+            c.label for c in all_categories()
+        ) + ("Unregistered UID",)
+
+    def test_order_does_not_depend_on_counts(self):
+        from services.notification_service import summary_category_order
+
+        assert list(summary_category_order()) == list(summary_category_order())
+
+
+# ---------------------------------------------------------------------------
+# ENT-4 — callback presentation (pure helpers)
+# ---------------------------------------------------------------------------
+
+class TestCallbackPresentation:
+    def test_summary_line_is_text_first_in_config_order(self):
+        from callbacks.notifications import format_summary_line
+
+        line = format_summary_line(
+            8,
+            {">24h No Data": 3, "Battery Alarm": 2, "Power Down": 1,
+             "Sensor Error": 1, "Startup / Check-In": 1},
+        )
+        assert line.startswith("8 current notifications")
+        labels = [c.label for c in all_categories() if c.label in line]
+        assert labels == [c.label for c in all_categories()
+                          if c.label in {">24h No Data", "Battery Alarm",
+                                         "Power Down", "Sensor Error",
+                                         "Startup / Check-In"}]
+
+    def test_summary_line_omits_zero_count_categories(self):
+        from callbacks.notifications import format_summary_line
+
+        line = format_summary_line(1, {"Battery Alarm": 1})
+        assert line == "1 current notification · Battery Alarm 1"
+
+    def test_summary_line_singular_for_one_notification(self):
+        from callbacks.notifications import format_summary_line
+
+        assert format_summary_line(1, {}) == "1 current notification"
+        assert format_summary_line(2, {}) == "2 current notifications"
+
+    def test_summary_line_appends_unregistered_last(self):
+        from callbacks.notifications import format_summary_line
+
+        line = format_summary_line(
+            2, {"Battery Alarm": 1, "Unregistered UID": 1},
+        )
+        assert line.endswith("Unregistered UID 1")
+
+    def _cell(self, column_id, row_id):
+        return {"column_id": column_id, "row_id": row_id}
+
+    def test_entity_cell_navigates_via_hidden_href(self):
+        from callbacks.notifications import notification_row_target
+
+        data = [{"id": "battery_alarm:d1", "_href": "/devices/d1"}]
+        result = notification_row_target(
+            self._cell("entity_label", "battery_alarm:d1"), data,
+        )
+        assert result == "/devices/d1"
+
+    def test_non_entity_columns_do_not_navigate(self):
+        from callbacks.notifications import notification_row_target
+
+        data = [{"id": "battery_alarm:d1", "_href": "/devices/d1"}]
+        assert notification_row_target(
+            self._cell("notification_type", "battery_alarm:d1"), data,
+        ) is no_update
+
+    def test_unregistered_row_never_navigates(self):
+        from callbacks.notifications import notification_row_target
+
+        data = [{"id": "unregistered_uid:99999", "_href": ""}]
+        assert notification_row_target(
+            self._cell("entity_label", "unregistered_uid:99999"), data,
+        ) is no_update
+
+    def test_unknown_row_id_is_ignored(self):
+        from callbacks.notifications import notification_row_target
+
+        assert notification_row_target(
+            self._cell("entity_label", "ghost"), [{"id": "a", "_href": "/x"}],
+        ) is no_update
+
+
+def _row(key, notification_type, occurred_at=None, entity_type="Device"):
+    return NotificationRow(
+        key=key, entity_id="d1", entity_label="Device 1",
+        entity_type=entity_type, notification_type=notification_type,
+        detail="test", occurred_at=occurred_at, href="/devices/d1",
+    )
+
+
+# ---------------------------------------------------------------------------
+# ENT-4 — presentation CSS source guards
+# ---------------------------------------------------------------------------
+
+import pathlib
+import re
+
+CSS_TEXT = (
+    pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+).read_text(encoding="utf-8")
+
+
+class TestNotificationPresentationCSS:
+    def test_one_shared_neutral_chip_for_all_categories(self):
+        """D1: the chip rule is column-scoped, so every category receives the
+        identical treatment — the name differentiates, not colour."""
+        match = re.search(
+            r"\.entity-table-wrapper--notification-axis "
+            r"td\[data-dash-column=\"notification_type\"\] \.dash-cell-value\s*\{([^}]*)\}",
+            CSS_TEXT, re.S,
+        )
+        assert match, "the neutral chip rule must exist"
+
+    def test_chip_never_borrows_severity_tokens(self):
+        match = re.search(
+            r"td\[data-dash-column=\"notification_type\"\] \.dash-cell-value\s*\{([^}]*)\}",
+            CSS_TEXT, re.S,
+        )
+        block = match.group(1)
+        for forbidden in ("--color-warning", "--color-danger", "--color-stale",
+                          "--state-stale", "--state-no_data"):
+            assert forbidden not in block
+
+    @pytest.mark.parametrize(
+        "column_id",
+        ["occurred_at", "entity_label", "entity_type", "notification_type", "detail"],
+    )
+    def test_mobile_record_labels_cover_all_five_columns(self, column_id):
+        media = CSS_TEXT[CSS_TEXT.index("@media (max-width: 768px)"):]
+        assert re.search(
+            rf"td\[data-dash-column=\"{column_id}\"\]::before",
+            media,
+        ), column_id
 
 
 # ---------------------------------------------------------------------------
@@ -332,13 +566,16 @@ class TestNotificationsPageLayout:
         ids = _collect_ids(lay)
         assert "notification-error" in ids
 
-    def test_no_sms_email_backend_claims(self):
+    def test_no_sms_email_delivery_claims(self):
+        """Delivery must never be claimed as implemented. The honest banner
+        names SMS/email only inside an explicit negation, so the guard
+        requires that negation to travel with the words."""
         lay = layout()
         text = str(lay).lower()
-        assert "sms" not in text
-        assert "email" not in text
         assert "rabbitmq" not in text
         assert "mqtt" not in text
+        if "sms" in text or "email" in text:
+            assert "not connected" in text
 
 
 # ---------------------------------------------------------------------------
