@@ -4,12 +4,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from components.kpi_card import kpi_row
-from components.metric_snapshot_strip import metric_snapshot_strip
+from components.metric_workspace import metric_workspace
 from config.metrics import get_metric
 from services.monitoring_service import (
     DeltaStatus, Freshness, MetricView, MonitoringCondition, Reading,
 )
-from tests.dash_tree import find_by_class, text_of
+from tests.dash_tree import find_by_class, find_by_exact_class, text_of
 
 NOW = datetime(2026, 8, 9, 5, 43, tzinfo=timezone.utc)
 
@@ -54,29 +54,34 @@ class TestPeriodChangeKpi:
         assert "278.2" in values[0]
 
 
-class TestStripAcceptsViews:
-    """The strip is fed from the same MetricViews as everything else, so the
-    page cannot show one number in the tile and another in the KPI."""
+class TestWorkspaceAcceptsViews:
+    """The workspace is fed from the same MetricViews as everything else, so
+    the page cannot show one number in a cell and another in the KPI."""
 
-    def test_renders_a_tile_per_view(self):
-        views = [_view("temperature"), _view("voltage")]
-        strip = metric_snapshot_strip(views, "voltage", "dev-1")
-        assert len(find_by_class(strip, "snapshot-tile__value")) == 2
+    def test_renders_a_cell_per_view(self):
+        from tests.dash_tree import find_by_exact_class
+
+        views = {"temperature": _view("temperature"), "voltage": _view("voltage")}
+        ws = metric_workspace(views, {}, "voltage", "dev-1")
+        assert len(find_by_exact_class(ws, "metric-cell")) == 2
 
     def test_marks_the_active_metric(self):
-        views = [_view("temperature"), _view("voltage")]
-        strip = metric_snapshot_strip(views, "voltage", "dev-1")
-        active = [
-            e for e in find_by_class(strip, "snapshot-tile")
-            if "snapshot-tile--active" in e.className
+        views = {
+            m.key: _view(m.key) for m in (get_metric("temperature"), get_metric("voltage"))
+        }
+        ws = metric_workspace(views, {}, "voltage", "dev-1")
+        selected = [
+            e for e in find_by_exact_class(ws, "metric-cell")
+            if "metric-cell--selected" in e.className
         ]
-        assert len(active) == 1
+        assert len(selected) == 1
 
-    def test_tile_link_preserves_the_period(self):
+    def test_cell_link_preserves_the_period(self):
         from tests.dash_tree import links
-        views = [_view("temperature")]
-        strip = metric_snapshot_strip(views, "voltage", "dev-1", period="7d")
-        assert all("period=7d" in href for _label, href in links(strip))
+
+        views = {"temperature": _view("temperature")}
+        ws = metric_workspace(views, {}, "voltage", "dev-1", period="7d")
+        assert all("period=7d" in href for _label, href in links(ws))
 
 
 class TestBinLabel:
@@ -163,21 +168,13 @@ class TestWindowAndPrimeReachTheView:
 
 
 class TestGridWiring:
-    def test_layout_provides_the_grid_slot(self):
+    def test_layout_provides_the_workspace_slot(self):
         from pages import device_dashboard
         from tests.dash_tree import find_by_id
 
-        assert find_by_id(device_dashboard.layout(), "trend-grid") is not None
-
-    def test_grid_sits_below_the_primary_chart(self):
-        """Section 6.8: eight more figures must not push the chart down."""
-        from pages import device_dashboard
-        from tests.dash_tree import walk
-
-        ids = [getattr(n, "id", None) for n in walk(device_dashboard.layout())]
-        assert ids.index("metric-chart") < ids.index("trend-grid")
+        assert find_by_id(device_dashboard.layout(), "metric-workspace") is not None
 
     def test_error_outputs_cover_every_output(self):
         from callbacks.device import error_outputs
 
-        assert len(error_outputs()) == 8
+        assert len(error_outputs()) == 7

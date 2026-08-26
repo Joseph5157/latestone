@@ -67,7 +67,7 @@ def test_pages_do_not_import_repositories():
 #: that legitimate use, so this guard names the actual violations instead: a
 #: component computing derived data itself rather than rendering what the
 #: service already prepared. `bin_consumption`/`choose_bin` are the names
-#: Phase 3 moved trend_grid.py off of; `reading_age`/`series_context` are the
+#: Phase 3 moved the trend cells off of; `reading_age`/`series_context` are the
 #: names Phase 4 moved kpi_card.py off of (onto MetricView properties that
 #: call them internally — the properties themselves are not banned, only a
 #: component importing the raw functions is).

@@ -86,10 +86,18 @@ def layout(
                 className="device-section device-current-state",
                 children=[
                     html.Div(
-                        className="device-section__heading",
+                        className="device-section__heading device-section__heading--inline",
                         children=[
-                            html.Div("Current state", className="device-section__eyebrow"),
-                            html.H2("Latest operational readings"),
+                            html.Div(
+                                children=[
+                                    html.Div("Current state", className="device-section__eyebrow"),
+                                    html.H2("Metric workspace"),
+                                ]
+                            ),
+                            # One instruction line for this interactive region:
+                            # selecting a cell promotes that metric to the
+                            # chart below.
+                            html.P("Select a metric to promote it to the main chart."),
                         ],
                     ),
                     # UI_SPEC 6a: administrative status remains distinct from
@@ -109,7 +117,7 @@ def layout(
                             ),
                         ],
                     ),
-                    html.Div(id="snapshot-strip"),
+                    html.Div(id="metric-workspace"),
                 ],
             ),
             html.Section(
@@ -179,24 +187,6 @@ def layout(
                         className="device-chart-panel",
                         children=[dcc.Loading(metric_chart("metric-chart"), className="chart-loading")],
                     ),
-                ],
-            ),
-            html.Section(
-                className="device-section device-supporting-metrics",
-                children=[
-                    html.Div(
-                        className="device-section__heading device-section__heading--inline",
-                        children=[
-                            html.Div(
-                                children=[
-                                    html.Div("Supporting metrics", className="device-section__eyebrow"),
-                                    html.H2("Quick trends"),
-                                ]
-                            ),
-                            html.P("Select a tile to promote that metric to the main chart."),
-                        ],
-                    ),
-                    html.Div(id="trend-grid"),
                 ],
             ),
             html.Section(

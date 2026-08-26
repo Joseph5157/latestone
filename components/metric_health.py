@@ -62,7 +62,7 @@ def metric_health_overview(items: list[MetricHealth]) -> html.Div:
     The service already returns `ordered_metrics()` order — sorting again
     here would risk drifting from it, so this renders `items` as given rather
     than re-deriving an order from the metric registry. No section heading is
-    included, matching `metric_snapshot_strip`/`trend_grid`: the page supplies
+    included, matching `metric_workspace`: the page supplies
     its own heading.
     """
     tiles = [metric_health_tile(item) for item in items]

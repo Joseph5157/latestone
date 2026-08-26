@@ -143,11 +143,11 @@ class TestNoVibrationHardcoding:
 class TestCSSGridIsDynamic:
     """Verify CSS grid uses auto-fill, not hardcoded repeat(8, ...)."""
 
-    def test_snapshot_strip_uses_auto_fill(self):
+    def test_workspace_uses_explicit_columns(self):
         with open("assets/app.css", "r") as f:
             css = f.read()
-        # Should NOT have repeat(8, ...) in the main .metric-snapshot-strip rule
-        assert "repeat(8," not in css.split(".metric-snapshot-strip")[1].split("}")[0]
+        # Should NOT have repeat(8, ...) in the main .metric-workspace rule
+        assert "repeat(8," not in css.split(".metric-workspace")[1].split("}")[0]
 
 
 class TestTemperatureAttributionRetained:

@@ -1,9 +1,19 @@
-"""Quick Trends — one small chart per metric, always all eight.
+"""Metric workspace — one merged cell per metric (ENT-3).
 
-Positions never reflow, so cell location becomes muscle memory. Interaction
-lives in the primary chart: these cells carry no modebar, and clicking one
-promotes that metric upward through the same `device_href` contract the snapshot
-tiles use, so period and custom bounds survive without a new URL parameter.
+Replaces the former snapshot strip + Quick Trends pair, which rendered every
+metric's label and latest value twice. A cell now carries the whole signal in
+one place: label, freshness state, latest value, direction versus the period
+start, and the trend shape itself.
+
+Interaction authority is singular: each cell is exactly one link that promotes
+that metric to the primary chart through `device_href`, so the metric/period/
+custom-bounds URL state survives promotion unchanged. There are no secondary
+click targets and no per-cell modebars — eight toolbars would compete with the
+primary chart, which remains where zoom/pan lives.
+
+The Current/Minimum/Maximum/Average detail deliberately stays OUT of these
+cells; it belongs to the KPI row of whichever metric is selected. Eight compact
+signals, not eight miniature dashboards.
 
 Presentation only. Every number here is read off a MetricView built by the one
 fetch the device callback makes; this module never queries and never computes.
@@ -14,30 +24,55 @@ from dash import dcc, html
 import plotly.graph_objects as go
 
 from components.chart_presentation import TEMPLATE, grid_axis, hover_template, no_data_annotation
+from components.freshness_badge import freshness_badge
 from components.metric_chart import BAR_COLOR, LINE_COLOR
-from config.metrics import Aggregation, format_value, ordered_metrics
+from config.metrics import Aggregation, MetricConfig, format_value, ordered_metrics
 from routes import device_href
-from services.monitoring_service import ConsumptionBar, MetricView
+from services.monitoring_service import ConsumptionBar, DeltaResult, MetricView
 
-TREND_CELL_HEIGHT = 120
+WORKSPACE_CELL_HEIGHT = 120
 """Fixed, and applied to empty cells too. A cell that collapsed when a metric
 had no readings would read as a layout fault rather than as absent data."""
 
 #: No modebar: eight more toolbars would compete with the primary chart for
 #: attention. Dragging is off for the same reason. Hover stays on — §21 requires
 #: the absolute UTC instant to be reachable.
-TREND_CHART_CONFIG = {
+WORKSPACE_CHART_CONFIG = {
     "displayModeBar": False,
     "scrollZoom": False,
     "responsive": True,
     "displaylogo": False,
 }
 
+EMPTY_PERIOD_TEXT = "No data available for the selected period"
+"""Shared with the primary chart (metric_chart.py): one phrase for one
+condition, so the page cannot imply two different kinds of absence."""
+
+
+def direction_text(metric: MetricConfig, change: DeltaResult) -> str:
+    """Signed change against the period start, or an em dash when unknown.
+
+    The arrow carries the direction and the number carries the magnitude, so a
+    fall reads "▼ 0.31 kV" rather than "▼ -0.31 kV" — one sign, not two.
+    Neutral by design: up/down is change, not health, so no colour semantics
+    attach to it.
+
+    A cumulative meter whose delta is indeterminate shows the dash rather than a
+    negative, which would read as generation.
+    """
+    if not change.is_known or change.value is None:
+        return "—"
+    if change.value > 0:
+        return f"▲ +{format_value(metric, change.value)}"
+    if change.value < 0:
+        return f"▼ {format_value(metric, abs(change.value))}"
+    return format_value(metric, change.value)
+
 
 def _cell_layout() -> dict:
     return dict(
         margin=dict(l=36, r=8, t=6, b=22),
-        height=TREND_CELL_HEIGHT,
+        height=WORKSPACE_CELL_HEIGHT,
         template=TEMPLATE,
         showlegend=False,
         dragmode=False,
@@ -62,7 +97,7 @@ def cell_figure(view: MetricView, bars: list[ConsumptionBar]) -> go.Figure:
     fig = go.Figure()
 
     if not view.series:
-        fig.add_annotation(**no_data_annotation("No readings in this period", size=11))
+        fig.add_annotation(**no_data_annotation(EMPTY_PERIOD_TEXT, size=11))
     elif metric.aggregation is Aggregation.DELTA:
         fig.add_trace(
             go.Bar(
@@ -87,7 +122,7 @@ def cell_figure(view: MetricView, bars: list[ConsumptionBar]) -> go.Figure:
     return fig
 
 
-def trend_cell(
+def metric_cell(
     view: MetricView,
     bars: list[ConsumptionBar],
     is_selected: bool,
@@ -96,12 +131,13 @@ def trend_cell(
     custom_start: str | None = None,
     custom_end: str | None = None,
 ) -> html.Div:
-    """One cell. The whole cell is a link, so clicking anywhere promotes."""
+    """One merged cell. The whole cell is ONE link, so clicking anywhere
+    promotes — value and sparkline are never separate targets."""
     metric = view.metric
     # Selection styling only. "The one you are looking at" and "the one with a
     # problem" are different statements and must not share a colour, so no
-    # freshness or warning class ever appears here.
-    classes = "trend-cell trend-cell--selected" if is_selected else "trend-cell"
+    # warning class ever appears here; freshness rides on its own badge.
+    classes = "metric-cell metric-cell--selected" if is_selected else "metric-cell"
     return html.Div(
         className=classes,
         children=[
@@ -110,22 +146,30 @@ def trend_cell(
                     device_id, metric_key=metric.key, period=period,
                     start=custom_start, end=custom_end,
                 ),
-                className="trend-cell__link",
+                className="metric-cell__link",
                 children=[
                     html.Div(
-                        className="trend-cell__header",
+                        className="metric-cell__header",
                         children=[
-                            html.Span(metric.label, className="trend-cell__label"),
-                            html.Span(
-                                format_value(metric, view.current),
-                                className="trend-cell__value",
-                            ),
+                            html.Span(metric.label, className="metric-cell__label"),
+                            freshness_badge(view.freshness),
                         ],
+                    ),
+                    html.Div(
+                        format_value(metric, view.current),
+                        className="metric-cell__value",
+                    ),
+                    # Always rendered, em dash when unknown, so every cell keeps
+                    # one height — a stepping row would push the primary chart
+                    # down past the §6.8 budget.
+                    html.Div(
+                        direction_text(metric, view.change),
+                        className="metric-cell__direction",
                     ),
                     dcc.Graph(
                         figure=cell_figure(view, bars),
-                        config=TREND_CHART_CONFIG,
-                        className="trend-cell__chart",
+                        config=WORKSPACE_CHART_CONFIG,
+                        className="metric-cell__chart",
                     ),
                 ],
             )
@@ -133,7 +177,7 @@ def trend_cell(
     )
 
 
-def trend_grid(
+def metric_workspace(
     views: dict,
     quick_trend_bars: dict,
     active_metric_key: str,
@@ -142,7 +186,8 @@ def trend_grid(
     custom_start: str | None = None,
     custom_end: str | None = None,
 ) -> html.Div:
-    """Eight cells in display order. Always eight, always the same order.
+    """Eight cells in registry display order. Always eight, always the same
+    order — cell location becomes muscle memory.
 
     `quick_trend_bars` carries already-binned data per delta metric, built by
     `monitoring_service.quick_trend_bars` and passed in by the callback; a
@@ -150,9 +195,9 @@ def trend_grid(
     which `cell_figure` never looks at for a non-delta metric.
     """
     return html.Div(
-        className="trend-grid",
+        className="metric-workspace",
         children=[
-            trend_cell(
+            metric_cell(
                 views[m.key], quick_trend_bars.get(m.key, []),
                 m.key == active_metric_key, device_id,
                 period=period, custom_start=custom_start, custom_end=custom_end,

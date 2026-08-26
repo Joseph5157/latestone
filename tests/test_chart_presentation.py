@@ -1,8 +1,8 @@
 """Contracts for the shared Plotly presentation building blocks.
 
 `chart_presentation.py` holds only what is genuinely identical across the
-full Metric Trend chart (`metric_chart.py`) and the Quick Trend cells
-(`trend_grid.py`) — template, gridline colour, no-data styling, and hover
+full Metric Trend chart (`metric_chart.py`) and the metric workspace cells
+(`metric_workspace.py`) — template, gridline colour, no-data styling, and hover
 formatting. These tests pin that shared contract and that both chart
 families actually consume it, without pinning the things that are meant to
 differ (margins, height, titles, uirevision).
@@ -20,7 +20,7 @@ from components.chart_presentation import (
     no_data_annotation,
 )
 from components.metric_chart import build_delta_figure, build_metric_figure
-from components.trend_grid import cell_figure
+from components.metric_workspace import cell_figure
 from config.metrics import get_metric
 from services.monitoring_service import (
     ConsumptionBar, DeltaResult, DeltaStatus, Freshness, MetricView,

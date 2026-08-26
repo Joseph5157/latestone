@@ -29,17 +29,17 @@ def test_device_identity_is_the_page_heading():
 def test_sections_express_the_operational_hierarchy():
     layout = _layout()
     assert "Current state" in text_of(find_by_class(layout, "device-current-state")[0])
+    assert "Metric workspace" in text_of(find_by_class(layout, "device-current-state")[0])
     assert "Metric history" in text_of(find_by_class(layout, "device-telemetry")[0])
-    assert "Quick trends" in text_of(find_by_class(layout, "device-supporting-metrics")[0])
     assert "Recent readings" in text_of(find_by_class(layout, "device-readings")[0])
 
 
 def test_existing_dynamic_slots_remain_present_once():
     layout = _layout()
     for component_id in (
-        "equipment-last-data", "snapshot-strip", "metric-dropdown", "period-radio",
+        "equipment-last-data", "metric-workspace", "metric-dropdown", "period-radio",
         "custom-range-container", "custom-date-range", "kpi-row-container",
-        "metric-chart", "trend-grid", "readings-table", "device-refresh-interval",
+        "metric-chart", "readings-table", "device-refresh-interval",
     ):
         assert find_by_id(layout, component_id) is not None, component_id
 

@@ -109,7 +109,7 @@ td.dash-cell:focus-visible,
 /* Numeric values change in place on refresh; tabular figures stop them
    shifting width as digits change (§6.4). */
 .kpi-card__value,
-.snapshot-tile__value,
+.metric-cell__value,
 .equipment-context__value {
   font-variant-numeric: tabular-nums;
 }
@@ -913,48 +913,6 @@ body {
 .equipment-context__item:last-child { margin-left: auto; }
 .equipment-context__item:last-child .equipment-context__value { white-space: nowrap; }
 
-/* ---------- Metric Snapshot Strip ---------- */
-/* Auto-fill grid: adapts to however many metrics the registry defines.
-   Desktop: all tiles in one row. Tablet: wraps to 4. Mobile: wraps to 2. */
-.metric-snapshot-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-3);
-}
-
-.snapshot-tile {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--sp-2) 10px;
-  transition: border-color 0.15s;
-}
-
-.snapshot-tile:hover { border-color: var(--color-accent); }
-.snapshot-tile--active { border-color: var(--color-accent); background: #eff6ff; }
-.snapshot-tile a { text-decoration: none; color: inherit; display: block; }
-.snapshot-tile__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.snapshot-tile__value { font-size: var(--fs-snapshot); font-weight: 700; margin-bottom: var(--sp-1); white-space: nowrap; }
-
-/* Fixed height, and it must stay fixed. Without `nowrap` this line wrapped on
-   the one tile whose value happened to be long — "▲ +428.0 MWh" on a 7-day
-   energy delta — and because the strip is a grid, that single wrapped tile
-   stretched all eight to 117 px and pushed the primary chart to 430 px, past
-   the §6.8 budget of 420. The defect appeared only at some periods, which is
-   why checking one period was not enough. Same treatment as
-   .kpi-card__secondary, for the same reason. */
-.snapshot-tile__direction {
-  font-size: var(--fs-meta);
-  color: var(--color-muted);
-  height: 16px;
-  line-height: 16px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.snapshot-tile__condition { height: 0; overflow: hidden; }
-
 /* ---------- KPI Cards ---------- */
 /* Target 72–84 px per card (§6.8 budget work). The previous 104 px was mostly
    padding; the height now buys a third line of real context instead. */
@@ -1620,7 +1578,7 @@ body {
 .metric-chart,
 .chart-loading { min-height: 340px; }
 .chart-loading { margin-bottom: var(--sp-3); }
-#snapshot-strip { min-height: 89px; display: block; }
+#metric-workspace { min-height: 200px; display: block; }
 #kpi-row-container { min-height: 80px; display: block; }
 
 /* ---------- Status Panels ---------- */
@@ -1950,7 +1908,7 @@ body {
    all stale, or all no-data) — see components/metric_health.py
    _breakdown_text. Reserved height so a suppressed line does not shrink that
    one tile relative to its siblings, the same convention as
-   .kpi-card__secondary / .snapshot-tile__direction. */
+   .kpi-card__secondary / .metric-cell__direction. */
 .metric-health-tile__breakdown {
   font-size: var(--fs-body);
   color: var(--color-text);
@@ -2213,28 +2171,6 @@ body {
 .page__subtitle { font-size: var(--fs-fleet-body); color: var(--color-muted); margin: 0 0 4px 0; }
 .page__meta     { font-size: var(--fs-meta);       color: var(--color-muted); margin: 0 0 20px 0; }
 
-/* ---------- Responsive: Snapshot Strip ----------
-   Auto-fill wraps tiles based on available width.
-   Below 1199px: steps down to 2 columns. Below 640px: horizontal scroll. */
-@media (max-width: 1199px) {
-  .metric-snapshot-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-
-@media (max-width: 1024px) {
-  .metric-snapshot-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 640px) {
-  .metric-snapshot-strip {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    gap: 8px;
-    padding-bottom: 8px;
-  }
-  .snapshot-tile { flex: 0 0 60%; scroll-snap-align: start; }
-}
-
 /* ---------- Responsive: KPI Row ---------- */
 @media (max-width: 1024px) {
   .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2298,61 +2234,87 @@ body {
   .hierarchy-selector .dash-dropdown:first-child { grid-column: 1 / -1; }
 }
 
-/* ---------- Quick Trends ---------- */
-/* Two columns on desktop: at the 1200 px content cap a cell is ~570 px, which
-   holds 48 energy bars at ~12 px each. Below 1024 px a two-column cell drops
-   under the ~280 px a trace needs to stay legible, so it goes single column
-   rather than shrinking further. */
-.trend-grid {
+/* ---------- Metric Workspace (ENT-3) ---------- */
+/* One merged cell per metric: label + freshness, latest value, direction
+   versus period start, and the trend shape. Replaces the former snapshot
+   strip + Quick Trends pair that rendered label and value twice.
+
+   Two columns below 1200 px: at the 1200 px content cap a 4-column cell would
+   drop under the ~280 px a trace needs to stay legible. Four columns above,
+   where the grouped surface reads as one panel of signals. */
+.metric-workspace {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sp-2);
-  margin-top: var(--sp-2);
 }
 
-.trend-cell {
+.metric-cell {
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  min-width: 0;
   overflow: hidden;
 }
 
-/* The whole cell is an anchor so a click anywhere promotes the metric.
-   Underlining it would underline a chart. */
-.trend-cell__link {
+/* The whole cell is ONE anchor so a click anywhere promotes the metric — value
+   and sparkline are never separate targets. Underlining it would underline a
+   chart. */
+.metric-cell__link {
   text-decoration: none;
   color: inherit;
   display: block;
+  padding: var(--sp-2);
 }
 
-.trend-cell__header {
+.metric-cell__header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-2) 0;
 }
 
-.trend-cell__label {
+.metric-cell__label {
   font-size: 11px;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.trend-cell__value {
-  font-size: 14px;
-  font-weight: 600;
+.metric-cell__value {
+  font-size: var(--fs-snapshot);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  margin-top: 2px;
+  margin-bottom: var(--sp-1);
 }
 
-.trend-cell:hover { border-color: var(--color-accent); }
+/* Fixed height, and it must stay fixed. Without `nowrap` this line wrapped on
+   the one cell whose value happened to be long — "▲ +428.0 MWh" on a 7-day
+   energy delta — and because the workspace is a grid, that single wrapped cell
+   stretched its whole row and pushed the primary chart past the §6.8 budget of
+   420 px. The defect appeared only at some periods, which is why checking one
+   period was not enough. Same treatment as .kpi-card__secondary. */
+.metric-cell__direction {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  height: 16px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: var(--sp-1);
+}
+
+.metric-cell:hover { border-color: var(--color-accent); }
 
 /* Selection only. A selected cell must never look like a cell in trouble, so
-   freshness and warning colours stay out of this rule entirely. */
-.trend-cell--selected {
+   freshness and warning colours stay out of this rule entirely. Direction is
+   neutral change — it deliberately carries no green/red semantics. */
+.metric-cell--selected {
   border-color: var(--color-accent);
   background: var(--color-accent-bg);
 }
@@ -2366,8 +2328,11 @@ body {
   margin: var(--sp-3) 0 0;
 }
 
-@media (max-width: 1023px) {
-  .trend-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+/* D1 gate decision: below 640 px the workspace stacks one cell per row.
+   The workspace is operational, not a browse carousel — every metric must be
+   scannable vertically, with no hidden off-screen cells. */
+@media (max-width: 640px) {
+  .metric-workspace { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 }
 
 /* ---------- Device detail hierarchy (UI-4) ---------- */
@@ -2467,40 +2432,28 @@ body {
   text-transform: uppercase;
 }
 
-.page--device-dashboard #snapshot-strip {
-  min-height: 0;
-}
-
-.page--device-dashboard .metric-snapshot-strip {
-  gap: 1px;
-  margin-bottom: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-border);
-}
-
-.page--device-dashboard .snapshot-tile {
-  border: 0;
-  border-radius: 0;
-  min-width: 0;
-}
-
-.page--device-dashboard .snapshot-tile--active {
-  background: var(--color-accent-bg);
-  box-shadow: inset 0 -3px 0 var(--color-accent);
-}
-
-/* Keep the state scan compact on laptop/tablet widths. The generic snapshot
-   rules step down too aggressively at exactly 1024px for this grouped surface. */
-@media (max-width: 1199px) {
-  .page--device-dashboard .metric-snapshot-strip {
+/* ≥1200 px: the workspace reads as one grouped panel of signals — 1px seams
+   instead of borders, and the selected cell carries an inset top accent bar
+   (ENT-2's grouped language). */
+@media (min-width: 1200px) {
+  .page--device-dashboard .metric-workspace {
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    gap: 1px;
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: hidden;
+  }
+  .page--device-dashboard .metric-cell { border: 0; border-radius: 0; }
+  .page--device-dashboard .metric-cell--selected {
+    box-shadow: inset 0 3px 0 var(--color-accent);
   }
 }
 
-.page--device-dashboard .snapshot-tile a:focus-visible,
-.page--device-dashboard .trend-cell__link:focus-visible {
+.page--device-dashboard .metric-cell__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
 }
@@ -2596,21 +2549,6 @@ body {
 }
 .page--device-dashboard .chart-loading { margin-bottom: 0; }
 
-@media (min-width: 1200px) {
-  .page--device-dashboard .trend-grid {
-    background: var(--color-border);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    gap: 1px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow: hidden;
-  }
-  .page--device-dashboard .trend-cell { border: 0; border-radius: 0; }
-  .page--device-dashboard .trend-cell--selected {
-    box-shadow: inset 0 3px 0 var(--color-accent);
-  }
-}
-
 .page--device-dashboard .device-readings .readings-table-container {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -2640,20 +2578,6 @@ body {
   .page--device-dashboard .period-radio { display: grid; grid-template-columns: repeat(4, 1fr); }
   .page--device-dashboard .period-radio label { min-width: 0; padding: 0 6px; }
   .page--device-dashboard .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 640px) {
-  .page--device-dashboard .metric-snapshot-strip {
-    display: flex;
-    gap: 1px;
-    overflow-x: auto;
-    padding-bottom: 0;
-    scroll-snap-type: x mandatory;
-  }
-  .page--device-dashboard .snapshot-tile {
-    flex: 0 0 142px;
-    scroll-snap-align: start;
-  }
 }
 
 @media (max-width: 419px) {

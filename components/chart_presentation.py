@@ -1,6 +1,7 @@
 """Shared Plotly presentation building blocks for the Powerplant chart family.
 
-Full-size charts (metric_chart.py) and Quick Trend cells (trend_grid.py) speak
+Full-size charts (metric_chart.py) and metric workspace cells
+(metric_workspace.py) speak
 the same visual language — one template, one gridline colour, one muted
 "no data" colour, one hover-value format — but a full chart and an
 eight-per-row sparkline earn different margins, axis titles and

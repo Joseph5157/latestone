@@ -832,10 +832,8 @@ def quick_trend_bars(view: MetricView) -> list[ConsumptionBar]:
     Binned over the span of the view's own series, not `window_start`/
     `window_end`: unlike the primary chart's bars (built in
     `callbacks.device.refresh_device_dashboard` from the requested window and
-    `view.prime`), a Quick Trend cell carries no Period Change KPI beside it,
-    so its bars are not required to sum to a period total. Relocated from
-    `components.trend_grid` verbatim — the binning algorithm itself
-    (`choose_bin`, `bin_consumption`) is unchanged.
+    `view.prime`), a metric workspace cell carries no Period Change KPI beside
+    it, so its bars are not required to sum to a period total.
     """
     if view.metric.aggregation is not Aggregation.DELTA or not view.series:
         return []

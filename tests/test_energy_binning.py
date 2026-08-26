@@ -154,7 +154,7 @@ def _view(metric_key, series):
 
 
 class TestQuickTrendBars:
-    """`quick_trend_bars` relocates trend_grid's own binning call into the
+    """`quick_trend_bars` relocates the metric workspace cell's own binning call into the
     service layer (Phase 3 boundary fix) without changing the algorithm:
     same `choose_bin`/`bin_consumption`, same series-span basis, no `prime`."""
 

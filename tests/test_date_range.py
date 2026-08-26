@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from callbacks.device import _parse_picker_date
-from components.metric_snapshot_strip import snapshot_tile
+from components.metric_workspace import metric_cell
 from config.metrics import get_metric
 from routes import device_href, parse_custom_range, parse_query
 from services.monitoring_service import (
@@ -71,30 +71,30 @@ class TestCustomRangeInUrl:
         assert parse_custom_range("?start=not-a-date&end=2026-08-06") == (None, "2026-08-06")
 
 
-class TestSnapshotTileKeepsPeriod:
-    def _tile_href(self, **kwargs):
-        # The tile is fed MetricViews since the analytics phase: the strip reads
-        # from the same fetch as the KPIs and charts, so it can also show the
-        # period direction.
+class TestWorkspaceCellKeepsPeriod:
+    def _cell_href(self, **kwargs):
+        # The cell is fed MetricViews since the analytics phase: the workspace
+        # reads from the same fetch as the KPIs and charts, so it can also
+        # show the period direction.
         view = MetricView(
             metric=get_metric("energy"), current=1.0, minimum=None, maximum=None,
             average=None, period_change=None, period_change_status=DeltaStatus.OK,
             series=[], last_updated=None, freshness=Freshness.FRESH,
             condition=MonitoringCondition.UNKNOWN, has_data=True,
         )
-        return snapshot_tile(view, False, "d1", **kwargs).children[0].href
+        return metric_cell(view, [], False, "d1", **kwargs).children[0].href
 
     def test_period_is_preserved(self):
         """The regression: switching metric must not snap back to 24h."""
-        href = self._tile_href(period="30d")
+        href = self._cell_href(period="30d")
         assert "period=30d" in href
         assert parse_query(href.partition("?")[2])[1] == "30d"
 
     def test_default_period_stays_omitted(self):
-        assert "period=" not in self._tile_href(period="24h")
+        assert "period=" not in self._cell_href(period="24h")
 
     def test_custom_bounds_are_carried(self):
-        href = self._tile_href(
+        href = self._cell_href(
             period="custom", custom_start="2026-08-03", custom_end="2026-08-06"
         )
         assert "start=2026-08-03" in href and "end=2026-08-06" in href

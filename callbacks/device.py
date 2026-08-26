@@ -11,11 +11,9 @@ from components.kpi_card import kpi_row
 from components.metric_chart import (
     build_delta_figure, build_metric_figure, chart_revision,
 )
-from components.metric_snapshot_strip import metric_snapshot_strip
+from components.metric_workspace import metric_workspace
 from components.readings_table import build_table_rows
 from components.status_panels import error_panel
-from components.trend_grid import trend_grid
-from config.metrics import ordered_metrics
 from routes import device_href
 from services import monitoring_service as svc
 from services.monitoring_service import Freshness, Period
@@ -86,14 +84,13 @@ def error_outputs() -> tuple:
     """
     err = error_panel()
     return (
-        err,                                            # snapshot-strip
+        err,                                            # metric-workspace
         err,                                            # kpi-row-container
         {},                                             # metric-chart figure
         [],                                             # readings-table data
         [],                                             # readings-table columns
         header_freshness_children(Freshness.NO_DATA),   # header-freshness
         "No readings",                                  # equipment-last-data
-        err,                                            # trend-grid
     )
 
 
@@ -101,14 +98,13 @@ def register(app) -> None:
     """Register device dashboard callbacks on the Dash app."""
 
     @app.callback(
-        Output("snapshot-strip", "children"),
+        Output("metric-workspace", "children"),
         Output("kpi-row-container", "children"),
         Output("metric-chart", "figure"),
         Output("readings-table", "data"),
         Output("readings-table", "columns"),
         Output("header-freshness", "children"),
         Output("equipment-last-data", "children"),
-        Output("trend-grid", "children"),
         Input("page-context", "data"),
         Input("metric-dropdown", "value"),
         Input("period-radio", "value"),
@@ -119,11 +115,11 @@ def register(app) -> None:
     )
     def refresh_device_dashboard(context, metric_key, period_value, custom_start, custom_end, _n):
         if not context or context.get("route") != "device":
-            return [no_update] * 8
+            return [no_update] * 7
 
         device_id = context.get("device_id")
         if not device_id:
-            return [no_update] * 8
+            return [no_update] * 7
 
         try:
             # 1. Resolve period
@@ -142,21 +138,23 @@ def register(app) -> None:
             # 3. One fetch for the whole page: two batched queries covering all
             #    eight metrics, where the previous pairing of get_device_snapshot
             #    and get_metric_view cost three and returned one series. Every
-            #    component below reads from this one result, so the strip, the
-            #    KPIs and the charts cannot disagree about the same reading.
+            #    component below reads from this one result, so the workspace,
+            #    the KPIs and the charts cannot disagree about the same reading.
             views = svc.get_device_full_view(device_id, period, start, end)
             view = views.get(metric_key)
 
             if view is None:
-                return [no_update] * 8
-
-            ordered_views = [views[m.key] for m in ordered_metrics() if m.key in views]
+                return [no_update] * 7
 
             # 4. Build outputs
-            strip = metric_snapshot_strip(
-                ordered_views, metric_key, device_id,
+            # The service decides which metrics need bars and how to bin
+            # them; metric_workspace only draws whatever it is handed.
+            quick_trend_bars = {key: svc.quick_trend_bars(v) for key, v in views.items()}
+            workspace = metric_workspace(
+                views, quick_trend_bars, metric_key, device_id,
                 period=period_value, custom_start=custom_start, custom_end=custom_end,
             )
+
             label = period_label(period_value, custom_start, custom_end)
             kpis = kpi_row(view, period_label=label)
             revision = chart_revision(metric_key, period_value, custom_start, custom_end)
@@ -204,16 +202,8 @@ def register(app) -> None:
                 view.last_updated, svc.reading_age(view.last_updated)
             )
 
-            # The service decides which metrics need bars and how to bin
-            # them; trend_grid only draws whatever it is handed.
-            quick_trend_bars = {key: svc.quick_trend_bars(v) for key, v in views.items()}
-            grid = trend_grid(
-                views, quick_trend_bars, metric_key, device_id,
-                period=period_value, custom_start=custom_start, custom_end=custom_end,
-            )
-
             return (
-                strip, kpis, fig, table_data, table_columns, freshness, last_data, grid
+                workspace, kpis, fig, table_data, table_columns, freshness, last_data
             )
 
         except Exception:

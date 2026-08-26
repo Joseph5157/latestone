@@ -47,18 +47,22 @@ class TestChartContract:
         assert CHART_CONFIG["displaylogo"] is False
 
 
-class TestSnapshotStripContract:
-    def test_auto_fill_grid_for_dynamic_metrics(self):
-        """Auto-fill grid adapts to however many metrics the registry defines.
-        Desktop: all tiles in one row. Tablet: wraps to 4. Mobile: wraps to 2."""
+class TestMetricWorkspaceContract:
+    def test_explicit_grid_for_dynamic_metrics(self):
+        """Cell count comes from the metric registry in Python, so the grid
+        uses explicit repeat() columns that wrap rows; desktop shows all
+        signals two-up, wide desktop four-up."""
         assert re.search(
-            r"\.metric-snapshot-strip\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,",
+            r"\.metric-workspace\s*\{[^}]*grid-template-columns:\s*repeat\(",
             CSS_TEXT, re.S,
-        ), "snapshot strip must use auto-fill for dynamic metric count"
+        ), "metric workspace must declare an explicit column grid"
 
-    def test_steps_down_below_the_validated_width(self):
-        """Auto-fill wraps based on available width."""
-        assert re.search(r"@media \(max-width: 1199px\)\s*\{[^}]*repeat\(4,", CSS_TEXT, re.S)
+    def test_steps_down_to_four_columns_at_the_wide_desktop_breakpoint(self):
+        assert re.search(
+            r"@media \(min-width: 1200px\)\s*\{[^}]*\.page--device-dashboard \.metric-workspace"
+            r"[^}]*repeat\(4,",
+            CSS_TEXT, re.S,
+        )
 
 
 class TestReservedHeights:
@@ -66,7 +70,7 @@ class TestReservedHeights:
 
     @pytest.mark.parametrize(
         "selector,min_height",
-        [("#snapshot-strip", "89px"), ("#kpi-row-container", "80px")],
+        [("#metric-workspace", "200px"), ("#kpi-row-container", "80px")],
     )
     def test_container_reserves_height(self, selector, min_height):
         pattern = re.escape(selector) + r"\s*\{[^}]*min-height:\s*" + re.escape(min_height)
