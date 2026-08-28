@@ -1,7 +1,10 @@
 """Unit tests for db.generators - pure functions, no database required."""
 from __future__ import annotations
 
+import random
 from datetime import datetime, timedelta, timezone
+
+import pytest
 
 from db.generators import (
     DAYS_OF_HISTORY,
@@ -9,6 +12,7 @@ from db.generators import (
     REGISTRATION_HISTORY_DAYS,
     build_timestamps,
     generate_device_series,
+    generate_live_reading,
     registration_timestamp,
 )
 from db.hierarchy import build_hierarchy
@@ -84,6 +88,96 @@ class TestGenerateDeviceSeries:
         equator = generate_device_series("plant-09-t1-d1", 1.0, ts)["temperature"]
         polar = generate_device_series("plant-09-t1-d1", 65.0, ts)["temperature"]
         assert sum(equator) / len(equator) > sum(polar) / len(polar)
+
+
+class TestGenerateLiveReading:
+    """One-tick reading for the live simulator (db/live_simulator.py).
+
+    Unlike generate_device_series (a full deterministic historical batch),
+    each call here represents a genuinely new live tick: same per-device
+    base character (temperature/current/load baseline), fresh noise.
+    """
+
+    def test_returns_all_eight_metrics(self):
+        reading = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR, previous_energy=5000.0, interval_hours=1.0
+        )
+        assert set(reading) == EXPECTED_METRICS
+
+    def test_energy_never_decreases(self):
+        reading = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR, previous_energy=5000.0, interval_hours=1.0
+        )
+        assert reading["energy"] >= 5000.0
+
+    def test_energy_increment_scales_with_interval_hours(self):
+        short = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR,
+            previous_energy=5000.0, interval_hours=1.0, noise_scale=0.0,
+        )
+        long = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR,
+            previous_energy=5000.0, interval_hours=2.0, noise_scale=0.0,
+        )
+        short_delta = short["energy"] - 5000.0
+        long_delta = long["energy"] - 5000.0
+        assert long_delta == pytest.approx(short_delta * 2, abs=0.01)
+
+    def test_power_factor_within_zero_to_one(self):
+        reading = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR, previous_energy=0.0, interval_hours=1.0
+        )
+        assert 0.0 < reading["power_factor"] <= 1.0
+
+    def test_frequency_near_nominal(self):
+        reading = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR, previous_energy=0.0, interval_hours=1.0
+        )
+        assert 49.0 < reading["frequency"] < 51.0
+
+    def test_zero_noise_scale_is_deterministic(self):
+        a = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR,
+            previous_energy=0.0, interval_hours=1.0, noise_scale=0.0,
+        )
+        b = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR,
+            previous_energy=0.0, interval_hours=1.0, noise_scale=0.0,
+        )
+        assert a == b
+
+    def test_different_devices_have_different_base_characteristics(self):
+        a = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR,
+            previous_energy=0.0, interval_hours=1.0, noise_scale=0.0,
+        )
+        b = generate_live_reading(
+            "plant-02-t1-d1", 30.8, ANCHOR,
+            previous_energy=0.0, interval_hours=1.0, noise_scale=0.0,
+        )
+        assert a["temperature"] != b["temperature"]
+
+    def test_provided_rng_makes_noise_reproducible(self):
+        a = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR,
+            previous_energy=0.0, interval_hours=1.0, rng=random.Random(42),
+        )
+        b = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR,
+            previous_energy=0.0, interval_hours=1.0, rng=random.Random(42),
+        )
+        assert a == b
+
+    def test_noise_scale_amplifies_jitter(self):
+        unscaled = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR, previous_energy=0.0, interval_hours=1.0,
+            noise_scale=0.0, rng=random.Random(7),
+        )
+        scaled = generate_live_reading(
+            "plant-01-t1-d1", 30.8, ANCHOR, previous_energy=0.0, interval_hours=1.0,
+            noise_scale=1.0, rng=random.Random(7),
+        )
+        assert scaled["temperature"] != unscaled["temperature"]
 
 
 class TestRegistrationTimestamp:

@@ -508,22 +508,18 @@ body {
 
 /* ---------- Application Navigation ----------
    Top-level app navigation, mounted once in app.layout and hidden on login.
-   Deliberately separate from the equipment selector bar below: this is the set
-   of application areas (Overview, Monitoring, Devices, Reports, Notifications,
-   Administration); the selector is the Plant -> Transformer -> Device jump
-   tool used inside monitoring context.
+   Deliberately separate from the Asset Navigator in the utility column below:
+   this is the set of application areas (Overview, Monitoring, Devices,
+   Reports, Notifications, Administration); the Asset Navigator is the
+   Plant -> Transformer -> Device jump tool used inside monitoring context.
 
    Full-width enterprise bar on the brand surface. Text and the active pill use
    white / --color-surface over --color-brand (both >= 10:1 contrast), reusing
    existing tokens rather than introducing new colours. Keyboard focus is
    covered by the global :focus-visible rule at the top of this file. */
 /* ---------- App Root ----------
-   ADMIN-0P: a one-column flex ancestor of [equipment-selector bar, app
-   shell], so `.app-shell` can claim "the rest of the viewport" via `flex: 1`
-   without ever hard-coding the equipment bar's height (which itself changes
-   — it wraps to two lines at <=768px, see the responsive block below). This
-   is what makes `.app-shell { min-height: ... }` resolve to "100vh minus
-   whatever the equipment bar actually rendered at" for free. */
+   A one-column flex ancestor of the app shell, so `.app-shell` can claim the
+   full viewport via `flex: 1` without any hard-coded height. */
 .app-root {
   display: flex;
   flex-direction: column;
@@ -532,21 +528,21 @@ body {
 
 /* ---------- Application Shell ----------
    ADMIN-0: the sidebar is the one primary navigation system (replaces the
-   former horizontal app-nav bar entirely, not alongside it). `.app-shell` is
-   a flex row of [sidebar, content region]; `.app-shell__content` is what
-   `.page` / `.page--monitoring` centre themselves within via their existing
-   `margin: 0 auto` — their max-width tokens (--w-reading / --w-monitoring)
-   and every page's own CSS are untouched by this. `min-width: 0` is required
+   former horizontal app-nav bar entirely, not alongside it). Layer 1 (Global
+   Shell) added a third column: `.app-shell` is a flex row of [sidebar,
+   content region, utility column]. `.app-shell__content` is what `.page` /
+   `.page--monitoring` centre themselves within via their existing
+   `margin: 0 auto`. Fleet Overview fills this region (see below); other
+   pages retain their reading/monitoring max-widths. `min-width: 0` is required
    on the flex content child or a wide table/chart inside it will refuse to
    shrink below its intrinsic width and force the row (and the sidebar with
    it) wider than the viewport.
 
-   ADMIN-0P: `flex: 1 1 auto` (inside `.app-root` above) makes this row claim
-   the rest of the viewport after the equipment-selector bar, and
-   `min-height: 0` is the standard flex fix that lets it actually shrink to
-   that instead of being floored by its own content's intrinsic height. That
-   minimum height is what lets the sidebar's own navy fill (below) reach the
-   bottom of the viewport even on short pages. */
+   `flex: 1 1 auto` (inside `.app-root` above) makes this row claim the whole
+   viewport, and `min-height: 0` is the standard flex fix that lets it
+   actually shrink to that instead of being floored by its own content's
+   intrinsic height. That minimum height is what lets the sidebar's own navy
+   fill (below) reach the bottom of the viewport even on short pages. */
 .app-shell {
   display: flex;
   align-items: flex-start;
@@ -560,19 +556,96 @@ body {
   overflow-x: hidden;
 }
 
-/* Sidebar-adjacent gutter: `.page`/`.page--monitoring` centre themselves
-   with `margin: 0 auto`, which is correct when there is no sidebar to sit
-   next to, but inside the shell that symmetric auto-margin grows the
-   sidebar-side gap from ~24px (the page's own left padding) up to ~58px at
-   1920px — an accidental side effect of centring, not an intentional
-   gutter. Anchoring the page to the content region's left edge instead
-   keeps that gap constant at every width; `.page`'s own max-width and
-   padding tokens (untouched here) still cap the reading width and still
-   keep it off the *right* edge, so any leftover space beyond max-width
-   simply collects there instead of splitting both sides. */
-.app-shell__content .page {
-  margin-left: 0;
-  margin-right: auto;
+/* ---------- Utility column ----------
+   Layer 1 (Global Shell): a docked right-hand column, never a floating
+   panel or a modal/drawer. Holds the Primary Page Action Area and the Asset
+   Navigator (`components/equipment_selector.py`), which is still mounted
+   once globally — only its position moved, from a full-width bar above the
+   shell to this column — so its callbacks keep the same always-present
+   targets (docs/CODE_AUDIT.md finding 2).
+
+   Deliberately NOT the sidebar's stretch-to-full-height technique. An
+   earlier version gave this column `align-self: stretch` plus its own
+   full-height white background/border, so the Asset Navigator card (three
+   short fields) sat atop a tall blank white panel reaching the bottom of
+   the page — reading as "unused space", not a compact utility panel. This
+   column now sizes to its own content height (the shell's default
+   `align-items: flex-start`) and carries no background/border of its own;
+   `.asset-navigator` below is the actual card, and everything past its
+   bottom edge is just ordinary page canvas. Reserve only the existing
+   200px card and the outer gutter: the page already supplies the gap on
+   the left, so another utility-side gutter needlessly narrows the Fleet. */
+.app-shell__utility {
+  flex: 0 0 auto;
+  width: calc(200px + var(--sp-4));
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4) var(--sp-5) 0;
+}
+
+/* A 32px toggle plus the existing 16px outer gutter forms a 48px rail.
+   The flex content sibling receives the released 168px automatically. */
+.app-shell__utility--collapsed { width: 48px; }
+
+.app-shell__utility-toggle {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.app-shell__utility-toggle:hover { background: var(--color-accent-bg); }
+.app-shell__utility-toggle-icon {
+  width: 8px;
+  height: 8px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(-45deg);
+}
+.app-shell__utility--collapsed .app-shell__utility-toggle-icon {
+  transform: rotate(135deg);
+}
+
+/* Login is a rendered state, not necessarily /login. Hiding the navigator
+   alone leaves its flex parent reserving an empty column beside the hero.
+   Collapse that allocation without unmounting any callback targets. */
+.app-shell:has(.login-page) .app-shell__utility { display: none; }
+
+/* 8px top gutter + 32px toggle + 12px gap places the card at y=52,
+   beside Fleet's y=51 heading. The outer dock is sticky, so its toggle
+   stays reachable even while the long page scrolls. Only the contents
+   scroll on short viewports; the card never becomes a full-height strip. */
+.app-shell__utility-inner {
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* Structurally reserved, not decorative (§E): no current page has a valid
+   primary action, so an empty slot collapses to nothing instead of showing a
+   bordered blank box. A future page action fills it with no shell change. */
+.page-action-area:empty { display: none; }
+
+/* Fleet is a workspace, not a capped reading column. At wide desktop or
+   zoomed-out sizes its inherited 1550px cap produced large auto margins
+   between both shell rails. Let it fill the flexible content region while
+   retaining the page's existing 24px gutters. Other monitoring/detail
+   pages keep their own max-widths; no Fleet component styling changes. */
+.app-shell__content .page--plants-overview {
+  max-width: none;
 }
 
 /* ---------- Sidebar ----------
@@ -782,42 +855,58 @@ body {
   .app-sidebar__toggle { display: none; }
 }
 
-/* ---------- Equipment Selector ----------
-   A global bar above the page, not part of .app-header: the selector is
-   mounted once in app.layout so its callbacks always have targets, while each
-   page renders its own header. */
-/* Compacted for the §6.8 budget. The component deliberately stays in the global
-   layout — visual integration only, never relocation into the page-local header,
-   which would reintroduce docs/CODE_AUDIT.md finding 2. */
-.equipment-selector-bar {
+/* ---------- Asset Navigator ----------
+   Layer 1 (Global Shell): the former horizontal "Jump to equipment" bar,
+   now a vertical panel docked in the app shell's right-hand utility column
+   (`.app-shell__utility` above) rather than a full-width bar above the page.
+   The component deliberately stays in the global layout — visual
+   integration only, never relocation into a page-local header, which would
+   reintroduce docs/CODE_AUDIT.md finding 2.
+
+   Styled as one compact card — the same border/radius/background idiom as
+   `.kpi-card` — rather than a panel spanning the whole utility column: it
+   ends right after the RTL Device field, so it reads as a discrete tool,
+   not a background surface. */
+.asset-navigator {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-5);
-  background: var(--color-bg);
-  border-bottom: 1px solid var(--color-border);
-  /* Now a flex item of .app-root (ADMIN-0P): natural height, never
-     stretched or shrunk by the column it sits in. */
-  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-4);
 }
 
-.equipment-selector-bar__label {
+.asset-navigator__title {
+  margin: 0;
   font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hierarchy-selector { display: flex; flex-direction: column; gap: var(--sp-3); flex: 1; min-width: 0; }
+
+.hierarchy-selector__group { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.hierarchy-selector__group-label {
+  font-size: 11px;
   font-weight: 600;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  white-space: nowrap;
 }
-
-.hierarchy-selector { display: flex; gap: 8px; flex: 1; min-width: 300px; }
 
 /* Size the `.dash-dropdown` wrapper, not `.hierarchy-selector__field`.
    dcc.Dropdown puts its `className` on the inner `.Select` div, while the flex
    child is the outer wrapper — so flex/max-width set on the field class landed
    on an element whose parent is not a flex container and did nothing. The three
    dropdowns sat at their 120 px min-width with ~790 px of the bar unused, and
-   "Transformer..." was the one placeholder wide enough to be clipped by it. */
+   "Transformer..." was the one placeholder wide enough to be clipped by it.
+   Unchanged since (§6.9's guard tests pin this block): in the vertical panel
+   each group is already narrower than `max-width`, so the field simply fills
+   the group via `.hierarchy-selector__field`'s own `width: 100%` below. */
 .hierarchy-selector .dash-dropdown {
   flex: 1 1 0;
   min-width: 140px;
@@ -1159,6 +1248,210 @@ body {
     padding: var(--sp-1) var(--sp-1) var(--sp-1) 0;
     overflow-wrap: anywhere;
   }
+}
+
+/* ---------- Layer 2 — Fleet Condition (Fleet page only) ---------- */
+/* Self-hosted, OFL-licensed faces: no network font dependency. Only the two
+   chart cards opt in; the application-wide type scale remains unchanged. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/ibm-plex-sans/IBMPlexSans-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/ibm-plex-sans/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+.fleet-condition__summary,
+.fleet-condition__coverage {
+  --font-fleet-chart: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --fs-fleet-chart-value: 2.5rem;
+  --fs-fleet-gauge-value: 2rem;
+  --fs-fleet-chart-label: .8125rem;
+  --fs-fleet-chart-caption: .75rem;
+  --fs-body: .875rem;
+  --fs-meta: var(--fs-fleet-chart-caption);
+  font-family: var(--font-fleet-chart);
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.fleet-condition {
+  display: grid;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  font-variant-numeric: tabular-nums;
+}
+.fleet-condition__section-heading { padding: var(--sp-1) 0 var(--sp-1); }
+.fleet-condition__section-title {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-meta);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.fleet-condition__upper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.06fr);
+  gap: var(--sp-3);
+  align-items: stretch;
+}
+/* The existing callback slot holds both gauges without owning layout. */
+.fleet-condition__primary { display: contents; }
+.fleet-condition__upper > * { min-width: 0; }
+.fleet-condition__card {
+  height: 100%;
+  min-width: 0;
+  padding: var(--sp-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 2px rgb(31 41 55 / 3%);
+}
+.fleet-condition__upper .fleet-condition__card {
+  display: flex;
+  flex-direction: column;
+}
+.fleet-condition__card-heading { min-height: 74px; flex: 0 0 74px; }
+.fleet-condition__title {
+  margin: 0 0 var(--sp-2);
+  color: var(--color-text);
+  font-size: var(--fs-section);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.fleet-condition__subtitle {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+}
+.fleet-condition__chart-stage {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 176px;
+  flex: 0 0 176px;
+  /* Shared anchors: chart tops and primary-number centerlines do not depend
+     on arc geometry, subtitle wrapping, or the detail/footer height. */
+  --fleet-number-top: 46px;
+}
+.fleet-condition__ring { position: relative; width: 176px; height: 176px; }
+.fleet-condition__arc {
+  position: absolute;
+  inset: 0;
+  background: var(--fleet-condition-tone);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+}
+.fleet-condition__track { background: var(--color-border); }
+.fleet-condition__center {
+  position: absolute;
+  inset: var(--fleet-number-top) 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-text);
+  font-size: var(--fs-fleet-chart-label);
+  line-height: 1.35;
+  text-align: center;
+}
+.fleet-condition__center-total {
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: var(--fs-fleet-chart-caption);
+}
+.fleet-condition__number {
+  color: var(--color-text);
+  font-size: var(--fs-fleet-chart-value);
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -.025em;
+  white-space: nowrap;
+}
+.fleet-condition__ratio { margin: var(--sp-2) 0 var(--sp-3); min-height: 39px; font-size: var(--fs-body); text-align: center; line-height: 1.5; }
+.fleet-condition__message { text-align: left; margin-top: var(--sp-3); border-top: 1px solid var(--color-border); padding-top: var(--sp-3); }
+.fleet-condition__insight { margin: 0 0 var(--sp-2); font-size: var(--fs-body); line-height: 1.5; }
+.fleet-condition__details { margin: 0; font-size: var(--fs-meta); }
+.fleet-condition__detail-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); padding: 6px 0; align-items: baseline; }
+.fleet-condition__state-details .fleet-condition__detail-row { grid-template-columns: minmax(0, 1fr) minmax(28px, auto) 48px; }
+.fleet-condition__detail-row dt { margin: 0; color: var(--color-muted); line-height: 1.5; }
+.fleet-condition__detail-row dd { margin: 0; text-align: right; white-space: nowrap; }
+.fleet-condition__detail-count { font-size: var(--fs-body); font-weight: 600; }
+.fleet-condition__detail-percent { color: var(--color-muted); }
+.fleet-condition__detail-hint { display: block; font-size: inherit; }
+.fleet-condition__metadata { margin: var(--sp-3) 0; padding-top: var(--sp-3); border-top: 1px solid var(--color-border); font-size: var(--fs-meta); line-height: 1.5; }
+.fleet-condition__metadata > div { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: var(--sp-2); padding: var(--sp-1) 0; }
+.fleet-condition__metadata dt { color: var(--color-muted); }
+.fleet-condition__metadata dd { margin: 0; }
+.fleet-condition__badge {
+  display: inline-block;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--fleet-condition-bg);
+  color: var(--fleet-condition-tone);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+}
+.fleet-condition__headline { margin: var(--sp-2) 0 var(--sp-1); font-size: var(--fs-body); font-weight: 600; line-height: 1.4; }
+.fleet-condition__link { display: inline-block; color: var(--color-accent); margin-top: var(--sp-3); font-size: var(--fs-meta); }
+.fleet-condition__note { margin: 0; color: var(--color-muted); font-size: var(--fs-meta); line-height: 1.5; }
+.fleet-condition__coverage-note { margin-top: auto; padding-top: var(--sp-2); }
+.fleet-condition__gauge { width: min(100%, 200px); }
+.fleet-condition__gauge-arc { position: relative; width: 100%; aspect-ratio: 160 / 90; }
+.fleet-condition__gauge-value {
+  position: absolute;
+  inset: var(--fleet-number-top) 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--color-text);
+  font-size: var(--fs-fleet-chart-label);
+  line-height: 1.35;
+}
+.fleet-condition__gauge-scale { display: flex; justify-content: space-between; color: var(--color-muted); font-size: var(--fs-meta); padding: 0 2%; }
+/* The gauge's percentage line sits close to the semicircle's stroke — at
+   "100.0%" it has only ~6px of clearance from the arc (vs. ~89px for the
+   ring's own number, which shares .fleet-condition__number but sits nearer
+   the ring's widest point). 72% is the widest this line can go before it
+   risks visually colliding with the arc; today's content never reaches it,
+   so this changes nothing on screen — it only stops a future wider value
+   (locale, a larger --fs-fleet-chart-value) from silently overlapping the
+   stroke instead of ellipsizing. */
+.fleet-condition__gauge-value .fleet-condition__number {
+  font-size: var(--fs-fleet-gauge-value);
+  max-width: 72%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fleet-condition__freshness-rows { display: grid; gap: var(--sp-5); flex: 1; align-content: space-between; padding: var(--sp-3) 0 var(--sp-5); }
+.fleet-condition__freshness-labels { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); }
+.fleet-condition__freshness-values { display: flex; align-items: baseline; gap: var(--sp-2); white-space: nowrap; }
+.fleet-condition__freshness-values .fleet-condition__stat-value { font-size: 20px; }
+.fleet-condition__range { margin: var(--sp-1) 0 var(--sp-2); font-size: var(--fs-meta); color: var(--color-muted); line-height: 1.4; }
+.fleet-condition__bar { height: 7px; overflow: hidden; border-radius: 3px; background: var(--color-border); }
+.fleet-condition__segment { height: 100%; background: var(--fleet-condition-tone); }
+.fleet-condition__tone--fresh { --fleet-condition-tone: var(--state-fresh-text); --fleet-condition-bg: var(--state-fresh-bg); }
+.fleet-condition__tone--stale { --fleet-condition-tone: var(--state-stale-text); --fleet-condition-bg: var(--state-stale-bg); }
+.fleet-condition__tone--none { --fleet-condition-tone: var(--state-none-text); --fleet-condition-bg: var(--state-none-bg); }
+.fleet-condition__inventory { display: grid; grid-template-columns: minmax(150px, .9fr) minmax(0, 2fr); gap: var(--sp-5); align-items: center; }
+.fleet-condition__inventory .fleet-condition__card-heading { min-height: 0; }
+.fleet-condition__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fleet-condition__stat { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); padding-left: var(--sp-5); border-left: 1px solid var(--color-border); }
+.fleet-condition__stat-label { color: var(--color-muted); font-size: var(--fs-body); }
+.fleet-condition__stat-label--state::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 2px; background: var(--fleet-condition-tone); }
+.fleet-condition__stat-value { color: var(--color-text); font-size: 26px; font-weight: 600; line-height: 1.2; }
+.fleet-condition__stat-meta { color: var(--color-muted); font-size: var(--fs-meta); }
+@media (max-width: 1199px) {
+  .fleet-condition__upper { grid-template-columns: minmax(0, 1fr); }
+  .fleet-condition__inventory { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ---------- Fleet Data Health Distribution ---------- */
@@ -2367,6 +2660,32 @@ body {
 .page__subtitle { font-size: var(--fs-fleet-body); color: var(--color-muted); margin: 0 0 4px 0; }
 .page__meta     { font-size: var(--fs-meta);       color: var(--color-muted); margin: 0 0 20px 0; }
 
+/* Data Refresh Context (Fleet Overview, §C): the render stamp beside a
+   Refresh action, in one row instead of the meta line standing alone. The
+   link itself is a plain full-page reload of /plants (`dcc.Link(...,
+   refresh=True)`) — the page's existing refresh mechanism — styled as a
+   restrained bordered action, not a primary button, since it repeats work a
+   browser refresh already does rather than doing anything new. */
+.fleet-refresh-context {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0 0 20px 0;
+}
+.fleet-refresh-context .page__meta { margin: 0; }
+.fleet-refresh-context__action {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.fleet-refresh-context__action:hover { background: var(--color-bg); }
+
 /* ---------- Responsive: KPI Row ---------- */
 @media (max-width: 1024px) {
   .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2408,14 +2727,20 @@ body {
 
   /* The selector stacks rather than disappearing. It is now the only way to
      reach a device under another plant in one step, so hiding it on narrow
-     screens would remove the feature instead of collapsing it. */
-  .equipment-selector-bar {
+     screens would remove the feature instead of collapsing it.
+
+     Layer 1 is desktop-only; the utility column's own responsive behaviour
+     (it still renders at a fixed width below 768px today) is untouched here
+     and left for a future tablet/mobile pass. This block only follows the
+     Asset Navigator's Layer 1 rename so it keeps targeting the right
+     elements instead of becoming dead CSS. */
+  .asset-navigator {
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
     padding: 4px 12px 6px;
   }
-  .equipment-selector-bar__label { font-size: 9px; line-height: 1.2; }
+  .asset-navigator__title { font-size: 9px; line-height: 1.2; }
   .hierarchy-selector {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

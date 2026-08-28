@@ -34,26 +34,40 @@ app.index_string = app.index_string.replace(
     'href="/assets/login-powerplant-hero.jpg">',
 )
 
-# className="app-root" (ADMIN-0P): a one-column flex ancestor of
-# [equipment-selector bar, app shell] so the shell can claim "the rest of
-# the viewport" via CSS flex sizing without hard-coding the equipment bar's
-# height anywhere — see .app-root in assets/app.css.
+# className="app-root": a one-column flex ancestor of [app shell] so the
+# shell can claim the full viewport via CSS flex sizing — see .app-root in
+# assets/app.css.
 app.layout = html.Div(
     className="app-root",
     children=[
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="auth-store", storage_type="memory", data={"authenticated": False}),
         dcc.Store(id="page-context", storage_type="memory", data={}),
-        # Mounted globally and hidden on the login route rather than rendered per
-        # page: its callbacks fire on every route, so their targets must always
-        # exist. See docs/CODE_AUDIT.md finding 2.
-        equipment_selector_shell(),
         # The sidebar is the primary application navigation (replaces the former
-        # horizontal app-navigation bar). It and page-content are wrapped in the
-        # app-shell so the content region's width — and therefore where
-        # .page/.page--monitoring center themselves — reserves the sidebar's
-        # width without any page needing to know the sidebar exists.
-        app_shell(app_sidebar_shell(), html.Div(id="page-content")),
+        # horizontal app-navigation bar). It, page-content and the utility column
+        # are wrapped in the app-shell so the content region's width — and
+        # therefore where .page/.page--monitoring center themselves — reserves
+        # the sidebar's and utility column's width without any page needing to
+        # know either exists.
+        app_shell(
+            app_sidebar_shell(),
+            html.Div(id="page-content"),
+            utility=html.Div(
+                className="app-shell__utility-inner",
+                children=[
+                    # Layer 1: structurally reserved primary page-action slot.
+                    # No current page has a valid primary action, so it stays
+                    # empty (CSS collapses an empty slot to nothing) rather
+                    # than render invented behaviour.
+                    html.Div(id="page-action-area", className="page-action-area"),
+                    # Mounted globally and hidden on the login route rather than
+                    # rendered per page: its callbacks fire on every route, so
+                    # their targets must always exist. See
+                    # docs/CODE_AUDIT.md finding 2.
+                    equipment_selector_shell(),
+                ],
+            ),
+        ),
     ],
 )
 

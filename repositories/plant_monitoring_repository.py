@@ -126,7 +126,16 @@ class AssignmentChange:
 
 
 def _to_plant(row) -> PlantRecord:
-    return PlantRecord(*row)
+    """latitude/longitude/capacity_mw are NUMERIC columns — psycopg2/SQLAlchemy
+    return those as decimal.Decimal, not the float PlantRecord declares. Cast
+    here so every caller gets the real type, not just one that prints the same.
+    """
+    return PlantRecord(
+        row[0], row[1], row[2],
+        float(row[3]), float(row[4]),
+        float(row[5]) if row[5] is not None else None,
+        row[6], row[7],
+    )
 
 
 def _to_transformer(row) -> TransformerRecord:
@@ -936,6 +945,34 @@ def rtl_alarms_30d_report_rows(
 # ---------------------------------------------------------------------------
 # Reading queries
 # ---------------------------------------------------------------------------
+
+def insert_readings(readings: Sequence[RawReading]) -> None:
+    """Append-only write for db/live_simulator.py's per-tick readings.
+
+    One parameterized multi-row INSERT — distinct from
+    db/seed_plant_monitoring.py's psycopg2 COPY, which exists for that
+    script's much larger one-time historical volume and isn't a fit for a
+    handful of rows per tick.
+    """
+    if not readings:
+        return
+    with session_scope() as session:
+        session.execute(
+            text(
+                f"INSERT INTO {_SCHEMA}.readings (device_id, metric, reading_ts, value) "
+                f"VALUES (:device_id, :metric, :reading_ts, :value)"
+            ),
+            [
+                {
+                    "device_id": r.device_id,
+                    "metric": r.metric,
+                    "reading_ts": r.timestamp,
+                    "value": r.value,
+                }
+                for r in readings
+            ],
+        )
+
 
 def get_latest_reading(device_id: str, metric: str) -> RawReading | None:
     with session_scope() as session:

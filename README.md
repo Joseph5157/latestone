@@ -36,7 +36,15 @@ python -m db.seed_admin_demo --reset
 
 # 7. Run the app
 python app.py
+
+# 8. (optional) In a second terminal, stream new readings while you look around
+python -m db.live_simulator
 ```
+
+Step 8 is optional: it appends one fresh reading per device every 10s (see
+`db/live_simulator.py`) so the freshness badge, latest-value KPIs, and charts
+visibly move instead of showing static seeded history. Configurable via
+`LIVE_SIM_*` in `.env.example`; stop it with Ctrl+C any time.
 
 Open http://localhost:8050 and log in with the credentials you set as
 `DEMO_USERNAME` / `DEMO_PASSWORD` in `.env`. There is no fallback credential:
@@ -159,6 +167,11 @@ Pure-logic tests (no Docker required):
 python -m pytest -m "not db" -v
 ```
 
+This is enforced, not just a convention: an autouse fixture in
+`tests/conftest.py` fails any test without the `db` marker that opens a
+database connection, so a missing mock cannot pass locally against a running
+PostgreSQL and then fail on a clean checkout.
+
 Full test suite (requires Docker + seeded DB):
 
 ```bash
@@ -211,7 +224,8 @@ powerplant-dashboard/
 │   ├── generators.py               # Deterministic multi-metric data generation
 │   ├── hierarchy.py                # 71 transformers, 120 devices
 │   ├── seed_plant_monitoring.py    # Bulk seed via COPY (~1.38M rows)
-│   └── seed_admin_demo.py          # Opt-in technicians + RTL assignments
+│   ├── seed_admin_demo.py          # Opt-in technicians + RTL assignments
+│   └── live_simulator.py           # Optional: append live readings on a timer
 ├── assets/
 │   └── app.css                     # Responsive styling
 └── tests/

@@ -1,7 +1,7 @@
 """Plants overview page shell — layout only, no queries."""
 from __future__ import annotations
 
-from dash import html
+from dash import dcc, html
 
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
@@ -19,30 +19,46 @@ def layout() -> html.Div:
             # Filled by the listing callback so the count comes from the same
             # hierarchy query as the Plants card, never a literal.
             html.P(id="fleet-subtitle", className="page__subtitle"),
-            # Filled by the listing callback with an absolute UTC render
-            # stamp — the same instant passed to get_fleet_health(), so this
-            # line and the table's freshness column can never disagree about
-            # what "now" was.
-            html.P(id="fleet-refreshed", className="page__meta"),
+            # Data Refresh Context: the render stamp beside a Refresh action.
+            # The link is a plain full-page reload of this same route
+            # (`refresh=True`) — the existing way this page's data has always
+            # been refreshed — so it needs no new callback and cannot drift
+            # from `populate_overview`.
+            html.Div(
+                className="fleet-refresh-context",
+                children=[
+                    # Filled by the listing callback with an absolute UTC
+                    # render stamp — the same instant passed to
+                    # get_fleet_health(), so this line and the table's
+                    # freshness column can never disagree about what "now"
+                    # was.
+                    html.P(id="fleet-refreshed", className="page__meta"),
+                    dcc.Link(
+                        "Refresh",
+                        href="/plants",
+                        refresh=True,
+                        className="fleet-refresh-context__action",
+                    ),
+                ],
+            ),
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="plants-error", className="listing-error"),
-            # Reading order (ENT-2): state -> exceptions -> hierarchy ->
-            # inventory -> administration. Everything above the inventory is
-            # monitoring; administration is deliberately last and secondary.
+            # Layer 2 only: existing output slots, one shared service snapshot.
             html.Section(
-                className="fleet-monitoring-summary",
+                className="fleet-monitoring-summary fleet-condition",
                 children=[
-                    html.H2("Operating status", className="fleet-section__title"),
-                    # Structural fleet totals and the primary Data Health block
-                    # are filled from the same callback/FleetHealth instance.
+                    html.Div(className="fleet-condition__section-heading", children=[
+                        html.H2("Fleet Condition", className="fleet-condition__section-title"),
+                        html.P("Current status of RTL fleet monitoring", className="fleet-condition__subtitle"),
+                    ]),
+                    html.Div(className="fleet-condition__upper", children=[
+                        html.Div(id="fleet-systemic-state", className="fleet-condition__primary"),
+                        html.Div(id="fleet-health-distribution"),
+                    ]),
                     html.Div(id="fleet-kpis"),
-                    html.Div(id="fleet-health-distribution"),
                 ],
             ),
-            # Presentation-only exact-condition summary, built from the same
-            # already-available health counts. Empty for mixed populations.
-            html.Div(id="fleet-systemic-state"),
             # Grouped exception queue (Plant -> Transformer -> RTL). The
             # component discloses truthful totals and links to the
             # authoritative inventory below.

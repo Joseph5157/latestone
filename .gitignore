@@ -23,3 +23,14 @@ docs/CODE_AUDIT_SECOND_PASS.md
 docs/UX_DEBT.md
 docs/CLIENT_DELIVERY.md
 docs/DEMO_RUNSHEET.md
+
+# Browser-review screenshots (working artefacts of a UI pass, not app assets)
+ent*-*.png
+
+# Alternative-agent tooling config
+opencode.json
+
+# Internal planning prompts / roadmap — not for client distribution
+ENT-*.md
+Power_RTL_Enterprise_UX_Execution_Roadmap.md
+docs/Professional_Workflow*.pdf
