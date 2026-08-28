@@ -21,6 +21,7 @@ from tests.dash_tree import (
     find_by_id,
     links,
     text_of,
+    walk,
 )
 
 NOW = datetime(2026, 8, 21, 12, 0, tzinfo=timezone.utc)
@@ -64,7 +65,7 @@ class TestPageSlot:
         -> administration. Administration is last and secondary."""
         ids = [
             n.id
-            for n in plants_overview.layout().children
+            for n in walk(plants_overview.layout())
             if getattr(n, "id", None)
             in {"fleet-systemic-state", "needs-attention", "admin-summary", "fleet-plants"}
         ]

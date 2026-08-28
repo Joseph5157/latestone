@@ -12,14 +12,12 @@ from dash import Input, Output, State, no_update
 
 from components.admin_summary import admin_summary_cards
 from components.entity_context import entity_context
+from components.fleet_condition import data_freshness, fleet_condition_panels, fleet_inventory
 from components.fleet_summary import (
-    fleet_health_distribution,
-    fleet_kpi_cards,
     fleet_subtitle_text,
     format_render_stamp,
     plant_kpi_cards,
     transformer_kpi_cards,
-    systemic_freshness_summary,
 )
 from components.metric_health import metric_health_overview
 from components.needs_attention import needs_attention
@@ -683,17 +681,17 @@ def register(app) -> None:
             counts = hierarchy_service.get_plant_hierarchy_counts(scope=scope)
             health = monitoring_service.get_fleet_health(rendered_at, scope=scope)
             cards.append(
-                fleet_kpi_cards(
+                fleet_inventory(
                     plants=len(plants),
                     transformers=sum(t for t, _d in counts.values()),
                     devices=sum(d for _t, d in counts.values()),
-                    health=health,
                 )
             )
-            # Same health.counts the Data Health KPI card above already
-            # reads — a restatement, not a second computation.
-            distribution.append(fleet_health_distribution(health.counts))
-            systemic.append(systemic_freshness_summary(health.counts))
+            # Layer 2 reads the same classified population as the plant table.
+            # The condition card replaces the redundant all-stale/no-data
+            # banner in its existing slot; callback IDs and queries stay fixed.
+            distribution.append(data_freshness(health.counts))
+            systemic.append(fleet_condition_panels(health.counts))
             # Administration figures, on `rendered_at` like everything else on
             # this page. These count Managed RTLs — a different population from
             # the Devices card built above, which counts Monitoring Devices.
