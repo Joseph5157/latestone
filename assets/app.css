@@ -508,22 +508,18 @@ body {
 
 /* ---------- Application Navigation ----------
    Top-level app navigation, mounted once in app.layout and hidden on login.
-   Deliberately separate from the equipment selector bar below: this is the set
-   of application areas (Overview, Monitoring, Devices, Reports, Notifications,
-   Administration); the selector is the Plant -> Transformer -> Device jump
-   tool used inside monitoring context.
+   Deliberately separate from the Asset Navigator in the utility column below:
+   this is the set of application areas (Overview, Monitoring, Devices,
+   Reports, Notifications, Administration); the Asset Navigator is the
+   Plant -> Transformer -> Device jump tool used inside monitoring context.
 
    Full-width enterprise bar on the brand surface. Text and the active pill use
    white / --color-surface over --color-brand (both >= 10:1 contrast), reusing
    existing tokens rather than introducing new colours. Keyboard focus is
    covered by the global :focus-visible rule at the top of this file. */
 /* ---------- App Root ----------
-   ADMIN-0P: a one-column flex ancestor of [equipment-selector bar, app
-   shell], so `.app-shell` can claim "the rest of the viewport" via `flex: 1`
-   without ever hard-coding the equipment bar's height (which itself changes
-   — it wraps to two lines at <=768px, see the responsive block below). This
-   is what makes `.app-shell { min-height: ... }` resolve to "100vh minus
-   whatever the equipment bar actually rendered at" for free. */
+   A one-column flex ancestor of the app shell, so `.app-shell` can claim the
+   full viewport via `flex: 1` without any hard-coded height. */
 .app-root {
   display: flex;
   flex-direction: column;
@@ -532,21 +528,21 @@ body {
 
 /* ---------- Application Shell ----------
    ADMIN-0: the sidebar is the one primary navigation system (replaces the
-   former horizontal app-nav bar entirely, not alongside it). `.app-shell` is
-   a flex row of [sidebar, content region]; `.app-shell__content` is what
-   `.page` / `.page--monitoring` centre themselves within via their existing
-   `margin: 0 auto` — their max-width tokens (--w-reading / --w-monitoring)
-   and every page's own CSS are untouched by this. `min-width: 0` is required
+   former horizontal app-nav bar entirely, not alongside it). Layer 1 (Global
+   Shell) added a third column: `.app-shell` is a flex row of [sidebar,
+   content region, utility column]. `.app-shell__content` is what `.page` /
+   `.page--monitoring` centre themselves within via their existing
+   `margin: 0 auto`. Fleet Overview fills this region (see below); other
+   pages retain their reading/monitoring max-widths. `min-width: 0` is required
    on the flex content child or a wide table/chart inside it will refuse to
    shrink below its intrinsic width and force the row (and the sidebar with
    it) wider than the viewport.
 
-   ADMIN-0P: `flex: 1 1 auto` (inside `.app-root` above) makes this row claim
-   the rest of the viewport after the equipment-selector bar, and
-   `min-height: 0` is the standard flex fix that lets it actually shrink to
-   that instead of being floored by its own content's intrinsic height. That
-   minimum height is what lets the sidebar's own navy fill (below) reach the
-   bottom of the viewport even on short pages. */
+   `flex: 1 1 auto` (inside `.app-root` above) makes this row claim the whole
+   viewport, and `min-height: 0` is the standard flex fix that lets it
+   actually shrink to that instead of being floored by its own content's
+   intrinsic height. That minimum height is what lets the sidebar's own navy
+   fill (below) reach the bottom of the viewport even on short pages. */
 .app-shell {
   display: flex;
   align-items: flex-start;
@@ -560,19 +556,96 @@ body {
   overflow-x: hidden;
 }
 
-/* Sidebar-adjacent gutter: `.page`/`.page--monitoring` centre themselves
-   with `margin: 0 auto`, which is correct when there is no sidebar to sit
-   next to, but inside the shell that symmetric auto-margin grows the
-   sidebar-side gap from ~24px (the page's own left padding) up to ~58px at
-   1920px — an accidental side effect of centring, not an intentional
-   gutter. Anchoring the page to the content region's left edge instead
-   keeps that gap constant at every width; `.page`'s own max-width and
-   padding tokens (untouched here) still cap the reading width and still
-   keep it off the *right* edge, so any leftover space beyond max-width
-   simply collects there instead of splitting both sides. */
-.app-shell__content .page {
-  margin-left: 0;
-  margin-right: auto;
+/* ---------- Utility column ----------
+   Layer 1 (Global Shell): a docked right-hand column, never a floating
+   panel or a modal/drawer. Holds the Primary Page Action Area and the Asset
+   Navigator (`components/equipment_selector.py`), which is still mounted
+   once globally — only its position moved, from a full-width bar above the
+   shell to this column — so its callbacks keep the same always-present
+   targets (docs/CODE_AUDIT.md finding 2).
+
+   Deliberately NOT the sidebar's stretch-to-full-height technique. An
+   earlier version gave this column `align-self: stretch` plus its own
+   full-height white background/border, so the Asset Navigator card (three
+   short fields) sat atop a tall blank white panel reaching the bottom of
+   the page — reading as "unused space", not a compact utility panel. This
+   column now sizes to its own content height (the shell's default
+   `align-items: flex-start`) and carries no background/border of its own;
+   `.asset-navigator` below is the actual card, and everything past its
+   bottom edge is just ordinary page canvas. Reserve only the existing
+   200px card and the outer gutter: the page already supplies the gap on
+   the left, so another utility-side gutter needlessly narrows the Fleet. */
+.app-shell__utility {
+  flex: 0 0 auto;
+  width: calc(200px + var(--sp-4));
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4) var(--sp-5) 0;
+}
+
+/* A 32px toggle plus the existing 16px outer gutter forms a 48px rail.
+   The flex content sibling receives the released 168px automatically. */
+.app-shell__utility--collapsed { width: 48px; }
+
+.app-shell__utility-toggle {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.app-shell__utility-toggle:hover { background: var(--color-accent-bg); }
+.app-shell__utility-toggle-icon {
+  width: 8px;
+  height: 8px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(-45deg);
+}
+.app-shell__utility--collapsed .app-shell__utility-toggle-icon {
+  transform: rotate(135deg);
+}
+
+/* Login is a rendered state, not necessarily /login. Hiding the navigator
+   alone leaves its flex parent reserving an empty column beside the hero.
+   Collapse that allocation without unmounting any callback targets. */
+.app-shell:has(.login-page) .app-shell__utility { display: none; }
+
+/* 8px top gutter + 32px toggle + 12px gap places the card at y=52,
+   beside Fleet's y=51 heading. The outer dock is sticky, so its toggle
+   stays reachable even while the long page scrolls. Only the contents
+   scroll on short viewports; the card never becomes a full-height strip. */
+.app-shell__utility-inner {
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* Structurally reserved, not decorative (§E): no current page has a valid
+   primary action, so an empty slot collapses to nothing instead of showing a
+   bordered blank box. A future page action fills it with no shell change. */
+.page-action-area:empty { display: none; }
+
+/* Fleet is a workspace, not a capped reading column. At wide desktop or
+   zoomed-out sizes its inherited 1550px cap produced large auto margins
+   between both shell rails. Let it fill the flexible content region while
+   retaining the page's existing 24px gutters. Other monitoring/detail
+   pages keep their own max-widths; no Fleet component styling changes. */
+.app-shell__content .page--plants-overview {
+  max-width: none;
 }
 
 /* ---------- Sidebar ----------
@@ -782,42 +855,58 @@ body {
   .app-sidebar__toggle { display: none; }
 }
 
-/* ---------- Equipment Selector ----------
-   A global bar above the page, not part of .app-header: the selector is
-   mounted once in app.layout so its callbacks always have targets, while each
-   page renders its own header. */
-/* Compacted for the §6.8 budget. The component deliberately stays in the global
-   layout — visual integration only, never relocation into the page-local header,
-   which would reintroduce docs/CODE_AUDIT.md finding 2. */
-.equipment-selector-bar {
+/* ---------- Asset Navigator ----------
+   Layer 1 (Global Shell): the former horizontal "Jump to equipment" bar,
+   now a vertical panel docked in the app shell's right-hand utility column
+   (`.app-shell__utility` above) rather than a full-width bar above the page.
+   The component deliberately stays in the global layout — visual
+   integration only, never relocation into a page-local header, which would
+   reintroduce docs/CODE_AUDIT.md finding 2.
+
+   Styled as one compact card — the same border/radius/background idiom as
+   `.kpi-card` — rather than a panel spanning the whole utility column: it
+   ends right after the RTL Device field, so it reads as a discrete tool,
+   not a background surface. */
+.asset-navigator {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-5);
-  background: var(--color-bg);
-  border-bottom: 1px solid var(--color-border);
-  /* Now a flex item of .app-root (ADMIN-0P): natural height, never
-     stretched or shrunk by the column it sits in. */
-  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-4);
 }
 
-.equipment-selector-bar__label {
+.asset-navigator__title {
+  margin: 0;
   font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hierarchy-selector { display: flex; flex-direction: column; gap: var(--sp-3); flex: 1; min-width: 0; }
+
+.hierarchy-selector__group { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.hierarchy-selector__group-label {
+  font-size: 11px;
   font-weight: 600;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  white-space: nowrap;
 }
-
-.hierarchy-selector { display: flex; gap: 8px; flex: 1; min-width: 300px; }
 
 /* Size the `.dash-dropdown` wrapper, not `.hierarchy-selector__field`.
    dcc.Dropdown puts its `className` on the inner `.Select` div, while the flex
    child is the outer wrapper — so flex/max-width set on the field class landed
    on an element whose parent is not a flex container and did nothing. The three
    dropdowns sat at their 120 px min-width with ~790 px of the bar unused, and
-   "Transformer..." was the one placeholder wide enough to be clipped by it. */
+   "Transformer..." was the one placeholder wide enough to be clipped by it.
+   Unchanged since (§6.9's guard tests pin this block): in the vertical panel
+   each group is already narrower than `max-width`, so the field simply fills
+   the group via `.hierarchy-selector__field`'s own `width: 100%` below. */
 .hierarchy-selector .dash-dropdown {
   flex: 1 1 0;
   min-width: 140px;
@@ -2408,14 +2497,20 @@ body {
 
   /* The selector stacks rather than disappearing. It is now the only way to
      reach a device under another plant in one step, so hiding it on narrow
-     screens would remove the feature instead of collapsing it. */
-  .equipment-selector-bar {
+     screens would remove the feature instead of collapsing it.
+
+     Layer 1 is desktop-only; the utility column's own responsive behaviour
+     (it still renders at a fixed width below 768px today) is untouched here
+     and left for a future tablet/mobile pass. This block only follows the
+     Asset Navigator's Layer 1 rename so it keeps targeting the right
+     elements instead of becoming dead CSS. */
+  .asset-navigator {
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
     padding: 4px 12px 6px;
   }
-  .equipment-selector-bar__label { font-size: 9px; line-height: 1.2; }
+  .asset-navigator__title { font-size: 9px; line-height: 1.2; }
   .hierarchy-selector {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

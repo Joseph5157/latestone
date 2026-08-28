@@ -13,12 +13,17 @@ Three independent concerns, one per callback:
    store drives the sidebar's width, the content region's offset, and the
    toggle button's accessible state together — all three read one source of
    truth so they cannot drift apart.
+
+The Asset Navigator has its own collapse store and presentation callback.
+It never writes the left sidebar state, page contents, or selector values.
 """
 from __future__ import annotations
 
 from dash import Input, Output, State
 
-from components.app_shell import CONTENT_ID
+from components.app_shell import (
+    CONTENT_ID, UTILITY_ID, UTILITY_BODY_ID, UTILITY_STORE_ID, UTILITY_TOGGLE_ID,
+)
 from components.app_sidebar import (
     COLLAPSE_STORE_ID,
     HIDDEN_STYLE,
@@ -109,6 +114,16 @@ def toggle_aria_label(collapse_data) -> str:
     return "Expand sidebar" if _is_collapsed(collapse_data) else "Collapse sidebar"
 
 
+def utility_presentation(collapse_data) -> tuple[str, bool, str, str, str]:
+    """Dock width, body visibility and accessible toggle state, never values."""
+    collapsed = _is_collapsed(collapse_data)
+    class_name = "app-shell__utility"
+    if collapsed:
+        class_name += " app-shell__utility--collapsed"
+    label = "Expand Asset Navigator" if collapsed else "Collapse Asset Navigator"
+    return class_name, collapsed, toggle_aria_expanded(collapse_data), label, label
+
+
 def register(app) -> None:
     """Register sidebar callbacks on the Dash app."""
 
@@ -153,3 +168,23 @@ def register(app) -> None:
             toggle_aria_expanded(collapse_data),
             toggle_aria_label(collapse_data),
         )
+
+    @app.callback(
+        Output(UTILITY_STORE_ID, "data"),
+        Input(UTILITY_TOGGLE_ID, "n_clicks"),
+        State(UTILITY_STORE_ID, "data"),
+        prevent_initial_call=True,
+    )
+    def _toggle_utility(n_clicks, collapse_data):
+        return toggle_collapsed(n_clicks, collapse_data)
+
+    @app.callback(
+        Output(UTILITY_ID, "className"),
+        Output(UTILITY_BODY_ID, "hidden"),
+        Output(UTILITY_TOGGLE_ID, "aria-expanded"),
+        Output(UTILITY_TOGGLE_ID, "aria-label"),
+        Output(UTILITY_TOGGLE_ID, "title"),
+        Input(UTILITY_STORE_ID, "data"),
+    )
+    def _apply_utility_collapse(collapse_data):
+        return utility_presentation(collapse_data)
