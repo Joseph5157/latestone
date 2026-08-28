@@ -590,6 +590,13 @@ body {
    The flex content sibling receives the released 168px automatically. */
 .app-shell__utility--collapsed { width: 48px; }
 
+/* Administration and reporting routes: the Asset Navigator jumps to a device
+   dashboard, so it is an exit door from those tasks rather than a tool for
+   them. `display: none` and not `visibility: hidden` — the column's
+   `calc(200px + var(--sp-4))` allocation has to go back to the content
+   region, which happens for free since `.app-shell__content` is `flex: 1`. */
+.app-shell__utility--hidden { display: none; }
+
 .app-shell__utility-toggle {
   flex: 0 0 auto;
   align-self: flex-end;
@@ -639,13 +646,25 @@ body {
    bordered blank box. A future page action fills it with no shell change. */
 .page-action-area:empty { display: none; }
 
-/* Fleet is a workspace, not a capped reading column. At wide desktop or
-   zoomed-out sizes its inherited 1550px cap produced large auto margins
-   between both shell rails. Let it fill the flexible content region while
-   retaining the page's existing 24px gutters. Other monitoring/detail
-   pages keep their own max-widths; no Fleet component styling changes. */
-.app-shell__content .page--plants-overview {
+/* Monitoring pages are workspaces, not capped reading columns. At wide
+   desktop or zoomed-out sizes the inherited 1550px cap produced large auto
+   margins between both shell rails — a six-column device table centred in
+   ~300px of dead space each side. ENT-6 established this for Fleet Overview
+   alone; the reasoning was never Fleet-specific, and nine pages carry
+   `page--monitoring`, so the default inverts here rather than growing one
+   override per page. Gutters are the page's own 24px, untouched.
+
+   Base `.page--monitoring` keeps its cap for any context outside the shell,
+   and pages that genuinely read as prose opt back in below. */
+.app-shell__content .page--monitoring {
   max-width: none;
+}
+
+/* Registration is a four-field form. Stretched to the full workspace its
+   labels end up a screen away from their inputs, so it keeps the reading
+   column the rest of the shell no longer imposes. */
+.app-shell__content .page--device-register {
+  max-width: var(--w-reading);
 }
 
 /* ---------- Sidebar ----------

@@ -54,12 +54,41 @@ def test_content_takes_remaining_space_and_can_shrink(css):
         assert not re.search(r"(?<![-\w])(?:max-)?width\s*:", rule(css, selector))
 
 
-def test_fleet_fills_wide_shell_without_uncapping_other_pages(css):
-    fleet = rule(css, ".app-shell__content .page--plants-overview")
-    assert "max-width: none" in fleet
-    assert "padding" not in fleet
-    assert "max-width: var(--w-monitoring)" in rule(css, ".page--monitoring")
-    assert "max-width: var(--w-reading)" in rule(css, ".page")
+def test_monitoring_pages_fill_the_shell_rather_than_centring_in_it(css):
+    """Reverses the ENT-6 rule that freed Fleet Overview alone.
+
+    The reasoning recorded there — "a workspace, not a capped reading
+    column", whose 1550px cap "produced large auto margins between both
+    shell rails" — is true of every table page, not just Fleet. Nine pages
+    carry `page--monitoring`; one override per page is the wrong shape, so
+    workspace width becomes the default inside the shell and the pages that
+    genuinely read as prose opt back in below.
+    """
+    workspace = rule(css, ".app-shell__content .page--monitoring")
+    assert "max-width: none" in workspace
+    assert "padding" not in workspace
+
+
+def test_a_registration_form_still_reads_at_a_column_width(css):
+    """Device registration is four inputs. A form stretched across 2,000px
+    puts its labels a screen away from its fields."""
+    assert "max-width: var(--w-reading)" in rule(
+        css, ".app-shell__content .page--device-register"
+    )
+
+
+def base_rule(css, selector):
+    """A rule whose selector starts a line, so `.page--monitoring` finds the
+    base rule and not the `.app-shell__content .page--monitoring` override
+    that now precedes it in the file."""
+    match = re.search(r"^" + re.escape(selector) + r"\s*\{([^}]*)\}", css, re.M)
+    assert match, f"Missing base rule: {selector}"
+    return match.group(1)
+
+
+def test_base_caps_survive_for_anything_outside_the_shell(css):
+    assert "max-width: var(--w-monitoring)" in base_rule(css, ".page--monitoring")
+    assert "max-width: var(--w-reading)" in base_rule(css, ".page")
 
 
 def test_utility_remains_content_height_and_transparent(css):
@@ -103,7 +132,9 @@ def test_utility_preference_is_global_and_session_scoped():
 
 @pytest.mark.parametrize("state", [None, {}, {"collapsed": False}, {"collapsed": True}])
 def test_utility_state_drives_width_visibility_and_accessible_name_together(state):
-    class_name, hidden, expanded, label, title = nav.utility_presentation(state)
+    # A monitoring route, so this stays a test of the collapse state alone;
+    # route policy is covered in tests/test_utility_route_visibility.py.
+    class_name, hidden, expanded, label, title = nav.utility_presentation(state, "/plants")
     collapsed = bool(state and state.get("collapsed"))
     assert ("app-shell__utility--collapsed" in class_name.split()) == collapsed
     assert hidden is collapsed
@@ -127,7 +158,12 @@ def test_utility_callbacks_do_not_reset_values_or_rerender_content():
     assert toggle["state"] == [{"id": UTILITY_STORE_ID, "property": "data"}]
     assert toggle["prevent_initial_call"] is True
     presentation = next(c for c in callbacks if f"{UTILITY_BODY_ID}.hidden" in c["output"])
-    assert presentation["inputs"] == [{"id": UTILITY_STORE_ID, "property": "data"}]
+    # Collapse state and the route, and nothing else: the column's allocation
+    # follows the URL, but it still never reads or writes the selector values.
+    assert presentation["inputs"] == [
+        {"id": UTILITY_STORE_ID, "property": "data"},
+        {"id": "url", "property": "pathname"},
+    ]
     outputs = set(presentation["output"].strip(".").split("..."))
     assert outputs == {
         f"{UTILITY_ID}.className", f"{UTILITY_BODY_ID}.hidden",

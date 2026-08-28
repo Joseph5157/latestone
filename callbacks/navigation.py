@@ -114,12 +114,29 @@ def toggle_aria_label(collapse_data) -> str:
     return "Expand sidebar" if _is_collapsed(collapse_data) else "Collapse sidebar"
 
 
-def utility_presentation(collapse_data) -> tuple[str, bool, str, str, str]:
-    """Dock width, body visibility and accessible toggle state, never values."""
+#: Routes whose task is monitoring. The Asset Navigator's destination is a
+#: device *dashboard*, so on any other route completing its cascade abandons
+#: the task on screen rather than continuing it.
+UTILITY_ROUTES = frozenset({"overview", "plant", "transformer", "device"})
+
+
+def utility_is_visible(pathname) -> bool:
+    return parse_pathname(pathname).name in UTILITY_ROUTES
+
+
+def utility_presentation(collapse_data, pathname) -> tuple[str, bool, str, str, str]:
+    """Dock allocation, body visibility and accessible toggle state, never values.
+
+    Route governs the column's allocation; the collapse store governs its
+    width and the toggle's meaning. They are independent, so a column hidden
+    by route still reports the collapse state it would return to.
+    """
     collapsed = _is_collapsed(collapse_data)
     class_name = "app-shell__utility"
     if collapsed:
         class_name += " app-shell__utility--collapsed"
+    if not utility_is_visible(pathname):
+        class_name += " app-shell__utility--hidden"
     label = "Expand Asset Navigator" if collapsed else "Collapse Asset Navigator"
     return class_name, collapsed, toggle_aria_expanded(collapse_data), label, label
 
@@ -185,6 +202,7 @@ def register(app) -> None:
         Output(UTILITY_TOGGLE_ID, "aria-label"),
         Output(UTILITY_TOGGLE_ID, "title"),
         Input(UTILITY_STORE_ID, "data"),
+        Input("url", "pathname"),
     )
-    def _apply_utility_collapse(collapse_data):
-        return utility_presentation(collapse_data)
+    def _apply_utility_collapse(collapse_data, pathname):
+        return utility_presentation(collapse_data, pathname)
