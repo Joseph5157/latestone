@@ -167,6 +167,11 @@ Pure-logic tests (no Docker required):
 python -m pytest -m "not db" -v
 ```
 
+This is enforced, not just a convention: an autouse fixture in
+`tests/conftest.py` fails any test without the `db` marker that opens a
+database connection, so a missing mock cannot pass locally against a running
+PostgreSQL and then fail on a clean checkout.
+
 Full test suite (requires Docker + seeded DB):
 
 ```bash
