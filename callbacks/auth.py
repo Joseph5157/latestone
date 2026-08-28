@@ -43,6 +43,29 @@ def login_outputs(username, password) -> tuple[str, object]:
     return "", auth_service.to_session(user)
 
 
+#: Where the header's Logout link points. A path rather than a route name:
+#: it renders no page, it ends one.
+LOGOUT_PATH = "/logout"
+
+
+def sign_out_outputs(pathname):
+    """(auth-store payload, redirect) for one navigation.
+
+    Signing out used to be a side effect of geometry: `auth-store` was
+    memory-backed, so the Logout anchor's full page load discarded it. Once
+    the store survives a reload — which is what stops an ordinary refresh
+    signing the user out — that no longer happens, and the session has to be
+    cleared deliberately.
+
+    Returns the initial payload rather than an empty dict: `{"authenticated":
+    False}` is the same shape the layout starts from, so a signed-out session
+    is indistinguishable from one that never signed in.
+    """
+    if pathname != LOGOUT_PATH:
+        return no_update, no_update
+    return {"authenticated": False}, "/"
+
+
 def password_toggle_state(n_clicks) -> tuple[str, str, str, str]:
     """(field type, icon className, label, accessible name) for the current
     click count.
@@ -94,7 +117,19 @@ def register(app) -> None:
     def toggle_password_visibility(n_clicks):
         return password_toggle_state(n_clicks)
 
-    # Logout is a plain `<a href="/logout">` (see components.app_header) rather
-    # than a callback: a full page load resets the memory-backed auth-store,
-    # which is simpler than a round trip through the server for a client-only
-    # sign-out.
+    @app.callback(
+        Output("auth-store", "data", allow_duplicate=True),
+        Output("url", "pathname", allow_duplicate=True),
+        Input("url", "pathname"),
+        # Not False: Dash refuses `allow_duplicate` with an unguarded initial
+        # call. "initial_duplicate" is the form that still fires on the first
+        # render, which this needs — /logout arrives as a page load.
+        prevent_initial_call="initial_duplicate",
+    )
+    def _sign_out(pathname):
+        return sign_out_outputs(pathname)
+
+    # Logout stays a plain `<a href="/logout">` (see components.app_header).
+    # That makes it a full page load, so the callback above must run on its
+    # initial call — a route-change-only callback would never see it. It also
+    # means a bookmarked /logout signs out rather than rendering nothing.
