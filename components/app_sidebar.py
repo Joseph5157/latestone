@@ -183,7 +183,13 @@ def app_sidebar(active_key: str | None = None, role: str | None = None) -> html.
                 className="app-sidebar__toggle",
                 **{"aria-expanded": "true", "aria-label": "Collapse sidebar"},
             ),
-            html.Nav(children=sidebar_nav(active_key, role), id=NAV_ID),
+            # Named because the breadcrumb is a second `<nav>` on every
+            # page; unnamed, the two landmarks announce identically.
+            html.Nav(
+                children=sidebar_nav(active_key, role),
+                id=NAV_ID,
+                **{"aria-label": "Main"},
+            ),
         ],
     )
 

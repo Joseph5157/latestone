@@ -500,10 +500,31 @@ body {
 .header__logout:hover { background: #f3f4f6; }
 
 /* ---------- Breadcrumb ---------- */
-.breadcrumb { display: flex; align-items: center; gap: 6px; }
+.breadcrumb { display: flex; align-items: center; min-width: 0; }
+.breadcrumb__list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.breadcrumb__item { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .breadcrumb__link { color: var(--color-accent); text-decoration: none; font-size: 13px; }
+/* Plant names reach "Itaipu Binacional Dam (Paraguay part)". Truncating keeps
+   the trail on one line — wrapping pushes the page heading down — and the
+   `title` on each step keeps the full name reachable. */
+.breadcrumb__link, .breadcrumb__current {
+  display: inline-block;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 .breadcrumb__link:hover { text-decoration: underline; }
-.breadcrumb__current { font-size: 13px; color: var(--color-text); font-weight: 500; }
+.breadcrumb__current { font-size: 13px; color: var(--color-text); font-weight: 400; }
 .breadcrumb__sep { color: var(--color-muted); font-size: 12px; }
 
 /* ---------- Application Navigation ----------
@@ -2950,11 +2971,8 @@ body {
   min-width: 0;
 }
 
-.page--device-dashboard .equipment-context__value,
-.page--device-dashboard .breadcrumb__link,
-.page--device-dashboard .breadcrumb__current {
+.page--device-dashboard .equipment-context__value {
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .page--device-dashboard .breadcrumb {
