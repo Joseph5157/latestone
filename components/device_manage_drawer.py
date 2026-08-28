@@ -177,6 +177,7 @@ def device_manage_drawer() -> html.Div:
                                         children=[
                                             html.Label(
                                                 "RTL UID *",
+                                                htmlFor=PROGRAM_RTL_UID_ID,
                                                 className="manage-drawer__field-label",
                                             ),
                                             dcc.Input(
@@ -192,6 +193,7 @@ def device_manage_drawer() -> html.Div:
                                         children=[
                                             html.Label(
                                                 "Transformer Name *",
+                                                htmlFor=PROGRAM_RTL_TRANSFORMER_ID,
                                                 className="manage-drawer__field-label",
                                             ),
                                             dcc.Input(
@@ -207,6 +209,7 @@ def device_manage_drawer() -> html.Div:
                                         children=[
                                             html.Label(
                                                 "RTL Master MSISDN *",
+                                                htmlFor=PROGRAM_RTL_MSISDN_ID,
                                                 className="manage-drawer__field-label",
                                             ),
                                             dcc.Input(
@@ -275,17 +278,28 @@ def device_manage_drawer() -> html.Div:
                                 children=[
                                     html.Label(
                                         "Forwarding State",
+                                        id="msg-fwd-toggle-label",
                                         className="manage-drawer__field-label",
                                     ),
-                                    dcc.Dropdown(
-                                        id=MSG_FWD_TOGGLE_ID,
-                                        options=[
-                                            {"label": "Enabled", "value": "enabled"},
-                                            {"label": "Disabled", "value": "disabled"},
+                                    # dcc.Dropdown renders a div, so `<label
+                                    # for>` cannot reach it and dcc.* rejects
+                                    # arbitrary aria-* props outright — a
+                                    # named group is the reachable fix.
+                                    html.Div(
+                                        role="group",
+                                        **{"aria-labelledby": "msg-fwd-toggle-label"},
+                                        children=[
+                                            dcc.Dropdown(
+                                                id=MSG_FWD_TOGGLE_ID,
+                                                options=[
+                                                    {"label": "Enabled", "value": "enabled"},
+                                                    {"label": "Disabled", "value": "disabled"},
+                                                ],
+                                                value="disabled",
+                                                clearable=False,
+                                                className="manage-drawer__dropdown",
+                                            ),
                                         ],
-                                        value="disabled",
-                                        clearable=False,
-                                        className="manage-drawer__dropdown",
                                     ),
                                 ],
                             ),

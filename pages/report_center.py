@@ -177,9 +177,16 @@ def layout() -> html.Div:
                             html.Div(
                                 id="report-period-container",
                                 className="report-form__field",
+                                # RadioItems groups several controls under one
+                                # label — the group role names the whole set,
+                                # including the conditional custom-range
+                                # picker it reveals, rather than any one radio.
+                                role="group",
+                                **{"aria-labelledby": "report-period-label"},
                                 children=[
                                     html.Label(
                                         "Date Range",
+                                        id="report-period-label",
                                         className="report-form__label",
                                     ),
                                     dcc.RadioItems(
