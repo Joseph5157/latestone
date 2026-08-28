@@ -43,6 +43,8 @@ def entity_table(
     state_column_id: str | None = None,
     administrative_state_column_id: str | None = None,
     responsive: bool = False,
+    filter_action: str = "native",
+    column_widths: dict[str, str] | None = None,
     markdown_link_target: str | None = None,
     extra_wrapper_class: str | None = None,
     extra_style_data_conditional: list[dict] | None = None,
@@ -63,6 +65,16 @@ def entity_table(
     administrative_state_column_id: identifies an administrative lifecycle
         column for presentation only. It is intentionally separate from
         `state_column_id`, which means monitoring freshness.
+    column_widths: {column_id: css width} for columns that should not grow.
+        dash_table hands slack to every column, so a wide table inflates
+        "ku01" to 320px alongside the plant name it belongs to. Each entry
+        pins width/minWidth/maxWidth together — `width` alone is only a
+        suggestion. Leave the identity column out: whatever is unconstrained
+        absorbs the slack, and that should be the longest value in the table.
+    filter_action: DataTable's own filter row. "native" (the default) is
+        right for a table that is its page's only filter surface. A page
+        carrying its own toolbar passes "none" so the two do not stack —
+        sorting is unaffected either way.
     responsive: opt this table into the shared narrow-screen record-card
         presentation. The underlying DataTable, data, filtering, paging and
         active-cell behaviour stay unchanged; CSS only changes how its rows
@@ -104,6 +116,15 @@ def entity_table(
         if link_column_id
         else []
     )
+    style_cell_conditional += [
+        {
+            "if": {"column_id": column_id},
+            "width": width,
+            "minWidth": width,
+            "maxWidth": width,
+        }
+        for column_id, width in (column_widths or {}).items()
+    ]
     wrapper_classes = ["entity-table-wrapper"]
     if responsive:
         wrapper_classes.append("entity-table-wrapper--responsive")
@@ -122,7 +143,7 @@ def entity_table(
                 columns=columns,
                 data=rows,
                 sort_action="native",
-                filter_action="native",
+                filter_action=filter_action,
                 page_size=30,
                 style_as_list_view=True,
                 style_table={"overflowX": "auto"},
@@ -141,7 +162,30 @@ def entity_table(
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
                 },
-                style_header={"fontWeight": "600", "backgroundColor": "#f9fafb"},
+                # A label for the column, not another row of data. It
+                # previously carried `#f9fafb` — the same fill as the odd-row
+                # stripe below — so with `style_as_list_view` removing
+                # vertical borders too, nothing separated the names from the
+                # values. White ground and a firm bottom rule do that job
+                # without adding a third surface colour. The extra right
+                # padding is room for dash_table's sort arrow, which sat
+                # flush against the label and read as "⇅Device".
+                style_header={
+                    "backgroundColor": "var(--color-surface)",
+                    "borderBottom": "2px solid #cbd2d9",
+                    # The heading of the table, not a caption for it. An
+                    # 11px muted label disappeared against the data it was
+                    # supposed to introduce; it now sits a step above the
+                    # 13px cells in colour and weight rather than below them
+                    # in size.
+                    "color": "var(--color-text)",
+                    "fontSize": "13px",
+                    "fontWeight": "600",
+                    "letterSpacing": "0.05em",
+                    "textTransform": "uppercase",
+                    "paddingRight": "22px",
+                    "paddingLeft": "12px",
+                },
                 markdown_options=(
                     {"link_target": markdown_link_target}
                     if markdown_link_target else None
@@ -150,8 +194,10 @@ def entity_table(
                     {"if": {"column_id": cid}, "textAlign": "right"}
                     for cid in numeric_ids
                 ],
+                # No zebra striping: `style_as_list_view` above already draws
+                # a rule between rows, and two separation systems on one table
+                # read as noise rather than as structure.
                 style_data_conditional=[
-                    {"if": {"row_index": "odd"}, "backgroundColor": "#f9fafb"},
                     *(freshness_style_rules(state_column_id)
                       if state_column_id else []),
                     *(extra_style_data_conditional or []),

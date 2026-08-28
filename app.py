@@ -26,8 +26,10 @@ server = app.server
 # ~400ms in, on top of whatever the image weighs). A `<link rel=preload>`
 # lets the browser start fetching the image in parallel with the JS bundle
 # instead of only after it, closing that gap. Unconditional rather than
-# login-route-scoped: auth-store is memory-only, so every full page load
-# (including an ordinary refresh) lands back on login regardless of route.
+# login-route-scoped: the preload is cheap and the login page is still the
+# first paint of any new session. A signed-in refresh now restores its route
+# instead of landing on login, so the hint is occasionally spent on an image
+# that render does not use.
 app.index_string = app.index_string.replace(
     "{%favicon%}",
     '{%favicon%}\n        <link rel="preload" as="image" '
@@ -41,7 +43,11 @@ app.layout = html.Div(
     className="app-root",
     children=[
         dcc.Location(id="url", refresh=False),
-        dcc.Store(id="auth-store", storage_type="memory", data={"authenticated": False}),
+        # Session-scoped, not memory: a memory store is discarded by every full
+        # page load, so an ordinary refresh signed the user out. Session
+        # storage survives a reload and still ends with the tab. Signing out
+        # is therefore a deliberate action now — see callbacks.auth.sign_out_outputs.
+        dcc.Store(id="auth-store", storage_type="session", data={"authenticated": False}),
         dcc.Store(id="page-context", storage_type="memory", data={}),
         # The sidebar is the primary application navigation (replaces the former
         # horizontal app-navigation bar). It, page-content and the utility column

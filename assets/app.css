@@ -38,6 +38,13 @@
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
   --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
 
+  /* The application face. IBM Plex Sans is the only family this app
+     actually fetches (see the @font-face rules and assets/fonts/), so it is
+     the family the app renders in. Naming a face the app never ships — as
+     `Inter` did here — silently hands typography to whatever the viewer has
+     installed, and Inter vs Segoe UI differ ~10% in width. */
+  --font-ui: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+
   /* type scale (§6.4) */
   --fs-page-title: 22px;
   /* ENT-6B: one section-heading size for the whole application. The device,
@@ -139,7 +146,7 @@ body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ---------- Login ----------
@@ -257,7 +264,7 @@ body {
 .login-eyebrow {
   margin: 0 0 var(--sp-6) 0;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.10em;
   text-transform: uppercase;
   color: var(--color-text);
@@ -267,7 +274,7 @@ body {
   margin: 0 0 var(--sp-3) 0;
   font-size: 36px;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-brand);
 }
 
@@ -387,7 +394,7 @@ body {
   border: none;
   border-radius: var(--radius-sm);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -431,7 +438,7 @@ body {
   border: 1.5px solid currentColor;
   border-radius: 50%;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -481,7 +488,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
   color: var(--color-brand);
   margin-right: auto;
@@ -500,10 +507,31 @@ body {
 .header__logout:hover { background: #f3f4f6; }
 
 /* ---------- Breadcrumb ---------- */
-.breadcrumb { display: flex; align-items: center; gap: 6px; }
+.breadcrumb { display: flex; align-items: center; min-width: 0; }
+.breadcrumb__list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.breadcrumb__item { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .breadcrumb__link { color: var(--color-accent); text-decoration: none; font-size: 13px; }
+/* Plant names reach "Itaipu Binacional Dam (Paraguay part)". Truncating keeps
+   the trail on one line — wrapping pushes the page heading down — and the
+   `title` on each step keeps the full name reachable. */
+.breadcrumb__link, .breadcrumb__current {
+  display: inline-block;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 .breadcrumb__link:hover { text-decoration: underline; }
-.breadcrumb__current { font-size: 13px; color: var(--color-text); font-weight: 500; }
+.breadcrumb__current { font-size: 13px; color: var(--color-text); font-weight: 400; }
 .breadcrumb__sep { color: var(--color-muted); font-size: 12px; }
 
 /* ---------- Application Navigation ----------
@@ -590,6 +618,13 @@ body {
    The flex content sibling receives the released 168px automatically. */
 .app-shell__utility--collapsed { width: 48px; }
 
+/* Administration and reporting routes: the Asset Navigator jumps to a device
+   dashboard, so it is an exit door from those tasks rather than a tool for
+   them. `display: none` and not `visibility: hidden` — the column's
+   `calc(200px + var(--sp-4))` allocation has to go back to the content
+   region, which happens for free since `.app-shell__content` is `flex: 1`. */
+.app-shell__utility--hidden { display: none; }
+
 .app-shell__utility-toggle {
   flex: 0 0 auto;
   align-self: flex-end;
@@ -639,13 +674,110 @@ body {
    bordered blank box. A future page action fills it with no shell change. */
 .page-action-area:empty { display: none; }
 
-/* Fleet is a workspace, not a capped reading column. At wide desktop or
-   zoomed-out sizes its inherited 1550px cap produced large auto margins
-   between both shell rails. Let it fill the flexible content region while
-   retaining the page's existing 24px gutters. Other monitoring/detail
-   pages keep their own max-widths; no Fleet component styling changes. */
-.app-shell__content .page--plants-overview {
+/* Monitoring pages are workspaces, not capped reading columns. At wide
+   desktop or zoomed-out sizes the inherited 1550px cap produced large auto
+   margins between both shell rails — a six-column device table centred in
+   ~300px of dead space each side. ENT-6 established this for Fleet Overview
+   alone; the reasoning was never Fleet-specific, and nine pages carry
+   `page--monitoring`, so the default inverts here rather than growing one
+   override per page. Gutters are the page's own 24px, untouched.
+
+   Base `.page--monitoring` keeps its cap for any context outside the shell,
+   and pages that genuinely read as prose opt back in below. */
+.app-shell__content .page--monitoring {
   max-width: none;
+}
+
+/* Registration is a four-field form. Stretched to the full workspace its
+   labels end up a screen away from their inputs, so it keeps the reading
+   column the rest of the shell no longer imposes. */
+.app-shell__content .page--device-register {
+  max-width: var(--w-reading);
+}
+
+/* ---------- Field ----------
+   Label, control, help text and error as one unit — see components/field.py.
+   Ported from the registration form's own classes, which were the only
+   implementation of this and are now shared. `min-height` on the error keeps
+   the control below from jumping when a message appears. */
+.field { margin-bottom: var(--sp-4); }
+
+.field__label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
+.field__description {
+  color: #5f6b78;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 5px 0 0;
+}
+
+.field__error {
+  font-size: var(--fs-meta);
+  color: var(--state-error-text);
+  margin: var(--sp-1) 0 0;
+  min-height: 16px;
+}
+
+/* ---------- Card ----------
+   One surface for every card in the application. Five surfaces previously
+   implemented this independently and disagreed on radius (8px vs 6px),
+   elevation (one shadow at 3% alpha, four without) and padding (four
+   combinations). Border and background were all they already shared.
+
+   `--card-spacing` drives both the padding and the rhythm between sections,
+   so a denser card is one variable rather than a new set of literals — the
+   pattern the shadcn Card uses, and the reason those four paddings existed
+   here in the first place. Separation is the border, never elevation. */
+.card {
+  --card-spacing: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-spacing);
+  padding: var(--card-spacing);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.card--sm {
+  --card-spacing: var(--sp-3);
+}
+
+/* Title and description stack in the first column; the action holds the
+   second and stays vertically centred against them. */
+.card__header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+}
+
+.card__title {
+  grid-column: 1;
+  margin: 0;
+  line-height: 1.3;
+  font-size: var(--fs-section);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.card__description {
+  grid-column: 1;
+  margin: 0;
+  font-size: var(--fs-fleet-body);
+  color: var(--color-muted);
+}
+
+.card__action {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  justify-self: end;
 }
 
 /* ---------- Sidebar ----------
@@ -736,7 +868,7 @@ body {
   padding: var(--sp-3) var(--sp-2) var(--sp-1) var(--sp-2);
   color: rgba(255, 255, 255, 0.55);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -880,7 +1012,7 @@ body {
 .asset-navigator__title {
   margin: 0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1010,11 +1142,11 @@ body {
    context at a lower weight. */
 .equipment-context__item { display: flex; flex-direction: column; gap: 1px; }
 .equipment-context__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.equipment-context__value { font-size: var(--fs-body); font-weight: 500; color: var(--color-text); }
+.equipment-context__value { font-size: var(--fs-body); font-weight: 400; color: var(--color-text); }
 
 .equipment-context__item:nth-child(3) .equipment-context__value {
   font-size: var(--fs-section);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* Last data carries a paired relative + absolute string, so it needs room. */
@@ -1066,7 +1198,7 @@ body {
 
 .kpi-card__value {
   font-size: var(--fs-kpi);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.15;
   color: var(--color-text);
 }
@@ -1097,7 +1229,7 @@ body {
 /* Separates administration from the monitoring figures above it without a
    panel or a rule: the two axes are distinct (Managed RTLs vs Monitoring
    Devices) and the heading is what stops the cards reading as one seven-card
-   row. Same --fs-section weight as .needs-attention__title, so the Fleet page
+   row. Same --fs-section weight as .card__title, so the Fleet page
    has one section-heading language rather than two.
 
    The bottom margin is one step tighter than the page's section rhythm
@@ -1114,7 +1246,7 @@ body {
 
 .admin-summary__heading {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.055em;
@@ -1147,7 +1279,7 @@ body {
 
 .unassigned-rtls__title {
   font-size: var(--fs-body);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text);
   margin: 0 0 var(--sp-1);
 }
@@ -1203,7 +1335,7 @@ body {
   background: #f8fafc;
   color: #374151;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
@@ -1269,7 +1401,9 @@ body {
 }
 .fleet-condition__summary,
 .fleet-condition__coverage {
-  --font-fleet-chart: "IBM Plex Sans", "Segoe UI", sans-serif;
+  /* Kept as a role name for the gauge numerals; one definition, so the
+     two can no longer drift apart. */
+  --font-fleet-chart: var(--font-ui);
   --fs-fleet-chart-value: 2.5rem;
   --fs-fleet-gauge-value: 2rem;
   --fs-fleet-chart-label: .8125rem;
@@ -1306,24 +1440,14 @@ body {
 .fleet-condition__card {
   height: 100%;
   min-width: 0;
-  padding: var(--sp-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 2px rgb(31 41 55 / 3%);
 }
 .fleet-condition__upper .fleet-condition__card {
   display: flex;
   flex-direction: column;
 }
-.fleet-condition__card-heading { min-height: 74px; flex: 0 0 74px; }
-.fleet-condition__title {
-  margin: 0 0 var(--sp-2);
-  color: var(--color-text);
-  font-size: var(--fs-section);
-  font-weight: 600;
-  line-height: 1.3;
-}
+/* Side-by-side cards: the headings reserve equal height so the charts
+   beneath them start on the same line. */
+.fleet-condition__card .card__header { min-height: 74px; flex: 0 0 74px; }
 .fleet-condition__subtitle {
   margin: 0;
   color: var(--color-muted);
@@ -1442,7 +1566,7 @@ body {
 .fleet-condition__tone--stale { --fleet-condition-tone: var(--state-stale-text); --fleet-condition-bg: var(--state-stale-bg); }
 .fleet-condition__tone--none { --fleet-condition-tone: var(--state-none-text); --fleet-condition-bg: var(--state-none-bg); }
 .fleet-condition__inventory { display: grid; grid-template-columns: minmax(150px, .9fr) minmax(0, 2fr); gap: var(--sp-5); align-items: center; }
-.fleet-condition__inventory .fleet-condition__card-heading { min-height: 0; }
+.fleet-condition__inventory .card__header { min-height: 0; flex: none; }
 .fleet-condition__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .fleet-condition__stat { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); padding-left: var(--sp-5); border-left: 1px solid var(--color-border); }
 .fleet-condition__stat-label { color: var(--color-muted); font-size: var(--fs-body); }
@@ -1484,7 +1608,7 @@ body {
   margin: 0 0 2px;
   color: var(--color-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -1493,7 +1617,7 @@ body {
   margin: 0;
   color: var(--color-text);
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.15;
 }
 
@@ -1587,7 +1711,7 @@ body {
 .systemic-freshness__title {
   margin: 0 0 2px;
   font-size: var(--fs-body);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text);
 }
 
@@ -1605,38 +1729,13 @@ body {
    RTL leaf rows are the actionable exceptions with direct drill-through.
    Colour stays on the freshness tokens — never a new severity palette. */
 .needs-attention {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--sp-3) var(--sp-4);
   margin-bottom: var(--sp-3);
-}
-
-.needs-attention__title {
-  font-size: var(--fs-section);
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 var(--sp-2);
 }
 
 .needs-attention__empty {
   font-size: var(--fs-body);
   color: var(--color-muted);
   margin: 0;
-}
-
-.needs-attention__summary-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  margin: calc(-1 * var(--sp-1)) 0 var(--sp-1);
-}
-
-.needs-attention__summary {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: var(--fs-meta);
 }
 
 .needs-attention__all {
@@ -1681,7 +1780,7 @@ body {
 }
 
 .needs-attention__row--group .needs-attention__entity {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .needs-attention__row--transformer,
@@ -1784,10 +1883,10 @@ body {
 }
 
 /* Section heading for the Operating status block — same language as
-   .needs-attention__title so the page keeps one heading idiom. */
+   .card__title so the page keeps one heading idiom. */
 .fleet-section__title {
   font-size: var(--fs-section);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text);
   margin: 0 0 var(--sp-2);
 }
@@ -1802,8 +1901,8 @@ body {
   .health-distribution__secondary { text-align: left; }
   .health-distribution__legend { gap: var(--sp-3); }
   .systemic-freshness { padding: 10px var(--sp-3); }
-  .needs-attention { padding: var(--sp-3); }
-  .needs-attention__summary-row { align-items: flex-start; }
+  .needs-attention { --card-spacing: var(--sp-3); }
+  .needs-attention .card__header { align-items: start; }
   .needs-attention__row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1838,7 +1937,10 @@ body {
 }
 
 .device-admin-toolbar__search {
-  flex: 1 1 220px;
+  /* Capped rather than greedy: `flex: 1 1` let it take 1175px of a 1502px
+     toolbar, so one text field owned 78% of the row. */
+  flex: 0 1 320px;
+  max-width: 320px;
   min-width: 180px;
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--color-border);
@@ -1864,16 +1966,24 @@ body {
   min-width: 120px;
 }
 
+/* The only creating action on the page, and the one control here that is not
+   a filter — so it sits apart from them and carries the brand fill. It was
+   previously `cursor: not-allowed; opacity: 0.5` in its BASE rule, not just
+   in `:disabled`, so a working button rendered permanently greyed out. */
 .device-admin-toolbar__register-btn {
+  margin-left: auto;
   padding: var(--sp-2) var(--sp-4);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-brand);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--color-brand);
+  color: #fff;
   font-size: var(--fs-body);
   font-weight: 600;
-  cursor: not-allowed;
-  opacity: 0.5;
+  cursor: pointer;
+}
+
+.device-admin-toolbar__register-btn:hover {
+  filter: brightness(1.15);
 }
 
 .device-admin-toolbar__register-btn:disabled {
@@ -1973,6 +2083,84 @@ body {
 
 /* ---------- Entity Table ---------- */
 .entity-table-wrapper { overflow-x: auto; }
+
+/* dash_table's own stylesheet sets the whole table in `monospace` with
+   `.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner
+   table` — three classes and a type, which outranks `body`. Every table in
+   the application inherited it, so plant names like "Az Zour South CCGT"
+   rendered as code. Verified against computed style, not the stylesheet
+   source. Class count decides, since both selectors end in the same type —
+   so this repeats dash_table's full chain and prefixes the wrapper class,
+   giving four classes against its three. Dropping any link in that chain
+   loses the cascade silently: the rule still parses, and the table still
+   renders as code. `inherit` then takes the application face rather than
+   naming it a second time here. Tabular figures keep device codes and
+   capacities aligned down the column now that the face is proportional. */
+.entity-table-wrapper .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "No rows" as a real element: dash_table renders only the header table when
+   there are none, so there is no empty tbody for generated content to sit in.
+   Sits directly beneath the header, where the rows would have been. */
+.entity-table-empty {
+  margin: 0;
+  padding: var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: var(--fs-body);
+  text-align: center;
+}
+
+/* Pagination. dash_table styles the page number in monospace from its own
+   stylesheet, which the table-element override above does not reach — the
+   pager sits outside the table. Below-right of the data, in the application
+   face. */
+.entity-table-wrapper .previous-next-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+  padding: var(--sp-3) 0 0;
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--color-muted);
+}
+
+.entity-table-wrapper .previous-next-container .page-number {
+  font-family: inherit;
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.entity-table-wrapper .previous-next-container .first-page,
+.entity-table-wrapper .previous-next-container .previous-page,
+.entity-table-wrapper .previous-next-container .next-page,
+.entity-table-wrapper .previous-next-container .last-page {
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+/* The sort arrow read as part of the column name — "⇅Device" — because it sat
+   flush against the label at full strength. Held back until the header is
+   hovered, where it is a control rather than a glyph in the word. */
+.entity-table-wrapper .column-header--sort {
+  margin-left: var(--sp-2);
+  color: var(--color-muted);
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+.entity-table-wrapper th:hover .column-header--sort {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-table-wrapper .column-header--sort { transition: none; }
+}
 .entity-table-wrapper .dash-table-container { max-width: 100%; }
 
 /* Administrative lifecycle is a neutral outlined label. Monitoring freshness
@@ -1988,13 +2176,30 @@ body {
   background: #f8fafc;
   color: #374151;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
 
 .entity-table-wrapper--freshness-axis td[data-dash-column="freshness"] {
   border-left: 2px solid #d8dde3;
+}
+
+/* A state you can find without reading. `currentColor` takes the semantic
+   colour entity_table.freshness_style_rules already set on the cell, so the
+   dot cannot disagree with the word beside it and no state colour is
+   restated here. Deliberately a dot and not a chip: the administrative-axis
+   rule above is an outlined uppercase label, and the two axes stay
+   distinguishable by shape as well as by wording. */
+.entity-table-wrapper--freshness-axis td[data-dash-column="freshness"] .dash-cell-value::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: baseline;
 }
 
 /* ---------- Notification Center (ENT-4) ---------- */
@@ -2004,7 +2209,7 @@ body {
 .page--notifications .device-section__eyebrow {
   color: var(--color-muted);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.09em;
   line-height: 1.3;
   text-transform: uppercase;
@@ -2068,7 +2273,7 @@ body {
   background: #f8fafc;
   color: #374151;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
@@ -2162,7 +2367,7 @@ body {
     content: attr(data-dash-column);
     color: var(--color-muted);
     font-size: 9px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.2;
     letter-spacing: 0.055em;
     text-transform: uppercase;
@@ -2255,7 +2460,7 @@ body {
     margin-top: 3px;
     color: var(--color-accent);
     font-size: 11px;
-    font-weight: 650;
+    font-weight: 600;
     text-decoration: none;
   }
 
@@ -2263,7 +2468,7 @@ body {
   .entity-table-wrapper--responsive tbody td[data-dash-column="device"] {
     min-height: 54px;
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 600;
     background: #f8fafc !important;
   }
 
@@ -2351,7 +2556,7 @@ body {
 
 .entity-context__item { display: flex; flex-direction: column; gap: 1px; }
 .entity-context__label { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.entity-context__value { font-size: var(--fs-body); font-weight: 500; color: var(--color-text); }
+.entity-context__value { font-size: var(--fs-body); font-weight: 400; color: var(--color-text); }
 
 /* ---------- Metric Health Overview ---------- */
 /* Data health only — never a metric-value panel. Same tile materials as
@@ -2418,7 +2623,7 @@ body {
 
 .temperature-attribution__value {
   font-size: var(--fs-kpi);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text);
   margin-bottom: 2px;
 }
@@ -2806,7 +3011,7 @@ body {
 
 .metric-cell__value {
   font-size: var(--fs-snapshot);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   margin-top: 2px;
@@ -2866,7 +3071,7 @@ body {
 .page--device-dashboard .device-section__eyebrow {
   color: var(--color-muted);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.09em;
   line-height: 1.3;
   text-transform: uppercase;
@@ -2931,11 +3136,8 @@ body {
   min-width: 0;
 }
 
-.page--device-dashboard .equipment-context__value,
-.page--device-dashboard .breadcrumb__link,
-.page--device-dashboard .breadcrumb__current {
+.page--device-dashboard .equipment-context__value {
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .page--device-dashboard .breadcrumb {
@@ -2949,7 +3151,7 @@ body {
   border-radius: 3px;
   color: #374151;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.025em;
   padding: 2px 7px;
   text-transform: uppercase;
@@ -3006,7 +3208,7 @@ body {
   display: block;
   float: none;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   margin: 0 0 4px;
   padding: 0;
@@ -3123,17 +3325,7 @@ body {
   padding: var(--sp-6);
 }
 
-.device-register-form__field {
-  margin-bottom: var(--sp-4);
-}
 
-.device-register-form__label {
-  display: block;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: var(--sp-1);
-}
 
 .device-register-form__input {
   width: 100%;
@@ -3155,12 +3347,6 @@ body {
   font-size: var(--fs-body);
 }
 
-.device-register-form__error {
-  font-size: var(--fs-meta);
-  color: var(--state-error-text);
-  margin: var(--sp-1) 0 0;
-  min-height: 16px;
-}
 
 .device-register-form__actions {
   display: flex;
@@ -3551,7 +3737,7 @@ body {
 .user-form-drawer__eyebrow {
   color: var(--color-muted);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.085em;
   line-height: 1.3;
   text-transform: uppercase;
@@ -3606,14 +3792,14 @@ body {
 
 .required-marker {
   color: #b42318;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .field-optional {
   color: var(--color-muted);
   float: right;
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0.03em;
   margin-left: var(--sp-2);
   text-transform: uppercase;
@@ -3642,7 +3828,7 @@ body {
   color: var(--color-muted);
   display: block;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   margin-bottom: 4px;
   text-transform: uppercase;
@@ -3727,7 +3913,7 @@ body {
 }
 
 .user-form-drawer__field-label {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .user-form-drawer__input {
@@ -3785,20 +3971,11 @@ body {
   margin: 4px 0 0;
 }
 
-.page--device-register .device-register-form__label {
-  font-weight: 650;
-}
 
 .page--device-register .device-register-form__input {
   min-height: 38px;
 }
 
-.device-register-form__helper {
-  color: #5f6b78;
-  font-size: 11px;
-  line-height: 1.4;
-  margin: 5px 0 0;
-}
 
 .page--device-register .device-register-form__dropdown.is-disabled .Select-control,
 .page--device-register .device-register-form__dropdown .Select-control.is-disabled {
@@ -3834,7 +4011,7 @@ body {
 }
 
 .page--device-register .device-register-review__value {
-  font-weight: 650;
+  font-weight: 600;
   min-width: 0;
   overflow-wrap: anywhere;
   text-align: right;
@@ -3863,7 +4040,7 @@ body {
   #user-admin-table tbody td[data-dash-column="username"] {
     background: #f8fafc !important;
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 600;
   }
 
   #user-admin-table tbody td[data-dash-column="username"] .dash-cell-value,
@@ -4033,7 +4210,7 @@ body {
 .assign-drawer__eyebrow {
   color: var(--color-muted);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.085em;
   line-height: 1.3;
   text-transform: uppercase;

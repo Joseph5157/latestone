@@ -70,8 +70,10 @@ def test_registration_marks_only_validated_requirements():
     assert "Plant" in required_text
     assert "Transformer" in required_text
     assert len(find_by_class(form, "required-marker")) == 4  # legend + three fields
+    # `field__label` since the form moved onto components.field; the
+    # guarantee is unchanged — Status is the one field not marked required.
     status_label = next(
-        label for label in find_by_class(form, "device-register-form__label")
+        label for label in find_by_class(form, "field__label")
         if "Status" in text_of(label)
     )
     assert not find_by_class(status_label, "required-marker")
