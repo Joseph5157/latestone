@@ -49,6 +49,21 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
+def _get_float(name: str, default: float) -> float:
+    val = os.getenv(name)
+    if val is None or val == "":
+        return default
+    try:
+        return float(val)
+    except ValueError:
+        return default
+
+
+def _parse_csv_list(name: str) -> tuple[str, ...]:
+    val = os.getenv(name, "")
+    return tuple(item.strip() for item in val.split(",") if item.strip())
+
+
 @dataclass(frozen=True)
 class DatabaseSettings:
     db: str = os.getenv("POSTGRES_DB", "powerplant_demo")
@@ -125,7 +140,24 @@ class MonitoringSettings:
         return self.expected_interval_minutes * self.stale_after_intervals
 
 
+@dataclass(frozen=True)
+class LiveSimSettings:
+    """db/live_simulator.py — the demo/dev live-append feed, distinct from
+    the one-time historical batch in db/seed_plant_monitoring.py.
+
+    device_ids/metrics empty (the default) means "every device"/"every
+    metric" — db.live_simulator validates any non-empty list against the
+    real hierarchy/metric registry at startup rather than silently ignoring
+    a typo.
+    """
+    interval_seconds: float = _get_float("LIVE_SIM_INTERVAL_SECONDS", 10.0)
+    device_ids: tuple[str, ...] = _parse_csv_list("LIVE_SIM_DEVICE_IDS")
+    metrics: tuple[str, ...] = _parse_csv_list("LIVE_SIM_METRICS")
+    noise_scale: float = _get_float("LIVE_SIM_NOISE_SCALE", 1.0)
+
+
 database = DatabaseSettings()
 monitoring = MonitoringSettings()
 demo_auth = DemoAuthSettings()
 dash_settings = DashSettings()
+live_sim = LiveSimSettings()

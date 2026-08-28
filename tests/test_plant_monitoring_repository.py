@@ -55,6 +55,22 @@ class TestHierarchy:
         t.row_count = 1 if plant else 0
         assert_timing(t, BUDGET_GET_PLANT, min_rows=1)
 
+    def test_get_plant_numeric_fields_are_python_floats(self):
+        """latitude/longitude/capacity_mw are NUMERIC columns; PostgreSQL
+        returns those as decimal.Decimal via psycopg2/SQLAlchemy unless
+        cast, but PlantRecord's declared type is float — callers doing
+        arithmetic on plant.latitude (e.g. db/live_simulator.py) need the
+        real thing, not a type that merely prints the same.
+        """
+        plant = repo.get_plant("plant-01")
+        assert isinstance(plant.latitude, float)
+        assert isinstance(plant.longitude, float)
+
+    def test_list_plants_numeric_fields_are_python_floats(self):
+        plants = repo.list_plants(allowed_device_ids=None)
+        assert isinstance(plants[0].latitude, float)
+        assert isinstance(plants[0].longitude, float)
+
     def test_get_plant_returns_none_for_unknown_id(self):
         with measure_time() as t:
             plant = repo.get_plant("does-not-exist")
