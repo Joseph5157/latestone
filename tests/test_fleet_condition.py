@@ -305,7 +305,10 @@ def test_chart_typography_uses_scoped_tokens_and_bundled_fonts():
     root = Path(__file__).resolve().parents[1]
     css = (root / "assets/app.css").read_text(encoding="utf-8")
     scope = css.split(".fleet-condition__summary,\n.fleet-condition__coverage {")[1].split("}")[0]
-    assert '--font-fleet-chart: "IBM Plex Sans", "Segoe UI", sans-serif' in scope
+    # The family is named once, in --font-ui, and this scope takes it from
+    # there. Restating the stack here is what let the chart face drift from
+    # the application face; see tests/test_typography.py.
+    assert "--font-fleet-chart: var(--font-ui)" in scope
     assert "--fs-fleet-chart-value: 2.5rem" in scope
     assert "--fs-meta: var(--fs-fleet-chart-caption)" in scope
     number = css.split(".fleet-condition__number {")[1].split("}")[0]
