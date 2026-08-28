@@ -472,12 +472,24 @@ body {
 }
 
 /* ---------- App Header ---------- */
-/* Target 56–64 px (§5). Contributes to the chart-top budget in §6.8. */
+/* Target 56–64 px (§5) for the brand row; the breadcrumb row adds its own
+   height on top when present. Contributes to the chart-top budget in §6.8.
+
+   A grid at every width, not just mobile — it was a flex row with
+   `.header__brand`'s `margin-right: auto` pushing breadcrumb, freshness and
+   Logout together against the right edge, so a deep trail rendered as one
+   word wedged beside Logout. Row 1 is brand + Logout; the breadcrumb takes
+   its own full-width row 2, directly under the brand bar and above the
+   page's own heading; freshness (device dashboard only) takes row 3 so it
+   never contends with the breadcrumb for the same cell. This is the same
+   shape the narrow-screen block already used — it becomes the default
+   here, and that block now only overrides sizing. */
 .app-header {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--sp-4);
+  column-gap: var(--sp-4);
+  row-gap: 4px;
   padding: var(--sp-2) var(--sp-5);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -485,13 +497,14 @@ body {
 }
 
 .header__brand {
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   font-weight: 600;
   font-size: 15px;
   color: var(--color-brand);
-  margin-right: auto;
 }
 
 .header__logo {
@@ -500,9 +513,17 @@ body {
   display: block;
 }
 
-.header__breadcrumb { font-size: 13px; }
-.header__freshness { font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.header__breadcrumb { grid-column: 1 / -1; grid-row: 2; min-width: 0; font-size: 13px; }
+.header__freshness {
+  grid-column: 1;
+  grid-row: 3;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .header__freshness-label { color: var(--color-muted); }
+.header__logout-wrapper { grid-column: 2; grid-row: 1; }
 .header__logout { padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 6px; text-decoration: none; color: var(--color-text); font-size: 13px; }
 .header__logout:hover { background: #f3f4f6; }
 
@@ -2910,11 +2931,12 @@ body {
 }
 
 /* ---------- Responsive: Header ---------- */
+/* Sizing only — the grid, its columns, and every child's row/column now
+   live in the base `.app-header` rule (they are identical at every width;
+   only the numbers below change). Redeclaring positions here risked them
+   drifting from the base rule with no way to notice. */
 @media (max-width: 768px) {
   .app-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
     column-gap: 8px;
     row-gap: 5px;
     padding: 7px 12px;
@@ -2922,9 +2944,6 @@ body {
   }
   .header__brand { min-width: 0; font-size: 13px; }
   .header__logo { height: 19px; }
-  .header__breadcrumb { grid-column: 1 / -1; min-width: 0; }
-  .header__freshness { grid-column: 1; grid-row: 2; }
-  .header__logout-wrapper { grid-column: 2; grid-row: 1; }
   .header__logout { padding: 4px 9px; font-size: 12px; }
 
   .page,
