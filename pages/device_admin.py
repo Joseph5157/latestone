@@ -58,18 +58,27 @@ def layout() -> html.Div:
                         children=[
                             html.Label(
                                 "Status:",
+                                id="device-admin-status-filter-label",
                                 className="device-admin-toolbar__label",
                             ),
-                            dcc.Dropdown(
-                                id="device-admin-status-filter",
-                                options=[
-                                    {"label": "All", "value": "all"},
-                                    {"label": "Active", "value": "active"},
-                                    {"label": "Inactive", "value": "inactive"},
+                            # dcc.Dropdown renders a div; <label for> cannot
+                            # reach it, so the label names a group instead.
+                            html.Div(
+                                role="group",
+                                **{"aria-labelledby": "device-admin-status-filter-label"},
+                                children=[
+                                    dcc.Dropdown(
+                                        id="device-admin-status-filter",
+                                        options=[
+                                            {"label": "All", "value": "all"},
+                                            {"label": "Active", "value": "active"},
+                                            {"label": "Inactive", "value": "inactive"},
+                                        ],
+                                        value="all",
+                                        clearable=False,
+                                        className="device-admin-toolbar__dropdown",
+                                    ),
                                 ],
-                                value="all",
-                                clearable=False,
-                                className="device-admin-toolbar__dropdown",
                             ),
                         ],
                     ),

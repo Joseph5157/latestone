@@ -172,8 +172,14 @@ def layout(
                                 style={
                                     "display": "block" if initial_period == "custom" else "none"
                                 },
+                                # DatePickerRange renders a composite, not a
+                                # native input; <label for> cannot reach it,
+                                # so this container (which wraps only the
+                                # label and the picker) names the group.
+                                role="group",
+                                **{"aria-labelledby": "custom-date-range-label"},
                                 children=[
-                                    html.Label("Custom UTC range"),
+                                    html.Label("Custom UTC range", id="custom-date-range-label"),
                                     dcc.DatePickerRange(
                                         id="custom-date-range", display_format="YYYY-MM-DD",
                                         start_date=custom_start, end_date=custom_end,
