@@ -10,6 +10,7 @@ from urllib.parse import quote
 
 from dash import html
 
+from components.card import card_header
 from config.settings import monitoring
 from services.monitoring_service import Freshness
 
@@ -89,10 +90,9 @@ def _arc_mask(percentage: float, *, semicircle: bool = False) -> str:
 
 
 def _heading(title: str, subtitle: str) -> html.Div:
-    return html.Div(className="fleet-condition__card-heading", children=[
-        html.H3(title, className="fleet-condition__title"),
-        html.P(subtitle, className="fleet-condition__subtitle"),
-    ])
+    """The shared card header. Kept as a local alias so every card on this
+    page states its title and subtitle the same way."""
+    return card_header(title, subtitle)
 
 
 def fleet_condition_summary(counts: dict[Freshness, int]) -> html.Section:
@@ -101,7 +101,7 @@ def fleet_condition_summary(counts: dict[Freshness, int]) -> html.Section:
     tone = "stale" if counts.get(Freshness.STALE, 0) else "none" if affected or not total else "fresh"
     badge, headline, detail = condition_wording(counts)
     return html.Section(
-        className=f"fleet-condition__card fleet-condition__summary fleet-condition__tone--{tone}",
+        className=f"card fleet-condition__card fleet-condition__summary fleet-condition__tone--{tone}",
         children=[
             _heading("Fleet Condition Summary", "Attention across the monitored RTL fleet"),
             html.Div(className="fleet-condition__chart-stage", children=[
@@ -143,7 +143,7 @@ def fresh_data_coverage(counts: dict[Freshness, int]) -> html.Section:
     fresh = counts.get(Freshness.FRESH, 0)
     percentage = _percentage(fresh, total)
     return html.Section(
-        className="fleet-condition__card fleet-condition__coverage fleet-condition__tone--fresh",
+        className="card fleet-condition__card fleet-condition__coverage fleet-condition__tone--fresh",
         children=[
             _heading("Fresh Data Coverage", "RTLs with all monitored metrics within the freshness threshold"),
             html.Div(className="fleet-condition__chart-stage", children=[
@@ -203,7 +203,7 @@ def data_freshness(counts: dict[Freshness, int]) -> html.Section:
         Freshness.STALE: f"At least one metric > {threshold} min",
         Freshness.NO_DATA: "At least one metric has no reading",
     }
-    return html.Section(className="fleet-condition__card fleet-condition__freshness", children=[
+    return html.Section(className="card fleet-condition__card fleet-condition__freshness", children=[
         _heading("Data Freshness", "Recency of latest RTL data"),
         html.Div(className="fleet-condition__freshness-rows", children=[
             html.Div(className=f"fleet-condition__freshness-row fleet-condition__tone--{token}", children=[
@@ -228,7 +228,7 @@ def data_freshness(counts: dict[Freshness, int]) -> html.Section:
 
 
 def fleet_inventory(plants: int, transformers: int, devices: int) -> html.Section:
-    return html.Section(className="fleet-condition__card fleet-condition__inventory", children=[
+    return html.Section(className="card fleet-condition__card fleet-condition__inventory", children=[
         _heading("Fleet Inventory", "Monitored assets in your current scope"),
         html.Div(className="fleet-condition__stats", children=[
             html.Div(className="fleet-condition__stat", children=[

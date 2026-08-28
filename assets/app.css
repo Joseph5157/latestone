@@ -688,6 +688,91 @@ body {
   max-width: var(--w-reading);
 }
 
+/* ---------- Field ----------
+   Label, control, help text and error as one unit — see components/field.py.
+   Ported from the registration form's own classes, which were the only
+   implementation of this and are now shared. `min-height` on the error keeps
+   the control below from jumping when a message appears. */
+.field { margin-bottom: var(--sp-4); }
+
+.field__label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--sp-1);
+}
+
+.field__description {
+  color: #5f6b78;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 5px 0 0;
+}
+
+.field__error {
+  font-size: var(--fs-meta);
+  color: var(--state-error-text);
+  margin: var(--sp-1) 0 0;
+  min-height: 16px;
+}
+
+/* ---------- Card ----------
+   One surface for every card in the application. Five surfaces previously
+   implemented this independently and disagreed on radius (8px vs 6px),
+   elevation (one shadow at 3% alpha, four without) and padding (four
+   combinations). Border and background were all they already shared.
+
+   `--card-spacing` drives both the padding and the rhythm between sections,
+   so a denser card is one variable rather than a new set of literals — the
+   pattern the shadcn Card uses, and the reason those four paddings existed
+   here in the first place. Separation is the border, never elevation. */
+.card {
+  --card-spacing: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-spacing);
+  padding: var(--card-spacing);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.card--sm {
+  --card-spacing: var(--sp-3);
+}
+
+/* Title and description stack in the first column; the action holds the
+   second and stays vertically centred against them. */
+.card__header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+}
+
+.card__title {
+  grid-column: 1;
+  margin: 0;
+  line-height: 1.3;
+  font-size: var(--fs-section);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.card__description {
+  grid-column: 1;
+  margin: 0;
+  font-size: var(--fs-fleet-body);
+  color: var(--color-muted);
+}
+
+.card__action {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  justify-self: end;
+}
+
 /* ---------- Sidebar ----------
    Vertical counterpart of the former .app-nav-shell: same brand surface and
    contrast ratios, reusing existing tokens rather than introducing new
@@ -1137,7 +1222,7 @@ body {
 /* Separates administration from the monitoring figures above it without a
    panel or a rule: the two axes are distinct (Managed RTLs vs Monitoring
    Devices) and the heading is what stops the cards reading as one seven-card
-   row. Same --fs-section weight as .needs-attention__title, so the Fleet page
+   row. Same --fs-section weight as .card__title, so the Fleet page
    has one section-heading language rather than two.
 
    The bottom margin is one step tighter than the page's section rhythm
@@ -1346,24 +1431,14 @@ body {
 .fleet-condition__card {
   height: 100%;
   min-width: 0;
-  padding: var(--sp-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 2px rgb(31 41 55 / 3%);
 }
 .fleet-condition__upper .fleet-condition__card {
   display: flex;
   flex-direction: column;
 }
-.fleet-condition__card-heading { min-height: 74px; flex: 0 0 74px; }
-.fleet-condition__title {
-  margin: 0 0 var(--sp-2);
-  color: var(--color-text);
-  font-size: var(--fs-section);
-  font-weight: 600;
-  line-height: 1.3;
-}
+/* Side-by-side cards: the headings reserve equal height so the charts
+   beneath them start on the same line. */
+.fleet-condition__card .card__header { min-height: 74px; flex: 0 0 74px; }
 .fleet-condition__subtitle {
   margin: 0;
   color: var(--color-muted);
@@ -1482,7 +1557,7 @@ body {
 .fleet-condition__tone--stale { --fleet-condition-tone: var(--state-stale-text); --fleet-condition-bg: var(--state-stale-bg); }
 .fleet-condition__tone--none { --fleet-condition-tone: var(--state-none-text); --fleet-condition-bg: var(--state-none-bg); }
 .fleet-condition__inventory { display: grid; grid-template-columns: minmax(150px, .9fr) minmax(0, 2fr); gap: var(--sp-5); align-items: center; }
-.fleet-condition__inventory .fleet-condition__card-heading { min-height: 0; }
+.fleet-condition__inventory .card__header { min-height: 0; flex: none; }
 .fleet-condition__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .fleet-condition__stat { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); padding-left: var(--sp-5); border-left: 1px solid var(--color-border); }
 .fleet-condition__stat-label { color: var(--color-muted); font-size: var(--fs-body); }
@@ -1645,38 +1720,13 @@ body {
    RTL leaf rows are the actionable exceptions with direct drill-through.
    Colour stays on the freshness tokens — never a new severity palette. */
 .needs-attention {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--sp-3) var(--sp-4);
   margin-bottom: var(--sp-3);
-}
-
-.needs-attention__title {
-  font-size: var(--fs-section);
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 var(--sp-2);
 }
 
 .needs-attention__empty {
   font-size: var(--fs-body);
   color: var(--color-muted);
   margin: 0;
-}
-
-.needs-attention__summary-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  margin: calc(-1 * var(--sp-1)) 0 var(--sp-1);
-}
-
-.needs-attention__summary {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: var(--fs-meta);
 }
 
 .needs-attention__all {
@@ -1824,10 +1874,10 @@ body {
 }
 
 /* Section heading for the Operating status block — same language as
-   .needs-attention__title so the page keeps one heading idiom. */
+   .card__title so the page keeps one heading idiom. */
 .fleet-section__title {
   font-size: var(--fs-section);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text);
   margin: 0 0 var(--sp-2);
 }
@@ -1842,8 +1892,8 @@ body {
   .health-distribution__secondary { text-align: left; }
   .health-distribution__legend { gap: var(--sp-3); }
   .systemic-freshness { padding: 10px var(--sp-3); }
-  .needs-attention { padding: var(--sp-3); }
-  .needs-attention__summary-row { align-items: flex-start; }
+  .needs-attention { --card-spacing: var(--sp-3); }
+  .needs-attention .card__header { align-items: start; }
   .needs-attention__row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -3160,17 +3210,7 @@ body {
   padding: var(--sp-6);
 }
 
-.device-register-form__field {
-  margin-bottom: var(--sp-4);
-}
 
-.device-register-form__label {
-  display: block;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: var(--sp-1);
-}
 
 .device-register-form__input {
   width: 100%;
@@ -3192,12 +3232,6 @@ body {
   font-size: var(--fs-body);
 }
 
-.device-register-form__error {
-  font-size: var(--fs-meta);
-  color: var(--state-error-text);
-  margin: var(--sp-1) 0 0;
-  min-height: 16px;
-}
 
 .device-register-form__actions {
   display: flex;
@@ -3822,20 +3856,11 @@ body {
   margin: 4px 0 0;
 }
 
-.page--device-register .device-register-form__label {
-  font-weight: 650;
-}
 
 .page--device-register .device-register-form__input {
   min-height: 38px;
 }
 
-.device-register-form__helper {
-  color: #5f6b78;
-  font-size: 11px;
-  line-height: 1.4;
-  margin: 5px 0 0;
-}
 
 .page--device-register .device-register-form__dropdown.is-disabled .Select-control,
 .page--device-register .device-register-form__dropdown .Select-control.is-disabled {

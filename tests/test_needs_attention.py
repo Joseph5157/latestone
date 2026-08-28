@@ -352,7 +352,7 @@ class TestNeedsAttentionComponent:
 
     def test_renders_heading(self):
         panel = needs_attention(self._queue())
-        titles = [text_of(n) for n in find_by_class(panel, "needs-attention__title")]
+        titles = [text_of(n) for n in find_by_class(panel, "card__title")]
         assert titles == ["Needs attention"]
 
     def test_renders_the_full_grouped_hierarchy(self):
@@ -423,7 +423,7 @@ class TestNeedsAttentionComponent:
     def test_empty_panel_has_heading(self):
         panel = needs_attention({"groups": [], "total_rtls": 0,
                                  "shown_rtls": 0, "plant_count": 0})
-        titles = [text_of(n) for n in find_by_class(panel, "needs-attention__title")]
+        titles = [text_of(n) for n in find_by_class(panel, "card__title")]
         assert titles == ["Needs attention"]
 
     def test_no_rows_render_for_an_empty_queue(self):

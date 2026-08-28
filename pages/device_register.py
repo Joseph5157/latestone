@@ -11,6 +11,7 @@ from dash import dcc, html
 
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
+from components.field import field
 
 
 def layout() -> html.Div:
@@ -63,98 +64,68 @@ def layout() -> html.Div:
                             ),
                         ],
                     ),
-                    # Device Code
-                    html.Div(
-                        className="device-register-form__field",
-                        children=[
-                            html.Label(
-                                ["RTL UID / Device Code", html.Span(" *", className="required-marker")],
-                                htmlFor="device-register-code",
-                                className="device-register-form__label",
-                            ),
-                            dcc.Input(
-                                id="device-register-code",
-                                type="text",
-                                placeholder="e.g. 29017",
-                                className="device-register-form__input",
-                                maxLength=10,
-                                required=True,
-                            ),
-                            html.P(
-                                id="device-register-code-error",
-                                className="device-register-form__error",
-                            ),
-                        ],
+                    # A real <input>, so the label's `for` genuinely reaches it.
+                    field(
+                        "RTL UID / Device Code",
+                        dcc.Input(
+                            id="device-register-code",
+                            type="text",
+                            placeholder="e.g. 29017",
+                            className="device-register-form__input",
+                            maxLength=10,
+                            required=True,
+                        ),
+                        control_id="device-register-code",
+                        error_id="device-register-code-error",
+                        required=True,
                     ),
-                    # Plant selector (cascade trigger)
-                    html.Div(
-                        className="device-register-form__field",
-                        children=[
-                            html.Label(
-                                ["Plant", html.Span(" *", className="required-marker")],
-                                htmlFor="device-register-plant",
-                                className="device-register-form__label",
-                            ),
-                            dcc.Dropdown(
-                                id="device-register-plant",
-                                options=[],
-                                placeholder="Select plant...",
-                                searchable=True,
-                                className="device-register-form__dropdown",
-                            ),
-                            html.P(
-                                id="device-register-plant-error",
-                                className="device-register-form__error",
-                            ),
-                        ],
+                    # Cascade trigger. labelable=False: a <label for> cannot
+                    # target the div dcc.Dropdown renders, so the label names a
+                    # group around it instead of pointing at nothing.
+                    field(
+                        "Plant",
+                        dcc.Dropdown(
+                            id="device-register-plant",
+                            options=[],
+                            placeholder="Select plant...",
+                            searchable=True,
+                            className="device-register-form__dropdown",
+                        ),
+                        control_id="device-register-plant",
+                        error_id="device-register-plant-error",
+                        required=True,
+                        labelable=False,
                     ),
-                    # Transformer selector (cascade from plant)
-                    html.Div(
-                        className="device-register-form__field",
-                        children=[
-                            html.Label(
-                                ["Transformer", html.Span(" *", className="required-marker")],
-                                htmlFor="device-register-transformer",
-                                className="device-register-form__label",
-                            ),
-                            dcc.Dropdown(
-                                id="device-register-transformer",
-                                options=[],
-                                placeholder="Select transformer...",
-                                searchable=True,
-                                disabled=True,
-                                className="device-register-form__dropdown",
-                            ),
-                            html.P(
-                                "Choose a plant first to load its transformers.",
-                                className="device-register-form__helper",
-                            ),
-                            html.P(
-                                id="device-register-transformer-error",
-                                className="device-register-form__error",
-                            ),
-                        ],
+                    field(
+                        "Transformer",
+                        dcc.Dropdown(
+                            id="device-register-transformer",
+                            options=[],
+                            placeholder="Select transformer...",
+                            searchable=True,
+                            disabled=True,
+                            className="device-register-form__dropdown",
+                        ),
+                        control_id="device-register-transformer",
+                        description="Choose a plant first to load its transformers.",
+                        error_id="device-register-transformer-error",
+                        required=True,
+                        labelable=False,
                     ),
-                    # Status
-                    html.Div(
-                        className="device-register-form__field",
-                        children=[
-                            html.Label(
-                                "Status",
-                                htmlFor="device-register-status",
-                                className="device-register-form__label",
-                            ),
-                            dcc.Dropdown(
-                                id="device-register-status",
-                                options=[
-                                    {"label": "Active", "value": "active"},
-                                    {"label": "Inactive", "value": "inactive"},
-                                ],
-                                value="active",
-                                clearable=False,
-                                className="device-register-form__dropdown",
-                            ),
-                        ],
+                    field(
+                        "Status",
+                        dcc.Dropdown(
+                            id="device-register-status",
+                            options=[
+                                {"label": "Active", "value": "active"},
+                                {"label": "Inactive", "value": "inactive"},
+                            ],
+                            value="active",
+                            clearable=False,
+                            className="device-register-form__dropdown",
+                        ),
+                        control_id="device-register-status",
+                        labelable=False,
                     ),
                     # Form actions
                     html.Div(

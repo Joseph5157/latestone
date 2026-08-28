@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dash import dcc, html
 
+from components.card import card_header
 from components.freshness_presentation import FRESHNESS_PRESENTATION
 from services.monitoring_service import Freshness
 
@@ -36,22 +37,23 @@ def needs_attention(
         return _empty_panel(empty_message)
 
     return html.Div(
-        className="needs-attention",
+        className="card needs-attention",
         children=[
-            html.H2("Needs attention", className="needs-attention__title"),
-            html.Div(
-                className="needs-attention__summary-row",
-                children=[
-                    html.P(_disclosure(queue), className="needs-attention__summary"),
-                    # A plain anchor, not dcc.Link: Dash intercepts dcc.Link
-                    # clicks as route changes, so an in-page hash target must
-                    # stay a real anchor to scroll without rewriting the URL.
-                    html.A(
-                        "View full fleet",
-                        href="#fleet-plants",
-                        className="needs-attention__all",
-                    ),
-                ],
+            # Title, disclosure and the fleet link are the card header's three
+            # slots; they previously needed a bespoke summary row because no
+            # card had an action slot to put the link in.
+            card_header(
+                "Needs attention",
+                _disclosure(queue),
+                # A plain anchor, not dcc.Link: Dash intercepts dcc.Link
+                # clicks as route changes, so an in-page hash target must
+                # stay a real anchor to scroll without rewriting the URL.
+                action=html.A(
+                    "View full fleet",
+                    href="#fleet-plants",
+                    className="needs-attention__all",
+                ),
+                heading=html.H2,
             ),
             html.Div(
                 className="needs-attention__list",
@@ -82,9 +84,9 @@ def _empty_panel(message: str) -> html.Div:
     """Panel with a truthful empty state — never an absent panel, which would
     make 'nothing to show' and 'we failed to load' look identical."""
     return html.Div(
-        className="needs-attention",
+        className="card needs-attention",
         children=[
-            html.H2("Needs attention", className="needs-attention__title"),
+            card_header("Needs attention", heading=html.H2),
             html.P(message, className="needs-attention__empty"),
         ],
     )
