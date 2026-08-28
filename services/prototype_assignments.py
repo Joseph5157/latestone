@@ -46,6 +46,16 @@ def get_assigned_technician(device_id: str) -> str | None:
     return assignment.username if assignment else None
 
 
+def assigned_technicians() -> dict[str, str]:
+    """Current technician per device, for screens listing many devices.
+
+    One query. `get_assigned_technician` stays the right call for a single
+    device (the assignment drawer); calling it per row is what this exists to
+    avoid.
+    """
+    return repo.list_active_assignments()
+
+
 def assign_technician(
     device_id: str,
     technician_username: str,

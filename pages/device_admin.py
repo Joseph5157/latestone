@@ -10,6 +10,26 @@ from components.device_manage_drawer import device_manage_drawer
 from components.entity_table import entity_table
 
 
+#: Proportional shares summing to 100%, so slack becomes even breathing room
+#: across the row. Leaving one column unconstrained instead handed it every
+#: spare pixel: Plant rendered at 1,320px for 143px of text. Plant still takes
+#: the largest share — it holds the longest values in the fleet — but bounded.
+#: Slot for the "no rows" message. It stands in for the rows, so it sits
+#: directly under the table rather than beside the summary line.
+EMPTY_ID = "device-admin-empty"
+
+DEVICE_ADMIN_COLUMN_WIDTHS = {
+    "device": "8%",
+    "plant": "20%",
+    "transformer": "9%",
+    "status": "9%",
+    "freshness": "11%",
+    "last_reading": "11%",
+    "technician": "14%",
+    "actions": "18%",
+}
+
+
 def layout() -> html.Div:
     return html.Div(
         className="page page--monitoring page--device-admin",
@@ -74,6 +94,8 @@ def layout() -> html.Div:
                     {"name": "Transformer", "id": "transformer"},
                     {"name": "Status", "id": "status"},
                     {"name": "Data", "id": "freshness"},
+                    {"name": "Last reading", "id": "last_reading"},
+                    {"name": "Technician", "id": "technician"},
                     {"name": "Actions", "id": "actions", "presentation": "markdown"},
                 ],
                 rows=[],
@@ -81,7 +103,12 @@ def layout() -> html.Div:
                 state_column_id="freshness",
                 administrative_state_column_id="status",
                 responsive=True,
+                # The toolbar above is this page's filter surface; the native
+                # row underneath the header would be a second one.
+                filter_action="none",
+                column_widths=DEVICE_ADMIN_COLUMN_WIDTHS,
             ),
+            html.Div(id=EMPTY_ID),
             # Assignment drawer (opens on Assign action)
             assign_device_drawer(),
             # Device management drawer (opens on Manage action)

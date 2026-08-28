@@ -145,8 +145,24 @@ class TestDeviceRowTarget:
 
 class TestDeviceAdminColumns:
     def test_columns_match_layout_spec(self):
-        ids = [c["id"] for c in DEVICE_ADMIN_COLUMNS]
-        assert ids == ["device", "plant", "transformer", "status", "freshness", "actions"]
+        """The page carries its own spec for the first paint and the callback
+        replaces it on first fire, so the two must agree or the table
+        reshuffles under the user.
+
+        Compared against the rendered layout rather than a literal list: the
+        literal version of this test passed while only restating the
+        callback's spec back to itself, so a page that had drifted would not
+        have failed it.
+        """
+        from dash import dash_table
+
+        from pages.device_admin import layout
+        from tests.dash_tree import walk
+
+        table = next(
+            n for n in walk(layout()) if isinstance(n, dash_table.DataTable)
+        )
+        assert table.columns == DEVICE_ADMIN_COLUMNS
 
     def test_device_is_link_column(self):
         assert any(c["id"] == "device" for c in DEVICE_ADMIN_COLUMNS)

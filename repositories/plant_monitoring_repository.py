@@ -1431,6 +1431,32 @@ def get_active_device_assignment(device_id: str) -> AssignmentRecord | None:
     return _to_assignment(row) if row else None
 
 
+def list_active_assignments() -> dict[str, str]:
+    """Every current assignment as device_id -> technician username.
+
+    The fleet-wide counterpart of `get_active_device_assignment`, for screens
+    that render one row per device: Device Management would otherwise issue
+    120 single-device queries to fill one column.
+
+    Unassigned devices are absent rather than present with a None value, so a
+    caller has one empty case to handle instead of two. Same
+    ``ended_at IS NULL`` definition of "current" as the single-device query —
+    two definitions would eventually disagree.
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT a.device_id, u.username
+                FROM {_SCHEMA}.user_device_assignments a
+                JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                WHERE a.ended_at IS NULL
+                """
+            )
+        ).all()
+    return {row[0]: row[1] for row in rows}
+
+
 def list_assignment_history(device_id: str) -> list[AssignmentRecord]:
     """Every assignment ever made for a device, oldest first — including the
     currently active one (``ended_at IS NULL``), if any.

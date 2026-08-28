@@ -1928,7 +1928,10 @@ body {
 }
 
 .device-admin-toolbar__search {
-  flex: 1 1 220px;
+  /* Capped rather than greedy: `flex: 1 1` let it take 1175px of a 1502px
+     toolbar, so one text field owned 78% of the row. */
+  flex: 0 1 320px;
+  max-width: 320px;
   min-width: 180px;
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--color-border);
@@ -1954,16 +1957,24 @@ body {
   min-width: 120px;
 }
 
+/* The only creating action on the page, and the one control here that is not
+   a filter — so it sits apart from them and carries the brand fill. It was
+   previously `cursor: not-allowed; opacity: 0.5` in its BASE rule, not just
+   in `:disabled`, so a working button rendered permanently greyed out. */
 .device-admin-toolbar__register-btn {
+  margin-left: auto;
   padding: var(--sp-2) var(--sp-4);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-brand);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--color-brand);
+  color: #fff;
   font-size: var(--fs-body);
   font-weight: 600;
-  cursor: not-allowed;
-  opacity: 0.5;
+  cursor: pointer;
+}
+
+.device-admin-toolbar__register-btn:hover {
+  filter: brightness(1.15);
 }
 
 .device-admin-toolbar__register-btn:disabled {
@@ -2063,6 +2074,84 @@ body {
 
 /* ---------- Entity Table ---------- */
 .entity-table-wrapper { overflow-x: auto; }
+
+/* dash_table's own stylesheet sets the whole table in `monospace` with
+   `.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner
+   table` — three classes and a type, which outranks `body`. Every table in
+   the application inherited it, so plant names like "Az Zour South CCGT"
+   rendered as code. Verified against computed style, not the stylesheet
+   source. Class count decides, since both selectors end in the same type —
+   so this repeats dash_table's full chain and prefixes the wrapper class,
+   giving four classes against its three. Dropping any link in that chain
+   loses the cascade silently: the rule still parses, and the table still
+   renders as code. `inherit` then takes the application face rather than
+   naming it a second time here. Tabular figures keep device codes and
+   capacities aligned down the column now that the face is proportional. */
+.entity-table-wrapper .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "No rows" as a real element: dash_table renders only the header table when
+   there are none, so there is no empty tbody for generated content to sit in.
+   Sits directly beneath the header, where the rows would have been. */
+.entity-table-empty {
+  margin: 0;
+  padding: var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: var(--fs-body);
+  text-align: center;
+}
+
+/* Pagination. dash_table styles the page number in monospace from its own
+   stylesheet, which the table-element override above does not reach — the
+   pager sits outside the table. Below-right of the data, in the application
+   face. */
+.entity-table-wrapper .previous-next-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+  padding: var(--sp-3) 0 0;
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--color-muted);
+}
+
+.entity-table-wrapper .previous-next-container .page-number {
+  font-family: inherit;
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.entity-table-wrapper .previous-next-container .first-page,
+.entity-table-wrapper .previous-next-container .previous-page,
+.entity-table-wrapper .previous-next-container .next-page,
+.entity-table-wrapper .previous-next-container .last-page {
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+/* The sort arrow read as part of the column name — "⇅Device" — because it sat
+   flush against the label at full strength. Held back until the header is
+   hovered, where it is a control rather than a glyph in the word. */
+.entity-table-wrapper .column-header--sort {
+  margin-left: var(--sp-2);
+  color: var(--color-muted);
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+.entity-table-wrapper th:hover .column-header--sort {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-table-wrapper .column-header--sort { transition: none; }
+}
 .entity-table-wrapper .dash-table-container { max-width: 100%; }
 
 /* Administrative lifecycle is a neutral outlined label. Monitoring freshness
@@ -2085,6 +2174,23 @@ body {
 
 .entity-table-wrapper--freshness-axis td[data-dash-column="freshness"] {
   border-left: 2px solid #d8dde3;
+}
+
+/* A state you can find without reading. `currentColor` takes the semantic
+   colour entity_table.freshness_style_rules already set on the cell, so the
+   dot cannot disagree with the word beside it and no state colour is
+   restated here. Deliberately a dot and not a chip: the administrative-axis
+   rule above is an outlined uppercase label, and the two axes stay
+   distinguishable by shape as well as by wording. */
+.entity-table-wrapper--freshness-axis td[data-dash-column="freshness"] .dash-cell-value::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: baseline;
 }
 
 /* ---------- Notification Center (ENT-4) ---------- */
@@ -2353,7 +2459,7 @@ body {
   .entity-table-wrapper--responsive tbody td[data-dash-column="device"] {
     min-height: 54px;
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 600;
     background: #f8fafc !important;
   }
 
