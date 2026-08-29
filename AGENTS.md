@@ -30,6 +30,12 @@ tells you where to look and confirms nothing has drifted since those files
 were written. Do not read the whole `docs/` tree to start a task. Do not
 treat a document you found by grep as in-scope because it is interesting.
 
+Claude Code sessions in this repo: `.claude/skills/project-context/SKILL.md`
+packages steps 0-9 of this workflow (through conflict-reporting, testing,
+updating context records, and the commit/push gate) as an invocable skill —
+equivalent to this section plus "Working behaviour" below, not a second
+set of rules.
+
 ## Context levels
 
 | Level | Contents | Load when |

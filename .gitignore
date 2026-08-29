@@ -8,11 +8,19 @@ __pycache__/
 *.zip
 
 # Agent/tooling scratch — never part of the application
-.claude/
+.claude/*
+!.claude/skills/
 .playwright-mcp/
 .serena/
 .superpowers/
 scratch/
+
+# .claude/skills/ is the one exception above: process instructions, same
+# class as AGENTS.md — tracked for history/review, excluded from
+# client-release via scripts/check_client_release.py rather than hidden from
+# git entirely. .claude/worktrees/ and .claude/settings.local.json are
+# genuinely machine-local (literal filesystem checkouts, local permission
+# grants) and stay ignored by the .claude/* rule above.
 
 # Generated context pack (scripts/build_context_pack.py) — regenerate, never
 # commit; a stale copy checked in would be exactly the staleness this exists

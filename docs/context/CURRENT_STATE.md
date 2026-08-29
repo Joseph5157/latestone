@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T10:06:58Z
+Date: 2026-08-29T10:13:19Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `ctx-1-context-architecture` = `df890e2` "docs(ctx-1): generate a verified per-gate context pack" (not `main`)
-- Working tree: 4 entries — see below
+- current branch `ctx-1-context-architecture` = `1a6409c` "chore(ctx-1): regenerate CURRENT_STATE.md at HEAD df890e2" (not `main`)
+- Working tree: 7 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2032 passed, 466 deselected in 12.68s
+- `python -m pytest -m "not db"` → 2032 passed, 466 deselected in 12.69s
 
 ## Branches
 
@@ -44,7 +44,7 @@ Diverged from `main` (has commits `main` doesn't):
 |---|---|---|---|
 | `client-demo-1` | 7 | 39 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 189 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `ctx-1-context-architecture` | 4 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `ctx-1-context-architecture` | 5 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -67,7 +67,10 @@ CC-1 Phase 0 — Repository reconciliation and demo prerequisites — full detai
 ## Working tree
 
 ```
-M docs/context/CURRENT_STATE.md
+A  .claude/skills/project-context/SKILL.md
+ M .gitignore
+ M AGENTS.md
+ M scripts/check_client_release.py
 ?? "command center/"
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py

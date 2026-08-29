@@ -48,6 +48,7 @@ FORBIDDEN_PREFIXES = (
     "command center/",
     "scratch/",
     ".superpowers/",
+    ".claude/",
 )
 
 #: Filename patterns that are internal wherever they sit.
