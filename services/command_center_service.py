@@ -145,8 +145,21 @@ class SelectedLocation:
     plant_id: str
     plant_name: str
     affected_rtls: int
+    #: The Stale / No Data split behind `affected_rtls`. "18 affected" alone
+    #: does not tell an operator whether the plant stopped reporting or
+    #: never started, and those need different responses.
+    stale_rtls: int
+    no_data_rtls: int
     total_monitored_rtls: int
     transformers: tuple[TransformerConcentration, ...]
+
+    @property
+    def has_monitored_rtls(self) -> bool:
+        """Distinct from `affected_rtls == 0`. A plant with nothing to
+        monitor and a plant whose RTLs are all healthy are different facts,
+        and reporting the second when the first is true would invent a
+        clean bill of health."""
+        return self.total_monitored_rtls > 0
 
 
 @dataclass(frozen=True)
@@ -304,6 +317,34 @@ def _affected_locations(
     )
 
 
+def _resolve_selected_plant(
+    fleet_health: FleetHealth,
+    ranked_locations: tuple[AffectedLocation, ...],
+    plant_id: str | None,
+) -> str | None:
+    """Which plant the panel shows.
+
+    An explicit, still-valid selection wins. Anything else - nothing chosen
+    yet, a hand-edited id, or a plant that has dropped out of the caller's
+    scoped snapshot since the link was made - falls back to the WORST
+    AFFECTED plant, so the panel opens on the thing most worth looking at
+    rather than on a prompt.
+
+    The fallback also future-proofs polling: a refresh that changes scope
+    can invalidate a selection made a moment ago, and silently landing on
+    the current worst plant is better than blanking the panel.
+
+    Returns None only when nothing is affected at all - a calm fleet, which
+    the panel states rather than treating as an error.
+    """
+    if plant_id and plant_id in fleet_health.plants:
+        return plant_id
+    for location in ranked_locations:
+        if location.affected_rtls:
+            return location.plant_id
+    return None
+
+
 def _selected_location(
     fleet_health: FleetHealth,
     plant_names: dict[str, str],
@@ -312,14 +353,10 @@ def _selected_location(
 ) -> SelectedLocation | None:
     """Transformer concentration within one plant.
 
-    Returns None for no selection, an unknown plant, or one outside scope -
-    all three are "selects nothing", never an error. Distinguishing them in
-    the UI would confirm that a plant the caller cannot see exists.
-
     Counts come from the rollups `get_fleet_health` already built; only the
     transformer CODES are fetched, and only for this one plant (ADR-008).
     """
-    if not plant_id or plant_id not in fleet_health.plants:
+    if plant_id is None:
         return None
 
     codes = {
@@ -357,13 +394,14 @@ def _selected_location(
     )
 
     plant_counts = fleet_health.device_counts_for_plant(plant_id)
+    plant_stale = plant_counts.get(Freshness.STALE, 0)
+    plant_no_data = plant_counts.get(Freshness.NO_DATA, 0)
     return SelectedLocation(
         plant_id=plant_id,
         plant_name=plant_names.get(plant_id, plant_id),
-        affected_rtls=(
-            plant_counts.get(Freshness.STALE, 0)
-            + plant_counts.get(Freshness.NO_DATA, 0)
-        ),
+        affected_rtls=plant_stale + plant_no_data,
+        stale_rtls=plant_stale,
+        no_data_rtls=plant_no_data,
         total_monitored_rtls=sum(plant_counts.values()),
         transformers=ranked,
     )
@@ -388,6 +426,8 @@ def get_command_center_snapshot(
     # out-of-scope plant name can never surface (ADR-004).
     plant_names = {p.plant_id: p.name for p in list_plants(scope=scope)}
 
+    ranked_locations = _affected_locations(fleet_health, plant_names)
+
     counts = fleet_health.counts
     monitored = fleet_health.device_count
     stale = counts.get(Freshness.STALE, 0)
@@ -408,8 +448,11 @@ def get_command_center_snapshot(
         transformer_count=len(fleet_health.transformers),
         no_data_affected_plants=_plants_with_no_data(fleet_health),
         electrical_conditions=ELECTRICAL_CONDITIONS,
-        affected_locations=_affected_locations(fleet_health, plant_names),
+        affected_locations=ranked_locations,
         selected_location=_selected_location(
-            fleet_health, plant_names, selected_plant_id, scope
+            fleet_health,
+            plant_names,
+            _resolve_selected_plant(fleet_health, ranked_locations, selected_plant_id),
+            scope,
         ),
     )

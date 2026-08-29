@@ -233,6 +233,28 @@ work; theme toggle works; refresh doesn't clear the page; selected Plant
 persists; errors don't masquerade as zeros; `Unavailable` stays visually
 distinct from `0`; existing Fleet Overview unchanged.
 
+### Visual debt: Affected Locations needs Top-N disclosure (raised 2026-08-29, Phase 8)
+
+The Affected Locations default presentation needs Top-N disclosure /
+expansion before final Command Center polish. **Candidate: Top 8 + "Show
+all 30 affected locations".**
+
+Eight rather than five: five looks right in a mockup, but eight gives an
+operator substantially more situational coverage while still keeping the
+panel compact at 1440/1366.
+
+Deliberately NOT implemented in Phase 8. Introducing Top-N while the
+Selected Location behaviour was still being settled would have created a
+selection-interaction problem — the selected plant can fall outside the
+visible N. When this lands, the compact list should keep the currently
+selected plant visible even if it ranks below the cut.
+
+Phase 7 shipped an internal scroll region plus a "View all" page
+(`/command-center/locations`) instead. That bounds the panel's HEIGHT
+without hiding any row, so it does not have the selection problem and is
+compatible with adding Top-N later — the scroll region would simply have
+fewer rows to hold.
+
 ### Blocking debt: the freshness demo seed (raised 2026-08-29, Phase 5)
 
 The local seed is **entirely stale** — 120 Stale, 0 Fresh, 0 No Data — so

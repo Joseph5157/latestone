@@ -5011,8 +5011,17 @@ body {
    Gated on viewport height. Below the floor the page returns to normal
    flow, because locking a short window (or 200% text zoom, WCAG 1.4.4)
    into a fixed grid crushes every row to unusable and puts content out of
-   reach. Fixed where there is room; honest scrolling where there is not. */
-@media (min-height: 700px) {
+   reach. Fixed where there is room; honest scrolling where there is not.
+
+   The floor is 860px, MEASURED not guessed. It started at 700px, and a
+   1024x768 check showed the cockpit technically "working" — no page
+   scroll, everything scrolling internally — while every panel body was
+   16px tall holding ~262px of content. Working and useless. Panel body
+   height runs roughly 1.18px per viewport px here (16px at 768, 172px at
+   900, 262px at 1080), so 860 is about where a panel clears ~120px and
+   becomes worth looking at. Below it, scrolling the page beats squinting
+   at six slivers. */
+@media (min-height: 860px) {
   .app-root:has(.page--command-center) {
     height: 100vh;
     min-height: 0;

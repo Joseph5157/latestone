@@ -87,19 +87,21 @@ def selected_location_card(snapshot) -> html.Section:
     location = snapshot.selected_location
 
     if location is None:
+        # A calm fleet, not a missing selection. Nothing is affected, so
+        # there is no worst plant to open on — said plainly rather than
+        # dressed as a prompt or an error.
         return cc_card(
             "Selected Location",
             [
                 html.P(
-                    "Select a location from Affected Locations to see which "
-                    "transformers are driving its attention.",
+                    "No RTLs currently require attention across the monitored "
+                    "fleet.",
                     className="command-center__empty-note",
                 )
             ],
             subtitle="Transformer concentration",
         )
 
-    ranked = [t for t in location.transformers if t.affected_rtls]
     body: list = [
         html.P(
             [
@@ -112,13 +114,51 @@ def selected_location_card(snapshot) -> html.Section:
             ],
             className="command-center__selected-name",
         ),
+    ]
+
+    if not location.has_monitored_rtls:
+        # Distinct from "nothing is wrong here": there is nothing to be
+        # wrong. Reporting the former would invent a clean bill of health
+        # for a plant that reports nothing at all.
+        body.append(
+            html.P(
+                "No monitored RTLs in this Plant.",
+                className="command-center__empty-note",
+            )
+        )
+        return cc_card("Selected Location", body, subtitle="Transformer concentration")
+
+    body.append(
         html.P(
             f"{location.affected_rtls} of {location.total_monitored_rtls} "
             "RTLs require attention",
             className="command-center__stat-share",
-        ),
-    ]
+        )
+    )
 
+    # The Stale / No Data split. "18 affected" does not tell an operator
+    # whether the plant stopped reporting or never started, and those need
+    # different responses.
+    body.append(
+        html.Dl(
+            className="command-center__composition",
+            children=[
+                html.Div(
+                    className=f"command-center__composition-row command-center__tone--{tone}",
+                    children=[
+                        html.Dt(label, className="command-center__composition-label"),
+                        html.Dd(str(count), className="command-center__composition-count"),
+                    ],
+                )
+                for label, count, tone in (
+                    ("Stale", location.stale_rtls, "stale"),
+                    ("No Data", location.no_data_rtls, "none"),
+                )
+            ],
+        )
+    )
+
+    ranked = [t for t in location.transformers if t.affected_rtls]
     if ranked:
         worst = ranked[0].affected_rtls
         body.append(
@@ -133,7 +173,7 @@ def selected_location_card(snapshot) -> html.Section:
     else:
         body.append(
             html.P(
-                "No RTLs require attention at this location.",
+                "No RTLs currently require attention in this Plant.",
                 className="command-center__empty-note",
             )
         )

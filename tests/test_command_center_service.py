@@ -54,6 +54,9 @@ def _snapshot_from_rows(monkeypatch, rows, *, scope=UNRESTRICTED, plants=None):
     )
     monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])
     monkeypatch.setattr(svc, "list_plants", lambda *, scope: list(plants or []))
+    # Phase 8: with no explicit selection the facade falls back to the
+    # worst affected plant, which reaches the transformer label lookup.
+    monkeypatch.setattr(svc, "list_transformers", lambda plant_id, *, scope: [])
     return svc.get_command_center_snapshot(scope=scope)
 
 _FAKE_FLEET_HEALTH = FleetHealth(

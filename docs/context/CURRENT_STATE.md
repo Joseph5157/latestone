@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T14:00:18Z
+Date: 2026-08-29T14:15:49Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `04d89bb` "feat(cc1): "View all" opens a full Affected Locations page (Phase 7a)" (not `main`)
-- Working tree: 18 entries — see below
+- current branch `cc-1-command-center-foundation` = `825e59b` "feat(cc1): Selected Location â€” transformer concentration (Phase 8)" (not `main`)
+- Working tree: 11 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2184 passed, 466 deselected in 13.65s
+- `python -m pytest -m "not db"` → 2192 passed, 466 deselected in 13.79s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 9 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 10 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -70,22 +70,15 @@ CC-1 Phase 8 — Selected Location / Transformer Concentration — full detail i
 
 ```
 M assets/app.css
- M callbacks/command_center.py
- M callbacks/routing.py
- M components/command_center/affected_locations.py
- M docs/context/ACTIVE_GATE.md
+ M components/command_center/selected_location.py
  M docs/context/CC1_ROADMAP.md
- M docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md
- M pages/command_center.py
- M routes.py
  M services/command_center_service.py
- M tests/test_command_center_page.py
- M tests/test_routing.py
+ M tests/test_command_center_locations.py
+ M tests/test_command_center_selected_location.py
+ M tests/test_command_center_selected_panel.py
+ M tests/test_command_center_service.py
 ?? "command center/"
-?? components/command_center/selected_location.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
-?? tests/test_command_center_selected_location.py
-?? tests/test_command_center_selected_panel.py
 ```
 

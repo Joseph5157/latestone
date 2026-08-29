@@ -24,6 +24,9 @@ def _compose(monkeypatch, rows, *, plants, scope=UNRESTRICTED):
     )
     monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])
     monkeypatch.setattr(svc, "list_plants", lambda *, scope: list(plants))
+    # Phase 8: with no explicit selection the facade falls back to the
+    # worst affected plant, which reaches the transformer label lookup.
+    monkeypatch.setattr(svc, "list_transformers", lambda plant_id, *, scope: [])
     return svc.get_command_center_snapshot(scope=scope)
 
 
@@ -154,6 +157,7 @@ class TestRankingRules:
         monkeypatch.setattr(
             svc, "list_plants", lambda *, scope: [_plant("p1", "One"), _plant("p2", "Two")]
         )
+        monkeypatch.setattr(svc, "list_transformers", lambda plant_id, *, scope: [])
 
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])
         without = [
@@ -216,17 +220,26 @@ class TestEdgeCases:
 
 
 class TestNoNewQueryForRanking:
-    def test_the_facade_calls_only_the_three_approved_read_paths_once_each(self, monkeypatch):
-        """ADR-008 keeps the entry-point count small and closed. Ranking is
+    def test_the_facade_calls_each_approved_read_path_once(self, monkeypatch):
+        """ADR-008 keeps the entry-point set small and closed. Ranking is
         composed from the FleetHealth already fetched - pushing an ORDER BY
-        into SQL would be a second definition of 'affected', free to
-        disagree with the one Fleet Overview shares."""
-        calls = {"fleet_health": 0, "events": 0, "plants": 0}
+        into SQL would be a second definition of "affected", free to
+        disagree with the one Fleet Overview shares.
+
+        The transformer lookup counts once because Phase 8 resolves a
+        default selection (the worst affected plant) when none is given. It
+        is called for that ONE plant, never per row - which is the property
+        worth pinning here.
+        """
+        calls = {"fleet_health": 0, "events": 0, "plants": 0, "transformers": 0}
 
         def _fh(now, *, scope):
             calls["fleet_health"] += 1
             return fleet_health_from_rows(
-                [_row("d1", "temperature", STALE_TS, plant_id="p1", transformer_id="t1")],
+                [
+                    _row("d1", "temperature", STALE_TS, plant_id="p1", transformer_id="t1"),
+                    _row("d2", "temperature", STALE_TS, plant_id="p1", transformer_id="t2"),
+                ],
                 NOW,
             )
 
@@ -238,11 +251,20 @@ class TestNoNewQueryForRanking:
             calls["plants"] += 1
             return [_plant("p1", "One")]
 
+        def _transformers(plant_id, *, scope):
+            calls["transformers"] += 1
+            return []
+
         monkeypatch.setattr(svc, "get_fleet_health", _fh)
         monkeypatch.setattr(svc, "list_recent_device_events", _events)
         monkeypatch.setattr(svc, "list_plants", _plants)
+        monkeypatch.setattr(svc, "list_transformers", _transformers)
 
         snap = svc.get_command_center_snapshot(scope=UNRESTRICTED)
 
-        assert calls == {"fleet_health": 1, "events": 1, "plants": 1}
-        assert snap.affected_locations[0].affected_rtls == 1
+        assert calls == {
+            "fleet_health": 1, "events": 1, "plants": 1, "transformers": 1
+        }
+        assert snap.affected_locations[0].affected_rtls == 2
+        # Two transformers in the plant, but still exactly one lookup.
+        assert len(snap.selected_location.transformers) == 2

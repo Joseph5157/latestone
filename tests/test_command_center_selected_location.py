@@ -56,37 +56,69 @@ PLANTS = [_plant("p1", "Durban"), _plant("p2", "Newcastle")]
 TRANSFORMERS = [_transformer("t1", "TRF-04"), _transformer("t2", "TRF-07")]
 
 
-class TestNothingSelected:
-    def test_no_selection_yields_no_selected_location(self, monkeypatch):
-        snap = _compose(monkeypatch, ROWS, plants=PLANTS)
-        assert snap.selected_location is None
+class TestDefaultAndFallbackSelection:
+    """Nothing chosen, an unknown id, or a plant that has dropped out of
+    scope all resolve to the WORST AFFECTED plant - the panel opens on the
+    thing most worth looking at rather than on a prompt. The fallback also
+    future-proofs polling, where a refresh can invalidate a selection made
+    a moment earlier."""
 
-    def test_an_unknown_plant_selects_nothing_rather_than_erroring(self, monkeypatch):
-        """A hand-edited URL must not break the page."""
-        snap = _compose(monkeypatch, ROWS, plants=PLANTS, selected="no-such-plant")
-        assert snap.selected_location is None
+    def test_no_selection_defaults_to_the_worst_affected_plant(self, monkeypatch):
+        snap = _compose(monkeypatch, ROWS, plants=PLANTS, transformers=TRANSFORMERS)
+        # p1 has 4 affected, p2 has 1.
+        assert snap.selected_location.plant_id == "p1"
 
-    def test_an_out_of_scope_plant_selects_nothing(self, monkeypatch):
-        """Never an error and never a message confirming a plant the caller
-        cannot see exists - same posture as parse_assign_request's 'an
-        unknown value simply opens nothing'."""
+    def test_the_default_matches_the_top_of_the_ranking(self, monkeypatch):
+        """Stated as a relationship, not a hard-coded id: the panel and the
+        Affected Locations ranking must never disagree about which plant is
+        worst."""
+        snap = _compose(monkeypatch, ROWS, plants=PLANTS, transformers=TRANSFORMERS)
+        assert snap.selected_location.plant_id == snap.affected_locations[0].plant_id
+
+    def test_an_unknown_plant_falls_back_rather_than_erroring(self, monkeypatch):
+        """A hand-edited URL must not break the page, and must not blank a
+        panel that has something useful to show."""
+        snap = _compose(
+            monkeypatch, ROWS, plants=PLANTS, transformers=TRANSFORMERS,
+            selected="no-such-plant",
+        )
+        assert snap.selected_location.plant_id == "p1"
+
+    def test_an_out_of_scope_plant_falls_back(self, monkeypatch):
+        """Never an error, and never a message confirming that a plant the
+        caller cannot see exists."""
         rows = [_row("d1", "temperature", STALE_TS, plant_id="visible", transformer_id="t1")]
         snap = _compose(
-            monkeypatch, rows, plants=[_plant("visible", "Visible")], selected="hidden",
-            scope=DeviceScope(device_ids=frozenset({"d1"})),
+            monkeypatch, rows, plants=[_plant("visible", "Visible")],
+            transformers=[_transformer("t1", "T1", plant_id="visible")],
+            selected="hidden", scope=DeviceScope(device_ids=frozenset({"d1"})),
         )
+        assert snap.selected_location.plant_id == "visible"
+
+    def test_an_explicit_valid_selection_wins_over_the_default(self, monkeypatch):
+        snap = _compose(
+            monkeypatch, ROWS, plants=PLANTS, transformers=TRANSFORMERS, selected="p2"
+        )
+        assert snap.selected_location.plant_id == "p2"
+
+    def test_a_calm_fleet_selects_nothing(self, monkeypatch):
+        """With nothing affected there is no worst plant to fall back to.
+        The panel states that calmly rather than treating it as an error."""
+        rows = [_row("d1", "temperature", RECENT, plant_id="p1", transformer_id="t1")]
+        snap = _compose(monkeypatch, rows, plants=[_plant("p1", "Calm")])
         assert snap.selected_location is None
 
-    def test_the_transformer_lookup_is_skipped_when_nothing_is_selected(self, monkeypatch):
-        """The label call is for the ONE selected plant. With no selection
-        there is no plant to label, so it must not run at all."""
+    def test_the_transformer_lookup_is_skipped_when_nothing_resolves(self, monkeypatch):
+        """The label call is for the ONE selected plant. With no plant
+        resolved there is nothing to label, so it must not run."""
         calls = {"n": 0}
+        rows = [_row("d1", "temperature", RECENT, plant_id="p1", transformer_id="t1")]
 
         monkeypatch.setattr(
-            svc, "get_fleet_health", lambda now, *, scope: fleet_health_from_rows(ROWS, NOW)
+            svc, "get_fleet_health", lambda now, *, scope: fleet_health_from_rows(rows, NOW)
         )
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])
-        monkeypatch.setattr(svc, "list_plants", lambda *, scope: list(PLANTS))
+        monkeypatch.setattr(svc, "list_plants", lambda *, scope: [_plant("p1", "Calm")])
 
         def _counted(plant_id, *, scope):
             calls["n"] += 1
@@ -95,6 +127,23 @@ class TestNothingSelected:
         monkeypatch.setattr(svc, "list_transformers", _counted)
         svc.get_command_center_snapshot(scope=UNRESTRICTED)
         assert calls["n"] == 0
+
+
+class TestPlantLevelComposition:
+    def test_the_stale_and_no_data_split_is_carried(self, monkeypatch):
+        """"18 affected" alone does not say whether the plant stopped
+        reporting or never started."""
+        loc = _compose(
+            monkeypatch, ROWS, plants=PLANTS, transformers=TRANSFORMERS, selected="p1"
+        ).selected_location
+        assert (loc.stale_rtls, loc.no_data_rtls) == (3, 1)
+        assert loc.stale_rtls + loc.no_data_rtls == loc.affected_rtls
+
+    def test_a_plant_with_monitored_rtls_reports_so(self, monkeypatch):
+        loc = _compose(
+            monkeypatch, ROWS, plants=PLANTS, transformers=TRANSFORMERS, selected="p1"
+        ).selected_location
+        assert loc.has_monitored_rtls is True
 
 
 class TestSelectedLocation:
