@@ -1,139 +1,127 @@
 # Active Gate
 
-Status: Implemented, awaiting commit
+Status: Approved
 Date: 2026-08-29
-Gate: CC-1 Phase 3+4 — Foundation and shell
-Precondition: resolved 2026-08-29 (merge + branch cut).
-Flow: PLAN → REVIEW GATE (complete) → IMPLEMENT (complete) → **TEST/VISUAL VERIFY (complete)** → IMPLEMENTATION REVIEW → COMMIT → PUSH GATE
+Gate: CC-1 Phase 5 — Situation Summary
+Precondition: Phase 3+4 complete and committed (`cc6b67a`), approved by the
+user 2026-08-29.
+Flow: PLAN → REVIEW GATE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 6)**
 Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
-— condition met (2051 tests green, TDD throughout, browser-verified at
-1440/1024). Push stays NOT GRANTED regardless; Phase 13/14's full gate still
-governs before this branch merges to `main`.
+once every item under "Verification gate" below passes. Push NOT GRANTED.
+**Stop after committing — Phase 6 is explicitly withheld** and needs its own
+approval.
 
-## Phase 3+4 — done, verified 2026-08-29
-
-`/command-center` opens: route (`routes.py`), `ROUTE_POLICY["command_center"]
-= _EVERY_ROLE` (`services/authorization.py`), sidebar item (`components/app_sidebar.py`,
-own icon `assets/icons/nav-command-center.svg`), dispatch branch
-(`callbacks/routing.py`), façade (`services/command_center_service.py`,
-TDD — calls `get_fleet_health`/`list_recent_device_events` exactly once
-each, verified by test), fresh presentation family
-(`components/command_center/`, `.command-center__` CSS namespace, no
-imports from Fleet Overview components), static shell with six named panel
-slots (`pages/command_center.py`), one callback populating the header's
-real scope indicator (`callbacks/command_center.py`) — "Current access ·
-120 monitored RTLs" against the live database, exactly ADR-004's example
-text. 19 new tests, all TDD (RED confirmed before every GREEN). Fixed 5
-pre-existing completeness-check fixtures the new route correctly triggered
-(`ROUTE_PATHS`/`SHARED` in test_authorization.py, two hardcoded label lists,
-`PAGE_LAYOUT_IDS` in test_equipment_selector.py) — each verified as the
-right kind of failure before fixing, not silenced.
-
-Browser-verified at 1440 and 1024: scope indicator shows real live data,
-all six panels render honest "Not yet available in this build." placeholders
-(never "No Data"/"Unavailable" — ADR-001/002 reserve those), sidebar
-highlights correctly, Asset Navigator correctly absent (Command Center not
-added to `UTILITY_ROUTES` — deliberate, matches Reports/Notifications
-precedent, reversible at Phase 8 if the design wants it), zero new console
-errors/warnings, responsive reflow to 2 columns at 1024, Fleet Overview
-pixel-identical and zero-error before/after.
-
-Deliberately not built this gate: any panel content (Phase 5+), theming
-(Phase 11), auto-refresh interval (Phase 5+ per ADR-005 — the shell has no
-`dcc.Interval` yet).
-
-This file describes exactly one gate. When Phase 3+4 completes, rewrite this
-file for Phase 5 (Situation summary) rather than appending — the full
-sequence lives in `docs/context/CC1_ROADMAP.md` precisely so this file
-doesn't have to carry it.
+This file describes exactly one gate. Phase 3+4's record moved to
+`docs/context/CC1_ROADMAP.md`; when Phase 5 completes, rewrite this file for
+Phase 6 rather than appending.
 
 ## Task
 
-Build CC-1's foundation and empty shell — route, authorization, page,
-service façade, callback layer, fresh component family — enough that
-`/command-center` opens and shows the panel skeleton with safe empty/
-unavailable states. No panel content yet (Situation Summary onward is
-Phase 5+, its own future gate).
+Populate only the top operational summary layer — four real components.
+Everything else on the page stays a placeholder.
 
-Full detail: `docs/context/CC1_ROADMAP.md` §"Phase 3" and §"Phase 4".
+1. **Fleet Health** — monitored RTL count, Fresh/Stale/No Data composition.
+   Fresh reads visually quiet. No invented "Healthy/Critical/Warning"
+   rollup (ADR-001: those words belong to event types, not freshness).
+2. **Needs Attention** — `Stale + No Data` exactly (ADR-002), affected RTL
+   count, percentage of the monitored population. No event occurrences
+   mixed in.
+3. **Communication / Visibility** — No Data RTL count, share of monitored
+   population, the exact copy "At least one monitored metric has no
+   reading.", plus affected Plant count (derivable from the same
+   `FleetHealth` via `device_counts_for_plant`). **No `>24h`/`>48h`/`>72h`
+   buckets. Never "never reported"** (ADR-002).
+4. **Inventory** — Plants / Transformers / RTL Devices from the
+   **monitoring** population (`FleetHealth`), never the Managed-RTL admin
+   population. Subtitle frozen by the user: **"Monitored assets in your
+   current access scope"**.
 
-## What this gate resolved
+## Service rule (frozen)
 
-The user supplied a full 15-phase execution plan 2026-08-29. Reviewed
-against the repo rather than taken on trust — three things confirmed, one
-correction made, none of it blocking:
+`services/command_center_service.py` stays the only composition seam.
+Extend `CommandCenterSnapshot` with presentation-ready values; components
+render, service decides. Components must not inspect `FleetHealth`
+themselves, and no second freshness calculation may exist anywhere in
+Command Center.
 
-- `app_shell.py`, `app_sidebar.py`, `app_header.py` (the files a bad plan
-  would rewrite wholesale for dark mode) are real, at `components/`.
-- `FleetHealth` and `list_recent_device_events()` — named only generically
-  in the frozen pack — are now pinned to exact functions:
-  `services/monitoring_service.py:430` and
-  `repositories/plant_monitoring_repository.py:2450`. See ADR-008.
-- Route authorization default (`_EVERY_ROLE`) confirmed against
-  `command center/01_PRODUCT_BRIEF.md`'s named primary users
-  (Administrator, Technician) and the existing `ROUTE_POLICY` pattern.
-- **Correction**: ADR-002 originally listed `components/fleet_condition.py`
-  as something to reuse. It isn't — it's Fleet-Overview-specific
-  presentation with zero classification logic of its own (its own
-  docstring says so). The reusable unit is one layer down, in
-  `services/monitoring_service.py`. Fixed in ADR-002 the same commit as
-  ADR-008, which also formalizes it as the general rule: Command Center's
-  fresh `components/` family reuses the service layer, never Fleet
-  Overview's presentation layer.
+Direction (exact names are an implementation choice): `monitored_rtls`,
+`fresh_rtls`, `stale_rtls`, `no_data_rtls`, `attention_rtls`,
+`attention_percent`, `plant_count`, `transformer_count`, `device_count`,
+`no_data_affected_plants`.
+
+## The regression case this gate exists to protect
+
+```
+RTL-A
+├── temperature → fresh reading
+├── voltage     → fresh reading
+└── another monitored metric → no reading
+```
+
+Expected: device freshness `NO_DATA`; `device_last_updated` **present**;
+Communication count includes RTL-A; Needs Attention includes RTL-A. This is
+the exact semantic error corrected during planning (ADR-002) — a dedicated
+test is mandatory, not optional.
+
+## Population rule
+
+`services/admin_overview_service.py:15-20` states the split in source:
+**Managed RTLs** are administratively active devices regardless of their
+transformer's status; **Monitoring Devices** are active devices under active
+transformers. Inventory shows the second. Command Center must not import
+`admin_overview_service` at all this gate.
+
+## Visual direction
+
+Compact, operational top row — four cards across:
+
+```
+┌───────────────┬─────────────────┬───────────────┬─────────────────┐
+│ FLEET HEALTH  │ NEEDS ATTENTION │ COMMUNICATION │ INVENTORY       │
+│ freshness mix │ 35 affected     │ 18 No Data    │ 8 Plants        │
+│               │ 29.2% fleet     │ 15.0% fleet   │ 42 Transformers │
+└───────────────┴─────────────────┴───────────────┴─────────────────┘
+```
+
+Structure, density and hierarchy — **not** final dark-mode styling. The
+route-scoped HMI theme is Phase 11, its own gate.
 
 ## Decisions this gate depends on
 
-- [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) — event classification, no numeric thresholds
-- [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) — Requires Attention = Stale + No Data (corrected 2026-08-29)
-- [ADR-003](../decisions/ADR-003-location-is-plant.md) — Location = Plant
-- [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) — device scope is authorization-derived
-- [ADR-005](../decisions/ADR-005-auto-refresh-is-page-owned-polling.md) — auto-refresh is page-owned polling
-- [ADR-006](../decisions/ADR-006-route-scoped-theming-is-architecture.md) — theming architecture (Phase 11, not this gate)
-- [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) — event seed write path (not this gate — no seed needed to build an empty shell)
-- [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) — read-side reuse contract, route policy default
+- [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) — no Critical/Warning language on freshness
+- [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) — Attention = Stale + No Data; the per-metric No Data semantics
+- [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) — scope is authorization-derived
+- [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) — single read path, service composes, no Fleet Overview imports
 
-## Non-goals (explicit)
+## Non-goals (explicit — withheld by the user)
 
-- No panel content (Fleet Health, Needs Attention, events, locations,
-  theming, refresh wiring) — that's Phase 5 onward, gated separately.
-- No modification to any existing Fleet Overview presentation component
-  (`command center/07_IMPLEMENTATION_PLAN.md` gate principle stands).
-- No branch cleanup mixed into this gate (same rule as Phase 0).
-- No shared-file edits beyond `routes.py` and `services/authorization.py`.
-- Do not change `/` — it stays Overview through all of CC-1.
+Critical/Power Down card logic; Warning/Battery Low card logic; recent
+operational events; affected-location bars; Plant selection; transformer
+concentration; priority assets; auto-refresh; dark/light theme; Asset
+Navigator on Command Center; any change to `/`; any change to Fleet
+Overview.
 
 ## Relevant files
 
-- `routes.py` — add the `/command-center` route and `NAV_KEY_BY_ROUTE` entry
-- `services/authorization.py` — `ROUTE_POLICY["command_center"]`
-- `components/app_sidebar.py` — `SIDEBAR_SECTIONS` nav item, only after the
-  policy entry exists (found missing from this list 2026-08-29 — the
-  roadmap's own Phase 3 bullet already called for it, mirroring `command
-  center/07_IMPLEMENTATION_PLAN.md` Phase 1's "navigation mapping/item only
-  after policy exists"; this was a gap in this file, not in the roadmap)
-- `services/monitoring_service.py` — `get_fleet_health`, read-only, called not modified
-- `repositories/plant_monitoring_repository.py` — `list_recent_device_events`, read-only, called not modified
-- `docs/context/CC1_ROADMAP.md` — Phase 3/4 detail and everything after
+- `services/command_center_service.py` — extend the snapshot
+- `components/command_center/primitives.py` — shared card/stat primitives
+- `pages/command_center.py` — mount the four cards
+- `callbacks/command_center.py` — populate them
+- `assets/app.css` — `.command-center__` namespace only
+- `services/monitoring_service.py` — `FleetHealth`, read-only
 
 ## Required tests
 
-- `python -m pytest -m "not db" -v` before and after — must stay green.
-- New: route parsing, route authorization for `command_center`, navigation
-  visibility, and a `services/command_center_service.py` unit test that
-  confirms it calls `get_fleet_health`/`list_recent_device_events` exactly
-  once and issues no direct SQL.
+- The 19 existing CC foundation tests still pass
+- New Situation Summary tests (service + components)
+- Single `FleetHealth` fetch still proven
+- The one-metric-`NO_DATA` regression test above
+- Monitoring vs Managed population test
+- Zero-denominator behaviour (no `ZeroDivisionError`, no misleading 0%)
+- Empty scope behaviour
+- Service error behaviour
 
-## Known ambiguities
+## Verification gate
 
-- Exact shape of the "fresh presentation-ready snapshot"
-  `command_center_service.py` returns is an implementation-time call, not
-  pre-specified here — Phase 4's shell (six named panel slots) is the
-  contract it needs to satisfy.
-- Whether `components/command_center/` needs an `__init__.py` re-export
-  surface or whether `pages/command_center.py` imports submodules directly —
-  match whatever convention (if any) exists elsewhere before inventing one.
-
-## Verification
-
-Precondition resolved — see the field above. Phase 3 file creation may
-begin on `cc-1-command-center-foundation`.
+Browser: 1440, 1366, 1024. Fleet Overview screenshot unchanged. No new
+console errors. Then commit locally and **stop**.

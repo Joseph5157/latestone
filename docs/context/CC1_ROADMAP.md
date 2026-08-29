@@ -19,7 +19,12 @@ what that review found (two functions confirmed by name/line, one imprecision
 in ADR-002 fixed, route policy default confirmed against the pack's own
 "Primary users" section).
 
-## Phase 3 — CC-1 foundation
+## Phase 3 — CC-1 foundation — DONE (`cc6b67a`, 2026-08-29)
+
+Route, `ROUTE_POLICY` entry, sidebar item, page, callback layer and the
+`command_center_service` facade. Browser-verified 1440/1024; Fleet
+Overview unchanged.
+
 
 - Route: `/command-center` in `routes.py`. Do not change `/`.
 - `ROUTE_POLICY["command_center"] = _EVERY_ROLE` in `services/authorization.py` (ADR-008 — matches every other monitoring route).
@@ -29,7 +34,11 @@ in ADR-002 fixed, route policy default confirmed against the pack's own
 - `callbacks/command_center.py` — matches the existing one-file-per-domain convention.
 - `services/command_center_service.py` — mandatory façade; assembles one presentation-ready snapshot per render by calling `get_fleet_health()` and `list_recent_device_events()` once each (ADR-008), never issuing new SQL (`AGENTS.md` rule 1).
 
-## Phase 4 — Command Center shell
+## Phase 4 — Command Center shell — DONE (`cc6b67a`, 2026-08-29)
+
+Six named panel slots, honest not-built-yet placeholders, live scope
+indicator.
+
 
 Visual skeleton first:
 
@@ -53,7 +62,17 @@ COMMAND CENTER
 Acceptance for Phase 3+4 together: `/command-center` opens, the façade is
 wired end to end, panels may show safe empty/unavailable states.
 
-## Phase 5 — Situation summary
+## Phase 5 — Situation summary — DONE (2026-08-29)
+
+Four real cards over presentation-ready snapshot fields. The Situation
+Summary slot became a live region; the other five stayed placeholders.
+Includes the mandated partially-reporting-RTL regression test (a device
+with two fresh metrics and one that never reported is NO_DATA, its
+`device_last_updated` stays present, and it lands in both Communication
+and Needs Attention). Verified against the live database: Command Center
+and Fleet Overview report identical figures, which is the single-read-path
+contract (ADR-008) holding in practice rather than only in tests.
+
 
 - **Fleet Health** — operational fleet monitoring picture, from `FleetHealth` (ADR-008).
 - **Needs Attention** — `Stale + No Data` only (ADR-002).

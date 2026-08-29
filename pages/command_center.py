@@ -16,10 +16,16 @@ from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.command_center.primitives import panel_not_yet_built
 
-#: (component id, panel title) — the shell's six named slots
-#: (docs/context/CC1_ROADMAP.md Phase 4). Content lands Phase 5 onward.
+#: Situation Summary (Phase 5) is live: an empty region the callback fills
+#: with the four real cards. It sits in its own full-width row above the
+#: remaining slots — the operator's first read is the fleet's state, and a
+#: compact four-across row is what makes that one glance.
+SITUATION_SUMMARY_ID = "command-center-situation-summary"
+
+#: (component id, panel title) — the slots still awaiting their own phase
+#: (docs/context/CC1_ROADMAP.md Phases 6-10). Each renders an honest
+#: not-built-yet card until then.
 _PANEL_SLOTS: tuple[tuple[str, str], ...] = (
-    ("command-center-situation-summary", "Situation Summary"),
     ("command-center-exception-intelligence", "Exception Intelligence"),
     ("command-center-recent-events", "Recent Operational Events"),
     ("command-center-affected-locations", "Affected Locations"),
@@ -45,6 +51,16 @@ def layout() -> html.Div:
                 className="command-center__scope-indicator",
             ),
             html.Div(id="command-center-error"),
+            html.Div(
+                id=SITUATION_SUMMARY_ID,
+                className="command-center__summary-row",
+                children=[
+                    html.P(
+                        "Loading situation summary…",
+                        className="command-center__loading",
+                    )
+                ],
+            ),
             html.Div(
                 className="command-center__panels",
                 children=[

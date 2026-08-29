@@ -4576,3 +4576,113 @@ body {
   color: var(--color-muted);
   font-size: 13px;
 }
+
+/* Situation Summary (Phase 5): four across at desktop, collapsing by
+   available width rather than at named breakpoints — the same auto-fit
+   idiom as the panel grid above, so the row reflows to 2x2 and then 1
+   column without a media query per width. */
+.command-center__summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-5);
+  margin-top: var(--sp-5);
+}
+
+.command-center__loading {
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.command-center__card-total {
+  margin: 0 0 var(--sp-3) 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Composition rows: the state marker is a dot, but the label beside it
+   always names the state — colour never carries the meaning alone. */
+.command-center__composition,
+.command-center__inventory {
+  margin: 0;
+}
+
+.command-center__composition-row,
+.command-center__inventory-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.command-center__composition-row:last-child,
+.command-center__inventory-row:last-child {
+  border-bottom: none;
+}
+
+.command-center__composition-label,
+.command-center__inventory-label {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.command-center__composition-label::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--sp-2);
+  background: currentColor;
+}
+
+.command-center__composition-count,
+.command-center__inventory-count {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Fresh stays quiet: it takes the muted foreground rather than a green
+   fill, so a healthy fleet reads calm (HMI_UI_UX_SPEC.md 6.3 — colour is
+   reserved for the states that need someone). */
+.command-center__tone--fresh  { color: var(--color-muted); }
+.command-center__tone--stale  { color: var(--state-stale-text); }
+.command-center__tone--none   { color: var(--state-none-text); }
+
+.command-center__stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.command-center__stat-value {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-center__stat-label {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.command-center__stat-share,
+.command-center__stat-context {
+  margin: var(--sp-3) 0 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.command-center__definition,
+.command-center__explanation,
+.command-center__empty-note {
+  margin: var(--sp-3) 0 0 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 12px;
+}

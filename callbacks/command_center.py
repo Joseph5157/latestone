@@ -13,6 +13,7 @@ import logging
 from dash import Input, Output, State, no_update
 
 from components.command_center.primitives import scope_indicator_text
+from components.command_center.situation_summary import situation_summary_panels
 from components.status_panels import error_panel
 from services.command_center_service import get_command_center_snapshot
 from services.device_scope import scope_from_session
@@ -25,21 +26,34 @@ def register(app) -> None:
 
     @app.callback(
         Output("command-center-scope-indicator", "children"),
+        Output("command-center-situation-summary", "children"),
         Output("command-center-error", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
         prevent_initial_call=True,
     )
-    def populate_scope_indicator(context, auth_data):
+    def populate_command_center(context, auth_data):
+        """One snapshot, one render — the header and every Situation Summary
+        card are served by the same fetch, so two parts of the page can never
+        disagree about which RTLs are stale.
+        """
         if not context or context.get("route") != "command_center":
-            return no_update, no_update
+            return no_update, no_update, no_update
 
         try:
             # Resolved once per render (ADR-004/ADR-008), same discipline
             # get_fleet_health's own docstring requires of every caller.
             scope = scope_from_session(auth_data)
             snapshot = get_command_center_snapshot(scope=scope)
-            return scope_indicator_text(snapshot.monitored_device_count), None
+            return (
+                scope_indicator_text(snapshot.monitored_device_count),
+                situation_summary_panels(snapshot),
+                None,
+            )
         except Exception:
+            # Logged in full; the panel stays generic and never exposes
+            # internals (AGENTS.md). The summary region is cleared rather
+            # than left showing "Loading…" forever — a stuck spinner reads
+            # as a slow fleet, not a failed read.
             logger.exception("Failed to load Command Center snapshot")
-            return no_update, error_panel()
+            return no_update, [], error_panel()

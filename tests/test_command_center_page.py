@@ -21,13 +21,17 @@ class TestCommandCenterLayout:
     def test_has_an_error_container_for_the_callback_to_fill(self):
         assert find_by_id(layout(), "command-center-error") is not None
 
-    def test_all_six_roadmap_panels_are_present(self):
-        """Phase 4's named panel slots (docs/context/CC1_ROADMAP.md). Content
-        is Phase 5+; the shell must name every slot now so nothing is
-        silently missing when content lands."""
+    def test_situation_summary_is_a_live_region_not_a_placeholder(self):
+        """Phase 5: this slot no longer names itself in the layout — it is an
+        empty container the callback fills with four real cards, so its title
+        text arrives with its content rather than being baked into the shell."""
+        assert find_by_id(layout(), "command-center-situation-summary") is not None
+
+    def test_the_remaining_panels_are_still_named_placeholders(self):
+        """Phases 6-10 (docs/context/CC1_ROADMAP.md). The shell names every
+        slot still to come, so nothing is silently missing when content lands."""
         text = text_of(layout())
         for panel_title in [
-            "Situation Summary",
             "Exception Intelligence",
             "Recent Operational Events",
             "Affected Locations",
