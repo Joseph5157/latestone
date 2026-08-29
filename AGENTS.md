@@ -13,13 +13,22 @@ data is not yet available. It is not a demo — do not call it one.
 
 ## Required reading order
 
-1. `docs/context/SOURCE_AUTHORITY.md` — **read first.** Which source wins.
+0. Run `python scripts/build_context_pack.py`, then read
+   `.agent-context/START_HERE.md`. It is generated and gitignored — never
+   trust a copy older than your current session. It fails loudly (non-zero
+   exit, a `PROBLEM:` list) if an ADR citation is broken, a frozen pack's
+   hash doesn't verify, or the test baseline is red. **Stop and resolve that
+   before reading anything else** — do not work around a failed pack by
+   reading the source files directly instead.
+1. `docs/context/SOURCE_AUTHORITY.md` — which source wins.
 2. `docs/context/ACTIVE_GATE.md` — the only task in scope right now.
 3. The ADRs that gate names, in `docs/decisions/`.
 4. Only the code and tests the gate names.
 
-Do not read the whole `docs/` tree to start a task. Do not treat a document you
-found by grep as in-scope because it is interesting.
+Step 0 is a verified index into steps 1-4, not a replacement for them — it
+tells you where to look and confirms nothing has drifted since those files
+were written. Do not read the whole `docs/` tree to start a task. Do not
+treat a document you found by grep as in-scope because it is interesting.
 
 ## Context levels
 

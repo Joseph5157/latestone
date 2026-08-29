@@ -35,6 +35,7 @@ FORBIDDEN_FILES = {
     "docs/UX_DEBT.md",
     "docs/DEMO_RUNSHEET.md",
     "scripts/check_client_release.py",
+    "scripts/build_context_pack.py",
 }
 
 #: Any path under one of these directories is internal.

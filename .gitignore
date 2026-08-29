@@ -14,6 +14,12 @@ __pycache__/
 .superpowers/
 scratch/
 
+# Generated context pack (scripts/build_context_pack.py) — regenerate, never
+# commit; a stale copy checked in would be exactly the staleness this exists
+# to prevent. docs/context/CURRENT_STATE.md is also generated but IS tracked,
+# deliberately, so its git history shows how the baseline moved over time.
+.agent-context/
+
 # Internal engineering docs — not for client distribution
 CLAUDE.md
 IMPLEMENTATION_PLAN.md
