@@ -26,7 +26,7 @@ found by grep as in-scope because it is interesting.
 | Level | Contents | Load when |
 |---|---|---|
 | Hot | `ACTIVE_GATE.md`, its ADRs, the exact files it names | every task |
-| Warm | `PROJECT_CONTEXT.md`, `REQUIREMENTS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `UI_SPEC.md`, `IMPLEMENTATION_PLAN.md`, `REQ-1B_Implementation_Gap_Matrix.md`, `CURRENT_STATE.md` | planning, verification |
+| Warm | `PROJECT_CONTEXT.md`, `REQUIREMENTS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `UI_SPEC.md`, `IMPLEMENTATION_PLAN.md`, `REQ-1B_Implementation_Gap_Matrix.md`, `docs/context/CURRENT_STATE.md`, `docs/context/DECISION_INDEX.md` | planning, verification |
 | Cold | `docs/archive/`, completed packs, old reports | only when specifically needed |
 
 `docs/archive/` is history. It is never evidence for current behaviour.
