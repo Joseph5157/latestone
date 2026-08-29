@@ -4790,3 +4790,88 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--color-muted);
 }
+
+/* Affected Locations (Phase 7) — ranked plant bars. The panel spans two
+   grid columns where the grid has them: a bar chart needs horizontal room
+   to be comparable, and at narrow widths auto-fit collapses it back to one
+   column on its own. */
+.command-center__panel--wide {
+  grid-column: span 2;
+}
+
+.command-center__ranking {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Label / bar / count. The label column is capped rather than sized to
+   content so one very long plant name cannot squeeze every bar in the
+   chart down to a stub. */
+.command-center__rank-row {
+  display: grid;
+  grid-template-columns: minmax(0, 10rem) 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.command-center__rank-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.command-center__rank-name {
+  font-size: 14px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-center__rank-composition {
+  font-size: 11px;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-center__rank-bar {
+  height: 14px;
+  border-radius: 3px;
+  background: var(--state-none-bg);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.command-center__rank-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--state-stale-text);
+}
+
+.command-center__rank-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text);
+  min-width: 2.5ch;
+  text-align: right;
+}
+
+/* Below the two-column grid the wide panel is just a panel again, and the
+   label column gives up its fixed cap so names keep as much room as the
+   narrow viewport can spare. */
+@media (max-width: 900px) {
+  .command-center__panel--wide {
+    grid-column: auto;
+  }
+
+  .command-center__rank-row {
+    grid-template-columns: minmax(0, 7rem) 1fr auto;
+  }
+}

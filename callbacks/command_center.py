@@ -12,6 +12,7 @@ import logging
 
 from dash import Input, Output, State, no_update
 
+from components.command_center.affected_locations import affected_locations_card
 from components.command_center.electrical import electrical_conditions_card
 from components.command_center.primitives import scope_indicator_text
 from components.command_center.situation_summary import situation_summary_panels
@@ -29,6 +30,7 @@ def register(app) -> None:
         Output("command-center-scope-indicator", "children"),
         Output("command-center-situation-summary", "children"),
         Output("command-center-exception-intelligence", "children"),
+        Output("command-center-affected-locations", "children"),
         Output("command-center-error", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
@@ -40,7 +42,7 @@ def register(app) -> None:
         which RTLs are stale.
         """
         if not context or context.get("route") != "command_center":
-            return no_update, no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update, no_update
 
         try:
             # Resolved once per render (ADR-004/ADR-008), same discipline
@@ -51,6 +53,7 @@ def register(app) -> None:
                 scope_indicator_text(snapshot.monitored_device_count),
                 situation_summary_panels(snapshot),
                 electrical_conditions_card(snapshot),
+                affected_locations_card(snapshot),
                 None,
             )
         except Exception:
@@ -59,4 +62,4 @@ def register(app) -> None:
             # left showing "Loading…" forever — a stuck spinner reads as a
             # slow fleet, not a failed read.
             logger.exception("Failed to load Command Center snapshot")
-            return no_update, [], [], error_panel()
+            return no_update, [], [], [], error_panel()

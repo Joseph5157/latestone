@@ -37,7 +37,12 @@ def _row(device_id, metric, reading_ts, *, plant_id="p1", transformer_id="t1"):
     )
 
 
-def _snapshot_from_rows(monkeypatch, rows, *, scope=UNRESTRICTED):
+def _plant(plant_id, name):
+    """A PlantRecord-shaped label source (hierarchy_service.list_plants)."""
+    return SimpleNamespace(plant_id=plant_id, name=name)
+
+
+def _snapshot_from_rows(monkeypatch, rows, *, scope=UNRESTRICTED, plants=None):
     """Compose a snapshot over REAL freshness aggregation.
 
     Deliberately not a hand-built FleetHealth: these tests are about the
@@ -48,6 +53,7 @@ def _snapshot_from_rows(monkeypatch, rows, *, scope=UNRESTRICTED):
         svc, "get_fleet_health", lambda now, *, scope: fleet_health_from_rows(rows, NOW)
     )
     monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])
+    monkeypatch.setattr(svc, "list_plants", lambda *, scope: list(plants or []))
     return svc.get_command_center_snapshot(scope=scope)
 
 _FAKE_FLEET_HEALTH = FleetHealth(
@@ -71,8 +77,13 @@ class TestGetCommandCenterSnapshot:
     def test_calls_each_read_path_exactly_once(self, monkeypatch):
         """Mirrors get_fleet_health's own call discipline (its docstring:
         'call it once per render... calling it per component would issue N
-        queries'). The facade must not be the place that discipline breaks."""
-        calls = {"fleet_health": 0, "events": 0}
+        queries'). The facade must not be the place that discipline breaks.
+
+        The dict is exhaustive on purpose: it encodes ADR-008's closed set
+        of read entry points, so adding a fourth fails here and forces the
+        ADR amendment rather than slipping in at a call site.
+        """
+        calls = {"fleet_health": 0, "events": 0, "plants": 0}
 
         def _fake_fleet_health(now, *, scope):
             calls["fleet_health"] += 1
@@ -82,16 +93,22 @@ class TestGetCommandCenterSnapshot:
             calls["events"] += 1
             return []
 
+        def _fake_plants(*, scope):
+            calls["plants"] += 1
+            return []
+
         monkeypatch.setattr(svc, "get_fleet_health", _fake_fleet_health)
         monkeypatch.setattr(svc, "list_recent_device_events", _fake_events)
+        monkeypatch.setattr(svc, "list_plants", _fake_plants)
 
         svc.get_command_center_snapshot(scope=UNRESTRICTED)
 
-        assert calls == {"fleet_health": 1, "events": 1}
+        assert calls == {"fleet_health": 1, "events": 1, "plants": 1}
 
     def test_snapshot_carries_the_fleet_health_and_events_through(self, monkeypatch):
         monkeypatch.setattr(svc, "get_fleet_health", lambda now, *, scope: _FAKE_FLEET_HEALTH)
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: ["event-1"])
+        monkeypatch.setattr(svc, "list_plants", lambda *, scope: [])
 
         snapshot = svc.get_command_center_snapshot(scope=UNRESTRICTED)
 
@@ -114,6 +131,7 @@ class TestGetCommandCenterSnapshot:
             return []
 
         monkeypatch.setattr(svc, "list_recent_device_events", _fake_events)
+        monkeypatch.setattr(svc, "list_plants", lambda *, scope: [])
 
         svc.get_command_center_snapshot(scope=scope)
 
@@ -131,6 +149,7 @@ class TestGetCommandCenterSnapshot:
             return []
 
         monkeypatch.setattr(svc, "list_recent_device_events", _fake_events)
+        monkeypatch.setattr(svc, "list_plants", lambda *, scope: [])
 
         svc.get_command_center_snapshot(scope=UNRESTRICTED)
 

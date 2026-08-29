@@ -33,13 +33,16 @@ class TestCommandCenterLayout:
         contract stays stable while its contents graduate."""
         assert find_by_id(layout(), "command-center-exception-intelligence") is not None
 
+    def test_affected_locations_is_a_live_region_not_a_placeholder(self):
+        """Phase 7: the ranked plant bar view. Id unchanged from Phase 4."""
+        assert find_by_id(layout(), "command-center-affected-locations") is not None
+
     def test_the_remaining_panels_are_still_named_placeholders(self):
-        """Phases 7-10 (docs/context/CC1_ROADMAP.md). The shell names every
+        """Phases 8-10 (docs/context/CC1_ROADMAP.md). The shell names every
         slot still to come, so nothing is silently missing when content lands."""
         text = text_of(layout())
         for panel_title in [
             "Recent Operational Events",
-            "Affected Locations",
             "Selected Location",
             "Priority Investigation",
         ]:

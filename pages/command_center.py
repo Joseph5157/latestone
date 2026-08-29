@@ -28,12 +28,16 @@ SITUATION_SUMMARY_ID = "command-center-situation-summary"
 #: graduated from placeholder to real.
 ELECTRICAL_CONDITIONS_ID = "command-center-exception-intelligence"
 
+#: Affected Locations (Phase 7) is live: the ranked plant bar view.
+#: Same pattern as the two slots before it — the Phase 4 id is kept so
+#: the shell's DOM contract stays stable while its contents graduate.
+AFFECTED_LOCATIONS_ID = "command-center-affected-locations"
+
 #: (component id, panel title) — the slots still awaiting their own phase
-#: (docs/context/CC1_ROADMAP.md Phases 7-10). Each renders an honest
+#: (docs/context/CC1_ROADMAP.md Phases 8-10). Each renders an honest
 #: not-built-yet card until then.
 _PANEL_SLOTS: tuple[tuple[str, str], ...] = (
     ("command-center-recent-events", "Recent Operational Events"),
-    ("command-center-affected-locations", "Affected Locations"),
     ("command-center-selected-location", "Selected Location / Transformer Concentration"),
     ("command-center-priority-investigation", "Priority Investigation"),
 )
@@ -74,6 +78,16 @@ def layout() -> html.Div:
                         children=[
                             html.P(
                                 "Loading electrical conditions…",
+                                className="command-center__loading",
+                            )
+                        ],
+                    ),
+                    html.Div(
+                        id=AFFECTED_LOCATIONS_ID,
+                        className="command-center__panel--wide",
+                        children=[
+                            html.P(
+                                "Loading affected locations…",
                                 className="command-center__loading",
                             )
                         ],

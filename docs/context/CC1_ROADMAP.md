@@ -117,7 +117,14 @@ explicitly time-bounded event-count field (e.g. "Power Down events · last
 24h") may be shown, but must never be named or treated as `critical_count`/
 `warning_count` (ADR-001).
 
-## Phase 7 — Affected Locations
+## Phase 7 — Affected Locations — DONE (2026-08-29)
+
+Ranked plant bars from the same FleetHealth already fetched; no SQL
+added for ranking. ADR-008 amended to record a third read path
+(`hierarchy_service.list_plants`) supplying plant NAMES only — every
+number and the order still come from FleetHealth. Bar widths are
+relative to the worst plant, so the chart reads comparatively.
+
 
 Location = Plant (ADR-003). Ranked, horizontal:
 

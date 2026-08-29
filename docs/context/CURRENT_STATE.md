@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T11:22:42Z
+Date: 2026-08-29T12:47:45Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `1a1be90` "feat(cc1): Situation Summary â€” four real cards (Phase 5)" (not `main`)
-- Working tree: 13 entries — see below
+- current branch `cc-1-command-center-foundation` = `04e3bfa` "feat(cc1): Electrical Conditions â€” Critical/Warning presentation (Phase 6)" (not `main`)
+- Working tree: 15 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2098 passed, 466 deselected in 12.77s
+- `python -m pytest -m "not db"` → 2128 passed, 466 deselected in 13.15s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 4 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -60,11 +60,11 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-005-auto-refresh-is-page-owned-polling.md | Approved | `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting) |
 | ADR-006-route-scoped-theming-is-architecture.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; implementation is CC-1 Phase 1 |
 | ADR-007-event-demo-seed-uses-ingest-event.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; the seed itself is a CC-1 Phase 0 prerequisite |
-| ADR-008-command-center-reuses-existing-read-paths.md | Approved — not yet implemented | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`) — pre-existing; Command Center's own call sites not yet written |
+| ADR-008-command-center-reuses-existing-read-paths.md | Approved | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6) |
 
 ## Active gate
 
-CC-1 Phase 6 — Electrical Condition Presentation — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Phase 7 — Affected Locations — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
@@ -73,14 +73,16 @@ M assets/app.css
  M callbacks/command_center.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/CC1_ROADMAP.md
+ M docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md
  M pages/command_center.py
  M services/command_center_service.py
  M tests/test_command_center_page.py
  M tests/test_command_center_service.py
 ?? "command center/"
-?? components/command_center/electrical.py
+?? components/command_center/affected_locations.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
-?? tests/test_command_center_electrical.py
+?? tests/test_command_center_affected_locations.py
+?? tests/test_command_center_locations.py
 ```
 

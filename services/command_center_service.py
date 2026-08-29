@@ -24,6 +24,7 @@ from repositories.plant_monitoring_repository import (
 )
 from services import event_semantics
 from services.device_scope import DeviceScope
+from services.hierarchy_service import list_plants
 from services.monitoring_service import FleetHealth, Freshness, get_fleet_health
 
 #: Technical pilot-safety bound, matching NOTIFICATION_QUERY_LIMIT's own
@@ -97,6 +98,27 @@ ELECTRICAL_CONDITIONS: tuple[ElectricalCondition, ...] = (
 
 
 @dataclass(frozen=True)
+class AffectedLocation:
+    """One Plant's freshness exception load (CC-1 Phase 7).
+
+    Location = Plant (ADR-003). Every number here is derived from the
+    `FleetHealth` already fetched; only `plant_name` comes from elsewhere,
+    and only as a label (ADR-008).
+    """
+
+    plant_id: str
+    #: Falls back to `plant_id` when the label lookup has no entry - the
+    #: freshness snapshot is the authority on which plants are in scope, so
+    #: a missing name must never remove a plant from the ranking.
+    plant_name: str
+    affected_rtls: int
+    stale_rtls: int
+    no_data_rtls: int
+    total_monitored_rtls: int
+    affected_percent: float
+
+
+@dataclass(frozen=True)
 class CommandCenterSnapshot:
     """One presentation-ready Command Center render.
 
@@ -147,6 +169,17 @@ class CommandCenterSnapshot:
     #: component changes.
     electrical_conditions: tuple[ElectricalCondition, ...]
 
+    #: Plants ranked by freshness exception load, worst first. Includes
+    #: zero-affected plants: whether to show a calm plant is a presentation
+    #: choice, and dropping it here would make "every plant is healthy"
+    #: indistinguishable from "no plants in scope".
+    affected_locations: tuple[AffectedLocation, ...]
+
+    @property
+    def has_affected_locations(self) -> bool:
+        """Whether any Plant carries a freshness exception at all."""
+        return any(row.affected_rtls for row in self.affected_locations)
+
     @property
     def has_monitored_devices(self) -> bool:
         """Whether any RTL is in scope at all.
@@ -184,6 +217,57 @@ def _plants_with_no_data(fleet_health: FleetHealth) -> int:
     )
 
 
+def _affected_locations(
+    fleet_health: FleetHealth, plant_names: dict[str, str]
+) -> tuple[AffectedLocation, ...]:
+    """Plants ranked by freshness exception load (ADR-002, ADR-003).
+
+    Composed entirely from the rollups `get_fleet_health` already built.
+    Ranking is deliberately NOT pushed into SQL: an ORDER BY over a fresh
+    query would be a second definition of "affected", free to drift from
+    the one Fleet Overview and the Situation Summary share.
+
+    Order: affected count DESCENDING, then plant NAME ascending. The
+    tie-break is on the displayed name rather than `plant_id` so the
+    rendered list reads alphabetically where counts are equal - ordering by
+    an id the operator cannot see would look arbitrary on screen.
+
+    Name comparison is CASE-INSENSITIVE. A raw ASCII sort puts every
+    all-caps name in its own block ahead of the mixed-case ones - real
+    fleet data ranked "GRAVELINES" above "Grand Coulee", which reads as a
+    bug to anyone scanning the list alphabetically. `plant_id` is the final
+    key so two names differing only in case still order deterministically
+    rather than falling back on dict iteration order.
+
+    No event data participates. Events answer "did something happen";
+    this answers "is the data current now".
+    """
+    rows = []
+    for plant_id in fleet_health.plants:
+        counts = fleet_health.device_counts_for_plant(plant_id)
+        stale = counts.get(Freshness.STALE, 0)
+        no_data = counts.get(Freshness.NO_DATA, 0)
+        affected = stale + no_data
+        total = sum(counts.values())
+        rows.append(
+            AffectedLocation(
+                plant_id=plant_id,
+                plant_name=plant_names.get(plant_id, plant_id),
+                affected_rtls=affected,
+                stale_rtls=stale,
+                no_data_rtls=no_data,
+                total_monitored_rtls=total,
+                affected_percent=_percent(affected, total),
+            )
+        )
+    return tuple(
+        sorted(
+            rows,
+            key=lambda r: (-r.affected_rtls, r.plant_name.casefold(), r.plant_id),
+        )
+    )
+
+
 def get_command_center_snapshot(
     *,
     scope: DeviceScope,
@@ -197,6 +281,10 @@ def get_command_center_snapshot(
         allowed_device_ids=scope.device_ids,
         limit=event_limit,
     )
+    # Labels only (ADR-008) - every Plant-level number and the ranking order
+    # come from fleet_health above. Scoped like every other read so an
+    # out-of-scope plant name can never surface (ADR-004).
+    plant_names = {p.plant_id: p.name for p in list_plants(scope=scope)}
 
     counts = fleet_health.counts
     monitored = fleet_health.device_count
@@ -218,4 +306,5 @@ def get_command_center_snapshot(
         transformer_count=len(fleet_health.transformers),
         no_data_affected_plants=_plants_with_no_data(fleet_health),
         electrical_conditions=ELECTRICAL_CONDITIONS,
+        affected_locations=_affected_locations(fleet_health, plant_names),
     )
