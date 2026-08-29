@@ -22,7 +22,7 @@ from db.engine import session_scope
 
 _SCHEMA = monitoring.schema
 
-# Administrative status only. Never a monitoring condition — see CLAUDE.md.
+# Administrative status only. Never a monitoring condition — see AGENTS.md.
 ACTIVE_STATUS = "active"
 
 

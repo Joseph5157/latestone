@@ -6,7 +6,7 @@ Adds nullable identity/lifecycle metadata to the existing ``devices`` table:
     created_at, updated_at
 
 No existing column is renamed, dropped, or retyped. ``devices.status``
-remains administrative status only (see CLAUDE.md) and is untouched here.
+remains administrative status only (see AGENTS.md) and is untouched here.
 
 ``created_at``/``updated_at`` are NOT NULL with a constant ``now()`` default,
 which PostgreSQL applies as a fast metadata-only backfill (no table rewrite)

@@ -111,7 +111,7 @@ class TestAdminSummaryOutput:
         assert listings.admin_summary_output(NOW) is None
 
     def test_failure_does_not_leak_internals(self, monkeypatch, caplog):
-        """CLAUDE.md: never expose stack traces, SQL or connection strings.
+        """AGENTS.md: never expose stack traces, SQL or connection strings.
         The cause is logged in full; nothing reaches the page."""
 
         def boom(now=None):

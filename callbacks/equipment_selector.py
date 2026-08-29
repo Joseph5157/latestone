@@ -128,7 +128,7 @@ def register(app) -> None:
         except Exception:
             # A selector that cannot load must not take the page down with it;
             # the drill-down navigation still works. Logged in full, generic
-            # in the UI (empty dropdown), per CLAUDE.md.
+            # in the UI (empty dropdown), per AGENTS.md.
             logger.exception("Equipment selector failed to list plants")
             return []
 

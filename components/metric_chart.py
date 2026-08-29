@@ -123,7 +123,7 @@ def build_metric_figure(
 BAR_COLOR = "#3b82f6"
 
 #: Neutral, deliberately not the warning palette. A meter discontinuity is a
-#: data-quality condition, not an electrical alarm — CLAUDE.md keeps the three
+#: data-quality condition, not an electrical alarm — AGENTS.md keeps the three
 #: status concepts separate, and a red mark here would read as the third one.
 DISCONTINUITY_COLOR = "#9ca3af"
 

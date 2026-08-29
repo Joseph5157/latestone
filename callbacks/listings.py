@@ -58,7 +58,7 @@ TRANSFORMER_COLUMNS = [
     {"name": "Transformer", "id": "transformer"},
     {"name": "Devices", "id": "devices", "type": "numeric"},
     # Administrative status (active/inactive) and data freshness are separate
-    # concepts per CLAUDE.md and stay separate columns. Merging them would let
+    # concepts per AGENTS.md and stay separate columns. Merging them would let
     # an inactive transformer read as a data problem, or a dead feed read as an
     # administrative one.
     {"name": "Status", "id": "status"},
@@ -434,7 +434,7 @@ def listing_outputs(build_rows, columns: list[dict], context_msg: str) -> tuple:
 
     An empty table alone is not enough: "no rows exist" and "we could not reach
     the database" must not look identical, hence the separate error slot. The
-    cause is logged in full; the panel stays generic per CLAUDE.md.
+    cause is logged in full; the panel stays generic per AGENTS.md.
     """
     try:
         return build_rows(), columns, None

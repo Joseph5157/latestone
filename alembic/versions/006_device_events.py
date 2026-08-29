@@ -16,7 +16,7 @@ migration:
     comms_alarm, high_temperature, vibration_event, invalid_uid
 
 ``severity`` similarly has no CHECK / enum: no source document defines a
-severity vocabulary, and CLAUDE.md fixes MonitoringCondition as always
+severity vocabulary, and AGENTS.md fixes MonitoringCondition as always
 UNKNOWN with no thresholds — inventing a severity scale here would
 contradict that policy.
 

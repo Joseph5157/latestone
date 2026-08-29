@@ -44,7 +44,7 @@ class TestListingOutputs:
         assert find_by_class(error, "status-panel--error"), "no error panel rendered"
 
     def test_failure_does_not_leak_internals_to_the_ui(self):
-        """CLAUDE.md: never expose stack traces, SQL or connection strings."""
+        """AGENTS.md: never expose stack traces, SQL or connection strings."""
         _, _, error = listing_outputs(_boom, PLANT_COLUMNS, "ctx")
         shown = text_of(error)
         assert "connection refused" not in shown

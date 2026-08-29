@@ -9,7 +9,7 @@ Plant and Transformer as plain text, so there was no way back up the hierarchy
 from a device — even though `DevicePath` already carries `plant_id` and
 `transformer_id`.
 
-The three status concepts stay separate per CLAUDE.md: the bar shows
+The three status concepts stay separate per AGENTS.md: the bar shows
 administrative status, the header badge shows data freshness, and monitoring
 condition remains UNKNOWN elsewhere.
 """
