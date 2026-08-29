@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T10:59:36Z
+Date: 2026-08-29T11:22:42Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `cc6b67a` "feat(cc1): Command Center foundation and empty shell (Phase 3+4)" (not `main`)
+- current branch `cc-1-command-center-foundation` = `1a1be90` "feat(cc1): Situation Summary â€” four real cards (Phase 5)" (not `main`)
 - Working tree: 13 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2078 passed, 466 deselected in 13.04s
+- `python -m pytest -m "not db"` → 2098 passed, 466 deselected in 12.77s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -64,7 +64,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CC-1 Phase 5 — Situation Summary — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Phase 6 — Electrical Condition Presentation — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
@@ -78,9 +78,9 @@ M assets/app.css
  M tests/test_command_center_page.py
  M tests/test_command_center_service.py
 ?? "command center/"
-?? components/command_center/situation_summary.py
+?? components/command_center/electrical.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
-?? tests/test_command_center_situation_summary.py
+?? tests/test_command_center_electrical.py
 ```
 

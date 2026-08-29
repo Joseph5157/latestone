@@ -255,3 +255,141 @@ class TestPopulationBoundary:
             __import__("pathlib").Path(svc.__file__).read_text(encoding="utf-8")
         )
         assert "admin_overview" not in source
+
+
+class TestElectricalConditionModel:
+    """Phase 6 - the Critical/Warning presentation contract (ADR-001).
+
+    The facade decides the mapping; components render it. These assert the
+    mapping is event-type based and that current state stays a deliberate
+    None.
+    """
+
+    def _by_key(self, monkeypatch):
+        snap = _snapshot_from_rows(monkeypatch, [_row("d1", "temperature", RECENT)])
+        return {c.severity_key: c for c in snap.electrical_conditions}
+
+    def test_power_down_is_the_critical_presentation(self, monkeypatch):
+        critical = self._by_key(monkeypatch)["critical"]
+        assert critical.event_type == "power_down"
+        assert critical.severity_label == "Critical"
+        assert critical.condition_label == "Power Down"
+
+    def test_battery_low_is_the_warning_presentation(self, monkeypatch):
+        warning = self._by_key(monkeypatch)["warning"]
+        assert warning.event_type == "battery_low"
+        assert warning.severity_label == "Warning"
+        assert warning.condition_label == "Battery Low"
+
+    def test_current_critical_state_is_unavailable(self, monkeypatch):
+        """Not zero. Events record that something OCCURRED; without a
+        resolve/clear contract an old event cannot establish that an RTL is
+        still in that state now (ADR-001)."""
+        assert self._by_key(monkeypatch)["critical"].current_count is None
+
+    def test_current_warning_state_is_unavailable(self, monkeypatch):
+        assert self._by_key(monkeypatch)["warning"].current_count is None
+
+    def test_definitions_carry_the_device_thresholds_as_text(self, monkeypatch):
+        conditions = self._by_key(monkeypatch)
+        assert "< 3.61 V" in conditions["critical"].definition
+        assert "< 3.75 V" in conditions["warning"].definition
+
+    def test_only_the_two_classified_conditions_are_presented(self, monkeypatch):
+        """High temperature and vibration are structurally absent from
+        services/event_semantics.py because their domain rules are open
+        client-clarification items. Having a Critical *category* must not
+        become a reason to invent membership in it."""
+        conditions = self._by_key(monkeypatch)
+        assert set(conditions) == {"critical", "warning"}
+        event_types = {c.event_type for c in conditions.values()}
+        assert "high_temperature" not in event_types
+        assert "vibration_event" not in event_types
+
+    def test_definition_figures_match_the_spec_frozen_source(self):
+        """Binds the legend to config/notifications.py rather than retyping
+        it. That module's descriptions cite BR002/BR011 and are the source
+        for both numbers; if the spec text changes, this fails loudly
+        instead of Command Center silently showing a stale figure."""
+        from config.notifications import get_category
+
+        assert "3.61" in get_category("power_down").description
+        assert "3.75" in get_category("battery_alarm").description
+        assert "3.61" in svc.CRITICAL_DEFINITION
+        assert "3.75" in svc.WARNING_DEFINITION
+
+
+class TestNoThresholdLogicInCommandCenter:
+    """EVT-D4 / ADR-001, enforced structurally rather than by review.
+
+    An AST walk, not a text scan: `"< 3.61 V"` is a legitimate display
+    string, so grepping for the number (or for `<`) cannot distinguish
+    legend copy from a classification predicate. Comparing against the
+    literal in a Compare node is exactly the forbidden thing, and nothing
+    else is.
+    """
+
+    THRESHOLDS = {3.61, 3.75}
+
+    def _command_center_sources(self):
+        import pathlib
+
+        root = pathlib.Path(svc.__file__).resolve().parents[1]
+        return [
+            root / "services" / "command_center_service.py",
+            *sorted((root / "components" / "command_center").glob("*.py")),
+            root / "callbacks" / "command_center.py",
+            root / "pages" / "command_center.py",
+        ]
+
+    def test_no_source_compares_against_a_voltage_threshold(self):
+        import ast
+
+        offenders = []
+        for path in self._command_center_sources():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Compare):
+                    continue
+                operands = [node.left, *node.comparators]
+                for operand in operands:
+                    if (
+                        isinstance(operand, ast.Constant)
+                        and isinstance(operand.value, (int, float))
+                        and operand.value in self.THRESHOLDS
+                    ):
+                        offenders.append(f"{path.name}:{node.lineno}")
+        assert not offenders, (
+            "Command Center must never classify from battery voltage - the "
+            f"event arrives already classified (EVT-D4). Found: {offenders}"
+        )
+
+    def test_no_source_reads_the_battery_voltage_payload(self):
+        """battery_voltage is display/audit payload on an event, never a
+        classification input (ADR-001). Command Center has no reason to
+        touch it at all this phase.
+
+        AST again, not a text scan: components/command_center/electrical.py
+        spells the forbidden pattern out in its docstring precisely so the
+        rule stays visible to the next reader, and prose explaining what not
+        to do must not be indistinguishable from doing it. Attribute access,
+        a bare name, and an exact-string key are usage; a docstring that
+        happens to contain the word is not.
+        """
+        import ast
+
+        offenders = []
+        for path in self._command_center_sources():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                used = (
+                    (isinstance(node, ast.Attribute) and node.attr == "battery_voltage")
+                    or (isinstance(node, ast.Name) and node.id == "battery_voltage")
+                    or (
+                        isinstance(node, ast.Constant)
+                        and node.value == "battery_voltage"
+                    )
+                )
+                if used:
+                    offenders.append(f"{path.name}:{node.lineno}")
+        assert not offenders, offenders

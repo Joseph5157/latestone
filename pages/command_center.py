@@ -22,11 +22,16 @@ from components.command_center.primitives import panel_not_yet_built
 #: compact four-across row is what makes that one glance.
 SITUATION_SUMMARY_ID = "command-center-situation-summary"
 
+#: Exception Intelligence (Phase 6) is live: the slot now holds the
+#: Electrical Conditions card. The id is unchanged from Phase 4 so the
+#: shell's DOM contract stays stable across phases; only its contents
+#: graduated from placeholder to real.
+ELECTRICAL_CONDITIONS_ID = "command-center-exception-intelligence"
+
 #: (component id, panel title) — the slots still awaiting their own phase
-#: (docs/context/CC1_ROADMAP.md Phases 6-10). Each renders an honest
+#: (docs/context/CC1_ROADMAP.md Phases 7-10). Each renders an honest
 #: not-built-yet card until then.
 _PANEL_SLOTS: tuple[tuple[str, str], ...] = (
-    ("command-center-exception-intelligence", "Exception Intelligence"),
     ("command-center-recent-events", "Recent Operational Events"),
     ("command-center-affected-locations", "Affected Locations"),
     ("command-center-selected-location", "Selected Location / Transformer Concentration"),
@@ -64,8 +69,19 @@ def layout() -> html.Div:
             html.Div(
                 className="command-center__panels",
                 children=[
-                    html.Div(id=slot_id, children=[panel_not_yet_built(title)])
-                    for slot_id, title in _PANEL_SLOTS
+                    html.Div(
+                        id=ELECTRICAL_CONDITIONS_ID,
+                        children=[
+                            html.P(
+                                "Loading electrical conditions…",
+                                className="command-center__loading",
+                            )
+                        ],
+                    ),
+                    *(
+                        html.Div(id=slot_id, children=[panel_not_yet_built(title)])
+                        for slot_id, title in _PANEL_SLOTS
+                    ),
                 ],
             ),
         ],

@@ -27,12 +27,17 @@ class TestCommandCenterLayout:
         text arrives with its content rather than being baked into the shell."""
         assert find_by_id(layout(), "command-center-situation-summary") is not None
 
+    def test_electrical_conditions_is_a_live_region_not_a_placeholder(self):
+        """Phase 6: the Exception Intelligence slot now holds the Electrical
+        Conditions card. Its id is unchanged from Phase 4 — the shell's DOM
+        contract stays stable while its contents graduate."""
+        assert find_by_id(layout(), "command-center-exception-intelligence") is not None
+
     def test_the_remaining_panels_are_still_named_placeholders(self):
-        """Phases 6-10 (docs/context/CC1_ROADMAP.md). The shell names every
+        """Phases 7-10 (docs/context/CC1_ROADMAP.md). The shell names every
         slot still to come, so nothing is silently missing when content lands."""
         text = text_of(layout())
         for panel_title in [
-            "Exception Intelligence",
             "Recent Operational Events",
             "Affected Locations",
             "Selected Location",

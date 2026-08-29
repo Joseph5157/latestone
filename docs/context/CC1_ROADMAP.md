@@ -79,7 +79,14 @@ contract (ADR-008) holding in practice rather than only in tests.
 - **Communication/visibility** — No Data RTL count, share of monitored RTLs, optionally affected Plant count. Copy: "At least one monitored metric has no reading." (ADR-002 — no age buckets, no "never reported").
 - **Inventory** — Plants / Transformers / RTL Devices from the monitoring population. Do not mix in Managed RTL administration counts (a different population — see `admin1_administration_summary_implemented` in memory for that distinction if it resurfaces).
 
-## Phase 6 — Electrical event presentation
+## Phase 6 — Electrical event presentation — DONE (2026-08-29)
+
+Critical/Warning visual system built; current state stays `None` /
+Unavailable, structurally distinct from zero. Threshold-free by
+construction and enforced by two AST guards (a text scan cannot tell
+`"< 3.61 V"` legend copy from a classification predicate). Event-window
+occurrence counts deliberately deferred to Phase 9.
+
 
 ```text
 Electrical Conditions
@@ -209,6 +216,33 @@ overflow; charts readable; dark shell coherent; Asset Navigator and sidebar
 work; theme toggle works; refresh doesn't clear the page; selected Plant
 persists; errors don't masquerade as zeros; `Unavailable` stays visually
 distinct from `0`; existing Fleet Overview unchanged.
+
+### Blocking debt: the freshness demo seed (raised 2026-08-29, Phase 5)
+
+The local seed is **entirely stale** — 120 Stale, 0 Fresh, 0 No Data — so
+the two most semantically delicate states have never been seen rendered
+with real data. Phase 5's Communication card shows an honest `0`, but an
+honest zero is not a verification of the No Data path.
+
+Before this phase's visual pass, add a **deterministic demo case** as its
+own controlled seed change (never smuggled into a feature gate):
+
+- one genuinely **Fresh** RTL
+- one **Stale** RTL
+- one RTL with a **mixed metric state that rolls up to `NO_DATA`** — some
+  metrics reporting fresh, at least one never reporting
+
+The third is the important one: it is the exact shape ADR-002 exists to
+protect, it is covered by unit tests
+(`tests/test_command_center_service.py::TestPartiallyReportingDeviceRegression`),
+and it has never been looked at on screen. Follow the
+`db/seed_admin_demo.py` precedent — opt-in, separate from the core seed,
+never implicit in production (the same constraint ADR-007 puts on the
+event demo seed).
+
+Recorded here rather than in `docs/UX_DEBT.md` because that file is
+gitignored, so a note there would carry no history and be invisible to a
+fresh clone.
 
 ## Phase 13 — Test gate
 

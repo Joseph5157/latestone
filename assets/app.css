@@ -4686,3 +4686,107 @@ body {
   color: var(--color-muted);
   font-size: 12px;
 }
+
+/* Electrical Conditions (Phase 6) — the two EVENT severity colours, held
+   back from Phase 5 on purpose. They paint the category marker and its
+   label only. The unavailable value stays neutral: colouring it red would
+   make "we do not know" look like "this is critical right now", the exact
+   misreading this card exists to prevent. Reuses the existing
+   contrast-checked state tokens rather than introducing raw hex — Phase 11
+   retunes them for the dark theme. */
+.command-center__conditions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.command-center__condition + .command-center__condition {
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.command-center__condition-category {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.command-center__condition-marker {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* 600, not 700: only Regular and SemiBold ship (assets/fonts/), so a
+   heavier declaration would be synthesised faux-bold. tests/test_typography.py
+   enforces this. */
+.command-center__condition-severity {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.command-center__tone--critical { color: var(--state-error-text); }
+.command-center__tone--warning  { color: var(--state-stale-text); }
+
+.command-center__condition-name {
+  margin: var(--sp-1) 0 var(--sp-3) 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Each fact is its own label-left / value-right row. The dt+dd pairs are
+   wrapped in a div (so they stay associated), which means the grid must go
+   on the ROW, not on the dl - putting it on the dl lays the wrappers out
+   side by side instead of stacking them. */
+.command-center__condition-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.command-center__condition-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.command-center__condition-facts dt {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.command-center__condition-facts dd {
+  margin: 0;
+  text-align: right;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+/* Unavailable: neutral, dashed, and never mistakable for a measured value.
+   The dash sits before the word so the row reads as "no value — and here
+   is why" rather than as an empty cell that failed to populate. */
+.command-center__unavailable {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.command-center__unavailable-dash {
+  font-style: normal;
+  opacity: 0.7;
+}
+
+.command-center__condition-definition {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+}

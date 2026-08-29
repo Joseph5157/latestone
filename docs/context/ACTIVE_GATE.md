@@ -2,126 +2,136 @@
 
 Status: Approved
 Date: 2026-08-29
-Gate: CC-1 Phase 5 — Situation Summary
-Precondition: Phase 3+4 complete and committed (`cc6b67a`), approved by the
+Gate: CC-1 Phase 6 — Electrical Condition Presentation
+Precondition: Phase 5 complete and committed (`1a1be90`), approved by the
 user 2026-08-29.
-Flow: PLAN → REVIEW GATE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 6)**
+Flow: PLAN → REVIEW GATE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 7)**
 Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
-once every item under "Verification gate" below passes. Push NOT GRANTED.
-**Stop after committing — Phase 6 is explicitly withheld** and needs its own
-approval.
-
-This file describes exactly one gate. Phase 3+4's record moved to
-`docs/context/CC1_ROADMAP.md`; when Phase 5 completes, rewrite this file for
-Phase 6 rather than appending.
+once every item under "Required tests" and "Verification gate" passes. Push
+NOT GRANTED. **Stop after committing — Phase 7 (Affected Locations) needs
+its own approval.**
 
 ## Task
 
-Populate only the top operational summary layer — four real components.
-Everything else on the page stays a placeholder.
-
-1. **Fleet Health** — monitored RTL count, Fresh/Stale/No Data composition.
-   Fresh reads visually quiet. No invented "Healthy/Critical/Warning"
-   rollup (ADR-001: those words belong to event types, not freshness).
-2. **Needs Attention** — `Stale + No Data` exactly (ADR-002), affected RTL
-   count, percentage of the monitored population. No event occurrences
-   mixed in.
-3. **Communication / Visibility** — No Data RTL count, share of monitored
-   population, the exact copy "At least one monitored metric has no
-   reading.", plus affected Plant count (derivable from the same
-   `FleetHealth` via `device_counts_for_plant`). **No `>24h`/`>48h`/`>72h`
-   buckets. Never "never reported"** (ADR-002).
-4. **Inventory** — Plants / Transformers / RTL Devices from the
-   **monitoring** population (`FleetHealth`), never the Managed-RTL admin
-   population. Subtitle frozen by the user: **"Monitored assets in your
-   current access scope"**.
-
-## Service rule (frozen)
-
-`services/command_center_service.py` stays the only composition seam.
-Extend `CommandCenterSnapshot` with presentation-ready values; components
-render, service decides. Components must not inspect `FleetHealth`
-themselves, and no second freshness calculation may exist anywhere in
-Command Center.
-
-Direction (exact names are an implementation choice): `monitored_rtls`,
-`fresh_rtls`, `stale_rtls`, `no_data_rtls`, `attention_rtls`,
-`attention_percent`, `plant_count`, `transformer_count`, `device_count`,
-`no_data_affected_plants`.
-
-## The regression case this gate exists to protect
+Build the Critical/Warning **visual system**, without pretending the backend
+can establish current electrical state.
 
 ```
-RTL-A
-├── temperature → fresh reading
-├── voltage     → fresh reading
-└── another monitored metric → no reading
+ELECTRICAL CONDITIONS
+
+● CRITICAL
+Power Down
+Current state        —  Unavailable
+Device definition       < 3.61 V
+
+● WARNING
+Battery Low
+Current state        —  Unavailable
+Device definition       < 3.75 V
 ```
 
-Expected: device freshness `NO_DATA`; `device_last_updated` **present**;
-Communication count includes RTL-A; Needs Attention includes RTL-A. This is
-the exact semantic error corrected during planning (ADR-002) — a dedicated
-test is mandatory, not optional.
+The card shows the system **knows the category definitions** while being
+explicit that it **does not know the current fleet count**.
 
-## Population rule
-
-`services/admin_overview_service.py:15-20` states the split in source:
-**Managed RTLs** are administratively active devices regardless of their
-transformer's status; **Monitoring Devices** are active devices under active
-transformers. Inventory shows the second. Command Center must not import
-`admin_overview_service` at all this gate.
-
-## Visual direction
-
-Compact, operational top row — four cards across:
+## The semantic distinction this gate exists to encode
 
 ```
-┌───────────────┬─────────────────┬───────────────┬─────────────────┐
-│ FLEET HEALTH  │ NEEDS ATTENTION │ COMMUNICATION │ INVENTORY       │
-│ freshness mix │ 35 affected     │ 18 No Data    │ 8 Plants        │
-│               │ 29.2% fleet     │ 15.0% fleet   │ 42 Transformers │
-└───────────────┴─────────────────┴───────────────┴─────────────────┘
+power_down  event → Critical presentation
+battery_low event → Warning  presentation
 ```
 
-Structure, density and hierarchy — **not** final dark-mode styling. The
-route-scoped HMI theme is Phase 11, its own gate.
+**Never**:
+
+```
+battery_voltage < 3.61 → Critical
+battery_voltage < 3.75 → Warning
+```
+
+The events arrive already classified by the device (ADR-001, EVT-D4). No
+consumer-side voltage threshold logic may exist anywhere in Command Center.
+The two numbers are **legend/display metadata only**.
+
+Provenance: both figures are already spec-frozen in
+`config/notifications.py` — the `power_down` category description says
+"Battery voltage below 3.61 V ... (BR002, BR011)" and `battery_alarm` says
+"below 3.75 V (BR002)". Command Center's short legend strings must be
+bound to that source by test, not independently retyped, so a spec change
+fails loudly instead of silently diverging.
+
+## Current state stays Unavailable
+
+Persisted events say something **occurred**. There is no trusted
+resolve/clear/closure contract (ADR-001), so this gate must not produce
+`3 Critical RTLs`, `5 Warning RTLs`, `0 Critical`, or `0 Warning` — every
+one of those implies a current-state model that does not exist.
+
+`current_count` is `None` as a **deliberate domain result**, not a missing
+UI implementation. `Unavailable` must stay visually *and* structurally
+distinct from numeric zero — a dash plus the word, never a rendered `0`.
+
+## Explicitly out of scope this gate
+
+- `Power Down events · last 24h` / `Battery Low events · last 24h` — these
+  are event-window **occurrence** metrics, not current electrical state.
+  They belong with Recent Operational Events (Phase 9), not here.
+- Any current Critical/Warning count.
+- Everything already withheld: affected-location bars, Plant selection,
+  transformer concentration, priority assets, auto-refresh, dark/light
+  theme, Asset Navigator on Command Center, changes to `/`, changes to
+  Fleet Overview.
+
+## Visual semantics
+
+Colour describes the **event category/legend**, never the unavailable value:
+
+- Critical / Power Down → red
+- Warning / Battery Low → amber
+- Unavailable current state → neutral/dashed
+
+Colour never carries meaning alone — the severity label is always present
+beside its marker.
+
+## Service boundary (unchanged rule)
+
+Components receive already-decided presentation values. They must not
+import `event_semantics` and assemble meaning themselves. The façade
+supplies a small model per condition: severity label, event type,
+condition label, `current_count=None`, and the definition string.
 
 ## Decisions this gate depends on
 
-- [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) — no Critical/Warning language on freshness
-- [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) — Attention = Stale + No Data; the per-metric No Data semantics
-- [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) — scope is authorization-derived
-- [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) — single read path, service composes, no Fleet Overview imports
-
-## Non-goals (explicit — withheld by the user)
-
-Critical/Power Down card logic; Warning/Battery Low card logic; recent
-operational events; affected-location bars; Plant selection; transformer
-concentration; priority assets; auto-refresh; dark/light theme; Asset
-Navigator on Command Center; any change to `/`; any change to Fleet
-Overview.
-
-## Relevant files
-
-- `services/command_center_service.py` — extend the snapshot
-- `components/command_center/primitives.py` — shared card/stat primitives
-- `pages/command_center.py` — mount the four cards
-- `callbacks/command_center.py` — populate them
-- `assets/app.css` — `.command-center__` namespace only
-- `services/monitoring_service.py` — `FleetHealth`, read-only
+- [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) — events are pre-classified; no consumer threshold; no current-state count without a closure contract
+- [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) — this card must not feed the attention total
+- [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) — service composes, components render
 
 ## Required tests
 
-- The 19 existing CC foundation tests still pass
-- New Situation Summary tests (service + components)
-- Single `FleetHealth` fetch still proven
-- The one-metric-`NO_DATA` regression test above
-- Monitoring vs Managed population test
-- Zero-denominator behaviour (no `ZeroDivisionError`, no misleading 0%)
-- Empty scope behaviour
-- Service error behaviour
+- `power_down` maps to Critical presentation
+- `battery_low` maps to Warning presentation
+- **No numeric threshold comparison exists** in Command Center service or
+  component logic — a structural (AST) test, since `< 3.61 V` legitimately
+  appears inside a display string and a naive text scan cannot tell the two
+  apart
+- Current Critical state is `None` / Unavailable
+- Current Warning state is `None` / Unavailable
+- Unavailable renders as `—` / `Unavailable`, never `0`
+- Power Down definition text includes `< 3.61 V`
+- Battery Low definition text includes `< 3.75 V`
+- A high-temperature event does **not** become Critical merely because the
+  visual system now has a Critical category
+- Phase 5 freshness/attention values unchanged
+- Fleet Overview unchanged
 
 ## Verification gate
 
-Browser: 1440, 1366, 1024. Fleet Overview screenshot unchanged. No new
+Browser at 1440 / 1366 / 1024. Fleet Overview screenshot unchanged. No new
 console errors. Then commit locally and **stop**.
+
+## Relevant files
+
+- `services/command_center_service.py` — the electrical condition model
+- `components/command_center/situation_summary.py` — sibling card family
+- `pages/command_center.py` — mounts the Exception Intelligence slot
+- `callbacks/command_center.py` — populates it
+- `assets/app.css` — `.command-center__` namespace only
+- `config/notifications.py` — read-only; the definition figures' source

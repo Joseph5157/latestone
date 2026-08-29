@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from config.events import EVENT_TYPE_BATTERY_LOW, EVENT_TYPE_POWER_DOWN
 from repositories.plant_monitoring_repository import (
     DeviceEventRecord,
     list_recent_device_events,
@@ -28,6 +29,71 @@ from services.monitoring_service import FleetHealth, Freshness, get_fleet_health
 #: Technical pilot-safety bound, matching NOTIFICATION_QUERY_LIMIT's own
 #: rationale (services/event_semantics.py) - not product semantics.
 RECENT_EVENTS_LIMIT = 500
+
+#: Device-definition legend copy (ADR-001). These figures describe what the
+#: DEVICE already decided before emitting the event - they are never
+#: evaluated here. Sourced from config/notifications.py, whose spec-frozen
+#: category descriptions cite BR002/BR011 ("Battery voltage below 3.61 V,
+#: device entering power-down mode", "below 3.75 V"); a test binds these
+#: strings to that source so a spec change fails loudly rather than leaving
+#: Command Center quietly showing a stale number.
+CRITICAL_DEFINITION = "< 3.61 V"
+WARNING_DEFINITION = "< 3.75 V"
+
+
+@dataclass(frozen=True)
+class ElectricalCondition:
+    """One already-classified event type, as the operator sees it.
+
+    `current_count is None` is a DELIBERATE DOMAIN RESULT, not an unfinished
+    UI. Persisted events record that something occurred; there is no
+    resolve/clear/closure contract (ADR-001), so no count of RTLs *currently*
+    in this condition is derivable. Rendering 0 would assert the fleet is
+    healthy on evidence that does not exist - which is why the type is
+    `int | None` rather than `int` defaulting to zero.
+    """
+
+    #: CSS tone key - "critical" | "warning". Styles the category marker,
+    #: never the unavailable value.
+    severity_key: str
+    severity_label: str
+    #: Canonical name from config.events, not retyped.
+    event_type: str
+    condition_label: str
+    current_count: int | None
+    definition: str
+
+
+#: The two conditions the device classifies and this card presents.
+#:
+#: high_temperature and vibration_event are deliberately absent, exactly as
+#: they are absent from services/event_semantics.py: their domain rules are
+#: open client-clarification items. Owning a "Critical" category is not a
+#: reason to invent membership in it.
+#:
+#: `condition_label` names the DEVICE CONDITION, so Battery Low keeps the
+#: event's own vocabulary. That differs on purpose from the Notification
+#: Center, which labels the same event's category "Battery Alarm"
+#: (config/notifications.py): a notification category and a device condition
+#: are different things, and flattening them would misname one of the two.
+ELECTRICAL_CONDITIONS: tuple[ElectricalCondition, ...] = (
+    ElectricalCondition(
+        severity_key="critical",
+        severity_label="Critical",
+        event_type=EVENT_TYPE_POWER_DOWN,
+        condition_label="Power Down",
+        current_count=None,
+        definition=CRITICAL_DEFINITION,
+    ),
+    ElectricalCondition(
+        severity_key="warning",
+        severity_label="Warning",
+        event_type=EVENT_TYPE_BATTERY_LOW,
+        condition_label="Battery Low",
+        current_count=None,
+        definition=WARNING_DEFINITION,
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -73,6 +139,13 @@ class CommandCenterSnapshot:
     #: Plants holding at least one No Data RTL. Counts PLANTS, not devices:
     #: two blind RTLs in one plant is one affected location.
     no_data_affected_plants: int
+
+    #: The classified electrical conditions and their current-state
+    #: availability. Constant in CC-1 (every current_count is None) but
+    #: carried on the snapshot rather than imported by the component, so the
+    #: day a closure contract exists this becomes a computed field and no
+    #: component changes.
+    electrical_conditions: tuple[ElectricalCondition, ...]
 
     @property
     def has_monitored_devices(self) -> bool:
@@ -144,4 +217,5 @@ def get_command_center_snapshot(
         plant_count=fleet_health.plant_count,
         transformer_count=len(fleet_health.transformers),
         no_data_affected_plants=_plants_with_no_data(fleet_health),
+        electrical_conditions=ELECTRICAL_CONDITIONS,
     )
