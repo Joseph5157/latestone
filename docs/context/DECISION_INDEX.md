@@ -22,19 +22,26 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-005](../decisions/ADR-005-auto-refresh-is-page-owned-polling.md) | Auto-refresh is a page-owned `dcc.Interval`, not a shared "live" feed | Approved | `23642da` (precedent); Command Center's own interval not yet built |
 | [ADR-006](../decisions/ADR-006-route-scoped-theming-is-architecture.md) | Route-scoped dark/light theming is CC-1 Phase-1 architecture, not later polish | Approved | not yet |
 | [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) | The CC-1 event demo seed must call `ingest_event()`, never `insert_device_event()` directly | Approved | not yet |
+| [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) | Command Center's read side is `get_fleet_health()` + `list_recent_device_events()`, never new SQL or Fleet Overview's presentation components | Approved | `1940b93`, `bb1e2e9` (precedent); Command Center's own call sites not yet built |
 
 ## Reading this table
 
-- **All seven currently gate CC-1** (`docs/context/ACTIVE_GATE.md`, once
-  written, will link the subset each task actually touches — don't load all
-  seven for every CC-1 task; load what the gate names).
-- Four of the seven (001-004) are not new decisions invented for CC-1 — they
-  are pre-existing, already-shipped behaviour (event semantics, fleet
-  freshness, the plant schema, ROLE-3 device scope) that CC-1 must conform
-  to. They are backfilled here because CC-1 depends on them and they had no
-  durable record before now, not because CC-1 changed them.
+- **All eight currently gate CC-1** (`docs/context/ACTIVE_GATE.md` links the
+  subset each gate actually touches — don't load all eight for every CC-1
+  task; load what the gate names).
+- Five of the eight (001-004, 008) are not new decisions invented for CC-1 —
+  they are pre-existing, already-shipped behaviour (event semantics, fleet
+  freshness, the plant schema, ROLE-3 device scope, the `FleetHealth`/event
+  read functions) that CC-1 must conform to and reuse. They are backfilled
+  here because CC-1 depends on them and they had no durable record before
+  now, not because CC-1 changed them.
 - Three (005-007) are CC-1-original decisions, approved in the frozen
   planning pack (`command center/`) but not yet built.
+- ADR-002 was corrected 2026-08-29 (same day as ADR-008): its original
+  "Affected areas" pointed at `components/fleet_condition.py` as something
+  to reuse. It isn't — see ADR-008. The decision itself (`Requires
+  Attention = Stale + No Data`) didn't change, only which file embodies the
+  reusable part.
 - None is Superseded or Rejected yet. When one is, edit its own file's
   `Status:` field in the same commit that supersedes it — per `AGENTS.md`,
   a supersession is only real once the old record says so itself, not only

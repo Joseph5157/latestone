@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T10:13:19Z
+Date: 2026-08-29T10:25:11Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `ctx-1-context-architecture` = `1a6409c` "chore(ctx-1): regenerate CURRENT_STATE.md at HEAD df890e2" (not `main`)
-- Working tree: 7 entries — see below
+- current branch `ctx-1-context-architecture` = `4d3beba` "docs(ctx-1): add the project-context skill, close out CTX-1" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2032 passed, 466 deselected in 12.69s
+- `python -m pytest -m "not db"` → 2032 passed, 466 deselected in 12.63s
 
 ## Branches
 
@@ -44,11 +44,11 @@ Diverged from `main` (has commits `main` doesn't):
 |---|---|---|---|
 | `client-demo-1` | 7 | 39 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 189 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `ctx-1-context-architecture` | 5 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `ctx-1-context-architecture` | 6 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
-7 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+8 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -59,19 +59,22 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-005-auto-refresh-is-page-owned-polling.md | Approved | `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting) |
 | ADR-006-route-scoped-theming-is-architecture.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; implementation is CC-1 Phase 1 |
 | ADR-007-event-demo-seed-uses-ingest-event.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; the seed itself is a CC-1 Phase 0 prerequisite |
+| ADR-008-command-center-reuses-existing-read-paths.md | Approved — not yet implemented | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`) — pre-existing; Command Center's own call sites not yet written |
 
 ## Active gate
 
-CC-1 Phase 0 — Repository reconciliation and demo prerequisites — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Phase 3+4 — Foundation and shell — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-A  .claude/skills/project-context/SKILL.md
- M .gitignore
- M AGENTS.md
- M scripts/check_client_release.py
+M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ M docs/context/DECISION_INDEX.md
+ M docs/decisions/ADR-002-fleet-attention-is-freshness-only.md
 ?? "command center/"
+?? docs/context/CC1_ROADMAP.md
+?? docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
 ```

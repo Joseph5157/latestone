@@ -42,13 +42,28 @@ this is displayed:
 
 ## Affected areas
 
-- `components/fleet_condition.py` — existing Fleet Overview implementation;
-  Command Center must reuse this classification, not fork a second one
-- `services/monitoring_service.py` (`Freshness` enum) — the source of the
-  three states
+- `services/monitoring_service.py` — the reusable unit. `get_fleet_health(now,
+  *, scope: DeviceScope) -> FleetHealth` (line 430) is one query, scoped,
+  worst-of-aggregated; its own docstring: "call it once per render and pass
+  the result down... calling it per component would issue N queries and,
+  worse, let two parts of one screen disagree about which devices are
+  stale." `FleetHealth.counts: dict[Freshness, int]` is the `Requires
+  Attention` input. `evaluate_freshness`/`aggregate_freshness`/
+  `FreshnessRollup` (lines 198-249) are the classification itself.
+- `components/fleet_condition.py` is **not** the reusable unit — corrected
+  2026-08-29. It is Fleet Overview page-specific *presentation*: its own
+  functions take an already-computed `dict[Freshness, int]` and render HTML
+  (`fleet_condition_summary`, `fresh_data_coverage`, `data_freshness`), and
+  its docstring is explicit that "no classification or queries are performed
+  here." A fresh consumer (Command Center included) reuses
+  `get_fleet_health()`, never imports this component — importing it would
+  pull one page's markup/CSS classes into another page's presentation layer,
+  which is a components/→components/ dependency this codebase doesn't have
+  anywhere else.
 - `command center/components/CC02_FLEET_HEALTH.md`,
   `command center/components/CC03_NEEDS_ATTENTION.md`,
   `command center/components/CC06_ATTENTION_LEGEND.md` — must present exactly
   this model, including the no-age-buckets rule
-- Any future Command Center service — must read the same freshness snapshot
-  Fleet Overview reads, not issue a second freshness query
+- Any future Command Center service — must call `get_fleet_health()` once
+  per render and pass the result down; never issue a second freshness query
+  and never re-derive the classification from raw readings

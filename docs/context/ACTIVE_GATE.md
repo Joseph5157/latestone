@@ -2,115 +2,106 @@
 
 Status: Approved
 Date: 2026-08-29
-Gate: CC-1 Phase 0 — Repository reconciliation and demo prerequisites
-Precondition: branch `ctx-1-context-architecture` merged to `main`
-Flow: PLAN → **REVIEW GATE (this document)** → IMPLEMENT → TEST/VISUAL VERIFY → IMPLEMENTATION REVIEW → COMMIT → PUSH GATE
-Commit/push permission: NOT GRANTED. Phase 0 is verification-only. No CC-1
-code may be written or committed until the Codex plan (below) returns and is
-reviewed against the two named scrutiny points.
+Gate: CC-1 Phase 3+4 — Foundation and shell
+Precondition: `ctx-1-context-architecture` merged to `main`, then a new
+branch cut for CC-1 (this repo's convention is one branch per tranche —
+`ent-6-ui-and-live-simulator`, `role-3-device-scope`, etc.; CTX-1 is
+docs/tooling-only and CC-1 is a new feature, so they should not share a
+branch). **Not yet done — see Verification.**
+Flow: PLAN → REVIEW GATE (complete — ADR-008, this file) → **IMPLEMENT** → TEST/VISUAL VERIFY → IMPLEMENTATION REVIEW → COMMIT → PUSH GATE
+Commit/push permission: NOT GRANTED. The precondition above must be resolved
+first. Once on CC-1's own branch: commit only after Phase 13 tests are green
+and Phase 14's human review passes (`docs/context/CC1_ROADMAP.md`); push
+stays gated separately regardless.
 
-This file describes exactly one gate. When CC-1 moves to Phase 1, rewrite
-this file for that gate — don't append; a gate file describing two gates at
-once is how the old planning prompts went stale. The finished gate's content
-belongs in `docs/decisions/` (if it produced a durable decision) or
-`docs/archive/` (if it was a one-time planning artifact), not left here.
+This file describes exactly one gate. When Phase 3+4 completes, rewrite this
+file for Phase 5 (Situation summary) rather than appending — the full
+sequence lives in `docs/context/CC1_ROADMAP.md` precisely so this file
+doesn't have to carry it.
 
 ## Task
 
-Send `command center/09_CODEX_PLANNING_PROMPT.md` to Codex, read-only. Get an
-implementation plan back. Review that plan against this repository before
-any implementation begins.
+Build CC-1's foundation and empty shell — route, authorization, page,
+service façade, callback layer, fresh component family — enough that
+`/command-center` opens and shows the panel skeleton with safe empty/
+unavailable states. No panel content yet (Situation Summary onward is
+Phase 5+, its own future gate).
 
-Scrutinize hardest:
-1. Is the route-scoped theme hook (ADR-006) genuinely minimal, or does it
-   drag `app_shell`/`app_sidebar`/`app_header` in together? ADR-006 leaves
-   this deliberately open — verify at plan-review time, don't accept a plan
-   that touches all three without justification.
-2. Does the event demo seed go through `services/device_event_service.py`'s
-   `ingest_event()`, or does it open a second write path straight to
-   `repositories/plant_monitoring_repository.py`'s `insert_device_event()`?
-   ADR-007 requires the former.
+Full detail: `docs/context/CC1_ROADMAP.md` §"Phase 3" and §"Phase 4".
 
-## Phase 0 checklist — verified 2026-08-29, not aspirational
+## What this gate resolved
 
-- **Branch and HEAD**: `main` = `1d7c414`. This branch adds 3 commits
-  (`5d2dfe3`, `1c394ad`, `af86dca`) not yet merged.
-- **Working tree**: clean except `command center/` (untracked by design —
-  see Verification below), `scripts/generate_workflow_pdf.py` and
-  `scripts/generate_workflow_deep_dive_pdf.py` (unrelated, pre-existing).
-- **Unmerged local UX commits**: none. Surveyed all 18 non-`main` local
-  branches: every branch except `client-demo-1` (+7) and `client-release`
-  (+12) shows zero commits not already in `main` — stale pointers, not
-  pending work. The two exceptions are the client-delivery branches
-  (`docs/CLIENT_DELIVERY.md`) and their divergence is expected, not UX work
-  CC-1 needs to account for.
-- **Baseline tests**: 2032 passed, 466 deselected (`python -m pytest -m "not
-  db"`).
-- **12 `components/CC*.md` specs present**: confirmed, `command
-  center/components/CC01..CC12`.
-- **`Location = Plant`**: confirmed — see ADR-003.
-- **`/` remains Overview**: confirmed — `routes.py:66`,
-  `parse_pathname`: `pathname in ("/", "/plants", "/plants/")` →
-  `Route(name="overview")`. CC-1 must not change this line.
-- **Event ingestion path inspected, seed plan written**: see ADR-007.
+The user supplied a full 15-phase execution plan 2026-08-29. Reviewed
+against the repo rather than taken on trust — three things confirmed, one
+correction made, none of it blocking:
+
+- `app_shell.py`, `app_sidebar.py`, `app_header.py` (the files a bad plan
+  would rewrite wholesale for dark mode) are real, at `components/`.
+- `FleetHealth` and `list_recent_device_events()` — named only generically
+  in the frozen pack — are now pinned to exact functions:
+  `services/monitoring_service.py:430` and
+  `repositories/plant_monitoring_repository.py:2450`. See ADR-008.
+- Route authorization default (`_EVERY_ROLE`) confirmed against
+  `command center/01_PRODUCT_BRIEF.md`'s named primary users
+  (Administrator, Technician) and the existing `ROUTE_POLICY` pattern.
+- **Correction**: ADR-002 originally listed `components/fleet_condition.py`
+  as something to reuse. It isn't — it's Fleet-Overview-specific
+  presentation with zero classification logic of its own (its own
+  docstring says so). The reusable unit is one layer down, in
+  `services/monitoring_service.py`. Fixed in ADR-002 the same commit as
+  ADR-008, which also formalizes it as the general rule: Command Center's
+  fresh `components/` family reuses the service layer, never Fleet
+  Overview's presentation layer.
 
 ## Decisions this gate depends on
 
 - [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) — event classification, no numeric thresholds
-- [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) — Requires Attention = Stale + No Data
+- [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) — Requires Attention = Stale + No Data (corrected 2026-08-29)
 - [ADR-003](../decisions/ADR-003-location-is-plant.md) — Location = Plant
 - [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) — device scope is authorization-derived
 - [ADR-005](../decisions/ADR-005-auto-refresh-is-page-owned-polling.md) — auto-refresh is page-owned polling
-- [ADR-006](../decisions/ADR-006-route-scoped-theming-is-architecture.md) — theming is Phase-1 architecture, open question on shell-hook scope
-- [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) — event seed write path
+- [ADR-006](../decisions/ADR-006-route-scoped-theming-is-architecture.md) — theming architecture (Phase 11, not this gate)
+- [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) — event seed write path (not this gate — no seed needed to build an empty shell)
+- [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) — read-side reuse contract, route policy default
 
 ## Non-goals (explicit)
 
-- No CC-1 implementation code in this gate — planning and verification only.
+- No panel content (Fleet Health, Needs Attention, events, locations,
+  theming, refresh wiring) — that's Phase 5 onward, gated separately.
 - No modification to any existing Fleet Overview presentation component
-  (`command center/07_IMPLEMENTATION_PLAN.md` gate principle: Fleet Overview
-  is frozen; CC-1 is a parallel build, not a refactor of it).
-- No branch cleanup, however tempting the stale-branch list above looks.
-  `command center/07_IMPLEMENTATION_PLAN.md` Phase 0 says so explicitly: "do
-  not mix unrelated branch cleanup into CC-1."
-- No shared-file edits beyond `routes.py` and `services/authorization.py`,
-  plus whatever the Codex plan names for the theme hook — and that naming
-  must happen in the plan-review step, not be assumed in advance.
+  (`command center/07_IMPLEMENTATION_PLAN.md` gate principle stands).
+- No branch cleanup mixed into this gate (same rule as Phase 0).
+- No shared-file edits beyond `routes.py` and `services/authorization.py`.
+- Do not change `/` — it stays Overview through all of CC-1.
 
 ## Relevant files
 
-- `command center/09_CODEX_PLANNING_PROMPT.md` — what gets sent
-- `command center/07_IMPLEMENTATION_PLAN.md` — Phase 0/1 source
-- `routes.py` — approved shared-modify surface
-- `services/authorization.py` — approved shared-modify surface (`ROUTE_POLICY`)
-- `services/device_event_service.py` — `ingest_event()`, the required seed entry point
-- `assets/app.css` — theme token surface for Phase 1
+- `routes.py` — add the `/command-center` route
+- `services/authorization.py` — `ROUTE_POLICY["command_center"]`
+- `services/monitoring_service.py` — `get_fleet_health`, read-only, called not modified
+- `repositories/plant_monitoring_repository.py` — `list_recent_device_events`, read-only, called not modified
+- `docs/context/CC1_ROADMAP.md` — Phase 3/4 detail and everything after
 
 ## Required tests
 
-- `python -m pytest -m "not db" -v` before and after Phase 0 verification —
-  must stay green; this gate changes no application code, so any red test
-  here is a pre-existing problem, not something to fix under this gate.
+- `python -m pytest -m "not db" -v` before and after — must stay green.
+- New: route parsing, route authorization for `command_center`, navigation
+  visibility, and a `services/command_center_service.py` unit test that
+  confirms it calls `get_fleet_health`/`list_recent_device_events` exactly
+  once and issues no direct SQL.
 
 ## Known ambiguities
 
-- The two scrutiny points under Task, above — unresolved until the Codex
-  plan returns.
-- Whether `command center/` itself should ever move into git tracking is an
-  open question this gate does not answer. It stays untracked,
-  MANIFEST-verified for now (see Verification).
+- Exact shape of the "fresh presentation-ready snapshot"
+  `command_center_service.py` returns is an implementation-time call, not
+  pre-specified here — Phase 4's shell (six named panel slots) is the
+  contract it needs to satisfy.
+- Whether `components/command_center/` needs an `__init__.py` re-export
+  surface or whether `pages/command_center.py` imports submodules directly —
+  match whatever convention (if any) exists elsewhere before inventing one.
 
 ## Verification
 
-The pack is untracked (deliberately — see `docs/CLIENT_DELIVERY.md`), so git
-cannot detect drift in it. Its own SHA-256 manifest is the only integrity
-check available:
-
-```
-cd "command center" && sha256sum -c <(sed -n '/## SHA-256/,$p' MANIFEST.txt | tail -n +5)
-```
-
-Last run 2026-08-29: all 23 payload files `OK`, unmodified since the
-2026-08-28 freeze. Re-run before trusting the pack if this file's stamped
-date is more than a few days old — `scripts/build_context_pack.py` does this
-automatically.
+Precondition not yet satisfied — `ctx-1-context-architecture` has not been
+merged to `main`, and no CC-1-specific branch exists yet. Do not begin
+Phase 3 file creation until this is resolved.
