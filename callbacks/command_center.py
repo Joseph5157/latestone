@@ -18,6 +18,7 @@ from components.command_center.affected_locations import (
 )
 from components.command_center.electrical import electrical_conditions_card
 from components.command_center.primitives import scope_indicator_text
+from components.command_center.selected_location import selected_location_card
 from components.command_center.situation_summary import situation_summary_panels
 from components.status_panels import error_panel
 from services.command_center_service import get_command_center_snapshot
@@ -34,6 +35,7 @@ def register(app) -> None:
         Output("command-center-situation-summary", "children"),
         Output("command-center-exception-intelligence", "children"),
         Output("command-center-affected-locations", "children"),
+        Output("command-center-selected-location", "children"),
         Output("command-center-error", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
@@ -45,18 +47,21 @@ def register(app) -> None:
         which RTLs are stale.
         """
         if not context or context.get("route") != "command_center":
-            return no_update, no_update, no_update, no_update, no_update
+            return (no_update,) * 6
 
         try:
             # Resolved once per render (ADR-004/ADR-008), same discipline
             # get_fleet_health's own docstring requires of every caller.
             scope = scope_from_session(auth_data)
-            snapshot = get_command_center_snapshot(scope=scope)
+            snapshot = get_command_center_snapshot(
+                scope=scope, selected_plant_id=context.get("plant_id")
+            )
             return (
                 scope_indicator_text(snapshot.monitored_device_count),
                 situation_summary_panels(snapshot),
                 electrical_conditions_card(snapshot),
                 affected_locations_card(snapshot),
+                selected_location_card(snapshot),
                 None,
             )
         except Exception:
@@ -65,7 +70,7 @@ def register(app) -> None:
             # left showing "Loading…" forever — a stuck spinner reads as a
             # slow fleet, not a failed read.
             logger.exception("Failed to load Command Center snapshot")
-            return no_update, [], [], [], error_panel()
+            return no_update, [], [], [], [], error_panel()
 
     @app.callback(
         Output("command-center-locations-list", "children"),

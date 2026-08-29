@@ -18,6 +18,7 @@ from __future__ import annotations
 from dash import dcc, html
 
 from components.command_center.primitives import cc_card
+from routes import command_center_href
 
 #: The full, unbounded view. Named here so the panel's link and the
 #: route parser cannot drift apart.
@@ -59,7 +60,16 @@ def _rank_row(location, worst: int) -> html.Li:
             html.Div(
                 className="command-center__rank-label",
                 children=[
-                    html.Span(location.plant_name, className="command-center__rank-name"),
+                    # Selecting a plant is a link, not a click handler: the
+                    # selection lives in the URL (?plant=), so it survives a
+                    # refresh by construction and the selected view is
+                    # bookmarkable. See routes.command_center_href.
+                    dcc.Link(
+                        location.plant_name,
+                        href=command_center_href(location.plant_id),
+                        className="command-center__rank-name command-center__rank-link",
+                        title=f"Show transformer concentration for {location.plant_name}",
+                    ),
                     html.Span(composition, className="command-center__rank-composition"),
                 ],
             ),

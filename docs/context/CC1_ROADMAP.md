@@ -142,7 +142,16 @@ Prefer Stale/No Data composition where visually useful. Clicking a Plant
 selects it. No GIS, no Zone, no Feeder entity (ADR-003 — the schema doesn't
 have one; reopens only on new client evidence).
 
-## Phase 8 — Selected Location / Transformer concentration
+## Phase 8 — Selected Location / Transformer concentration — DONE (2026-08-29)
+
+Selection travels in the URL (`?plant=`), mirroring the `?assign=`
+precedent: it survives a refresh by construction, is bookmarkable, and
+no callback can clear what it does not own. Transformer counts come from
+`FleetHealth.transformers_for_plant()`; only codes are fetched, for the
+one selected plant. ADR-008's entry points restated as three read
+CATEGORIES so reading another level of the same hierarchy does not
+re-open the decision.
+
 
 ```text
 KZN NORTH

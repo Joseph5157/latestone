@@ -55,6 +55,19 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
 #: assignment lives, and the drawer is not a page.
 ASSIGN_PARAM = "assign"
 
+#: Command Center path, and the query parameter naming the Plant whose
+#: transformer concentration is shown.
+#:
+#: A query parameter for the same reason ASSIGN_PARAM is one: the
+#: destination is the existing page in its existing state, with one plant
+#: selected. Two further properties matter here specifically — selection
+#: survives a polling refresh by construction, since no callback owns or can
+#: clear it, and the selected view is bookmarkable and shareable. A
+#: `dcc.Store` would give neither and would need protecting from every
+#: refresh callback added later.
+COMMAND_CENTER_PATH = "/command-center"
+PLANT_PARAM = "plant"
+
 
 @dataclass(frozen=True)
 class Route:
@@ -218,3 +231,30 @@ def device_href(
         parts.append("?" + "&".join(params))
 
     return "".join(parts)
+
+
+def command_center_href(plant_id: str | None) -> str:
+    """Command Center, with `plant_id` selected. No plant -> the bare route.
+
+    The identifier is percent-encoded so a value carrying `&` or `?` cannot
+    append parameters of its own, the same guard `device_assign_href`
+    applies. It is validated on arrival: an id naming no visible plant
+    simply selects nothing.
+    """
+    if not plant_id:
+        return COMMAND_CENTER_PATH
+    return f"{COMMAND_CENTER_PATH}?{PLANT_PARAM}={quote(str(plant_id), safe='')}"
+
+
+def parse_plant_selection(search: str | None) -> str | None:
+    """The plant id a `?plant=` link names, or None.
+
+    Returns the raw value and makes no claim that it names a visible plant —
+    the caller resolves it against the freshness snapshot it already has, and
+    an unknown or out-of-scope value selects nothing rather than erroring.
+    """
+    if not search:
+        return None
+    params = parse_qs(search.lstrip("?"))
+    value = params.get(PLANT_PARAM, [None])[0]
+    return value or None

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T13:45:37Z
+Date: 2026-08-29T14:00:18Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `fb6fae2` "feat(shell): move Logout to the sidebar; Command Center fills its width" (not `main`)
-- Working tree: 15 entries — see below
+- current branch `cc-1-command-center-foundation` = `04d89bb` "feat(cc1): "View all" opens a full Affected Locations page (Phase 7a)" (not `main`)
+- Working tree: 18 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2153 passed, 466 deselected in 14.73s
+- `python -m pytest -m "not db"` → 2184 passed, 466 deselected in 13.65s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 8 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 9 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -64,7 +64,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CC-1 Phase 7a — Affected Locations full view — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Phase 8 — Selected Location / Transformer Concentration — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
@@ -74,15 +74,18 @@ M assets/app.css
  M callbacks/routing.py
  M components/command_center/affected_locations.py
  M docs/context/ACTIVE_GATE.md
+ M docs/context/CC1_ROADMAP.md
+ M docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md
+ M pages/command_center.py
  M routes.py
- M services/authorization.py
- M tests/test_authorization.py
- M tests/test_command_center_affected_locations.py
- M tests/test_equipment_selector.py
+ M services/command_center_service.py
+ M tests/test_command_center_page.py
  M tests/test_routing.py
 ?? "command center/"
-?? pages/command_center_locations.py
+?? components/command_center/selected_location.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
+?? tests/test_command_center_selected_location.py
+?? tests/test_command_center_selected_panel.py
 ```
 

@@ -1,17 +1,20 @@
 # ADR-008: Command Center's read side reuses existing entry points — never new duplicate SQL
 
 Status: Approved
-Date: 2026-08-29 (amended 2026-08-29, Phase 7 — third entry point added)
-Evidence: `services/monitoring_service.py:430` (`get_fleet_health`), `repositories/plant_monitoring_repository.py:2450` (`list_recent_device_events`), `services/hierarchy_service.py:27` (`list_plants`)
+Date: 2026-08-29 (amended twice on 2026-08-29: Phase 7 added the plant
+label lookup, Phase 8 generalised it to hierarchy labels)
+Evidence: `services/monitoring_service.py:430` (`get_fleet_health`), `repositories/plant_monitoring_repository.py:2450` (`list_recent_device_events`), `services/hierarchy_service.py:27` (`list_plants`), `services/hierarchy_service.py:39` (`list_transformers`)
 Implemented-by: `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6)
 Supersedes: n/a — first decision on this question; corrects an imprecision in ADR-002's original "Affected areas" (fixed 2026-08-29, same commit as this ADR)
 
 ## Decision
 
-Command Center's service layer has three approved read entry points, all
-pre-existing and already load-bearing elsewhere in the app. The count is
+Command Center's service layer has three approved read CATEGORIES, all
+pre-existing and already load-bearing elsewhere in the app. The set is
 deliberately small and closed: a fourth needs an amendment here, not a
-judgement call at the call site.
+judgement call at the call site. Categories rather than individual
+functions, so that reading one more level of the same hierarchy for the
+same reason does not require re-opening this decision each time.
 
 **Freshness/health**: `get_fleet_health(now, *, scope: DeviceScope) ->
 FleetHealth` (`services/monitoring_service.py:430`). One query, scoped in
@@ -33,26 +36,30 @@ should be sourced from `services.event_semantics` (e.g.
 `mapped_event_types()`), not a hand-written list, so a new event type mapped
 there is automatically visible to Command Center without a second edit.
 
-**Plant labels** (added Phase 7, 2026-08-29): `list_plants(*, scope:
-DeviceScope) -> list[PlantRecord]` (`services/hierarchy_service.py:27`) —
-a service-to-service call, scope-aware, active-filtered.
+**Hierarchy labels** (added Phase 7, generalised Phase 8):
+`services/hierarchy_service.py`'s scope-aware listings — `list_plants(*,
+scope)` and `list_transformers(plant_id, *, scope)` — as a single category
+rather than two entries, because enumerating one per level would mean
+amending this ADR again at every depth for the same reason.
 
-This one needs its scope stating precisely, because it is the entry point
-most likely to be misused later. It supplies **labels, not facts**.
-`FleetHealth` is keyed by `plant_id` and carries no plant names, so a
-Plant-level display that must read "KZN North" rather than `plant-07` needs
-a name from somewhere. That is the *only* thing this call is for.
+These need their scope stating precisely, because they are the entry
+points most likely to be misused later. They supply **labels, not facts**.
+`FleetHealth` is keyed by `plant_id` and `transformer_id` and carries no
+names or codes, so a display that must read "KZN North" rather than
+`plant-07`, or `aa12` rather than `plant-01-t1`, needs those from somewhere.
+That is the *only* thing these calls are for. The transformer listing is
+additionally called for the ONE selected plant only, never per row.
 
-Every Plant-level **number** — affected counts, composition, ranking order —
-is still derived from the `FleetHealth` already fetched, via
-`device_counts_for_plant()`. Ranking must never be pushed into SQL: an
+Every **number** — affected counts, composition, ranking order, at plant
+AND transformer level — is still derived from the `FleetHealth` already
+fetched, via `device_counts_for_plant()` and `transformers_for_plant()`. Ranking must never be pushed into SQL: an
 `ORDER BY` over a fresh query would be a second definition of "affected",
 free to disagree with the one Fleet Overview and the Situation Summary
 share. A test asserts the ranking is computed from `FleetHealth` and that
 this lookup contributes names only.
 
-A Plant present in `FleetHealth` but absent from the name lookup keeps its
-`plant_id` as its label rather than being dropped — the freshness snapshot
+An entity present in `FleetHealth` but absent from the label lookup keeps
+its id as its label rather than being dropped — the freshness snapshot
 is the authority on which plants exist in scope, and a labelling call must
 never silently shrink the population the numbers were computed over.
 

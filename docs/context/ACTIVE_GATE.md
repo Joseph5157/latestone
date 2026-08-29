@@ -2,65 +2,79 @@
 
 Status: Approved
 Date: 2026-08-29
-Gate: CC-1 Phase 7a — Affected Locations full view
-Precondition: Phase 7 complete and committed (`ed59876`, `25b7e81`), plus
-the cockpit/logout work (`d0d9f3a`, `fb6fae2`).
-Flow: DECIDE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 8)**
+Gate: CC-1 Phase 8 — Selected Location / Transformer Concentration
+Precondition: Phase 7 + 7a complete and committed (`ed59876`, `25b7e81`,
+`04d89bb`), plus the cockpit/logout work (`d0d9f3a`, `fb6fae2`).
+Flow: DECIDE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 9)**
 Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
 once tests and browser verification pass. Push NOT GRANTED. **Stop after
-committing — Phase 8 still needs its own approval.**
+committing — Phase 9 (Recent Operational Events) needs its own approval.**
 
 ## Task
 
-A "View all" from the Affected Locations panel to a full, unbounded ranked
-list of plants.
+Selecting a Plant answers the next question: **"which transformers inside
+this Plant are driving the attention?"**
 
-Decided 2026-08-29 after weighing modal vs route: **a route**, at
-`/command-center/locations`.
+Ranked transformer concentration within the selected plant, and deep links
+out to the existing Plant / Transformer / RTL routes — flattening
+investigation without duplicating the hierarchy.
 
-Why not a modal, recorded so it is not relitigated: the request was for a
-"full resizable page", and a modal is precisely what cannot be that — it
-floats inside the viewport, and making it resizable means hand-built drag
-handles. A route already is full-page and resizable, plus bookmarkable,
-shareable and back-button-friendly ("open /command-center/locations on the
-wall display" is a thing someone will want). The three existing overlays
-here (`assign_device_drawer`, `user_form_drawer`, `device_manage_drawer`)
-also carry no modal a11y at all — no `role="dialog"`, `aria-modal`, focus
-trap, ESC handling or scroll lock — so a modal would either inherit those
-gaps on a frequently-opened surface or require machinery this codebase has
-never needed.
+## Selection is a URL query parameter, not a Store
 
-**Not** added to Electrical Conditions. It holds exactly two conditions and
-renders both completely at 1080p; a "View all" there would open the same two
-blocks, teaching operators the control means nothing. Revisit only if
-Phase 9's event-window counts make that card grow.
+`/command-center?plant=<plant_id>`, mirroring the `?assign=` precedent
+already in `routes.py`, whose own comment states the reasoning this reuses:
+"a query parameter rather than a route: the destination is the existing
+page in its existing state."
 
-## Scope
+Chosen over `dcc.Store` deliberately. The gate requires selection to
+survive a polling refresh — a URL parameter survives it *by construction*,
+since no callback can clear what it does not own. It is also bookmarkable
+and shareable ("Command Center with KZN North selected"), and the back
+button works. A Store would give none of that and would need explicit
+protection from every future refresh callback.
 
-- `/command-center/locations` route, `ROUTE_POLICY` entry, dispatch
-- Nav key maps to `command_center` so the sidebar keeps Command Center
-  highlighted — this is the same destination, one level deeper
-- A normal scrolling page, NOT the fixed cockpit: the whole point is an
-  unbounded list
-- Shows the same population as the panel (affected plants, ranked). A
-  "View all" that shows a different set than the panel it came from is
-  a trap, not a feature
-- Reuses the panel's row rendering rather than a second copy
-- "View all" link in the panel header; a way back on the full page
+An unknown or out-of-scope `plant_id` selects nothing and shows the
+prompt — never an error, and never a message confirming that some plant
+the caller cannot see exists. Same posture as `parse_assign_request`'s
+"an unknown value simply opens nothing".
+
+## Read paths
+
+No new query for ranking: transformer counts come from
+`FleetHealth.transformers_for_plant()`, already fetched.
+
+Transformer CODES need `hierarchy_service.list_transformers(plant_id, *,
+scope)` — called for the one selected plant only, never per row. ADR-008
+amended before implementation: its three read entry points are now stated
+as three read *categories*, with plant and transformer listings as one
+"hierarchy labels" category, so reading one more level of the same
+hierarchy for the same reason does not re-open the decision each time.
+
+## Ranking
+
+Same rule as plants, one level down: affected count DESCENDING, then
+transformer code ascending (case-insensitive), then transformer_id as the
+final deterministic key. Affected is still `Stale + No Data` (ADR-002). No
+event data participates.
 
 ## Non-goals
 
-Plant selection / transformer concentration (Phase 8); sorting or filtering
-controls; any change to the ranking rule; anything on Electrical Conditions.
+Recent events (Phase 9); priority assets (Phase 10); auto-refresh;
+dark/light theming; Asset Navigator changes; map/GIS; any change to Fleet
+Overview or to the ranking rule itself.
 
 ## Required tests
 
-- route parses, policy entry exists, sidebar stays on Command Center
-- the page renders every affected plant with no height cap
-- panel and page render the same rows from the same data
-- the panel's "View all" points at the route
-- empty/all-healthy scope behaves honestly
-- Command Center and Fleet Overview unchanged
+- selecting a plant yields its transformers, ranked
+- affected = Stale + No Data at transformer level; composition sums
+- ranking tie-break deterministic and case-insensitive
+- no plant selected → an honest prompt, not an empty panel
+- unknown / out-of-scope plant_id selects nothing rather than erroring
+- a transformer missing a code keeps its id rather than disappearing
+- no new repository query for transformer ranking
+- deep links point at the existing Plant / Transformer / RTL routes
+- selection survives a re-render (it is in the URL)
+- Phase 5/6/7 values unchanged; Fleet Overview unchanged
 
 ## Decisions this gate depends on
 

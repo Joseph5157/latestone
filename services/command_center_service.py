@@ -24,7 +24,7 @@ from repositories.plant_monitoring_repository import (
 )
 from services import event_semantics
 from services.device_scope import DeviceScope
-from services.hierarchy_service import list_plants
+from services.hierarchy_service import list_plants, list_transformers
 from services.monitoring_service import FleetHealth, Freshness, get_fleet_health
 
 #: Technical pilot-safety bound, matching NOTIFICATION_QUERY_LIMIT's own
@@ -119,6 +119,37 @@ class AffectedLocation:
 
 
 @dataclass(frozen=True)
+class TransformerConcentration:
+    """One transformer's share of a plant's freshness exceptions."""
+
+    transformer_id: str
+    #: Falls back to `transformer_id` when the label lookup has no entry,
+    #: for the same reason plant_name does: FleetHealth is the authority on
+    #: what exists in scope, and labelling must never shrink it.
+    transformer_code: str
+    affected_rtls: int
+    stale_rtls: int
+    no_data_rtls: int
+    total_monitored_rtls: int
+
+
+@dataclass(frozen=True)
+class SelectedLocation:
+    """The plant currently under investigation, and what is driving it.
+
+    Present only when a visible plant is selected. An unknown or
+    out-of-scope id yields None rather than an error or a message
+    confirming that a plant the caller cannot see exists.
+    """
+
+    plant_id: str
+    plant_name: str
+    affected_rtls: int
+    total_monitored_rtls: int
+    transformers: tuple[TransformerConcentration, ...]
+
+
+@dataclass(frozen=True)
 class CommandCenterSnapshot:
     """One presentation-ready Command Center render.
 
@@ -174,6 +205,11 @@ class CommandCenterSnapshot:
     #: choice, and dropping it here would make "every plant is healthy"
     #: indistinguishable from "no plants in scope".
     affected_locations: tuple[AffectedLocation, ...]
+
+    #: The plant named by `?plant=`, or None. Selection is a lens on one
+    #: plant, never a filter on the fleet: every figure above is unchanged
+    #: by it, and a test asserts that.
+    selected_location: SelectedLocation | None
 
     @property
     def has_affected_locations(self) -> bool:
@@ -268,11 +304,77 @@ def _affected_locations(
     )
 
 
+def _selected_location(
+    fleet_health: FleetHealth,
+    plant_names: dict[str, str],
+    plant_id: str | None,
+    scope: DeviceScope,
+) -> SelectedLocation | None:
+    """Transformer concentration within one plant.
+
+    Returns None for no selection, an unknown plant, or one outside scope -
+    all three are "selects nothing", never an error. Distinguishing them in
+    the UI would confirm that a plant the caller cannot see exists.
+
+    Counts come from the rollups `get_fleet_health` already built; only the
+    transformer CODES are fetched, and only for this one plant (ADR-008).
+    """
+    if not plant_id or plant_id not in fleet_health.plants:
+        return None
+
+    codes = {
+        t.transformer_id: t.transformer_code
+        for t in list_transformers(plant_id, scope=scope)
+    }
+
+    rows = []
+    for transformer_id, rollup in fleet_health.transformers_for_plant(plant_id).items():
+        stale = rollup.counts.get(Freshness.STALE, 0)
+        no_data = rollup.counts.get(Freshness.NO_DATA, 0)
+        rows.append(
+            TransformerConcentration(
+                transformer_id=transformer_id,
+                transformer_code=codes.get(transformer_id, transformer_id),
+                affected_rtls=stale + no_data,
+                stale_rtls=stale,
+                no_data_rtls=no_data,
+                total_monitored_rtls=rollup.total,
+            )
+        )
+
+    # Same rule as the plant ranking, one level down: worst first, then the
+    # displayed code (case-insensitively, so an all-caps code does not sort
+    # into its own block), then the id so ordering is fully determined.
+    ranked = tuple(
+        sorted(
+            rows,
+            key=lambda r: (
+                -r.affected_rtls,
+                r.transformer_code.casefold(),
+                r.transformer_id,
+            ),
+        )
+    )
+
+    plant_counts = fleet_health.device_counts_for_plant(plant_id)
+    return SelectedLocation(
+        plant_id=plant_id,
+        plant_name=plant_names.get(plant_id, plant_id),
+        affected_rtls=(
+            plant_counts.get(Freshness.STALE, 0)
+            + plant_counts.get(Freshness.NO_DATA, 0)
+        ),
+        total_monitored_rtls=sum(plant_counts.values()),
+        transformers=ranked,
+    )
+
+
 def get_command_center_snapshot(
     *,
     scope: DeviceScope,
     now: datetime | None = None,
     event_limit: int = RECENT_EVENTS_LIMIT,
+    selected_plant_id: str | None = None,
 ) -> CommandCenterSnapshot:
     """Assemble one Command Center snapshot. Call once per render."""
     fleet_health = get_fleet_health(now, scope=scope)
@@ -307,4 +409,7 @@ def get_command_center_snapshot(
         no_data_affected_plants=_plants_with_no_data(fleet_health),
         electrical_conditions=ELECTRICAL_CONDITIONS,
         affected_locations=_affected_locations(fleet_health, plant_names),
+        selected_location=_selected_location(
+            fleet_health, plant_names, selected_plant_id, scope
+        ),
     )

@@ -12,7 +12,14 @@ from dash import Input, Output, html
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
 from pages import plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, notifications, user_admin, report_center, command_center, command_center_locations
 from pages.placeholder import placeholder_layout
-from routes import Route, device_href, parse_custom_range, parse_pathname, parse_query
+from routes import (
+    Route,
+    device_href,
+    parse_custom_range,
+    parse_pathname,
+    parse_plant_selection,
+    parse_query,
+)
 from services import hierarchy_service
 from services.auth_service import from_session
 from services.authorization import ROUTE_POLICY, may_access_route
@@ -280,7 +287,14 @@ def register(app) -> None:
                 return notifications.layout(), ctx
 
             if route.name == "command_center":
-                ctx = {"route": "command_center"}
+                # The selected plant rides in page-context alongside the
+                # route, the same way metric/period do for a device. The
+                # panel callback then needs one input, not two, and cannot
+                # fire for a search change on some other route.
+                ctx = {
+                    "route": "command_center",
+                    "plant_id": parse_plant_selection(search),
+                }
                 return command_center.layout(), ctx
 
             if route.name == "command_center_locations":

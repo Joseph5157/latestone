@@ -4930,6 +4930,26 @@ body {
 }
 
 
+/* Rank rows are selectable / navigable. The link takes the row's own text
+   colour rather than the accent blue: a list where every row is blue reads
+   as decoration, and the affordance is carried by hover and focus instead. */
+.command-center__rank-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.command-center__rank-link:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.command-center__selected-name {
+  margin: 0 0 var(--sp-1) 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 /* "View all" / "Back" links. The panel is height-bounded, so this is the
    way to the unbounded list at /command-center/locations. */
 .command-center__view-all {

@@ -31,12 +31,14 @@ ELECTRICAL_CONDITIONS_ID = "command-center-exception-intelligence"
 #: the shell's DOM contract stays stable while its contents graduate.
 AFFECTED_LOCATIONS_ID = "command-center-affected-locations"
 
+#: Selected Location (Phase 8). Id unchanged from Phase 4.
+SELECTED_LOCATION_ID = "command-center-selected-location"
+
 #: (component id, panel title) — the slots still awaiting their own phase
 #: (docs/context/CC1_ROADMAP.md Phases 8-10). Each renders an honest
 #: not-built-yet card until then.
 _PANEL_SLOTS: tuple[tuple[str, str], ...] = (
     ("command-center-recent-events", "Recent Operational Events"),
-    ("command-center-selected-location", "Selected Location / Transformer Concentration"),
     ("command-center-priority-investigation", "Priority Investigation"),
 )
 
@@ -100,6 +102,15 @@ def layout() -> html.Div:
                         children=[
                             html.P(
                                 "Loading affected locations…",
+                                className="command-center__loading",
+                            )
+                        ],
+                    ),
+                    html.Div(
+                        id=SELECTED_LOCATION_ID,
+                        children=[
+                            html.P(
+                                "Loading selected location…",
                                 className="command-center__loading",
                             )
                         ],
