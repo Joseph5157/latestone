@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T13:03:57Z
+Date: 2026-08-29T13:16:22Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `ed59876` "feat(cc1): Affected Locations â€” ranked plant concentration (Phase 7)" (not `main`)
+- current branch `cc-1-command-center-foundation` = `25b7e81` "fix(cc1): bound the Affected Locations list with a scroll region" (not `main`)
 - Working tree: 6 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2137 passed, 466 deselected in 13.47s
+- `python -m pytest -m "not db"` → 2139 passed, 466 deselected in 13.49s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 5 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 6 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -70,8 +70,8 @@ CC-1 Phase 7 — Affected Locations — full detail in `docs/context/ACTIVE_GATE
 
 ```
 M assets/app.css
- M components/command_center/affected_locations.py
- M tests/test_command_center_affected_locations.py
+ M pages/command_center.py
+ M tests/test_command_center_page.py
 ?? "command center/"
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py

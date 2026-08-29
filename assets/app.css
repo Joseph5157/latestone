@@ -4547,6 +4547,220 @@ body {
   font-size: 14px;
 }
 
+/* Command Center title row. This page renders no app_header (see
+   pages/command_center.py for why), so the title row also carries Logout —
+   without it the page would have no sign-out at all. */
+.command-center__titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding-top: var(--sp-4);
+}
+
+.command-center__titlebar-text {
+  min-width: 0;
+}
+
+.command-center__titlebar h1 {
+  margin-top: 0;
+}
+
+/* ---------- Command Center: fixed cockpit ----------
+   A control-room display should not be a scrolling document: everything
+   the operator needs is placed in the space available, and any panel with
+   more content than its cell scrolls INSIDE that cell.
+
+   Route-scoped via :has() (the same technique .app-shell:has(.login-page)
+   already uses) so no other page's layout changes. `min-height: 0` appears
+   at every level of the chain deliberately — it is the flex/grid rule that
+   lets a child shrink below its own content height, and without it at ANY
+   link the whole column refuses to shrink and the page scrolls anyway.
+
+   Gated on viewport height. Below the floor the page returns to normal
+   flow, because locking a short window (or 200% text zoom, WCAG 1.4.4)
+   into a fixed grid crushes every row to unusable and puts content out of
+   reach. Fixed where there is room; honest scrolling where there is not. */
+@media (min-height: 700px) {
+  .app-root:has(.page--command-center) {
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-shell:has(.page--command-center) {
+    align-items: stretch;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-shell:has(.page--command-center) .app-shell__content {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* `#page-content` is the router's output target (callbacks/routing.py) and
+     sits between the shell content and the page as a plain block. It is the
+     easiest link in the chain to miss: with it left at `min-height: auto` the
+     page below rendered 1431px tall inside a 900px shell and the second panel
+     row was simply clipped off the bottom — no scrollbar, no error, just
+     missing content. */
+  .app-shell:has(.page--command-center) #page-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .page--command-center {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: var(--sp-4);
+  }
+
+  /* The title block is chrome, not content: it keeps its natural height
+     and everything below shares what is left. Tightened because vertical
+     space is now a fixed budget rather than something the page can borrow
+     from the scrollbar. */
+  .command-center__titlebar {
+    flex: none;
+  }
+
+  .command-center__titlebar h1 {
+    margin-bottom: var(--sp-1);
+  }
+
+  .command-center__titlebar .page__subtitle {
+    margin-bottom: var(--sp-1);
+  }
+
+  /* The summary row is four numbers. At its flow-mode size it claimed 261px
+     of a 900px viewport and squeezed the working panels below into ~200px
+     each — enough to make Electrical Conditions scroll for content that
+     easily fits. Vertical space is a fixed budget here, so the summary
+     spends less of it and the panels that hold lists get the rest. */
+  .command-center__summary-row {
+    flex: none;
+    margin-top: var(--sp-3);
+    gap: var(--sp-4);
+  }
+
+  .command-center__summary-row .command-center__card {
+    padding: var(--sp-3);
+  }
+
+  .command-center__summary-row .command-center__card-header {
+    margin-bottom: var(--sp-2);
+  }
+
+  .command-center__summary-row .command-center__card-total {
+    font-size: 18px;
+    margin-bottom: var(--sp-2);
+  }
+
+  .command-center__summary-row .command-center__stat-value {
+    font-size: 28px;
+  }
+
+  .command-center__summary-row .command-center__composition-row,
+  .command-center__summary-row .command-center__inventory-row {
+    padding: var(--sp-1) 0;
+  }
+
+  .command-center__summary-row .command-center__stat-share,
+  .command-center__summary-row .command-center__stat-context {
+    margin-top: var(--sp-2);
+  }
+
+  .command-center__summary-row .command-center__definition,
+  .command-center__summary-row .command-center__explanation,
+  .command-center__summary-row .command-center__empty-note {
+    margin-top: var(--sp-2);
+    padding-top: var(--sp-2);
+  }
+
+  /* Electrical Conditions is two fixed blocks; tightening its internal
+     rhythm keeps it off a scrollbar at cockpit height. */
+  .command-center__panels .command-center__condition + .command-center__condition {
+    padding-top: var(--sp-3);
+  }
+
+  .command-center__panels .command-center__conditions {
+    gap: var(--sp-3);
+  }
+
+  .command-center__panels .command-center__condition-name {
+    margin: var(--sp-1) 0 var(--sp-2) 0;
+  }
+
+  .command-center__panels .command-center__explanation {
+    margin-top: var(--sp-2);
+    padding-top: var(--sp-2);
+  }
+
+  .command-center__panels .command-center__card {
+    padding: var(--sp-3);
+  }
+
+  /* Two equal rows of three, filling whatever the summary row left. The
+     `minmax(0, 1fr)` (not plain `1fr`) is what allows a row to be shorter
+     than its content — plain `1fr` floors at max-content and overflows. */
+  .command-center__panels {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: var(--sp-4);
+    gap: var(--sp-4);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-center__panels > * {
+    min-height: 0;
+  }
+
+  /* Every card becomes a header + a scrollable body, so a panel that
+     outgrows its cell scrolls in place instead of pushing the page. */
+  .command-center__panels .command-center__card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .command-center__panels .command-center__card-header {
+    flex: none;
+  }
+
+  .command-center__panels .command-center__card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Affected Locations already owns a labelled, keyboard-reachable scroll
+     region. Its card body must NOT also scroll, or the panel gets nested
+     scrollbars and the outer one steals the wheel. The inner region drops
+     its flow-mode cap and fills the cell instead, staying the single
+     scroll container in both modes. */
+  .command-center__panels .command-center__card-body:has(.command-center__ranking-scroll) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .command-center__ranking-scroll {
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
 .command-center__panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

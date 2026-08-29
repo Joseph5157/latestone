@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from dash import html
 
-from components.app_header import app_header
-from components.breadcrumb import breadcrumb
 from components.command_center.primitives import panel_not_yet_built
 
 #: Situation Summary (Phase 5) is live: an empty region the callback fills
@@ -47,17 +45,41 @@ def layout() -> html.Div:
     return html.Div(
         className="page page--monitoring page--command-center",
         children=[
-            app_header(
-                breadcrumb_children=breadcrumb([("Command Center", None)]),
-            ),
-            html.H1("Command Center"),
-            html.P(
-                "Exception-first operational view across the monitored fleet.",
-                className="page__subtitle",
-            ),
+            # No app_header here, unlike every other page. The Eskom/
+            # Powerplant brand bar and its breadcrumb restate what the
+            # sidebar already shows, and in a fixed-height cockpit that
+            # strip costs ~60px of the panel budget to say nothing new.
+            #
+            # app_header also carried Logout (components/app_header.py) and
+            # the sidebar has no logout item, so dropping the header
+            # without replacing it would strand the operator here. The
+            # title row below takes that job. Kept local to this page
+            # rather than moved into the shared sidebar: that would put a
+            # second Logout on the eight pages still rendering app_header.
             html.Div(
-                id="command-center-scope-indicator",
-                className="command-center__scope-indicator",
+                className="command-center__titlebar",
+                children=[
+                    html.Div(
+                        className="command-center__titlebar-text",
+                        children=[
+                            html.H1("Command Center"),
+                            html.P(
+                                "Exception-first operational view across the "
+                                "monitored fleet.",
+                                className="page__subtitle",
+                            ),
+                            html.Div(
+                                id="command-center-scope-indicator",
+                                className="command-center__scope-indicator",
+                            ),
+                        ],
+                    ),
+                    html.A(
+                        "Logout",
+                        href="/logout",
+                        className="header__logout",
+                    ),
+                ],
             ),
             html.Div(id="command-center-error"),
             html.Div(

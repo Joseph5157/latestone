@@ -5,7 +5,7 @@ convention. Data is populated post-mount by callbacks/command_center.py.
 from __future__ import annotations
 
 from pages.command_center import layout
-from tests.dash_tree import find_by_id, text_of
+from tests.dash_tree import find_by_class, find_by_id, links, text_of
 
 
 class TestCommandCenterLayout:
@@ -20,6 +20,21 @@ class TestCommandCenterLayout:
 
     def test_has_an_error_container_for_the_callback_to_fill(self):
         assert find_by_id(layout(), "command-center-error") is not None
+
+    def test_has_no_app_brand_header(self):
+        """The cockpit drops the Eskom/Powerplant brand bar and breadcrumb:
+        the sidebar already shows where you are, and in a fixed-height
+        layout that strip is ~60px spent restating it."""
+        text = text_of(layout())
+        assert "Powerplant Dashboard" not in text
+        assert not find_by_class(layout(), "app-header")
+
+    def test_still_offers_a_way_to_sign_out(self):
+        """Logout lived inside app_header (components/app_header.py) and the
+        sidebar has no logout item, so dropping the header without this
+        would strand the operator on the page with no way out."""
+        hrefs = [href for _label, href in links(layout())]
+        assert "/logout" in hrefs
 
     def test_situation_summary_is_a_live_region_not_a_placeholder(self):
         """Phase 5: this slot no longer names itself in the layout — it is an
