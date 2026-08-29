@@ -4,15 +4,14 @@ Status: Approved
 Date: 2026-08-29
 Gate: CC-1 Phase 3+4 — Foundation and shell
 Precondition: `ctx-1-context-architecture` merged to `main`, then a new
-branch cut for CC-1 (this repo's convention is one branch per tranche —
-`ent-6-ui-and-live-simulator`, `role-3-device-scope`, etc.; CTX-1 is
-docs/tooling-only and CC-1 is a new feature, so they should not share a
-branch). **Not yet done — see Verification.**
-Flow: PLAN → REVIEW GATE (complete — ADR-008, this file) → **IMPLEMENT** → TEST/VISUAL VERIFY → IMPLEMENTATION REVIEW → COMMIT → PUSH GATE
-Commit/push permission: NOT GRANTED. The precondition above must be resolved
-first. Once on CC-1's own branch: commit only after Phase 13 tests are green
-and Phase 14's human review passes (`docs/context/CC1_ROADMAP.md`); push
-stays gated separately regardless.
+branch cut for CC-1. **Resolved 2026-08-29** — fast-forward merge
+(`1d7c414`..`d34090f`, no conflicts), 2032 tests confirmed green on the
+updated `main`, branch `cc-1-command-center-foundation` cut from it.
+Flow: PLAN → REVIEW GATE (complete — ADR-008) → **IMPLEMENT** → TEST/VISUAL VERIFY → IMPLEMENTATION REVIEW → COMMIT → PUSH GATE
+Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
+once Phase 3+4's own tests are green (this gate's "Required tests" below) —
+narrower than Phase 13/14's full gate, which still governs before this
+branch merges to `main`. Push stays NOT GRANTED regardless.
 
 This file describes exactly one gate. When Phase 3+4 completes, rewrite this
 file for Phase 5 (Situation summary) rather than appending — the full
@@ -102,6 +101,5 @@ correction made, none of it blocking:
 
 ## Verification
 
-Precondition not yet satisfied — `ctx-1-context-architecture` has not been
-merged to `main`, and no CC-1-specific branch exists yet. Do not begin
-Phase 3 file creation until this is resolved.
+Precondition resolved — see the field above. Phase 3 file creation may
+begin on `cc-1-command-center-foundation`.
