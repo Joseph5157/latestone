@@ -4808,6 +4808,27 @@ body {
   gap: var(--sp-3);
 }
 
+/* Past SCROLL_AFTER_ROWS the list scrolls rather than growing without
+   bound — 30 affected plants previously pushed every card below this one
+   off the screen. The height is set to clip the next row rather than end
+   cleanly between two: a half-visible row is what tells the operator
+   there is more below, without needing a gradient or a "more" label.
+   `padding-right` reserves the scrollbar gutter so bars do not reflow
+   when it appears. */
+.command-center__ranking-scroll {
+  max-height: 24rem;
+  overflow-y: auto;
+  padding-right: var(--sp-2);
+}
+
+/* The region is focusable for keyboard scrolling, so it must show focus.
+   Inset rather than outset so the ring is not clipped by the card edge. */
+.command-center__ranking-scroll:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
 /* Label / bar / count. The label column is capped rather than sized to
    content so one very long plant name cannot squeeze every bar in the
    chart down to a stub. */

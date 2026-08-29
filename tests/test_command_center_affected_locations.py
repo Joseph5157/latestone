@@ -8,10 +8,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from components.command_center.affected_locations import (
+    SCROLL_AFTER_ROWS,
     affected_locations_card,
     bar_width_percent,
 )
-from tests.dash_tree import find_by_class, text_of
+from tests.dash_tree import find_by_class, text_of, walk
 
 
 @dataclass(frozen=True)
@@ -111,3 +112,78 @@ class TestQuietWhenNothingIsAffected:
         text = text_of(affected_locations_card(_Snap(mixed)))
         assert "Busy" in text
         assert "Calm" not in text
+
+
+def _many(count):
+    """`count` affected plants, already ranked worst-first."""
+    return tuple(
+        _Loc(f"p{i}", f"Plant {i:02d}", count - i, count - i, 0, 40, 10.0)
+        for i in range(count)
+    )
+
+
+def _scroll_regions(card):
+    return find_by_class(card, "command-center__ranking-scroll")
+
+
+def _focusable(node):
+    return [n for n in walk(node) if getattr(n, "tabIndex", None) is not None]
+
+
+class TestLongListScrolls:
+    """30 affected plants made the panel dominate the page. Bounding its
+    HEIGHT is the fix; bounding the DATA is not - hiding affected plants
+    behind a "+22 more" cap would remove exactly the concentration picture
+    this panel exists to give."""
+
+    LONG = _many(SCROLL_AFTER_ROWS + 12)
+
+    def test_a_long_list_is_wrapped_in_a_scroll_region(self):
+        assert _scroll_regions(affected_locations_card(_Snap(self.LONG)))
+
+    def test_every_row_is_still_rendered_not_truncated(self):
+        card = affected_locations_card(_Snap(self.LONG))
+        assert len(find_by_class(card, "command-center__rank-bar-fill")) == len(self.LONG)
+
+    def test_the_scroll_region_is_keyboard_reachable(self):
+        """A scrollable region that cannot take focus is unreachable by
+        keyboard (WCAG 2.1.1) - the content is visually present and
+        functionally unavailable."""
+        region = _scroll_regions(affected_locations_card(_Snap(self.LONG)))[0]
+        # The STRING "0", not int 0: Dash types this prop as a string and
+        # logs an invalid-argument error for an int on every callback fire.
+        # Asserting the Python attribute alone let that through once.
+        assert region.tabIndex == "0"
+
+    def test_the_scroll_region_is_named_for_assistive_tech(self):
+        """A focusable region with no accessible name announces as nothing."""
+        region = _scroll_regions(affected_locations_card(_Snap(self.LONG)))[0]
+        assert region.role == "region"
+        assert region.__getattribute__("aria-label")
+
+
+class TestShortListDoesNotScroll:
+    SHORT = _many(3)
+
+    def test_a_short_list_has_no_scroll_region(self):
+        assert not _scroll_regions(affected_locations_card(_Snap(self.SHORT)))
+
+    def test_a_short_list_adds_no_tab_stop(self):
+        """A focus stop that scrolls nothing is noise in the tab order."""
+        assert not _focusable(affected_locations_card(_Snap(self.SHORT)))
+
+    def test_the_boundary_row_count_does_not_scroll(self):
+        exactly = _many(SCROLL_AFTER_ROWS)
+        assert not _scroll_regions(affected_locations_card(_Snap(exactly)))
+
+
+class TestScaleIsKnownWithoutScrolling:
+    def test_the_subtitle_states_how_many_plants_are_affected(self):
+        """Otherwise the scale of the problem is only discoverable by
+        scrolling to the bottom and counting."""
+        snap = _Snap(_many(22) + (_Loc("calm", "Calm", 0, 0, 0, 10, 0.0),))
+        assert "22 of 23 plants" in text_of(affected_locations_card(snap))
+
+    def test_a_single_affected_plant_reads_naturally(self):
+        snap = _Snap((_Loc("p1", "Solo", 4, 4, 0, 10, 40.0),))
+        assert "1 of 1 plant affected" in text_of(affected_locations_card(snap))

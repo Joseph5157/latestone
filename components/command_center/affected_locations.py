@@ -19,6 +19,15 @@ from dash import html
 
 from components.command_center.primitives import cc_card
 
+#: Rows shown before the list becomes a scroll region. Real fleet data put
+#: 30 affected plants in this panel, which pushed every card below it off
+#: the screen. Bounding the HEIGHT is the fix; bounding the DATA is not -
+#: a "+22 more" cap would hide affected plants, removing exactly the
+#: concentration picture this panel exists to give. The CSS max-height is
+#: set just under this many rows so the next one is visibly clipped, which
+#: is what tells the operator there is more to see.
+SCROLL_AFTER_ROWS = 9
+
 
 def bar_width_percent(affected: int, worst: int) -> float:
     """Bar width relative to the WORST plant, not to the fleet.
@@ -71,6 +80,38 @@ def _rank_row(location, worst: int) -> html.Li:
     )
 
 
+def _scrollable(listing) -> html.Div:
+    """Bound the list's height, keeping every row reachable.
+
+    `tabIndex` and a named `region` role are not decoration: a scroll
+    container that cannot take focus is unreachable by keyboard (WCAG
+    2.1.1), so its lower rows would be visually present and functionally
+    unavailable. Applied only past the row threshold - a focus stop that
+    scrolls nothing is noise in the tab order.
+    """
+    return html.Div(
+        className="command-center__ranking-scroll",
+        # Dash types this prop as a STRING; passing int 0 renders but
+        # logs "Invalid argument `tabIndex` passed into Div" on every
+        # callback fire.
+        tabIndex="0",
+        role="region",
+        **{"aria-label": "Affected locations, scrollable list"},
+        children=[listing],
+    )
+
+
+def _subtitle(snapshot, ranked: list) -> str:
+    """Names the scale up front.
+
+    With the list bounded, "how big is this problem?" would otherwise be
+    answerable only by scrolling to the bottom and counting.
+    """
+    total = len(snapshot.affected_locations)
+    noun = "plant" if total == 1 else "plants"
+    return f"{len(ranked)} of {total} {noun} affected"
+
+
 def affected_locations_card(snapshot) -> html.Section:
     """The Affected Locations card.
 
@@ -94,15 +135,10 @@ def affected_locations_card(snapshot) -> html.Section:
         body = [html.P(message, className="command-center__empty-note")]
     else:
         worst = ranked[0].affected_rtls
-        body = [
-            html.Ol(
-                className="command-center__ranking",
-                children=[_rank_row(location, worst) for location in ranked],
-            )
-        ]
+        listing = html.Ol(
+            className="command-center__ranking",
+            children=[_rank_row(location, worst) for location in ranked],
+        )
+        body = [_scrollable(listing) if len(ranked) > SCROLL_AFTER_ROWS else listing]
 
-    return cc_card(
-        "Affected Locations",
-        body,
-        subtitle="RTLs requiring attention, by plant",
-    )
+    return cc_card("Affected Locations", body, subtitle=_subtitle(snapshot, ranked))

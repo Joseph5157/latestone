@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T12:47:45Z
+Date: 2026-08-29T13:03:57Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `04e3bfa` "feat(cc1): Electrical Conditions â€” Critical/Warning presentation (Phase 6)" (not `main`)
-- Working tree: 15 entries — see below
+- current branch `cc-1-command-center-foundation` = `ed59876` "feat(cc1): Affected Locations â€” ranked plant concentration (Phase 7)" (not `main`)
+- Working tree: 6 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2128 passed, 466 deselected in 13.15s
+- `python -m pytest -m "not db"` → 2137 passed, 466 deselected in 13.47s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 4 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 5 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -70,19 +70,10 @@ CC-1 Phase 7 — Affected Locations — full detail in `docs/context/ACTIVE_GATE
 
 ```
 M assets/app.css
- M callbacks/command_center.py
- M docs/context/ACTIVE_GATE.md
- M docs/context/CC1_ROADMAP.md
- M docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md
- M pages/command_center.py
- M services/command_center_service.py
- M tests/test_command_center_page.py
- M tests/test_command_center_service.py
+ M components/command_center/affected_locations.py
+ M tests/test_command_center_affected_locations.py
 ?? "command center/"
-?? components/command_center/affected_locations.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
-?? tests/test_command_center_affected_locations.py
-?? tests/test_command_center_locations.py
 ```
 
