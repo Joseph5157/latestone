@@ -30,7 +30,8 @@ ent*-*.png
 # Alternative-agent tooling config
 opencode.json
 
-# Internal planning prompts / roadmap — not for client distribution
-ENT-*.md
+# Internal planning prompts / roadmap — not for client distribution.
+# Tracked in git (history + PR review), excluded from client-release via
+# scripts/check_client_release.py instead of hidden from git entirely.
 Power_RTL_Enterprise_UX_Execution_Roadmap.md
 docs/Professional_Workflow*.pdf

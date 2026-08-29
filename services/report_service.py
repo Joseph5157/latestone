@@ -4,8 +4,8 @@ Thin service boundary between callbacks/report_center.py and
 repositories/plant_monitoring_repository.py. The callback must not call the
 repository directly.
 
-Frozen REPORT-2 decisions (see REPORT-2_PLANNING_PROMPT.md and the reviewer
-adjustments R2-D1..D7):
+Frozen REPORT-2 decisions (see docs/archive/REPORT-2_PLANNING_PROMPT.md and
+the reviewer adjustments R2-D1..D7):
 
 - R2-D1 "Timestamp of Last Recorded Data" is the newest reading of ANY
   metric — a development interpretation of general device communication

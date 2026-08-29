@@ -29,9 +29,6 @@ FORBIDDEN_FILES = {
     "REQ-1A_Client_Requirement_Inventory.md",
     "REQ-1B_Implementation_Gap_Matrix.md",
     "REQ-3I_Clarification_Register.md",
-    "AUD-1_PLANNING_PROMPT.md",
-    "AUD-1I_IMPLEMENTATION_SPEC.md",
-    "REPORT-2_PLANNING_PROMPT.md",
     "docs/CLIENT_DELIVERY.md",
     "docs/CODE_AUDIT.md",
     "docs/CODE_AUDIT_SECOND_PASS.md",
@@ -53,7 +50,7 @@ FORBIDDEN_PREFIXES = (
 )
 
 #: Filename patterns that are internal wherever they sit.
-FORBIDDEN_SUFFIXES = ("_PLANNING_PROMPT.md",)
+FORBIDDEN_SUFFIXES = ("_PLANNING_PROMPT.md", "_IMPLEMENTATION_SPEC.md")
 
 
 def tree_paths(branch: str) -> list[str]:
