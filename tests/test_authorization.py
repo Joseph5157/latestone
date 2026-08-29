@@ -54,13 +54,14 @@ ROUTE_PATHS = {
     "device_register": "/admin/devices/new",
     "admin_users": "/admin/users",
     "command_center": "/command-center",
+    "command_center_locations": "/command-center/locations",
 }
 
 #: The frozen ROLE-2 matrix. Technician and General are identical here on
 #: purpose: they diverge at device scope and action authorization in ROLE-3,
 #: not at route level.
 ADMIN_ONLY = ("admin_devices", "device_register", "admin_users")
-SHARED = ("overview", "plant", "transformer", "device", "notifications", "reports", "command_center")
+SHARED = ("overview", "plant", "transformer", "device", "notifications", "reports", "command_center", "command_center_locations")
 
 
 class TestRoleConstants:

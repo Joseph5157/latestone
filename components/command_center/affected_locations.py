@@ -15,9 +15,13 @@ now", and mixing the two time semantics is exactly what ADR-002 forbids.
 """
 from __future__ import annotations
 
-from dash import html
+from dash import dcc, html
 
 from components.command_center.primitives import cc_card
+
+#: The full, unbounded view. Named here so the panel's link and the
+#: route parser cannot drift apart.
+LOCATIONS_PATH = "/command-center/locations"
 
 #: Rows shown before the list becomes a scroll region. Real fleet data put
 #: 30 affected plants in this panel, which pushed every card below it off
@@ -134,11 +138,31 @@ def affected_locations_card(snapshot) -> html.Section:
         )
         body = [html.P(message, className="command-center__empty-note")]
     else:
-        worst = ranked[0].affected_rtls
-        listing = html.Ol(
-            className="command-center__ranking",
-            children=[_rank_row(location, worst) for location in ranked],
-        )
+        listing = ranked_locations_list(ranked)
         body = [_scrollable(listing) if len(ranked) > SCROLL_AFTER_ROWS else listing]
+        # Only offered when there is something to open. A "View all" over an
+        # empty list promises content that is not there.
+        body.append(
+            dcc.Link(
+                "View all →",
+                href=LOCATIONS_PATH,
+                className="command-center__view-all",
+            )
+        )
 
     return cc_card("Affected Locations", body, subtitle=_subtitle(snapshot, ranked))
+
+
+def ranked_locations_list(ranked: list) -> html.Ol:
+    """The ranked rows, unbounded.
+
+    Shared by the bounded panel and the full-page view so one renderer
+    serves both — a second copy is how the two would eventually disagree
+    about the same plant. Bar widths are relative to the worst plant in the
+    list it is given, so both surfaces scale identically.
+    """
+    worst = ranked[0].affected_rtls if ranked else 0
+    return html.Ol(
+        className="command-center__ranking",
+        children=[_rank_row(location, worst) for location in ranked],
+    )

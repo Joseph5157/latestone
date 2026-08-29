@@ -20,7 +20,7 @@ from callbacks import equipment_selector as sel
 from components.assign_device_drawer import assign_device_drawer
 from components.user_form_drawer import user_form_drawer
 from components.device_manage_drawer import device_manage_drawer
-from pages import device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center
+from pages import device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
 from services.device_scope import UNRESTRICTED
 
 
@@ -85,6 +85,7 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(report_center.layout())
     | collect_ids(notifications.layout())
     | collect_ids(command_center.layout())
+    | collect_ids(command_center_locations.layout())
 )
 
 MOUNTABLE_IDS = GLOBAL_LAYOUT_IDS | PAGE_LAYOUT_IDS

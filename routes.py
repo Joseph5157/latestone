@@ -42,6 +42,10 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "reports": "reports",
     "admin_users": "users",
     "command_center": "command_center",
+    # The full locations view is the same destination one level deeper,
+    # so the sidebar keeps Command Center highlighted rather than losing
+    # its active item while the operator is still inside it.
+    "command_center_locations": "command_center",
 }
 
 #: Query parameter naming the device whose assignment drawer should open on
@@ -56,7 +60,7 @@ ASSIGN_PARAM = "assign"
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
                # "admin_devices" | "admin_users" | "reports" | "notifications" |
-               # "command_center" | "unknown"
+               # "command_center" | "command_center_locations" | "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
     device_id: str | None = None
@@ -79,6 +83,12 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 1 and parts[0] == "command-center":
         return Route(name="command_center")
+
+    # Only "locations" is a child of Command Center; anything else under it
+    # falls through to `unknown`, so a typo'd subpath reads as "no such page"
+    # rather than being swallowed by the parent.
+    if len(parts) == 2 and parts[0] == "command-center" and parts[1] == "locations":
+        return Route(name="command_center_locations")
 
     if len(parts) == 2 and parts[0] == "plants":
         return Route(name="plant", plant_id=parts[1])

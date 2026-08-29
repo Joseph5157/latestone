@@ -8,11 +8,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from components.command_center.affected_locations import (
+    LOCATIONS_PATH,
     SCROLL_AFTER_ROWS,
     affected_locations_card,
     bar_width_percent,
+    ranked_locations_list,
 )
-from tests.dash_tree import find_by_class, text_of, walk
+from tests.dash_tree import find_by_class, links as _links, text_of, walk
+
+_find = find_by_class
+
+
+def _texts(node):
+    return [text_of(n) for n in walk(node)]
 
 
 @dataclass(frozen=True)
@@ -187,3 +195,43 @@ class TestScaleIsKnownWithoutScrolling:
     def test_a_single_affected_plant_reads_naturally(self):
         snap = _Snap((_Loc("p1", "Solo", 4, 4, 0, 10, 40.0),))
         assert "1 of 1 plant affected" in text_of(affected_locations_card(snap))
+
+
+class TestViewAllLink:
+    """Phase 7a: the panel is bounded, so it needs a way to the full list."""
+
+    def test_the_panel_links_to_the_full_view(self):
+        hrefs = [href for _label, href in _links(affected_locations_card(_Snap(RANKED)))]
+        assert LOCATIONS_PATH in hrefs
+
+    def test_the_link_is_absent_when_there_is_nothing_to_see(self):
+        """A 'View all' over an empty list promises content that is not
+        there."""
+        empty = _Snap((), has_affected_locations=False)
+        hrefs = [href for _label, href in _links(affected_locations_card(empty))]
+        assert LOCATIONS_PATH not in hrefs
+
+
+class TestFullViewRendersEverything:
+    LONG = _many(SCROLL_AFTER_ROWS + 12)
+
+    def test_renders_every_affected_plant(self):
+        listing = ranked_locations_list(list(self.LONG))
+        assert len(_find(listing, "command-center__rank-bar-fill")) == len(self.LONG)
+
+    def test_is_not_wrapped_in_a_scroll_region(self):
+        """The whole point of the full view is an unbounded list — a height
+        cap here would reproduce the constraint it exists to escape."""
+        listing = ranked_locations_list(list(self.LONG))
+        assert not _find(listing, "command-center__ranking-scroll")
+
+    def test_panel_and_full_view_render_the_same_rows(self):
+        """One row renderer, two surfaces. A second copy would let the
+        panel and the page drift into disagreeing about the same plant."""
+        panel_names = [
+            t for t in _texts(affected_locations_card(_Snap(self.LONG)))
+        ]
+        full_names = [t for t in _texts(ranked_locations_list(list(self.LONG)))]
+        for location in self.LONG:
+            assert any(location.plant_name in t for t in panel_names)
+            assert any(location.plant_name in t for t in full_names)

@@ -44,6 +44,19 @@ class TestParsePathname:
         assert parse_pathname("/command-center").name == "command_center"
         assert parse_pathname("/command-center/").name == "command_center"
 
+    def test_command_center_locations_route(self):
+        assert parse_pathname("/command-center/locations").name == (
+            "command_center_locations"
+        )
+        assert parse_pathname("/command-center/locations/").name == (
+            "command_center_locations"
+        )
+
+    def test_an_unknown_command_center_subpath_is_not_the_locations_view(self):
+        """The parent route must not swallow arbitrary children — a typo'd
+        subpath is 'no such page', not the locations list."""
+        assert parse_pathname("/command-center/nope").name == "unknown"
+
     def test_admin_devices_route(self):
         assert parse_pathname("/admin/devices").name == "admin_devices"
         assert parse_pathname("/admin/devices/").name == "admin_devices"

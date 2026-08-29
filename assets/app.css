@@ -4930,6 +4930,47 @@ body {
 }
 
 
+/* "View all" / "Back" links. The panel is height-bounded, so this is the
+   way to the unbounded list at /command-center/locations. */
+.command-center__view-all {
+  display: inline-block;
+  margin-top: var(--sp-3);
+  color: var(--color-accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.command-center__view-all:hover {
+  text-decoration: underline;
+}
+
+/* The full view is deliberately NOT the fixed cockpit — it carries
+   page--command-center-locations, not page--command-center — so the list
+   grows and the page scrolls like any other. Bounding it here would
+   reproduce the constraint the page exists to escape. */
+.command-center__locations-full {
+  margin-top: var(--sp-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+}
+
+/* The panel caps its name column so one long plant name cannot squeeze
+   every bar to a stub in a narrow cell. That trade-off does not apply
+   here: this page exists to show everything, and truncating the names on
+   it would defeat the point. Names wrap instead of ellipsing. */
+.command-center__locations-full .command-center__rank-row {
+  grid-template-columns: minmax(0, 22rem) 1fr auto;
+}
+
+.command-center__locations-full .command-center__rank-name,
+.command-center__locations-full .command-center__rank-composition {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 /* NOTE ON PLACEMENT: this block must stay LAST in the Command Center
    section. Media queries add no specificity, so it ties with the base
    rules above and wins only on source order. Placed before them, the

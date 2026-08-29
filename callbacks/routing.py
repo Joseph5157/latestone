@@ -10,7 +10,7 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, notifications, user_admin, report_center, command_center
+from pages import plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, notifications, user_admin, report_center, command_center, command_center_locations
 from pages.placeholder import placeholder_layout
 from routes import Route, device_href, parse_custom_range, parse_pathname, parse_query
 from services import hierarchy_service
@@ -282,6 +282,10 @@ def register(app) -> None:
             if route.name == "command_center":
                 ctx = {"route": "command_center"}
                 return command_center.layout(), ctx
+
+            if route.name == "command_center_locations":
+                ctx = {"route": "command_center_locations"}
+                return command_center_locations.layout(), ctx
 
             if route.name in PLACEHOLDER_PAGES:
                 title, purpose = PLACEHOLDER_PAGES[route.name]

@@ -2,68 +2,65 @@
 
 Status: Approved
 Date: 2026-08-29
-Gate: CC-1 Phase 7 — Affected Locations
-Precondition: Phase 6 complete and committed (`04e3bfa`), approved by the
-user 2026-08-29.
-Flow: PLAN → REVIEW GATE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 8)**
+Gate: CC-1 Phase 7a — Affected Locations full view
+Precondition: Phase 7 complete and committed (`ed59876`, `25b7e81`), plus
+the cockpit/logout work (`d0d9f3a`, `fb6fae2`).
+Flow: DECIDE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 8)**
 Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
-once every item under "Required tests" and "Verification gate" passes. Push
-NOT GRANTED. **Stop after committing — Phase 8 needs its own approval.**
+once tests and browser verification pass. Push NOT GRANTED. **Stop after
+committing — Phase 8 still needs its own approval.**
 
 ## Task
 
-Answer **"Where is attention concentrated?"** using only existing
-monitoring/freshness truth.
+A "View all" from the Affected Locations panel to a full, unbounded ranked
+list of plants.
 
-Location = Plant (ADR-003). No Zone, Feeder, GIS, map, or electrical
-severity ranking.
+Decided 2026-08-29 after weighing modal vs route: **a route**, at
+`/command-center/locations`.
 
-A ranked horizontal bar view of affected RTLs per Plant:
+Why not a modal, recorded so it is not relitigated: the request was for a
+"full resizable page", and a modal is precisely what cannot be that — it
+floats inside the viewport, and making it resizable means hand-built drag
+handles. A route already is full-page and resizable, plus bookmarkable,
+shareable and back-button-friendly ("open /command-center/locations on the
+wall display" is a thing someone will want). The three existing overlays
+here (`assign_device_drawer`, `user_form_drawer`, `device_manage_drawer`)
+also carry no modal a11y at all — no `role="dialog"`, `aria-modal`, focus
+trap, ESC handling or scroll lock — so a modal would either inherit those
+gaps on a frequently-opened surface or require machinery this codebase has
+never needed.
 
-```
-Affected Locations
+**Not** added to Electrical Conditions. It holds exactly two conditions and
+renders both completely at 1080p; a "View all" there would open the same two
+blocks, teaching operators the control means nothing. Revisit only if
+Phase 9's event-window counts make that card grow.
 
-KZN North       ███████████████  18
-Durban          ██████████       12
-Pinetown        ███████           8
-Richards Bay    ████              5
-Newcastle       ██                2
-```
+## Scope
 
-Affected is still `Stale + No Data` (ADR-002). Each bar may show the
-Stale/No Data composition, but only while it stays readable — the total
-ranking stays dominant.
+- `/command-center/locations` route, `ROUTE_POLICY` entry, dispatch
+- Nav key maps to `command_center` so the sidebar keeps Command Center
+  highlighted — this is the same destination, one level deeper
+- A normal scrolling page, NOT the fixed cockpit: the whole point is an
+  unbounded list
+- Shows the same population as the panel (affected plants, ranked). A
+  "View all" that shows a different set than the panel it came from is
+  a trap, not a feature
+- Reuses the panel's row rendering rather than a second copy
+- "View all" link in the panel header; a way back on the full page
 
-## Ranking (deterministic, frozen)
+## Non-goals
 
-1. affected RTL count **descending**
-2. then Plant name **ascending** as tie-breaker
+Plant selection / transformer concentration (Phase 8); sorting or filtering
+controls; any change to the ranking rule; anything on Electrical Conditions.
 
-No Critical/Warning precedence. This visualisation is freshness exceptions
-only — event data contributes nothing to it (ADR-001/ADR-002).
+## Required tests
 
-## Service rule
-
-Derive from the **same `FleetHealth` snapshot already fetched** for the
-page. No new SQL to rank Plants.
-
-Row shape (exact dataclass is an implementation choice): `plant_id`,
-`plant_name`, `affected_rtls`, `stale_rtls`, `no_data_rtls`,
-`total_monitored_rtls`, `affected_percent`.
-
-**One read-path amendment, recorded in ADR-008 before implementation:**
-`FleetHealth` is keyed by `plant_id` and carries no names, so Plant
-*labels* come from `hierarchy_service.list_plants(*, scope)` — a third
-approved entry point, scope-aware, supplying **labels only**. Every number
-and the ranking order still come from `FleetHealth`. A Plant in
-`FleetHealth` but missing from the name lookup keeps its `plant_id` as its
-label rather than disappearing.
-
-## Interaction
-
-Minimal. Clicking a Plant bar may set a selected Plant for Phase 8, but the
-transformer panel is **not** built here. If selection state is added, make
-it explicit and testable, and preserve it through later polling work.
+- route parses, policy entry exists, sidebar stays on Command Center
+- the page renders every affected plant with no height cap
+- panel and page render the same rows from the same data
+- the panel's "View all" points at the route
+- empty/all-healthy scope behaves honestly
+- Command Center and Fleet Overview unchanged
 
 ## Decisions this gate depends on
 
@@ -72,35 +69,19 @@ it explicit and testable, and preserve it through later polling work.
 - [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) — scope is authorization-derived
 - [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) — read paths; amended this gate for the Plant-label lookup
 
-## Non-goals (explicit — withheld by the user)
-
-Selected-Plant transformer concentration; recent events; priority assets;
-auto-refresh; dark/light theming; Asset Navigator changes; event-based
-Critical/Warning ranking; map/GIS; any change to Fleet Overview.
-
-## Required tests
-
-- affected count = Stale + No Data
-- a Fresh-only Plant ranks below any affected Plant
-- NO_DATA and STALE composition sums to the affected total
-- no event data contributes to Plant ranking
-- tie-break is deterministic
-- zero-affected Plant behaviour is defined
-- all-zero fleet renders an honest empty/quiet state
-- current scope is respected
-- **no new repository query for location ranking**
-- existing Phase 5/6 values unchanged
-
 ## Verification gate
 
-Browser at 1440 / 1366 / 1024, with attention to: long Plant names, five or
-more ranked rows, zero affected rows, and bar-label readability. Fleet
-Overview unchanged. No new console errors. Then commit locally and **stop**.
+Browser at 1920x1080 and 1440x900: the full list scrolls normally (this
+page is deliberately not the fixed cockpit), the panel's "View all" reaches
+it, and the sidebar still highlights Command Center. Command Center itself
+and Fleet Overview unchanged. No new console errors. Then commit locally
+and **stop**.
 
 ## Relevant files
 
-- `services/command_center_service.py` — the ranked-row model
-- `services/hierarchy_service.py` — `list_plants`, read-only, labels only
-- `components/command_center/` — a new sibling module for the bar view
-- `pages/command_center.py` / `callbacks/command_center.py` — mount + populate
+- `routes.py` — the route and its nav-key mapping
+- `services/authorization.py` — `ROUTE_POLICY` entry
+- `components/command_center/affected_locations.py` — shared row rendering
+- `pages/command_center_locations.py` — the full view (new)
+- `callbacks/routing.py` / `callbacks/command_center.py` — dispatch + populate
 - `assets/app.css` — `.command-center__` namespace only
