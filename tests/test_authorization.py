@@ -53,13 +53,14 @@ ROUTE_PATHS = {
     "admin_devices": "/admin/devices",
     "device_register": "/admin/devices/new",
     "admin_users": "/admin/users",
+    "command_center": "/command-center",
 }
 
 #: The frozen ROLE-2 matrix. Technician and General are identical here on
 #: purpose: they diverge at device scope and action authorization in ROLE-3,
 #: not at route level.
 ADMIN_ONLY = ("admin_devices", "device_register", "admin_users")
-SHARED = ("overview", "plant", "transformer", "device", "notifications", "reports")
+SHARED = ("overview", "plant", "transformer", "device", "notifications", "reports", "command_center")
 
 
 class TestRoleConstants:
@@ -157,7 +158,7 @@ class TestNavigationIsDerivedFromThePolicy:
 
     @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
     def test_admin_management_items_disappear(self, role):
-        assert visible_nav_keys(role) == {"overview", "notifications", "reports"}
+        assert visible_nav_keys(role) == {"overview", "notifications", "reports", "command_center"}
 
     @pytest.mark.parametrize("role", [None, "superuser"])
     def test_an_unrecognised_role_sees_no_navigation(self, role):

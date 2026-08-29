@@ -1,17 +1,46 @@
 # Active Gate
 
-Status: Approved
+Status: Implemented, awaiting commit
 Date: 2026-08-29
 Gate: CC-1 Phase 3+4 — Foundation and shell
-Precondition: `ctx-1-context-architecture` merged to `main`, then a new
-branch cut for CC-1. **Resolved 2026-08-29** — fast-forward merge
-(`1d7c414`..`d34090f`, no conflicts), 2032 tests confirmed green on the
-updated `main`, branch `cc-1-command-center-foundation` cut from it.
-Flow: PLAN → REVIEW GATE (complete — ADR-008) → **IMPLEMENT** → TEST/VISUAL VERIFY → IMPLEMENTATION REVIEW → COMMIT → PUSH GATE
+Precondition: resolved 2026-08-29 (merge + branch cut).
+Flow: PLAN → REVIEW GATE (complete) → IMPLEMENT (complete) → **TEST/VISUAL VERIFY (complete)** → IMPLEMENTATION REVIEW → COMMIT → PUSH GATE
 Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
-once Phase 3+4's own tests are green (this gate's "Required tests" below) —
-narrower than Phase 13/14's full gate, which still governs before this
-branch merges to `main`. Push stays NOT GRANTED regardless.
+— condition met (2051 tests green, TDD throughout, browser-verified at
+1440/1024). Push stays NOT GRANTED regardless; Phase 13/14's full gate still
+governs before this branch merges to `main`.
+
+## Phase 3+4 — done, verified 2026-08-29
+
+`/command-center` opens: route (`routes.py`), `ROUTE_POLICY["command_center"]
+= _EVERY_ROLE` (`services/authorization.py`), sidebar item (`components/app_sidebar.py`,
+own icon `assets/icons/nav-command-center.svg`), dispatch branch
+(`callbacks/routing.py`), façade (`services/command_center_service.py`,
+TDD — calls `get_fleet_health`/`list_recent_device_events` exactly once
+each, verified by test), fresh presentation family
+(`components/command_center/`, `.command-center__` CSS namespace, no
+imports from Fleet Overview components), static shell with six named panel
+slots (`pages/command_center.py`), one callback populating the header's
+real scope indicator (`callbacks/command_center.py`) — "Current access ·
+120 monitored RTLs" against the live database, exactly ADR-004's example
+text. 19 new tests, all TDD (RED confirmed before every GREEN). Fixed 5
+pre-existing completeness-check fixtures the new route correctly triggered
+(`ROUTE_PATHS`/`SHARED` in test_authorization.py, two hardcoded label lists,
+`PAGE_LAYOUT_IDS` in test_equipment_selector.py) — each verified as the
+right kind of failure before fixing, not silenced.
+
+Browser-verified at 1440 and 1024: scope indicator shows real live data,
+all six panels render honest "Not yet available in this build." placeholders
+(never "No Data"/"Unavailable" — ADR-001/002 reserve those), sidebar
+highlights correctly, Asset Navigator correctly absent (Command Center not
+added to `UTILITY_ROUTES` — deliberate, matches Reports/Notifications
+precedent, reversible at Phase 8 if the design wants it), zero new console
+errors/warnings, responsive reflow to 2 columns at 1024, Fleet Overview
+pixel-identical and zero-error before/after.
+
+Deliberately not built this gate: any panel content (Phase 5+), theming
+(Phase 11), auto-refresh interval (Phase 5+ per ADR-005 — the shell has no
+`dcc.Interval` yet).
 
 This file describes exactly one gate. When Phase 3+4 completes, rewrite this
 file for Phase 5 (Situation summary) rather than appending — the full
@@ -75,8 +104,13 @@ correction made, none of it blocking:
 
 ## Relevant files
 
-- `routes.py` — add the `/command-center` route
+- `routes.py` — add the `/command-center` route and `NAV_KEY_BY_ROUTE` entry
 - `services/authorization.py` — `ROUTE_POLICY["command_center"]`
+- `components/app_sidebar.py` — `SIDEBAR_SECTIONS` nav item, only after the
+  policy entry exists (found missing from this list 2026-08-29 — the
+  roadmap's own Phase 3 bullet already called for it, mirroring `command
+  center/07_IMPLEMENTATION_PLAN.md` Phase 1's "navigation mapping/item only
+  after policy exists"; this was a gap in this file, not in the roadmap)
 - `services/monitoring_service.py` — `get_fleet_health`, read-only, called not modified
 - `repositories/plant_monitoring_repository.py` — `list_recent_device_events`, read-only, called not modified
 - `docs/context/CC1_ROADMAP.md` — Phase 3/4 detail and everything after

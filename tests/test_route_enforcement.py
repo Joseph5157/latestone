@@ -166,7 +166,7 @@ class TestSidebarFiltering:
 
     @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
     def test_what_remains_is_what_they_may_open(self, role):
-        assert rendered_labels(role) == ["Overview", "Notifications", "Reports"]
+        assert rendered_labels(role) == ["Overview", "Command Center", "Notifications", "Reports"]
 
     @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
     def test_an_emptied_section_takes_its_heading_with_it(self, role):

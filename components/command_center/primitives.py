@@ -1,0 +1,62 @@
+"""Command Center-local presentation primitives (CC12_PRIMITIVES.md).
+
+`.command-center__` is this family's own CSS namespace, kept separate from
+the shared `components/card.py` surface deliberately: Phase 11 gives Command
+Center its own dark/light theming, and an isolated namespace means that work
+never touches the CSS Fleet Overview's cards depend on
+(command center/07_IMPLEMENTATION_PLAN.md gate principle - Fleet Overview is
+frozen). Reuses shared design *tokens* (CC12_PRIMITIVES.md's shared-token
+rule) via the same CSS custom properties every other surface already uses,
+not shared component markup.
+
+Primitives receive already-decided values only (CC12_PRIMITIVES.md's
+semantic rule) - no battery thresholds, event classification, or
+current-state inference lives here.
+"""
+from __future__ import annotations
+
+from dash import html
+
+
+def scope_indicator_text(monitored_device_count: int) -> str:
+    """The header's read-only scope indicator (ADR-004).
+
+    Not a selector - authorization already decided this number
+    (services.device_scope); this only states it.
+    """
+    noun = "RTL" if monitored_device_count == 1 else "RTLs"
+    return f"Current access · {monitored_device_count} monitored {noun}"
+
+
+def cc_card(title: str, children: list, *, subtitle: str | None = None) -> html.Section:
+    header_children = [html.H2(title, className="command-center__card-title")]
+    if subtitle:
+        header_children.append(html.P(subtitle, className="command-center__card-subtitle"))
+    return html.Section(
+        className="command-center__card",
+        children=[
+            html.Header(className="command-center__card-header", children=header_children),
+            html.Div(className="command-center__card-body", children=children),
+        ],
+    )
+
+
+def panel_not_yet_built(title: str) -> html.Section:
+    """An honest placeholder for a panel this gate does not build.
+
+    Mirrors pages/placeholder.py's existing pattern (a title, a plain
+    pending statement) for the same reason: a route/panel not built yet
+    should say so, not render empty or invent content. Deliberately never
+    says "no data" or "unavailable" - those are specific, evaluated states
+    (ADR-001/ADR-002); this is "not built in this phase yet", a different
+    fact that must not be confused with either.
+    """
+    return cc_card(
+        title,
+        [
+            html.Div(
+                className="status-panel status-panel--placeholder",
+                children=[html.P("Not yet available in this build.")],
+            ),
+        ],
+    )

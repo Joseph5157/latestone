@@ -61,6 +61,7 @@ SidebarItem = tuple[str | None, str, str | None, str]
 SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
     (None, (
         ("overview", "Overview", "/plants", "overview"),
+        ("command_center", "Command Center", "/command-center", "command-center"),
     )),
     ("Operations", (
         ("devices", "Devices", "/admin/devices", "devices"),

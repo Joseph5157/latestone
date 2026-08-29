@@ -78,7 +78,7 @@ class TestSidebarItems:
     def test_information_architecture_in_order(self):
         labels = [label for _key, label, _href, _icon in _all_items()]
         assert labels == [
-            "Overview",
+            "Overview", "Command Center",
             "Devices", "Assignments", "Registration",
             "Notifications", "Reports", "Users",
         ]

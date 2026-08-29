@@ -40,6 +40,10 @@ class TestParsePathname:
         assert parse_pathname("/notifications").name == "notifications"
         assert parse_pathname("/notifications/").name == "notifications"
 
+    def test_command_center_route(self):
+        assert parse_pathname("/command-center").name == "command_center"
+        assert parse_pathname("/command-center/").name == "command_center"
+
     def test_admin_devices_route(self):
         assert parse_pathname("/admin/devices").name == "admin_devices"
         assert parse_pathname("/admin/devices/").name == "admin_devices"

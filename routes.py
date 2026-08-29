@@ -41,6 +41,7 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "notifications": "notifications",
     "reports": "reports",
     "admin_users": "users",
+    "command_center": "command_center",
 }
 
 #: Query parameter naming the device whose assignment drawer should open on
@@ -55,7 +56,7 @@ ASSIGN_PARAM = "assign"
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
                # "admin_devices" | "admin_users" | "reports" | "notifications" |
-               # "unknown"
+               # "command_center" | "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
     device_id: str | None = None
@@ -75,6 +76,9 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 1 and parts[0] == "notifications":
         return Route(name="notifications")
+
+    if len(parts) == 1 and parts[0] == "command-center":
+        return Route(name="command_center")
 
     if len(parts) == 2 and parts[0] == "plants":
         return Route(name="plant", plant_id=parts[1])

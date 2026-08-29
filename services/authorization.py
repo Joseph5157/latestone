@@ -66,6 +66,7 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "device": _EVERY_ROLE,
     "notifications": _EVERY_ROLE,
     "reports": _EVERY_ROLE,
+    "command_center": _EVERY_ROLE,
     # Administration: managing what exists and who exists.
     "admin_devices": _ADMIN_ONLY,
     "device_register": _ADMIN_ONLY,

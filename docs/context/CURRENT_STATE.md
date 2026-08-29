@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T10:28:07Z
+Date: 2026-08-29T10:47:24Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `d34090f` "docs(cc1): review the CC-1 execution plan, record ADR-008, open Phase 3+4" (not `main`)
-- Working tree: 4 entries — see below
+- current branch `cc-1-command-center-foundation` = `2a008a2` "chore(cc1): mark Phase 3+4 precondition resolved" (not `main`)
+- Working tree: 24 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2032 passed, 466 deselected in 12.70s
+- `python -m pytest -m "not db"` → 2051 passed, 466 deselected in 12.83s
 
 ## Branches
 
@@ -26,7 +26,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-3-unassigned-rtl-panel`
 - `admin-dashboard-final`
 - `bootstrap-1-alembic-authority`
-- `cc-1-command-center-foundation`
 - `ctx-1-context-architecture`
 - `ent-6-ui-and-live-simulator`
 - `fix-registration-window-clock-domain`
@@ -44,6 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
+| `cc-1-command-center-foundation` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -69,9 +69,29 @@ CC-1 Phase 3+4 — Foundation and shell — full detail in `docs/context/ACTIVE_
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M app.py
+ M assets/app.css
+ M callbacks/routing.py
+ M components/app_sidebar.py
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ M routes.py
+ M services/authorization.py
+ M tests/test_app_sidebar.py
+ M tests/test_authorization.py
+ M tests/test_equipment_selector.py
+ M tests/test_route_enforcement.py
+ M tests/test_routing.py
+?? assets/icons/nav-command-center.svg
+?? callbacks/command_center.py
 ?? "command center/"
+?? components/command_center/
+?? pages/command_center.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
+?? services/command_center_service.py
+?? tests/test_command_center_components.py
+?? tests/test_command_center_page.py
+?? tests/test_command_center_service.py
 ```
 

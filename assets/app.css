@@ -964,6 +964,7 @@ body {
 .app-sidebar__icon--notifications { -webkit-mask-image: url("/assets/icons/nav-notifications.svg"); mask-image: url("/assets/icons/nav-notifications.svg"); }
 .app-sidebar__icon--reports       { -webkit-mask-image: url("/assets/icons/nav-reports.svg");       mask-image: url("/assets/icons/nav-reports.svg"); }
 .app-sidebar__icon--users         { -webkit-mask-image: url("/assets/icons/nav-users.svg");         mask-image: url("/assets/icons/nav-users.svg"); }
+.app-sidebar__icon--command-center { -webkit-mask-image: url("/assets/icons/nav-command-center.svg"); mask-image: url("/assets/icons/nav-command-center.svg"); }
 
 /* Collapsed: label text is dropped (width: 0, not display: none — an
    abruptly vanishing inline child would jump the icon sideways mid-
@@ -4531,4 +4532,47 @@ body {
 .report-form__btn--primary:hover,
 .manage-drawer__btn--primary:hover {
   opacity: 0.9;
+}
+
+/* Command Center (CC-1) — own namespace throughout, per CC12_PRIMITIVES.md:
+   "All component classes begin with .command-center__ or .cc-." Reuses
+   shared tokens (spacing/radius/colour roles above), not shared component
+   CSS — Phase 11 gives this family its own dark/light theming, isolated
+   from the light-only tokens Fleet Overview's cards depend on. This is
+   Phase 3+4 (foundation/shell) styling: functional, not the final design —
+   see docs/context/CC1_ROADMAP.md Phase 11. */
+
+.command-center__scope-indicator {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.command-center__panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sp-5);
+  margin-top: var(--sp-5);
+}
+
+.command-center__card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+}
+
+.command-center__card-header {
+  margin-bottom: var(--sp-3);
+}
+
+.command-center__card-title {
+  margin: 0;
+  font-size: var(--fs-section);
+  color: var(--color-text);
+}
+
+.command-center__card-subtitle {
+  margin: var(--sp-1) 0 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
 }
