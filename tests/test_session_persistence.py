@@ -65,11 +65,29 @@ class TestSignOut:
 
 
 class TestTheLinkStillWorks:
-    def test_the_header_still_offers_logout(self):
-        from components.app_header import app_header
+    def test_the_sidebar_offers_logout(self):
+        """Moved out of app_header: that is rendered per page, and Command
+        Center renders none at all, so a header-only sign-out was present
+        or absent depending on the route. The sidebar is mounted once
+        globally and hidden wholesale when signed out."""
+        from components.app_sidebar import app_sidebar
 
         hrefs = [
-            n.href for n in __import__("tests.dash_tree", fromlist=["walk"]).walk(app_header())
+            n.href for n in __import__("tests.dash_tree", fromlist=["walk"]).walk(app_sidebar())
             if getattr(n, "href", None) == LOGOUT_PATH
         ]
         assert hrefs == [LOGOUT_PATH]
+
+    def test_logout_is_a_plain_anchor_not_a_client_side_link(self):
+        """A dcc.Link would route client-side. The full page load is what
+        lets callbacks.auth._sign_out fire on its initial call, and what
+        makes a bookmarked /logout sign out rather than render nothing."""
+        from dash import html
+
+        from components.app_sidebar import app_sidebar
+
+        anchors = [
+            n for n in __import__("tests.dash_tree", fromlist=["walk"]).walk(app_sidebar())
+            if getattr(n, "href", None) == LOGOUT_PATH
+        ]
+        assert [type(a) for a in anchors] == [html.A]

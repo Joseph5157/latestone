@@ -44,6 +44,7 @@ from dash import dcc, html
 from services.authorization import visible_nav_keys
 
 SHELL_ID = "app-sidebar-shell"
+LOGOUT_PATH = "/logout"
 SIDEBAR_ID = "app-sidebar"
 NAV_ID = "app-sidebar-nav"
 TOGGLE_ID = "app-sidebar-toggle"
@@ -190,6 +191,32 @@ def app_sidebar(active_key: str | None = None, role: str | None = None) -> html.
                 children=sidebar_nav(active_key, role),
                 id=NAV_ID,
                 **{"aria-label": "Main"},
+            ),
+            # Sign-out lives here rather than in app_header: the header is
+            # rendered per page (and Command Center renders none at all),
+            # so a header-only Logout is present or absent depending on
+            # which page you happen to be on. The sidebar is mounted once
+            # globally and hidden wholesale when signed out, so this is
+            # visible exactly when it is usable.
+            #
+            # NOT in SIDEBAR_SECTIONS: that tuple is the role-filtered
+            # ROUTE_POLICY-derived navigation, and every key in it must map
+            # to a route someone may open (tests/test_authorization.py
+            # asserts exactly that). Logout is an action, not a
+            # destination, and is available to every signed-in role.
+            #
+            # A plain anchor, deliberately: the full page load is what lets
+            # callbacks.auth._sign_out fire on its initial call, and what
+            # makes a bookmarked /logout sign out rather than render
+            # nothing (callbacks/auth.py:132).
+            html.Div(
+                html.A(
+                    _item_content("Logout", "logout"),
+                    href=LOGOUT_PATH,
+                    className="app-sidebar__link app-sidebar__logout",
+                    title="Logout",
+                ),
+                className="app-sidebar__footer",
             ),
         ],
     )

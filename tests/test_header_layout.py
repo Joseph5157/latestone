@@ -42,21 +42,20 @@ class TestHeaderIsAGridAtEveryWidth:
     def test_the_header_is_a_grid_by_default_not_only_on_mobile(self, css):
         header = base_rule(css, ".app-header")
         assert "display: grid" in header
-        assert "grid-template-columns: minmax(0, 1fr) auto" in header
+        assert "grid-template-columns: minmax(0, 1fr)" in header
 
     def test_the_breadcrumb_spans_the_full_row(self, css):
         breadcrumb = base_rule(css, ".header__breadcrumb")
         assert "grid-column: 1 / -1" in breadcrumb
 
-    def test_the_breadcrumb_is_its_own_row_below_brand_and_logout(self, css):
-        """Row 1 is brand + Logout; the breadcrumb is row 2, so it sits
-        directly under the brand bar and above the page's own heading —
-        not squeezed onto row 1 beside Logout."""
+    def test_the_breadcrumb_is_its_own_row_below_the_brand(self, css):
+        """The breadcrumb is row 2, so it sits directly under the brand bar
+        and above the page's own heading rather than being squeezed onto
+        row 1 beside it. (Logout used to hold row 1 column 2; it now lives
+        in the sidebar — see components/app_sidebar.py.)"""
         brand = base_rule(css, ".header__brand")
         breadcrumb = base_rule(css, ".header__breadcrumb")
-        logout = base_rule(css, ".header__logout-wrapper")
         assert "grid-row: 2" in breadcrumb
-        assert "grid-row: 1" in logout
         # brand takes row 1 by grid auto-placement (no row set); it must not
         # have been pinned to the same row as the breadcrumb by mistake.
         assert "grid-row: 2" not in brand
@@ -69,10 +68,14 @@ class TestHeaderIsAGridAtEveryWidth:
         assert breadcrumb_row and freshness_row
         assert breadcrumb_row.group(1) != freshness_row.group(1)
 
-    def test_logout_stays_on_the_brand_row_not_pushed_down(self, css):
-        logout = base_rule(css, ".header__logout-wrapper")
-        assert "grid-row: 1" in logout
-        assert "grid-column: 2" in logout
+    def test_the_header_no_longer_reserves_a_column_for_logout(self, css):
+        """Logout moved to the sidebar. The grid's second `auto` column
+        existed only to hold it, so leaving it behind would reserve a gap
+        for a control that is no longer rendered."""
+        assert ".header__logout-wrapper" not in css
+        assert "grid-template-columns: minmax(0, 1fr) auto" not in base_rule(
+            css, ".app-header"
+        )
 
 
 class TestMobileOverrideIsSizingOnly:
@@ -113,7 +116,7 @@ class TestRenderedStructureIsUnchanged:
     """Pure CSS change: the component tree and DOM order stay exactly as
     they were — order is what the grid rows above rely on."""
 
-    def test_child_order_is_brand_breadcrumb_freshness_logout(self):
+    def test_child_order_is_brand_breadcrumb_freshness(self):
         header = app_header(breadcrumb_children="x", freshness=Freshness.FRESH)
         classes = [
             getattr(n, "className", None)
@@ -121,7 +124,6 @@ class TestRenderedStructureIsUnchanged:
         ]
         assert classes == [
             "header__brand", "header__breadcrumb", "header__freshness",
-            "header__logout-wrapper",
         ]
 
     def test_breadcrumb_slot_is_still_optional(self):

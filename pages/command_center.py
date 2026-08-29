@@ -49,13 +49,8 @@ def layout() -> html.Div:
             # Powerplant brand bar and its breadcrumb restate what the
             # sidebar already shows, and in a fixed-height cockpit that
             # strip costs ~60px of the panel budget to say nothing new.
-            #
-            # app_header also carried Logout (components/app_header.py) and
-            # the sidebar has no logout item, so dropping the header
-            # without replacing it would strand the operator here. The
-            # title row below takes that job. Kept local to this page
-            # rather than moved into the shared sidebar: that would put a
-            # second Logout on the eight pages still rendering app_header.
+            # Sign-out is not lost with it: Logout now lives in the
+            # globally-mounted sidebar (components/app_sidebar.py).
             html.Div(
                 className="command-center__titlebar",
                 children=[
@@ -73,11 +68,6 @@ def layout() -> html.Div:
                                 className="command-center__scope-indicator",
                             ),
                         ],
-                    ),
-                    html.A(
-                        "Logout",
-                        href="/logout",
-                        className="header__logout",
                     ),
                 ],
             ),

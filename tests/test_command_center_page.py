@@ -29,12 +29,16 @@ class TestCommandCenterLayout:
         assert "Powerplant Dashboard" not in text
         assert not find_by_class(layout(), "app-header")
 
-    def test_still_offers_a_way_to_sign_out(self):
-        """Logout lived inside app_header (components/app_header.py) and the
-        sidebar has no logout item, so dropping the header without this
-        would strand the operator on the page with no way out."""
-        hrefs = [href for _label, href in links(layout())]
-        assert "/logout" in hrefs
+    def test_sign_out_comes_from_the_sidebar_not_this_page(self):
+        """Logout used to live in app_header, which this page no longer
+        renders. It is not gone — it moved to the globally-mounted sidebar,
+        which is why this page needs no sign-out of its own. Asserted from
+        both sides so neither a page-local duplicate nor a silent loss can
+        pass."""
+        from components.app_sidebar import app_sidebar
+
+        assert "/logout" not in [href for _label, href in links(layout())]
+        assert "/logout" in [href for _label, href in links(app_sidebar("command_center", "administrator"))]
 
     def test_situation_summary_is_a_live_region_not_a_placeholder(self):
         """Phase 5: this slot no longer names itself in the layout — it is an

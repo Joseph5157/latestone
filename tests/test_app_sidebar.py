@@ -21,6 +21,7 @@ from services.authorization import ADMINISTRATOR
 from components.app_sidebar import (
     COLLAPSE_STORE_ID,
     HIDDEN_STYLE,
+    LOGOUT_PATH,
     NAV_ID,
     SHELL_ID,
     SIDEBAR_ID,
@@ -169,14 +170,50 @@ class TestSidebarRendering:
     def test_renders_all_routable_destinations_in_order(self):
         """Each link's rendered text carries its label (the icon glyph itself
         renders no text — see TestSidebarIcons) and its href, in
-        information-architecture order."""
+        information-architecture order.
+
+        Logout is excluded deliberately: it is an action that ends the
+        session, not one of the role-filtered destinations SIDEBAR_SECTIONS
+        describes — see TestSidebarLogout below."""
         rendered = _admin_sidebar("devices")
         expected = [(label, href) for _k, label, href, _a in _all_items() if href is not None]
-        rendered_links = links(rendered)
+        rendered_links = [
+            (text, href) for text, href in links(rendered) if href != LOGOUT_PATH
+        ]
         assert len(rendered_links) == len(expected)
         for (text, href), (label, expected_href) in zip(rendered_links, expected):
             assert label in text
             assert href == expected_href
+
+
+class TestSidebarLogout:
+    """Sign-out moved here from app_header, which is rendered per page —
+    Command Center renders none at all, so a header-only Logout was present
+    or absent depending on the route."""
+
+    def test_logout_is_rendered(self):
+        hrefs = [href for _text, href in links(_admin_sidebar())]
+        assert LOGOUT_PATH in hrefs
+
+    def test_logout_is_outside_the_nav_landmark(self):
+        """The nav is the set of destinations and is re-rendered wholesale
+        by the active-state callback. Logout is neither, so it lives in its
+        own footer rather than inside that list."""
+        nav = find_by_id(_admin_sidebar(), NAV_ID)
+        assert LOGOUT_PATH not in [href for _t, href in links(nav)]
+        assert find_by_class(_admin_sidebar(), "app-sidebar__footer")
+
+    def test_logout_is_not_one_of_the_role_filtered_destinations(self):
+        """Every key in SIDEBAR_SECTIONS must map to a route someone may
+        open (tests/test_authorization.py asserts exactly that). Logout has
+        no route policy entry and must never acquire one by being listed
+        here."""
+        assert LOGOUT_PATH not in [href for _k, _l, href, _i in _all_items()]
+
+    def test_logout_carries_an_icon_like_every_other_rail_item(self):
+        """The collapsed rail shows icons only; a label-less Logout would
+        vanish there."""
+        assert find_by_class(_admin_sidebar(), "app-sidebar__icon--logout")
 
     def test_exactly_one_link_is_active_when_a_key_is_given(self):
         rendered = _admin_sidebar("devices")

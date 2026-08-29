@@ -1,4 +1,9 @@
-"""App header — brand, breadcrumb slot, freshness, logout.
+"""App header — brand, breadcrumb slot, freshness.
+
+Logout moved to the sidebar (components/app_sidebar.py): the header is
+rendered per page and Command Center renders none, so a header-only
+sign-out was present or absent depending on the route. The sidebar is
+mounted once globally.
 
 Deliberately has no equipment-selector slot. The header is rendered *inside*
 each page layout, so anything mounted here disappears whenever another route is
@@ -56,12 +61,5 @@ def app_header(
                 className="header__freshness",
             )
         )
-
-    children.append(
-        html.Div(
-            html.A("Logout", href="/logout", className="header__logout"),
-            className="header__logout-wrapper",
-        )
-    )
 
     return html.Header(children=children, className="app-header")
