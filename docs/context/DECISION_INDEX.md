@@ -25,6 +25,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) | Command Center's read side is `get_fleet_health()` + `list_recent_device_events()` + the batched `list_device_paths()`, never new SQL or Fleet Overview's presentation components | Approved | `1940b93`, `bb1e2e9` (precedent); Command Center's call sites `a49620f` |
 | [ADR-009](../decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md) | Priority Investigation ranks on freshness only; a STALE age is the OLDEST metric's timestamp, and exists only when every metric has one | Approved | `ce5d4ac` |
 | [ADR-010](../decisions/ADR-010-monitoring-reset-preserves-operational-history.md) | A monitoring reset replaces measurements and preserves operational history; the destructive teardown is a separate, acknowledged `--purge`; no CASCADE | Approved | `29f5290` |
+| [ADR-011](../decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md) | Affected Locations names the worst 8 Plants and discloses the rest; a selected Plant below the cut is retained and says why | Approved | `6aafc4c` |
 
 ## Reading this table
 

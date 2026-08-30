@@ -6,7 +6,7 @@ Evidence: `components/command_center/affected_locations.py` (`TOP_N`,
 `visible_locations`); `pages/command_center_locations.py` (the full view,
 shipped in Phase 7a); `services/command_center_service.py:_affected_locations`
 (still ranks every plant)
-Implemented-by: not yet
+Implemented-by: `6aafc4c`
 Supersedes: the Phase 7 decision that the cockpit panel lists every affected
 Plant
 

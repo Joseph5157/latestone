@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-30T11:44:33Z
+Date: 2026-08-30T11:48:24Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `2454234` "docs: record ADR-010 as implemented by 29f5290" (not `main`)
-- Working tree: 10 entries — see below
+- current branch `cc-1-command-center-foundation` = `6aafc4c` "feat(cc1): Top-8 Affected Locations, footer copy, theme-persistence fix" (not `main`)
+- Working tree: 7 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 14.63s
+- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 14.27s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 20 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 21 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -63,23 +63,20 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-008-command-center-reuses-existing-read-paths.md | Approved | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6) |
 | ADR-009-priority-investigation-ranks-on-freshness-only.md | Approved | `ce5d4ac` |
 | ADR-010-monitoring-reset-preserves-operational-history.md | Approved | `29f5290` |
-| ADR-011-affected-locations-is-top-n-with-disclosure.md | Approved | not yet |
+| ADR-011-affected-locations-is-top-n-with-disclosure.md | Approved | `6aafc4c` |
 
 ## Active gate
 
-SEED-RESET-1 — restore safe monitoring reseed/reset behaviour — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Final Acceptance — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M components/command_center/affected_locations.py
- M components/command_center/recent_events.py
- M docs/context/CURRENT_STATE.md
- M pages/command_center.py
- M tests/test_command_center_affected_locations.py
- M tests/test_command_center_theme.py
+M docs/context/ACTIVE_GATE.md
+ M docs/context/DECISION_INDEX.md
+ M docs/decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md
 ?? "command center/"
-?? docs/decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md
+?? docs/context/CC1_ACCEPTANCE.md
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
 ```
