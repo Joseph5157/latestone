@@ -1,4 +1,4 @@
-# ADR-009: Priority Investigation ranks on freshness only, and a STALE age names the metric it measures
+# ADR-009: Priority Investigation ranks on freshness only, and a STALE age is the OLDEST metric's timestamp
 
 Status: Approved
 Date: 2026-08-30
@@ -7,7 +7,7 @@ Evidence: `services/monitoring_service.py:298` (`device_last_updated`),
 `services/monitoring_service.py:239-247` (`severity_rank`),
 `components/command_center/situation_summary.py:119-121` (the existing
 citation of this hazard), ADR-002
-Implemented-by: not yet
+Implemented-by: `ce5d4ac`
 Extends: ADR-002 (does not supersede it — the no-age rule for NO_DATA is
 restated here unchanged, and the STALE rule below is the case ADR-002 did
 not need to answer)
