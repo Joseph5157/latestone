@@ -5685,10 +5685,81 @@ body {
   box-shadow: var(--focus-ring);
 }
 
-/* The titlebar now holds the title and the control, so it becomes a row. */
+/* The titlebar holds the title on the left and the operator controls on the
+   right, so it becomes a row. */
 .command-center__titlebar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--sp-4);
+}
+
+.command-center__titlebar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: none;
+}
+
+/* --------------------------------------------------------------------------
+   Auto-refresh status (Phase 12, ADR-005).
+
+   Three separate facts, never merged into one indicator: the mechanism is
+   running, the data is from this moment, and (only when true) the last
+   attempt failed. A single "status light" would have to pick one of those to
+   show, and the one it dropped would be the one that mattered. */
+.command-center__refresh {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.command-center__refresh-mode {
+  color: var(--color-muted);
+}
+
+/* Tabular so the seconds do not shift the line's width every tick — a number
+   that jitters draws the eye to a change that has not happened. */
+.command-center__refresh-time {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one part that is allowed to be loud, and only when it is true. Uses the
+   error text token rather than a `--cc-` semantic: this describes the QUERY,
+   not the fleet, and borrowing a freshness colour would file it under the
+   states those colours name. */
+.command-center__refresh-failed {
+  color: var(--state-error-text);
+  font-weight: 600;
+}
+
+.page--command-center.cc-theme--dark .command-center__refresh-failed {
+  color: #ff8085;
+}
+
+.command-center__refresh-now {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  flex: none;
+}
+
+.command-center__refresh-now:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.command-center__refresh-now:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-30T05:53:27Z
+Date: 2026-08-30T06:29:02Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `267b11a` "feat(cc1): whole-shell dark/light theme for Command Center (Phase 11)" (not `main`)
-- Working tree: 5 entries — see below
+- current branch `cc-1-command-center-foundation` = `a41bf16` "docs(cc1): record ADR-006 as implemented by 267b11a" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2392 passed, 474 deselected in 14.13s
+- `python -m pytest -m "not db"` → 2426 passed, 474 deselected in 14.33s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 15 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 16 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -70,10 +70,14 @@ CC-1 Phase 11 — Command Center Theme + Shell Integration — full detail in `d
 ## Working tree
 
 ```
-M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-006-route-scoped-theming-is-architecture.md
+M assets/app.css
+ M callbacks/command_center.py
+ M docs/context/CC1_ROADMAP.md
+ M pages/command_center.py
 ?? "command center/"
+?? components/command_center/refresh.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
+?? tests/test_command_center_refresh.py
 ```
 

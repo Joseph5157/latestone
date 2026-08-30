@@ -9,6 +9,7 @@ does not front-load them.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from dash import Input, Output, State, ctx, html, no_update
 
@@ -18,7 +19,7 @@ from components.command_center.affected_locations import (
 )
 from components.command_center.electrical import electrical_conditions_card
 from components.command_center.primitives import scope_indicator_text
-from components.command_center import theme
+from components.command_center import refresh, theme
 from components.command_center.priority import priority_investigation_card
 from components.command_center.recent_events import recent_events_card
 from components.command_center.selected_location import selected_location_card
@@ -30,6 +31,39 @@ from services.command_center_service import get_command_center_snapshot
 from services.device_scope import scope_from_session
 
 logger = logging.getLogger(__name__)
+
+
+#: The outputs of the refresh callback that render DATA (scope indicator plus
+#: the six panels). Counted rather than spelled out so a future panel cannot
+#: be added to the callback while the failure path keeps clearing only the
+#: ones that existed when it was written.
+PANEL_OUTPUT_COUNT = 7
+
+#: Index of the generic error region within that callback's return tuple.
+ERROR_OUTPUT_INDEX = 7
+
+#: Panels + error + refresh status + refresh store.
+OUTPUT_COUNT = 10
+
+
+def _last_success(refresh_state):
+    """When the last SUCCESSFUL snapshot landed, or None if none ever has.
+
+    The None case is the whole reason this is a STORED fact rather than
+    something read back off the page: a first load that fails and a refresh
+    that fails look identical in the DOM, and they must not be handled the
+    same way.
+    """
+    stamp = (refresh_state or {}).get("last_success_at")
+    if not stamp:
+        return None
+    try:
+        return datetime.fromisoformat(stamp)
+    except (TypeError, ValueError):
+        # A malformed value is treated as "never succeeded" rather than
+        # crashing the only callback that can recover the page.
+        return None
+
 
 
 def register(app) -> None:
@@ -44,17 +78,29 @@ def register(app) -> None:
         Output("command-center-recent-events", "children"),
         Output("command-center-priority-investigation", "children"),
         Output("command-center-error", "children"),
+        Output(refresh.STATUS_ID, "children"),
+        Output(refresh.STORE_ID, "data"),
         Input("page-context", "data"),
+        Input(refresh.INTERVAL_ID, "n_intervals"),
+        Input(refresh.MANUAL_ID, "n_clicks"),
         State("auth-store", "data"),
+        State(refresh.STORE_ID, "data"),
         prevent_initial_call=True,
     )
-    def populate_command_center(context, auth_data):
+    def populate_command_center(context, _ticks, _manual, auth_data, refresh_state):
         """One snapshot, one render — the header and every card are served by
         the same fetch, so two parts of the page can never disagree about
-        which RTLs are stale.
+        which RTLs are stale. That discipline is what makes polling safe:
+        one interval tick is ONE snapshot assembly, not six panels each
+        going to the database on their own (ADR-005 over ADR-008).
+
+        The selected Plant is NOT re-derived here. It rides in
+        `page-context` from the URL (`?plant=`), so a routine poll cannot
+        reset the operator to the top-ranked plant - no callback owns the
+        selection, so none can lose it.
         """
         if not context or context.get("route") != "command_center":
-            return (no_update,) * 8
+            return (no_update,) * OUTPUT_COUNT
 
         try:
             # Resolved once per render (ADR-004/ADR-008), same discipline
@@ -66,10 +112,15 @@ def register(app) -> None:
             # quarantine rows. Only an administrator asks for them.
             user = from_session(auth_data)
             is_admin = user is not None and user.role == ADMINISTRATOR
+            # One reference time, used for the fetch AND for the label, so
+            # `Last updated` names the moment the DATA describes rather than
+            # the moment the render happened to finish.
+            fetched_at = datetime.now(timezone.utc)
             snapshot = get_command_center_snapshot(
                 scope=scope,
                 selected_plant_id=context.get("plant_id"),
                 include_unregistered=is_admin,
+                now=fetched_at,
             )
             return (
                 scope_indicator_text(snapshot.monitored_device_count),
@@ -83,14 +134,44 @@ def register(app) -> None:
                 recent_events_card(snapshot),
                 priority_investigation_card(snapshot),
                 None,
+                refresh.refresh_status(fetched_at, failed=False),
+                # A success always clears a previous failure, so the banner
+                # disappears on its own at the next good poll.
+                {"last_success_at": fetched_at.isoformat(), "failed": False},
             )
         except Exception:
-            # Logged in full; the panel stays generic and never exposes
-            # internals (AGENTS.md). The regions are cleared rather than
-            # left showing "Loading…" forever — a stuck spinner reads as a
-            # slow fleet, not a failed read.
+            # Logged in full; the UI stays generic and never exposes
+            # internals (AGENTS.md).
             logger.exception("Failed to load Command Center snapshot")
-            return no_update, [], [], [], [], [], [], error_panel()
+            last_success = _last_success(refresh_state)
+
+            if last_success is None:
+                # FIRST LOAD. No last-good data exists, so there is nothing
+                # for a stale-data banner to sit over. Clear the regions
+                # rather than leave "Loading..." forever - a stuck spinner
+                # reads as a slow fleet, not a failed read - and show the
+                # ordinary error state.
+                return (
+                    no_update, [], [], [], [], [], [],
+                    error_panel(),
+                    refresh.refresh_status(None, failed=False),
+                    {"last_success_at": None, "failed": True},
+                )
+
+            # A FAILED REFRESH over data that is still true. `no_update`
+            # leaves every rendered panel exactly as it was: blanking them
+            # would throw away a screen of correct information because one
+            # query timed out, and an empty Needs Attention card reads as
+            # "nothing is wrong" rather than "we could not look".
+            #
+            # `last_success_at` is deliberately NOT advanced. It names the
+            # age of what is on screen, and moving it on a failed attempt
+            # would claim freshness at the one moment that claim is false.
+            return (no_update,) * PANEL_OUTPUT_COUNT + (
+                no_update,
+                refresh.refresh_status(last_success, failed=True),
+                {"last_success_at": refresh_state["last_success_at"], "failed": True},
+            )
 
 
     @app.callback(

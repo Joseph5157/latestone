@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dash import dcc, html
 
-from components.command_center import theme
+from components.command_center import refresh, theme
 
 #: Situation Summary (Phase 5) is live: an empty region the callback fills
 #: with the four real cards. It sits in its own full-width row above the
@@ -67,6 +67,11 @@ def layout() -> html.Div:
                 storage_type="session",
                 data={"theme": theme.DEFAULT_THEME},
             ),
+            # Page-owned, so leaving the route destroys it (ADR-005). There
+            # is no app-wide interval and adding one would change Fleet
+            # Overview's deliberately-tested absence of refresh.
+            refresh.refresh_interval(),
+            refresh.refresh_store(),
             html.Div(
                 className="command-center__titlebar",
                 children=[
@@ -85,7 +90,17 @@ def layout() -> html.Div:
                             ),
                         ],
                     ),
-                    theme.theme_toggle(theme.DEFAULT_THEME),
+                    html.Div(
+                        className="command-center__titlebar-controls",
+                        children=[
+                            html.Div(
+                                id=refresh.STATUS_ID,
+                                className="command-center__refresh-slot",
+                            ),
+                            refresh.manual_refresh_button(),
+                            theme.theme_toggle(theme.DEFAULT_THEME),
+                        ],
+                    ),
                 ],
             ),
             html.Div(id="command-center-error"),

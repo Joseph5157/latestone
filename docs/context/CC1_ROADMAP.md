@@ -345,6 +345,70 @@ answered here, at implementation time, against the real structure of those
 three files (confirmed to exist, unread in detail as of this review).
 Reject a plan/diff that rewrites all three just to obtain dark mode.
 
+## Phase 12 — Command Center auto-refresh — DONE (2026-08-30)
+
+A page-owned `dcc.Interval` (ADR-005), cadence from
+`monitoring.refresh_interval_seconds` — the same setting the device
+dashboard reads. No app-wide interval: adding one would change Fleet
+Overview's deliberately-tested absence of refresh to serve a page that does
+not need it to.
+
+The status line states three facts rather than one reassuring one:
+
+```text
+Auto refresh · On
+Last updated · 06:27:59 UTC
+Refresh failed · showing last successful data     (only when true)
+```
+
+Never "live" or "streaming" — those imply a delivery guarantee polling does
+not provide, and saying them over a failed poll is how a stale screen
+becomes a trusted one.
+
+### The selected Plant needed no new machinery
+
+Selection rides in the URL (`?plant=`) and is parsed into `page-context`
+(callbacks/routing.py). Phase 8 chose that over a `dcc.Store` precisely so a
+polling refresh could not clear it — no callback owns the selection, so none
+can lose it. Phase 12 holds that property with tests instead of
+re-implementing it, including one asserting that NO output of the refresh
+callback targets the URL or any selection store.
+
+### Failure behaviour is the whole gate
+
+Three states kept structurally apart:
+
+- **Failed refresh** — every panel returns `no_update`, so the rendered
+  screen is left exactly as it was. Blanking would throw away a screen of
+  correct information because one query timed out, and an empty Needs
+  Attention card reads as "nothing is wrong" rather than "we could not
+  look". `last_success_at` is NOT advanced: it names the age of what is on
+  screen, and moving it on a failed attempt would claim freshness at the one
+  moment that claim is false.
+- **Failed FIRST load** — no last-good data exists, so there is nothing for
+  a stale-data banner to sit over. The ordinary error state renders and the
+  "Loading…" placeholders are cleared. Distinguished by a STORED
+  `last_success_at`, because in the DOM the two failures look identical.
+- **Neither is No Data.** A test asserts the failure copy never contains
+  that phrase (ADR-002).
+
+Only the two facts the DOM cannot answer are stored (`last_success_at`,
+`failed`). Retaining the snapshot itself is done with `no_update` rather
+than serialising a full snapshot to the browser and back every cycle.
+
+### Verified in the browser
+
+Two polling cycles watched at the configured 60s cadence (06:23:59 →
+06:24:59), with the DOM sampled every 300ms throughout: card count never
+dropped below 9, the theme class never changed, and the URL selection never
+changed. The database was then stopped mid-session: the banner appeared,
+`Last updated` stayed frozen at the last successful time, all nine cards
+kept their real data, and no error panel appeared. On restarting the
+container the banner cleared by itself at the next good poll (~13s) and
+`Last updated` advanced. Checked at 1440/1366/1024 with no horizontal
+scroll and no overlap; no console error beyond the pre-existing login-form
+React warning.
+
 ## Phase 12 — Browser verification
 
 Widths: 1440 (primary), 1366 (normal enterprise desktop), 1024 (reduced-width
