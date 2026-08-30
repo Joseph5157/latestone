@@ -214,7 +214,49 @@ doubling.
 The FRESHNESS demo seed (Fresh / Stale / mixed-metric NO_DATA) is a
 different gap and is still open — see Phase 12 below.
 
-## Phase 10 — Priority investigation
+## Phase 10 — Priority Investigation — IMPLEMENTED (2026-08-30)
+
+The last question in the chain: which exact RTLs to open first. A ranked
+per-RTL list over the SAME attention population as Needs Attention — Stale
++ No Data, freshness only (ADR-002/ADR-009). No event affects membership or
+order, and a test fires a storm of Power Down events to prove it.
+
+```text
+● NO DATA
+29017        Three Gorges Dam / aa12
+At least one monitored metric has no reading.
+Open asset →
+
+● STALE
+18442        Grand Coulee / tx07
+Oldest monitored metric last reported 3h 41m ago
+Open asset →
+```
+
+The load-bearing correction is ADR-009 D3. `device_last_updated` is a MAX
+across metrics, so on an RTL that is Stale because one metric of eight
+stopped it holds the FRESHEST metric's time. `FleetHealth` gained
+`device_oldest_metric_updated` (the min), populated only when every metric
+has a timestamp — so a NO_DATA RTL structurally has no number from which a
+duration could be fabricated. Both the displayed age and the ranking key
+read that one field, so they cannot drift.
+
+No footer link: `/command-center/locations` is the ranked PLANT list
+(ADR-003), and an approximate destination is worse than none.
+
+### Visual verification DEFERRED — not a phase failure
+
+> Phase 10 implementation and semantic verification complete. Mixed
+> Fresh/STALE/NO_DATA browser verification deferred because the available
+> freshness seed is destructive and lacks a safe rollback path.
+
+`db/seed_freshness_demo.py` is built and tested but NOT applied: staleness
+cannot be inserted, only carved out by deleting readings, and
+`seed_plant_monitoring --reset` is itself broken (SEED-RESET-1,
+`docs/context/KNOWN_DEFECTS.md`). Fix that before the Phase 12 acceptance
+pass, then apply the seed and complete this verification.
+
+## Phase 10 — Priority investigation (original plan)
 
 Fresh component, not a reuse of Needs Attention's tree (ADR-008):
 

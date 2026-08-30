@@ -148,3 +148,64 @@ class TestFleetHealthFromRows:
         assert health.device_count == 0
         assert health.plant_count == 0
         assert health.counts[F] == 0
+
+
+class TestOldestMetricTimestamp:
+    """`device_oldest_metric_updated` — the honest basis for a STALE age.
+
+    ADR-009 D3. `device_last_updated` is a MAX and therefore describes
+    whichever metric IS still reporting; ranking or ageing a stale device on
+    it understates the outage. This field is the MIN, and it exists only
+    when every metric of that device carries a timestamp — so a NO_DATA
+    device holds None and no caller can manufacture a duration from it.
+    """
+
+    def _row(self, plant, device, metric, ts):
+        return type("R", (), {"plant_id": plant, "device_id": device,
+                              "metric": metric, "reading_ts": ts})()
+
+    def test_it_is_the_oldest_metric_not_the_newest(self):
+        rows = [
+            self._row("p1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "d1", "voltage", STALE_TS),
+        ]
+        health = fleet_health_from_rows(rows, now=NOW)
+        assert health.device_oldest_metric_updated["d1"] == STALE_TS
+        # The existing field still answers its own question, unchanged.
+        assert health.device_last_updated["d1"] == FRESH_TS
+
+    def test_the_mixed_device_is_where_max_would_have_lied(self):
+        """7 fresh + 1 stale: the case a max-based age gets wrong.
+
+        The device is STALE, and the number an operator needs is the age of
+        the feed that stopped — not the age of the seven that did not.
+        """
+        rows = [self._row("p1", "d1", f"m{i}", FRESH_TS) for i in range(7)]
+        rows.append(self._row("p1", "d1", "voltage", STALE_TS))
+        health = fleet_health_from_rows(rows, now=NOW)
+        assert health.devices["d1"].state is S
+        assert health.device_oldest_metric_updated["d1"] == STALE_TS
+
+    def test_a_no_data_device_has_no_oldest_timestamp(self):
+        """The guard is structural, not a convention callers must remember."""
+        rows = [
+            self._row("p1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "d1", "voltage", None),
+        ]
+        health = fleet_health_from_rows(rows, now=NOW)
+        assert health.devices["d1"].state is N
+        assert health.device_oldest_metric_updated["d1"] is None
+
+    def test_a_never_reported_device_has_no_oldest_timestamp(self):
+        rows = [self._row("p1", "d1", "temperature", None)]
+        health = fleet_health_from_rows(rows, now=NOW)
+        assert health.device_oldest_metric_updated["d1"] is None
+
+    def test_a_fully_fresh_device_still_gets_one(self):
+        """The field is about timestamp completeness, not about being stale."""
+        rows = [
+            self._row("p1", "d1", "temperature", FRESH_TS),
+            self._row("p1", "d1", "voltage", FRESH_TS),
+        ]
+        health = fleet_health_from_rows(rows, now=NOW)
+        assert health.device_oldest_metric_updated["d1"] == FRESH_TS

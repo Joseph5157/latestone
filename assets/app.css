@@ -5137,6 +5137,129 @@ body {
 }
 
 
+/* ---------- Command Center: Priority Investigation (Phase 10) ----------
+   The ranked RTL list. Its palette is the FRESHNESS one already used by
+   Fleet Health and the Situation Summary - never the Critical/Warning event
+   colours. A blind RTL is not "Critical" (ADR-001/ADR-002), and borrowing
+   the red would make a data-delivery panel look like an alarm queue, which
+   is precisely what ADR-009 exists to prevent.
+
+   NO_DATA therefore reads quieter than an event Critical while still
+   ranking above Stale. Rank is carried by POSITION and by the badge's
+   weight, not by escalating the hue. */
+.command-center__priority-summary {
+  margin: 0 0 var(--sp-3) 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.command-center__priorities {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.command-center__priority-row {
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.command-center__priority-row:first-child { padding-top: 0; }
+
+.command-center__priority-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.command-center__priority-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.command-center__tone-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* 600, not 700 - only Regular and SemiBold ship (tests/test_typography.py). */
+.command-center__priority-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.command-center__tone--no-data { color: var(--state-none-text); }
+
+.command-center__priority-badge--no-data { color: var(--state-none-text); }
+.command-center__priority-badge--stale   { color: var(--state-stale-text); }
+
+.command-center__priority-identity {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
+  min-width: 0;
+}
+
+.command-center__priority-device {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Truncates rather than wraps: a long plant name must not push the reason
+   line down and make rows uneven in a fixed-height cell. */
+.command-center__priority-context {
+  font-size: 12px;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.command-center__priority-reason {
+  margin: var(--sp-1) 0 0 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.command-center__priority-action {
+  display: inline-block;
+  margin-top: var(--sp-1);
+  font-size: 12px;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.command-center__priority-action:hover,
+.command-center__priority-action:focus-visible {
+  text-decoration: underline;
+}
+
+/* Same treatment as Recent Events: bound the HEIGHT, keep every row
+   reachable. The region takes focus so its lower rows are not visually
+   present but functionally unreachable (WCAG 2.1.1). */
+.command-center__priority-scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: var(--sp-2);
+}
+
+.command-center__priority-scroll:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+
 /* NOTE ON PLACEMENT: this block must stay LAST in the Command Center
    section. Media queries add no specificity, so it ties with the base
    rules above and wins only on source order. Placed before them, the
@@ -5365,6 +5488,22 @@ body {
   }
 
   .command-center__event-scroll {
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* Priority Investigation owns its own labelled scroll region for the same
+     reason, so its card body must not scroll too — nested scrollbars mean
+     the outer one steals the wheel and the inner rows become hard to
+     reach. */
+  .command-center__panels .command-center__card-body:has(.command-center__priority-scroll) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .command-center__priority-scroll {
     max-height: none;
     flex: 1 1 auto;
     min-height: 0;

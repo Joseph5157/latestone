@@ -10,7 +10,14 @@ from __future__ import annotations
 from dash import html
 
 from components.freshness_presentation import FRESHNESS_PRESENTATION
-from services.monitoring_service import Freshness
+from services.monitoring_service import Freshness, format_age
+
+#: Re-exported, not redefined. `format_age` now lives in the service beside
+#: `reading_age` because Command Center's service builds presentation-ready
+#: age text and may not import a component (AGENTS.md rule 8). Every existing
+#: caller still imports it from here.
+__all__ = ["FRESHNESS_LABELS", "format_age", "format_last_reading",
+           "freshness_badge", "freshness_class"]
 
 #: Kept as a public name: components.app_header imports it directly.
 FRESHNESS_LABELS = {state: p.label for state, p in FRESHNESS_PRESENTATION.items()}
@@ -28,20 +35,6 @@ def freshness_badge(freshness: Freshness, component_id: str | None = None):
 
 
 UTC_FORMAT = "%d %b %Y %H:%M"
-
-
-def format_age(age) -> str:
-    """A timedelta as a compact operator-facing age: `8 min`, `2h 17m`, `5d 3h`."""
-    if age is None:
-        return "—"
-    seconds = max(int(age.total_seconds()), 0)
-    minutes, hours = seconds // 60, seconds // 3600
-    days = seconds // 86400
-    if days:
-        return f"{days}d {hours % 24}h"
-    if hours:
-        return f"{hours}h {minutes % 60:02d}m"
-    return f"{minutes} min"
 
 
 def format_last_reading(last_updated, age) -> str:

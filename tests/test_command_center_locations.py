@@ -27,6 +27,9 @@ def _compose(monkeypatch, rows, *, plants, scope=UNRESTRICTED):
     # Phase 8: with no explicit selection the facade falls back to the
     # worst affected plant, which reaches the transformer label lookup.
     monkeypatch.setattr(svc, "list_transformers", lambda plant_id, *, scope: [])
+    # Phase 10: the priority ranking labels the attention population
+    # through the same batched lookup (ADR-008/ADR-009).
+    monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
     return svc.get_command_center_snapshot(scope=scope)
 
 
@@ -252,7 +255,10 @@ class TestNoNewQueryForRanking:
         is called for that ONE plant, never per row - which is the property
         worth pinning here.
         """
-        calls = {"fleet_health": 0, "events": 0, "plants": 0, "transformers": 0}
+        calls = {
+            "fleet_health": 0, "events": 0, "plants": 0,
+            "transformers": 0, "device_paths": 0,
+        }
 
         def _fh(now, *, scope):
             calls["fleet_health"] += 1
@@ -276,15 +282,24 @@ class TestNoNewQueryForRanking:
             calls["transformers"] += 1
             return []
 
+        def _device_paths(device_ids, *, scope):
+            calls["device_paths"] += 1
+            return []
+
         monkeypatch.setattr(svc, "get_fleet_health", _fh)
         monkeypatch.setattr(svc, "list_recent_device_events", _events)
         monkeypatch.setattr(svc, "list_plants", _plants)
         monkeypatch.setattr(svc, "list_transformers", _transformers)
+        monkeypatch.setattr(svc, "list_device_paths", _device_paths)
 
         snap = svc.get_command_center_snapshot(scope=UNRESTRICTED)
 
+        # Phase 10 added the priority ranking, which labels the attention
+        # population through the SAME batched lookup — one more read path,
+        # still exactly one call each (ADR-008/ADR-009).
         assert calls == {
-            "fleet_health": 1, "events": 1, "plants": 1, "transformers": 1
+            "fleet_health": 1, "events": 1, "plants": 1,
+            "transformers": 1, "device_paths": 1,
         }
         assert snap.affected_locations[0].affected_rtls == 2
         # Two transformers in the plant, but still exactly one lookup.

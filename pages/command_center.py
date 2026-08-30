@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from dash import html
 
-from components.command_center.primitives import panel_not_yet_built
-
 #: Situation Summary (Phase 5) is live: an empty region the callback fills
 #: with the four real cards. It sits in its own full-width row above the
 #: remaining slots — the operator's first read is the fleet's state, and a
@@ -37,12 +35,11 @@ SELECTED_LOCATION_ID = "command-center-selected-location"
 #: Recent Operational Events (Phase 9). Id unchanged from Phase 4.
 RECENT_EVENTS_ID = "command-center-recent-events"
 
-#: (component id, panel title) — the slots still awaiting their own phase
-#: (docs/context/CC1_ROADMAP.md Phase 10). Each renders an honest
-#: not-built-yet card until then.
-_PANEL_SLOTS: tuple[tuple[str, str], ...] = (
-    ("command-center-priority-investigation", "Priority Investigation"),
-)
+#: Priority Investigation (Phase 10) — the last Phase 4 slot to graduate.
+#: With this one live there are no placeholder panels left, so
+#: `panel_not_yet_built` is no longer imported here; it stays in primitives
+#: for the next surface that needs an honest not-built-yet state.
+PRIORITY_INVESTIGATION_ID = "command-center-priority-investigation"
 
 
 def layout() -> html.Div:
@@ -126,9 +123,14 @@ def layout() -> html.Div:
                             )
                         ],
                     ),
-                    *(
-                        html.Div(id=slot_id, children=[panel_not_yet_built(title)])
-                        for slot_id, title in _PANEL_SLOTS
+                    html.Div(
+                        id=PRIORITY_INVESTIGATION_ID,
+                        children=[
+                            html.P(
+                                "Loading priority investigation…",
+                                className="command-center__loading",
+                            )
+                        ],
                     ),
                 ],
             ),

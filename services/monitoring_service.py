@@ -296,6 +296,22 @@ class FleetHealth:
     #: Derived from the same rows as everything else — no second telemetry
     #: fetch. Feeds the Needs Attention queue's per-RTL age column.
     device_last_updated: dict[str, datetime | None] = field(default_factory=dict)
+    #: device_id -> OLDEST reading timestamp across the device's metrics, and
+    #: `None` unless EVERY one of its metrics carries a timestamp (ADR-009).
+    #:
+    #: The companion to the field above, and deliberately not a variant of
+    #: it. `device_last_updated` is a max, so on a device that is STALE
+    #: because one metric of eight stopped it holds the FRESHEST metric's
+    #: time — ageing or ranking a stale device on it understates the outage
+    #: (ADR-002 warns about exactly this; situation_summary.py:119 cites it).
+    #: The min is the age of the feed that actually stopped.
+    #:
+    #: The `None` for an incomplete device is the guard, not a gap: an age
+    #: exists exactly when every metric has a timestamp, so a NO_DATA device
+    #: offers no number for a caller to turn into a fabricated duration.
+    device_oldest_metric_updated: dict[str, datetime | None] = field(
+        default_factory=dict
+    )
     #: device_id -> transformer_id, captured from the same rows the rollups
     #: were built from (the join is already in the query). Backs
     #: `devices_for_transformer` so an exception tree can be walked without a
@@ -370,6 +386,13 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
     transformer_plant: dict[str, str] = {}
     plant_last_updated: dict[str, datetime | None] = {}
     device_last_updated: dict[str, datetime | None] = {}
+    # The min counterpart, plus the completeness flag that decides whether it
+    # may be published at all (ADR-009 D3). Tracked as a separate map rather
+    # than inferred from the rollup afterwards: "did every metric row carry a
+    # timestamp" is a fact about the ROWS, and reconstructing it from the
+    # aggregated state later would be a second, weaker definition.
+    device_oldest_seen: dict[str, datetime] = {}
+    device_metric_missing: dict[str, bool] = {}
     for row in rows:
         device_metric_states.setdefault(row.device_id, []).append(
             evaluate_freshness(row.reading_ts, reference)
@@ -383,6 +406,13 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
         # A row exists for every (device, metric) pair even when the device
         # never reported (reading_ts is None); those rows say nothing about
         # when the plant last delivered data and are skipped.
+        if row.reading_ts is None:
+            device_metric_missing[row.device_id] = True
+        else:
+            device_metric_missing.setdefault(row.device_id, False)
+            oldest = device_oldest_seen.get(row.device_id)
+            if oldest is None or row.reading_ts < oldest:
+                device_oldest_seen[row.device_id] = row.reading_ts
         if row.reading_ts is not None:
             current = plant_last_updated.get(row.plant_id)
             if current is None or row.reading_ts > current:
@@ -423,6 +453,16 @@ def fleet_health_from_rows(rows, now: datetime | None = None) -> FleetHealth:
         _transformer_plant=transformer_plant,
         plant_last_updated=plant_last_updated,
         device_last_updated=device_last_updated,
+        # Published only for devices whose every metric row carried a
+        # timestamp. An incomplete device is absent-as-None by construction.
+        device_oldest_metric_updated={
+            device_id: (
+                None
+                if device_metric_missing.get(device_id, True)
+                else device_oldest_seen.get(device_id)
+            )
+            for device_id in device_metric_states
+        },
         _device_transformer=device_transformer,
     )
 
@@ -678,13 +718,35 @@ def reading_age(last_updated: datetime | None, now: datetime | None = None):
     """How old the newest reading is, or None when there has never been one.
 
     Time arithmetic lives here rather than in a component: the service already
-    owns `_now()` and the naive/aware alignment that this needs. Formatting the
-    result for display is a presentation concern and stays in the components.
+    owns `_now()` and the naive/aware alignment that this needs.
     """
     if last_updated is None:
         return None
     reference = now or _now()
     return reference - _align_tz(last_updated, reference)
+
+
+def format_age(age) -> str:
+    """A timedelta as a compact operator-facing age: `8 min`, `2h 17m`, `5d 3h`.
+
+    Moved down from `components/freshness_badge.py` (which still re-exports it,
+    so every existing import keeps working) because a SERVICE now needs it:
+    Command Center's priority rows are presentation-ready by construction, and
+    the dependency direction is one-way — components/ -> services/, never
+    reversed (AGENTS.md rule 8). Copying it instead would have left two age
+    formats free to drift, which is exactly the failure the one-way rule and
+    the `CommandCenterSnapshot` facade both exist to prevent.
+    """
+    if age is None:
+        return "—"
+    seconds = max(int(age.total_seconds()), 0)
+    minutes, hours = seconds // 60, seconds // 3600
+    days = seconds // 86400
+    if days:
+        return f"{days}d {hours % 24}h"
+    if hours:
+        return f"{hours}h {minutes % 60:02d}m"
+    return f"{minutes} min"
 
 
 def series_context(series: list[Reading]) -> dict:

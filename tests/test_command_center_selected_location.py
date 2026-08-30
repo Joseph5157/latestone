@@ -38,6 +38,9 @@ def _compose(monkeypatch, rows, *, plants=(), transformers=(), selected=None,
     monkeypatch.setattr(
         svc, "list_transformers", lambda plant_id, *, scope: list(transformers)
     )
+    # Phase 10: the priority ranking labels the attention population through
+    # the same batched lookup (ADR-008/ADR-009).
+    monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
     return svc.get_command_center_snapshot(scope=scope, selected_plant_id=selected)
 
 
@@ -262,6 +265,7 @@ class TestTransformerRankingRules:
         monkeypatch.setattr(
             svc, "list_transformers", lambda plant_id, *, scope: list(TRANSFORMERS)
         )
+        monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
         monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
 
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])

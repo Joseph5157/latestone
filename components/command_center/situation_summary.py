@@ -17,12 +17,13 @@ from __future__ import annotations
 from dash import html
 
 from components.command_center.primitives import cc_card
+from services.command_center_service import NO_DATA_EXPLANATION
 
-#: Frozen copy. A NO_DATA RTL is one where *any single* monitored metric has
-#: never reported — its other metrics may be delivering fine (ADR-002). This
-#: sentence is the honest description of that, and the reason no age bucket
-#: or "never reported" label can be shown beside it.
-NO_DATA_EXPLANATION = "At least one monitored metric has no reading."
+#: Re-exported, not redefined. The sentence moved down to the facade in
+#: Phase 10 because the Priority Investigation ROWS carry it too, and a
+#: service may not import a component (AGENTS.md rule 8). Two copies of the
+#: one honest description of NO_DATA is exactly the drift ADR-002 forbids.
+__all__ = ["NO_DATA_EXPLANATION", "INVENTORY_SUBTITLE", "situation_summary_panels"]
 
 #: Frozen by the user. Deliberately not "Total Assets" or "Registered
 #: Assets": both would name the Managed-RTL administrative population

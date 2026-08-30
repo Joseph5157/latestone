@@ -64,10 +64,16 @@ class TestCommandCenterLayout:
         """Phase 9: persisted operational events. Id unchanged from Phase 4."""
         assert find_by_id(layout(), "command-center-recent-events") is not None
 
-    def test_the_remaining_panel_is_still_a_named_placeholder(self):
-        """Phase 10 (docs/context/CC1_ROADMAP.md). The shell names every slot
-        still to come, so nothing is silently missing when content lands."""
-        assert "Priority Investigation" in text_of(layout())
+    def test_priority_investigation_is_a_live_region_not_a_placeholder(self):
+        """Phase 10: the ranked RTL list, the last Phase 4 slot to graduate.
+        Id unchanged from Phase 4, so the shell's DOM contract held across
+        every phase that filled it."""
+        assert find_by_id(layout(), "command-center-priority-investigation") is not None
+
+    def test_no_placeholder_panel_remains(self):
+        """Every named slot now carries real content. A leftover "not yet
+        available" card would understate a finished cockpit."""
+        assert "Not yet available in this build." not in text_of(layout())
 
     def test_panels_do_not_claim_no_data_or_unavailable(self):
         """These panels are not built yet - a different fact from evaluated

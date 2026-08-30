@@ -57,6 +57,9 @@ def _snapshot_from_rows(monkeypatch, rows, *, scope=UNRESTRICTED, plants=None):
     # Phase 8: with no explicit selection the facade falls back to the
     # worst affected plant, which reaches the transformer label lookup.
     monkeypatch.setattr(svc, "list_transformers", lambda plant_id, *, scope: [])
+    # Phase 10: the priority ranking labels the attention population
+    # through the same batched lookup (ADR-008/ADR-009).
+    monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
     return svc.get_command_center_snapshot(scope=scope)
 
 def _stub_event(event_id, *, device_id="plant-01-t1-d1", event_type="power_down"):
@@ -197,6 +200,7 @@ class TestGetCommandCenterSnapshot:
 
         monkeypatch.setattr(svc, "list_recent_device_events", _fake_events)
         monkeypatch.setattr(svc, "list_plants", lambda *, scope: [])
+        monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
 
         svc.get_command_center_snapshot(scope=scope)
 
@@ -215,6 +219,7 @@ class TestGetCommandCenterSnapshot:
 
         monkeypatch.setattr(svc, "list_recent_device_events", _fake_events)
         monkeypatch.setattr(svc, "list_plants", lambda *, scope: [])
+        monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
 
         svc.get_command_center_snapshot(scope=UNRESTRICTED)
 

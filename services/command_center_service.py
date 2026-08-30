@@ -37,7 +37,14 @@ from services.hierarchy_service import (
     list_plants,
     list_transformers,
 )
-from services.monitoring_service import FleetHealth, Freshness, get_fleet_health
+from services.monitoring_service import (
+    FleetHealth,
+    Freshness,
+    format_age,
+    get_fleet_health,
+    reading_age,
+    severity_rank,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +65,22 @@ RECENT_EVENT_ROWS = 10
 #: device-classified conditions takes. A word, not an absence: colour never
 #: carries meaning alone, so a neutral marker still needs a label beside it.
 TONE_EVENT = "event"
+
+#: A NO_DATA RTL is one where *any single* monitored metric has never
+#: reported - its other metrics may be delivering fine (ADR-002). This
+#: sentence is the honest description of that, and the reason no age bucket,
+#: no duration and no "never reported" label may appear beside it.
+#:
+#: Lives here rather than in the Situation Summary component (which now
+#: re-exports it) because Phase 10's priority rows carry the same sentence
+#: and a service may not import a component (AGENTS.md rule 8).
+NO_DATA_EXPLANATION = "At least one monitored metric has no reading."
+
+#: How many RTLs the Priority Investigation panel names (ADR-009 D5). One
+#: cell of a fixed cockpit, and the point is to name a FIRST MOVE, not to
+#: enumerate a population the Situation Summary already counted. The
+#: label lookup behind the panel is bounded by this same number.
+PRIORITY_ROWS = 8
 TONE_EVENT_LABEL = "Event"
 
 #: An event attributed to a transformer but to no device and no reported UID
@@ -323,10 +346,13 @@ def _recent_event(event, paths: dict, reference: datetime) -> RecentEvent:
     )
 
 
-def _recent_events(
-    events, reference: datetime, scope: DeviceScope
-) -> tuple[RecentEvent, ...]:
-    """The visible event rows, labelled in ONE batched lookup (ADR-008).
+def _recent_events(events, reference: datetime, paths: dict) -> tuple[RecentEvent, ...]:
+    """The visible event rows, over labels already resolved.
+
+    Takes the path map rather than fetching one: Phase 10 needs the same
+    lookup for the priority rows, and the facade calls each approved read
+    path AT MOST ONCE per render (ADR-008, this module's own docstring).
+    Two calls would still be two queries, however batched each one is.
 
     Order is the repository's, untouched: it already sorts `event_ts DESC,
     event_id DESC` (INGEST-D4 tiebreak), and re-sorting here would be a
@@ -335,13 +361,172 @@ def _recent_events(
     newer Startup and quietly turn a chronology into a priority queue, which
     is the alarm-management system this panel is explicitly not.
     """
-    device_ids = [e.device_id for e in events if e.device_id is not None]
-    paths = (
-        {p.device_id: p for p in list_device_paths(device_ids, scope=scope)}
-        if device_ids
-        else {}
-    )
     return tuple(_recent_event(event, paths, reference) for event in events)
+
+
+#: CSS tone keys for the two attention states. Deliberately the freshness
+#: vocabulary, not the event vocabulary - a NO_DATA RTL is not "Critical"
+#: (ADR-001/ADR-002), and giving it that word here is how the two would
+#: start to look like one thing.
+TONE_NO_DATA = "no-data"
+TONE_STALE = "stale"
+
+_PRIORITY_BADGE = {Freshness.NO_DATA: "NO DATA", Freshness.STALE: "STALE"}
+_PRIORITY_TONE = {Freshness.NO_DATA: TONE_NO_DATA, Freshness.STALE: TONE_STALE}
+
+
+@dataclass(frozen=True)
+class PriorityRTL:
+    """One RTL the operator should open, presentation-ready (ADR-009).
+
+    A CURRENT-STATE row, unlike RecentEvent above. It says "this RTL's data
+    is not current now" - which is a fact freshness can establish - and it
+    never says anything happened, which freshness cannot.
+    """
+
+    device_id: str
+    #: The device CODE where the label resolved, else the stable id. Never
+    #: absent: this is by definition a device the panel just told the
+    #: operator to investigate first.
+    device_label: str
+    state: Freshness
+    #: CSS tone key - TONE_NO_DATA | TONE_STALE.
+    tone: str
+    badge_label: str
+    #: "Plant / Transformer", or None when the label lookup found nothing.
+    context_label: str | None
+    #: The formatted age of the LAGGING metric, or None for NO_DATA - where
+    #: no age exists to state (ADR-009 D3).
+    age_label: str | None
+    #: The one honest sentence for this row's state.
+    reason: str
+    #: Always present. The device is registered by construction - it came out
+    #: of the monitored population - so only its NAME can be missing, never
+    #: its route.
+    asset_href: str
+
+
+def _priority_sort_key(state: Freshness):
+    """Two different orders for two different questions (ADR-009 D2).
+
+    NO_DATA has no age to sort on - that is the entire point of D3 - so it
+    sorts by where the RTL IS. STALE sorts by how long its feed has been
+    silent. `device_id` closes both, so the order is fully determined.
+    """
+    if state is Freshness.NO_DATA:
+        return lambda row: (
+            row["plant_name"].casefold(),
+            row["transformer_code"].casefold(),
+            row["device_id"],
+        )
+    return lambda row: (row["oldest"], row["device_id"])
+
+
+def _priority_rtls(
+    fleet_health: FleetHealth,
+    plant_names: dict[str, str],
+    paths: dict,
+    reference: datetime,
+) -> tuple[tuple[PriorityRTL, ...], int]:
+    """The ranked RTLs to investigate first, and how many qualified.
+
+    Composed from the `FleetHealth` already fetched plus the label map the
+    facade resolved once. No event participates in membership or in order: an
+    occurrence proves something happened at a moment, not that the RTL is in
+    that condition now, so letting it reorder a current-state queue would
+    smuggle back the attention bucket ADR-002 removed.
+
+    The caller resolves labels for the WHOLE attention population, not only
+    the eight rows that survive the cap, because the NO_DATA order is BY
+    PLANT NAME and the names are what decide which eight those are.
+    Ordering on the displayed name rather than on an id is the rule
+    `_affected_locations` already follows one level up: an order keyed on
+    something the operator cannot see reads as arbitrary.
+    """
+    attention = [
+        (device_id, rollup.state)
+        for device_id, rollup in fleet_health.devices.items()
+        if rollup.state in (Freshness.STALE, Freshness.NO_DATA)
+    ]
+    if not attention:
+        return (), 0
+
+    rows = []
+    for device_id, state in attention:
+        path = paths.get(device_id)
+        transformer_id = fleet_health._device_transformer.get(device_id, "")
+        rows.append(
+            {
+                "device_id": device_id,
+                "state": state,
+                "path": path,
+                # Sort keys fall back to ids so an unlabelled device keeps a
+                # determined position instead of raising or sorting first.
+                "plant_name": (
+                    path.plant_name if path else plant_names.get(transformer_id, "")
+                ) or "",
+                "transformer_code": (path.transformer_code if path else "") or "",
+                "oldest": fleet_health.device_oldest_metric_updated.get(device_id),
+            }
+        )
+
+    ordered: list[dict] = []
+    # NO_DATA before STALE, via the service that owns the severity ordering
+    # rather than a private copy of it (monitoring_service.severity_rank's
+    # own docstring asks callers to do exactly this).
+    for state in sorted(
+        (Freshness.NO_DATA, Freshness.STALE), key=severity_rank, reverse=True
+    ):
+        group = [r for r in rows if r["state"] is state]
+        if state is Freshness.STALE:
+            # A STALE device always has a timestamp on every metric (a
+            # missing one would make it NO_DATA), so `oldest` is present.
+            # The sentinel only keeps a corrupt row sortable and last.
+            for row in group:
+                if row["oldest"] is None:
+                    row["oldest"] = datetime.max.replace(tzinfo=timezone.utc)
+        ordered.extend(sorted(group, key=_priority_sort_key(state)))
+
+    return (
+        tuple(_priority_row(row, reference) for row in ordered[:PRIORITY_ROWS]),
+        len(ordered),
+    )
+
+
+def _priority_row(row: dict, reference: datetime) -> PriorityRTL:
+    """One ranked RTL as the operator reads it.
+
+    The age sentence is built HERE, not in the component, so the number the
+    row displays and the number the ranking sorted on are the same value
+    (ADR-009 D3/D4).
+    """
+    device_id = row["device_id"]
+    state = row["state"]
+    path = row["path"]
+
+    if state is Freshness.NO_DATA:
+        age_label = None
+        reason = NO_DATA_EXPLANATION
+    else:
+        age_label = format_age(reading_age(row["oldest"], reference))
+        # Names the metric it measures. NOT "latest available monitored
+        # data": that phrase describes a max, and this number is a min
+        # (ADR-009 D4).
+        reason = f"Oldest monitored metric last reported {age_label} ago"
+
+    return PriorityRTL(
+        device_id=device_id,
+        device_label=path.device_code if path else device_id,
+        state=state,
+        tone=_PRIORITY_TONE[state],
+        badge_label=_PRIORITY_BADGE[state],
+        context_label=(
+            f"{path.plant_name} / {path.transformer_code}" if path else None
+        ),
+        age_label=age_label,
+        reason=reason,
+        asset_href=device_href(device_id),
+    )
 
 
 @dataclass(frozen=True)
@@ -396,6 +581,15 @@ class CommandCenterSnapshot:
     #: Plants holding at least one No Data RTL. Counts PLANTS, not devices:
     #: two blind RTLs in one plant is one affected location.
     no_data_affected_plants: int
+
+    #: The RTLs to open first, ranked, capped at PRIORITY_ROWS (ADR-009).
+    #: Freshness only - no event affects membership or order.
+    priority_rtls: tuple[PriorityRTL, ...]
+
+    #: How many RTLs qualified before the cap. Carried so the panel can say
+    #: "8 of 23" honestly instead of implying it is showing all of them, and
+    #: so the component never has to recount the attention population.
+    priority_total: int
 
     #: The classified electrical conditions and their current-state
     #: availability. Constant in CC-1 (every current_count is None) but
@@ -598,13 +792,38 @@ def _selected_location(
     )
 
 
+
+def _device_paths_for(event_records, fleet_health: FleetHealth, scope: DeviceScope) -> dict:
+    """Resolve device labels ONCE for everything on the page that needs them.
+
+    Two populations want names: the devices the visible events happened to,
+    and the RTLs the priority ranking will order. They overlap freely, and
+    both are bounded - the events by RECENT_EVENT_ROWS, the attention set by
+    the caller's own scope - so their union is one modest `IN (...)`.
+
+    Asking twice would be the N+1 shape in miniature: the very thing
+    ADR-008's batched lookup exists to remove.
+    """
+    device_ids = {e.device_id for e in event_records if e.device_id is not None}
+    device_ids.update(
+        device_id
+        for device_id, rollup in fleet_health.devices.items()
+        if rollup.state in (Freshness.STALE, Freshness.NO_DATA)
+    )
+    if not device_ids:
+        return {}
+    return {
+        p.device_id: p
+        for p in list_device_paths(sorted(device_ids), scope=scope)
+    }
+
+
 def _read_recent_events(
     *,
     scope: DeviceScope,
-    reference: datetime,
     event_limit: int,
     include_unregistered: bool,
-) -> tuple[tuple[RecentEvent, ...], bool]:
+) -> tuple[list, bool]:
     """The events read, behind its own failure boundary (ADR-008).
 
     Every other read in this façade answers "what is the state of the
@@ -621,18 +840,23 @@ def _read_recent_events(
 
     The boundary is deliberately one-directional: a `get_fleet_health` or
     label failure still fails the whole snapshot, because those ARE the page.
+
+    Returns the RAW records. Labelling happens after this boundary, in the
+    one lookup shared with the priority rows — so a read that failed
+    contributes no ids to it and costs nothing.
     """
     try:
-        events = list_recent_device_events(
-            event_types=event_semantics.mapped_event_types(),
-            allowed_device_ids=scope.device_ids,
-            include_unattributed=include_unregistered,
-            limit=min(event_limit, RECENT_EVENTS_LIMIT),
-        )
-        return _recent_events(events, reference, scope), False
+        return list(
+            list_recent_device_events(
+                event_types=event_semantics.mapped_event_types(),
+                allowed_device_ids=scope.device_ids,
+                include_unattributed=include_unregistered,
+                limit=min(event_limit, RECENT_EVENTS_LIMIT),
+            )
+        ), False
     except Exception:
         logger.exception("Command Center could not read recent device events")
-        return (), True
+        return [], True
 
 
 def get_command_center_snapshot(
@@ -651,9 +875,9 @@ def get_command_center_snapshot(
     who may see it. The default is the safe one.
     """
     fleet_health = get_fleet_health(now, scope=scope)
-    recent_events, recent_events_failed = _read_recent_events(
+    reference = now or datetime.now(timezone.utc)
+    event_records, recent_events_failed = _read_recent_events(
         scope=scope,
-        reference=now or datetime.now(timezone.utc),
         event_limit=event_limit,
         include_unregistered=include_unregistered,
     )
@@ -661,6 +885,12 @@ def get_command_center_snapshot(
     # come from fleet_health above. Scoped like every other read so an
     # out-of-scope plant name can never surface (ADR-004).
     plant_names = {p.plant_id: p.name for p in list_plants(scope=scope)}
+
+    # ONE device-label lookup for the whole render, covering both consumers:
+    # the event rows (what happened) and the priority rows (what is not
+    # current now). Two separate batched calls would still be two queries,
+    # and this facade calls each approved read path at most once.
+    device_paths = _device_paths_for(event_records, fleet_health, scope)
 
     ranked_locations = _affected_locations(fleet_health, plant_names)
 
@@ -670,9 +900,13 @@ def get_command_center_snapshot(
     no_data = counts.get(Freshness.NO_DATA, 0)
     attention = stale + no_data
 
+    priority_rtls, priority_total = _priority_rtls(
+        fleet_health, plant_names, device_paths, reference
+    )
+
     return CommandCenterSnapshot(
         fleet_health=fleet_health,
-        recent_events=recent_events,
+        recent_events=_recent_events(event_records, reference, device_paths),
         recent_events_failed=recent_events_failed,
         monitored_device_count=monitored,
         fresh_rtls=counts.get(Freshness.FRESH, 0),
@@ -684,6 +918,8 @@ def get_command_center_snapshot(
         plant_count=fleet_health.plant_count,
         transformer_count=len(fleet_health.transformers),
         no_data_affected_plants=_plants_with_no_data(fleet_health),
+        priority_rtls=priority_rtls,
+        priority_total=priority_total,
         electrical_conditions=ELECTRICAL_CONDITIONS,
         affected_locations=ranked_locations,
         selected_location=_selected_location(

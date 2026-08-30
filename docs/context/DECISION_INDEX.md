@@ -21,21 +21,22 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) | Device scope is authorization-derived; no page may offer a scope selector | Approved | `9966bd7` |
 | [ADR-005](../decisions/ADR-005-auto-refresh-is-page-owned-polling.md) | Auto-refresh is a page-owned `dcc.Interval`, not a shared "live" feed | Approved | `23642da` (precedent); Command Center's own interval not yet built |
 | [ADR-006](../decisions/ADR-006-route-scoped-theming-is-architecture.md) | Route-scoped dark/light theming is CC-1 Phase-1 architecture, not later polish | Approved | not yet |
-| [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) | The CC-1 event demo seed must call `ingest_event()`, never `insert_device_event()` directly | Approved | not yet |
-| [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) | Command Center's read side is `get_fleet_health()` + `list_recent_device_events()`, never new SQL or Fleet Overview's presentation components | Approved | `1940b93`, `bb1e2e9` (precedent); Command Center's own call sites not yet built |
+| [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) | The CC-1 event demo seed must call `ingest_event()`, never `insert_device_event()` directly | Approved | `a49620f` |
+| [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) | Command Center's read side is `get_fleet_health()` + `list_recent_device_events()` + the batched `list_device_paths()`, never new SQL or Fleet Overview's presentation components | Approved | `1940b93`, `bb1e2e9` (precedent); Command Center's call sites `a49620f` |
+| [ADR-009](../decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md) | Priority Investigation ranks on freshness only; a STALE age is the OLDEST metric's timestamp, and exists only when every metric has one | Approved | not yet |
 
 ## Reading this table
 
-- **All eight currently gate CC-1** (`docs/context/ACTIVE_GATE.md` links the
-  subset each gate actually touches — don't load all eight for every CC-1
+- **All nine currently gate CC-1** (`docs/context/ACTIVE_GATE.md` links the
+  subset each gate actually touches — don't load all nine for every CC-1
   task; load what the gate names).
-- Five of the eight (001-004, 008) are not new decisions invented for CC-1 —
+- Five of the nine (001-004, 008) are not new decisions invented for CC-1 —
   they are pre-existing, already-shipped behaviour (event semantics, fleet
   freshness, the plant schema, ROLE-3 device scope, the `FleetHealth`/event
   read functions) that CC-1 must conform to and reuse. They are backfilled
   here because CC-1 depends on them and they had no durable record before
   now, not because CC-1 changed them.
-- Three (005-007) are CC-1-original decisions, approved in the frozen
+- Four (005-007, 009) are CC-1-original decisions, approved in the frozen
   planning pack (`command center/`) but not yet built.
 - ADR-002 was corrected 2026-08-29 (same day as ADR-008): its original
   "Affected areas" pointed at `components/fleet_condition.py` as something

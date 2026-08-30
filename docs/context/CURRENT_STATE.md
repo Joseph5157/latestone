@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-30T03:46:37Z
+Date: 2026-08-30T05:13:27Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `13f2bfc` "feat(cc1): default selection, composition split, distinct empty states" (not `main`)
-- Working tree: 25 entries — see below
+- current branch `cc-1-command-center-foundation` = `a49620f` "feat(cc1): Recent Operational Events â€” persisted event context (Phase 9)" (not `main`)
+- Working tree: 26 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2274 passed, 474 deselected in 14.26s
+- `python -m pytest -m "not db"` → 2366 passed, 474 deselected in 14.92s
 
 ## Branches
 
@@ -43,13 +43,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 11 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 12 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-8 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+9 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -61,38 +61,40 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-006-route-scoped-theming-is-architecture.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; implementation is CC-1 Phase 1 |
 | ADR-007-event-demo-seed-uses-ingest-event.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; the seed itself is a CC-1 Phase 0 prerequisite |
 | ADR-008-command-center-reuses-existing-read-paths.md | Approved | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6) |
+| ADR-009-priority-investigation-ranks-on-freshness-only.md | Approved | not yet |
 
 ## Active gate
 
-CC-1 Phase 9 — Recent Operational Events — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Phase 10 — Priority Investigation — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M assets/app.css
  M callbacks/command_center.py
+ M components/command_center/situation_summary.py
+ M components/freshness_badge.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/CC1_ROADMAP.md
  M docs/context/CURRENT_STATE.md
- M docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md
+ M docs/context/DECISION_INDEX.md
  M pages/command_center.py
- M repositories/plant_monitoring_repository.py
  M services/command_center_service.py
- M services/event_semantics.py
- M services/hierarchy_service.py
+ M services/monitoring_service.py
  M tests/test_command_center_locations.py
  M tests/test_command_center_page.py
  M tests/test_command_center_selected_location.py
  M tests/test_command_center_service.py
- M tests/test_event_semantics.py
+ M tests/test_freshness_aggregation.py
 ?? "command center/"
-?? components/command_center/recent_events.py
-?? db/seed_events_demo.py
+?? components/command_center/priority.py
+?? db/seed_freshness_demo.py
+?? docs/context/KNOWN_DEFECTS.md
+?? docs/decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
-?? tests/test_command_center_recent_events.py
-?? tests/test_command_center_recent_events_panel.py
-?? tests/test_device_paths_db.py
-?? tests/test_seed_events_demo.py
+?? tests/test_command_center_priority.py
+?? tests/test_command_center_priority_panel.py
+?? tests/test_seed_freshness_demo.py
 ```
 

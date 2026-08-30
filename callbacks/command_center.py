@@ -18,6 +18,7 @@ from components.command_center.affected_locations import (
 )
 from components.command_center.electrical import electrical_conditions_card
 from components.command_center.primitives import scope_indicator_text
+from components.command_center.priority import priority_investigation_card
 from components.command_center.recent_events import recent_events_card
 from components.command_center.selected_location import selected_location_card
 from components.command_center.situation_summary import situation_summary_panels
@@ -40,6 +41,7 @@ def register(app) -> None:
         Output("command-center-affected-locations", "children"),
         Output("command-center-selected-location", "children"),
         Output("command-center-recent-events", "children"),
+        Output("command-center-priority-investigation", "children"),
         Output("command-center-error", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
@@ -51,7 +53,7 @@ def register(app) -> None:
         which RTLs are stale.
         """
         if not context or context.get("route") != "command_center":
-            return (no_update,) * 7
+            return (no_update,) * 8
 
         try:
             # Resolved once per render (ADR-004/ADR-008), same discipline
@@ -78,6 +80,7 @@ def register(app) -> None:
                 # facade holds that boundary (ADR-008) and the card states
                 # which of "nothing happened" / "could not look" it has.
                 recent_events_card(snapshot),
+                priority_investigation_card(snapshot),
                 None,
             )
         except Exception:
@@ -86,7 +89,7 @@ def register(app) -> None:
             # left showing "Loading…" forever — a stuck spinner reads as a
             # slow fleet, not a failed read.
             logger.exception("Failed to load Command Center snapshot")
-            return no_update, [], [], [], [], [], error_panel()
+            return no_update, [], [], [], [], [], [], error_panel()
 
     @app.callback(
         Output("command-center-locations-list", "children"),
