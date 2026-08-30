@@ -7,7 +7,7 @@ Evidence: live `information_schema` FK inventory (below);
 `db/seed_plant_monitoring.py:202-205, 224-227, 257-260` (all three hierarchy
 inserts are already `ON CONFLICT DO NOTHING`);
 `db/hierarchy.py:83-87` (`build_hierarchy` output is stable by construction)
-Implemented-by: not yet
+Implemented-by: `29f5290`
 Fixes: SEED-RESET-1 (`docs/context/KNOWN_DEFECTS.md`)
 
 ## Context

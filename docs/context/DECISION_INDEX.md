@@ -24,20 +24,24 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) | The CC-1 event demo seed must call `ingest_event()`, never `insert_device_event()` directly | Approved | `a49620f` |
 | [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) | Command Center's read side is `get_fleet_health()` + `list_recent_device_events()` + the batched `list_device_paths()`, never new SQL or Fleet Overview's presentation components | Approved | `1940b93`, `bb1e2e9` (precedent); Command Center's call sites `a49620f` |
 | [ADR-009](../decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md) | Priority Investigation ranks on freshness only; a STALE age is the OLDEST metric's timestamp, and exists only when every metric has one | Approved | `ce5d4ac` |
+| [ADR-010](../decisions/ADR-010-monitoring-reset-preserves-operational-history.md) | A monitoring reset replaces measurements and preserves operational history; the destructive teardown is a separate, acknowledged `--purge`; no CASCADE | Approved | `29f5290` |
 
 ## Reading this table
 
-- **All nine currently gate CC-1** (`docs/context/ACTIVE_GATE.md` links the
-  subset each gate actually touches — don't load all nine for every CC-1
+- **Nine of the ten gate CC-1** (`docs/context/ACTIVE_GATE.md` links the
+  subset each gate actually touches — don't load all ten for every CC-1
   task; load what the gate names).
-- Five of the nine (001-004, 008) are not new decisions invented for CC-1 —
+- Five of the ten (001-004, 008) are not new decisions invented for CC-1 —
   they are pre-existing, already-shipped behaviour (event semantics, fleet
   freshness, the plant schema, ROLE-3 device scope, the `FleetHealth`/event
   read functions) that CC-1 must conform to and reuse. They are backfilled
   here because CC-1 depends on them and they had no durable record before
   now, not because CC-1 changed them.
-- Four (005-007, 009) are CC-1-original decisions, and all four are now
-  built. Every ADR in this table has an `Implemented-by` sha.
+- Four (005-007, 009) are CC-1-original decisions, and all four are built.
+- ADR-010 is not a CC-1 decision at all: it records the SEED-RESET-1 defect
+  fix, which CC-1 acceptance depended on but which governs the seeds rather
+  than the Command Center.
+- Every ADR in this table carries an `Implemented-by` sha.
 - ADR-002 was corrected 2026-08-29 (same day as ADR-008): its original
   "Affected areas" pointed at `components/fleet_condition.py` as something
   to reuse. It isn't — see ADR-008. The decision itself (`Requires
