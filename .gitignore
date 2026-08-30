@@ -49,3 +49,4 @@ opencode.json
 # scripts/check_client_release.py instead of hidden from git entirely.
 Power_RTL_Enterprise_UX_Execution_Roadmap.md
 docs/Professional_Workflow*.pdf
+.freshness-demo-capture.json

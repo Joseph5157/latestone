@@ -145,13 +145,33 @@ class TestItCannotDeleteByAccident:
         assert deletes
         assert all(".readings" in line for line in deletes)
 
-    def test_it_is_honest_that_there_is_no_one_command_undo(self):
-        """`_reset_data` deletes `devices`, which device_events,
-        user_device_assignments, rtl_active_state and rtl_programming_requests
-        all reference — so "just re-run the seed" is not true, and this
-        module must not say it is."""
-        assert "NO ONE-COMMAND UNDO" in SOURCE
-        assert "one-way local change" in SOURCE
+    def test_it_is_reversible(self):
+        """This assertion INVERTED at SEED-RESET-1, and that is the point.
+
+        It used to assert the module was honest about having no undo. The
+        undo now exists — capture before delete, `--restore` after — so the
+        test asserts the new contract rather than protecting the old
+        limitation (ADR-010 D5).
+        """
+        assert "IT IS REVERSIBLE" in SOURCE
+        assert "--restore" in SOURCE
+        assert "NO ONE-COMMAND UNDO" not in SOURCE
+
+    def test_the_capture_is_written_and_verified_before_any_delete(self):
+        """The safe direction to fail in: a crash between capture and delete
+        must leave the database untouched, not half-seeded."""
+        lines = SOURCE.splitlines()
+        capture_at = next(i for i, l in enumerate(lines) if "_write_capture(captured)" in l)
+        delete_at = next(i for i, l in enumerate(lines) if "removed = _apply(" in l)
+        assert capture_at < delete_at
+
+    def test_a_second_apply_is_refused_while_a_capture_exists(self):
+        """Overwriting the pristine capture with one taken from an
+        already-modified database would make the original unrecoverable."""
+        assert "already exists, so the demo is" in SOURCE
+
+    def test_restore_is_idempotent_by_construction(self):
+        assert "ON CONFLICT (device_id, metric, reading_ts) DO NOTHING" in SOURCE
 
     def test_it_refuses_when_the_hierarchy_is_missing(self):
         assert "Refused:" in SOURCE

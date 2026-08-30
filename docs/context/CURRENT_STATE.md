@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-30T06:30:16Z
+Date: 2026-08-30T11:20:18Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `b8315c8` "feat(cc1): page-owned auto-refresh for Command Center (Phase 12)" (not `main`)
-- Working tree: 5 entries — see below
+- current branch `cc-1-command-center-foundation` = `41d9de6` "docs(cc1): record ADR-005 as implemented by b8315c8" (not `main`)
+- Working tree: 13 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2426 passed, 474 deselected in 14.06s
+- `python -m pytest -m "not db"` → 2447 passed, 487 deselected in 19.40s
 
 ## Branches
 
@@ -43,13 +43,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 17 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 18 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-9 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+10 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -62,18 +62,27 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-007-event-demo-seed-uses-ingest-event.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; the seed itself is a CC-1 Phase 0 prerequisite |
 | ADR-008-command-center-reuses-existing-read-paths.md | Approved | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6) |
 | ADR-009-priority-investigation-ranks-on-freshness-only.md | Approved | `ce5d4ac` |
+| ADR-010-monitoring-reset-preserves-operational-history.md | Approved | not yet |
 
 ## Active gate
 
-CC-1 Phase 11 — Command Center Theme + Shell Integration — full detail in `docs/context/ACTIVE_GATE.md`.
+SEED-RESET-1 — restore safe monitoring reseed/reset behaviour — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-005-auto-refresh-is-page-owned-polling.md
+M .gitignore
+ M db/seed_freshness_demo.py
+ M db/seed_plant_monitoring.py
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ M docs/context/KNOWN_DEFECTS.md
+ M tests/test_seed_freshness_demo.py
 ?? "command center/"
+?? docs/decisions/ADR-010-monitoring-reset-preserves-operational-history.md
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
+?? tests/test_seed_freshness_roundtrip_db.py
+?? tests/test_seed_reset_contract.py
 ```
 

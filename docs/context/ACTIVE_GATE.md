@@ -2,121 +2,81 @@
 
 Status: Approved
 Date: 2026-08-30
-Gate: CC-1 Phase 11 — Command Center Theme + Shell Integration
-Precondition: Phase 10 complete and committed (`ce5d4ac`, `53a50f0`).
-Flow: **HOOK INSPECTION (complete — see below)** → DECIDE (complete) →
-IMPLEMENT → TEST → REGRESSION (`/plants`, Reports, Notifications) →
-VISUAL VERIFY → COMMIT → **FULL STOP**
+Gate: SEED-RESET-1 — restore safe monitoring reseed/reset behaviour
+Precondition: CC-1 feature implementation complete (`b8315c8`, `41d9de6`);
+all nine CC-1 ADRs implemented.
+Flow: FK INVENTORY (complete) -> DECIDE (complete, ADR-010) -> IMPLEMENT ->
+TEST -> COMMIT -> **FULL STOP**
 Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
-once local verification passes. Push NOT GRANTED. **Stop after committing.**
+as its OWN commit, separate from CC-1 acceptance. Push NOT GRANTED.
 
 ## Task
 
-Dark/light appearance for the Command Center, applied to the whole visible
-shell while `/command-center` is active — sidebar, workspace, utility
-chrome. Every other route keeps the appearance it has today.
+This is a defect gate, not a feature gate. The goal is NOT "make the reset
+command stop throwing a foreign-key error". It is:
 
-This is architecture, not polish (ADR-006). It is also **not** a licence to
-redesign: this gate is passed by a *small* hook, not by a better shell.
+> Make monitoring demo/reseed operations safe, deterministic, and explicit
+> about which persisted domains they preserve or reset.
 
-## THE OPEN QUESTION, ANSWERED
+## What the inventory found
 
-ADR-006 and `CC1_ROADMAP.md` Phase 11 both require this be settled against
-the real files before any edit, and both say to reject a plan that rewrites
-`app_shell.py` / `app_sidebar.py` / `app_header.py` to obtain dark mode.
+Every foreign key in the schema, read from `information_schema`, is
+`NO ACTION` — nothing cascades. Five tables reference `devices`:
+`readings`, `device_events`, `rtl_active_state`,
+`rtl_programming_requests`, `user_device_assignments`. `_reset_data`
+cleared only the first before deleting `devices`.
 
-**The hook already exists and is already shipped.** `assets/app.css:5294`
-uses `.app-root:has(.page--command-center)` and
-`.app-shell:has(.page--command-center)` to give the cockpit its fixed
-layout across the *whole shell* — sidebar included — with **zero Python
-changes to any of the three shell files** (commit `d0d9f3a`). The class is
-emitted by the Command Center page itself; the shell reacts to it.
+The decisive find: **deleting the hierarchy was never necessary.** All three
+hierarchy inserts are already `ON CONFLICT DO NOTHING`
+(`db/seed_plant_monitoring.py:202, 224, 257`) and `build_hierarchy` is
+documented as stable regardless of input ordering (`db/hierarchy.py:85-87`).
+So the fix removes deletes rather than adding them, and is strictly less
+destructive than what is there now.
 
-Theming needs that same hook, carrying a theme class rather than only a
-route class. Measured, not assumed:
+## The contract — ADR-010
 
-| Surface | Colour literals outside `:root` | Consequence |
-|---|---|---|
-| Command Center rules | **0** | themes purely by token override |
-| `.app-shell*` / `.app-sidebar*` | 9 | all `#ffffff` / `rgba(255,255,255,a)` |
-| `:root` token definitions | 19 | the palette itself |
-
-The sidebar is *already* a dark navy surface (`--color-brand: #1f3a5f`)
-carrying white text at alpha. Those nine literals are alpha-on-brand and
-survive both appearances unchanged.
-
-`app_header.py` is **not in the Command Center render path at all** — the
-page deliberately renders no `app_header` (`pages/command_center.py`), so
-one of the three files at issue is not even reachable from this gate.
-
-**Therefore: no shell file is rewritten. No shell file is edited.**
-
-## Decisions this gate makes
-
-- **D1 — The hook.** The Command Center page root carries its theme class
-  alongside `page--command-center`. Shell surfaces react via the existing
-  `:has()` technique. Scoped token overrides only; no global palette edit.
-- **D2 — Theme state is explicit.** A `Dark | Light` toggle inside Command
-  Center. NOT inferred from `prefers-color-scheme`: the frozen spec
-  (`command center/components/CC11_THEME_TOGGLE.md`) does not ask for it,
-  and a control room's ambient choice is not the operating system's to
-  make.
-- **D3 — Persistence is session-scoped.** A `dcc.Store` with
-  `storage_type="session"` — the lifetime ADR-006 named and the one
-  `auth-store` already uses. No account preference system, no cookie.
-- **D4 — The semantic palette is CC-SCOPED, and that is forced.** Two of
-  the required colours differ from what the app renders today:
-  - **No Data -> purple.** Today `--state-none-*` is grey and Fleet
-    Overview renders it. Redefining that token globally would change
-    `/plants`.
-  - **Warning -> amber, Stale -> ochre/gold.** Today they are the *same
-    token*: `--state-stale-text` backs both `.command-center__tone--warning`
-    and `.command-center__tone--stale`. The spec requires them
-    distinguishable.
-
-  Both therefore land as overrides inside the Command Center scope, in
-  both appearances, never in `:root`.
-- **D5 — Unavailable stays neutral.** It is the absence of a derivable
-  count (ADR-001), not a severity. Giving it a severity colour would
-  assert a state the model cannot support.
-
-## Constraints
-
-- IBM Plex Sans remains the face (`--font-ui`); no type change.
-- Telemetry/numeric values keep `font-variant-numeric: tabular-nums`.
-- Normal/fresh stays quiet and neutral — it is the majority state, and a
-  fleet that is fine should not glow.
-- Colour never carries meaning alone: every coloured state keeps its word.
-  Already true of the Phase 6/9/10 panels; it must survive the repaint.
+- **D1** `--reset` replaces `readings` only; the hierarchy reconciles itself.
+- **D2** Preservation is stated PER TABLE, not as "everything else":
+  events, assignments, active state, programming requests, audit log and
+  users are all preserved. Only measurements are replaced.
+- **D3** The destructive teardown becomes its own `--purge` flag: FK-safe
+  order, names each domain and row count first, refuses without an explicit
+  acknowledgement, never invoked by `--reset`.
+- **D4** No `CASCADE`. It would make the command succeed while silently
+  destroying history nothing can rebuild.
+- **D5** The freshness demo becomes REVERSIBLE: capture the exact rows
+  before deleting, `--restore` puts them back, `ON CONFLICT DO NOTHING`
+  makes both apply and restore converge rather than duplicate.
 
 ## Required tests
 
-- the theme class reaches the page root, and only there
-- toggling changes it; the choice survives a re-render
-- every dark rule is scoped — no dark token override at `:root` or on a
-  bare element selector
-- `--state-none-*` and `--state-stale-*` are unchanged in `:root`, so Fleet
-  Overview is untouched by construction
-- the semantic vocabulary keeps its labels (colour never alone)
-- Phase 5-10 panels render identically in structure under both appearances
-
-## Regression surface
-
-`/plants`, Reports and Notifications must be visually unchanged — the
-frozen spec names exactly these three. Fleet Overview is frozen.
+- reset/reseed hits no FK violation
+- no implicit or explicit `CASCADE` anywhere in the seeds
+- preservation/reset behaviour is explicit for EVERY dependent table
+- the FK-safe purge order is derived from the live schema, not hand-written
+- the freshness demo is deterministic for a fixed `now`
+- applying it twice is refused, not silently doubled
+- restore returns the affected readings EXACTLY
+- unrelated RTL readings unchanged
+- unrelated events unchanged
+- assignments unchanged
+- active state unchanged
+- programming requests unchanged
+- a failure partway through leaves no ambiguous half-seeded state
 
 ## Non-goals
 
-- **auto-refresh** — ADR-005, with its own semantics (cadence, preserving
-  Plant selection, last-good snapshot on failure) and its own gate. The
-  roadmap does not group it with theming, so this gate does not adopt it.
-- global dark mode for other routes; shell refactor; type/scale changes;
-  Asset Navigator behaviour changes; a new component library; any
-  `/` landing-route change; no push.
+- No CC-1 acceptance work in this commit (mixed-freshness verification,
+  EVT-D5 browser check, Recent Events footer copy, Affected Locations
+  height). Those are the NEXT gate and land separately.
+- No new Command Center feature work.
+- No schema migration: the capture is a developer-tool artifact, not a
+  domain table Alembic should own.
+- No push.
 
-## Carried forward, not in this gate
+## Then, and separately: CC-1 acceptance
 
-- EVT-D5 non-admin browser verification -> final acceptance checklist.
-- Recent Events footer wording -> "Open Notification Center ->", polish gate.
-- Mixed Fresh/STALE/NO_DATA browser verification -> blocked on SEED-RESET-1
-  (`docs/context/KNOWN_DEFECTS.md`), before Phase 12 acceptance.
+Once this defect is closed the acceptance tranche runs: mixed freshness
+visual verification, EVT-D5 both roles in the browser, the footer copy
+change, an explicit decision on Affected Locations height, the full
+1440/1366/1024 x dark/light matrix, and a final CC-1 acceptance record.

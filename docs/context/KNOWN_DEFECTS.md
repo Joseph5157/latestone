@@ -13,14 +13,34 @@ leaves when a commit fixes it — not when someone decides it is unimportant.
 
 | Id | Defect | Found | Fix before |
 |---|---|---|---|
-| SEED-RESET-1 | `seed_plant_monitoring --reset` cannot complete: FK dependents of `devices` are not cleared first | CC-1 Phase 10 (2026-08-30) | Phase 12 visual acceptance |
+| ~~SEED-RESET-1~~ | `seed_plant_monitoring --reset` cannot complete: FK dependents of `devices` are not cleared first | CC-1 Phase 10 (2026-08-30) | **RESOLVED 2026-08-30** — ADR-010 |
 
 ---
 
 ## SEED-RESET-1 — Restore safe monitoring reseed/reset behaviour
 
-**Status:** Open · **Found:** CC-1 Phase 10 · **Fix before:** Phase 12
-visual acceptance. Explicitly **not** in the Priority Investigation tranche.
+**Status:** RESOLVED (ADR-010) · **Found:** CC-1 Phase 10 · **Fixed:**
+2026-08-30, in its own commit as required.
+
+### How it was resolved
+
+Not by adding deletes — by removing them. All three hierarchy inserts were
+already `ON CONFLICT DO NOTHING` and `build_hierarchy` is deterministic, so
+deleting the hierarchy on reset was never necessary. `--reset` now replaces
+`readings` only; the destructive teardown moved to an explicit `--purge`
+that names what it destroys and refuses without a second acknowledgement.
+No `CASCADE`.
+
+Proven on the real database: `--reset` completed with 13 events, 96
+assignments and 2 active-state rows referencing `devices` — the exact
+condition that used to fail — and preserved every one of them while
+restoring readings to 1,383,360. The `db`-marked suite went green in the
+same run.
+
+The freshness demo is now reversible (capture -> apply -> restore), which
+was the acceptance blocker. See ADR-010 D5.
+
+The original analysis is kept below, because the reasoning is the record.
 
 ### The defect
 

@@ -7,10 +7,21 @@ production data loader.
 
 Usage:
     python -m db.seed_plant_monitoring [--reset]
+    python -m db.seed_plant_monitoring --purge --yes-destroy-operational-history
 
---reset  Delete all existing data (readings, devices, transformers, plants)
-         before seeding. Without --reset, seeding is skipped when readings
-         already exist.
+--reset  Replace the synthetic READINGS and nothing else. The hierarchy is
+         reconciled in place (every insert below is ON CONFLICT DO NOTHING and
+         build_hierarchy is deterministic), and events, assignments, active
+         state, programming requests, the audit log and users are all
+         preserved. Without --reset, seeding is skipped when readings already
+         exist. See ADR-010.
+
+--purge  The destructive teardown, deliberately NOT part of --reset. Deletes
+         the hierarchy and every dependent domain in FK-safe order, after
+         reporting what it will destroy, and refuses without a second
+         acknowledgement. It used to be what --reset did, which is the defect
+         SEED-RESET-1 records: a command named "reset" attempting a
+         demolition, and failing on a foreign key while doing it.
 """
 from __future__ import annotations
 
@@ -45,14 +56,124 @@ def _load_plants() -> list[dict]:
         return json.load(f)
 
 
-def _reset_data(schema: str) -> None:
-    """Delete data in FK-safe order."""
+#: What a RESET replaces. Exactly one table, and that is the whole decision
+#: (ADR-010 D1). The monitoring seed owns MEASUREMENTS; it does not own the
+#: record of what people and devices did.
+RESET_REPLACES = ("readings",)
+
+#: What a reset PRESERVES, named individually rather than as "everything
+#: else" — a contract that lists nothing cannot be checked (ADR-010 D2).
+#: A test asserts this covers every table in the schema.
+RESET_PRESERVES = (
+    "plants",
+    "transformers",
+    "devices",
+    "device_events",
+    "user_device_assignments",
+    "rtl_active_state",
+    "rtl_programming_requests",
+    "audit_log",
+    "message_forwarding",
+    "users",
+)
+
+#: FK-safe deletion order for the DESTRUCTIVE teardown only (ADR-010 D3).
+#: Children before parents, derived from the live `information_schema`
+#: inventory in ADR-010 — every constraint in this schema is NO ACTION, so
+#: nothing is removed implicitly and this order is the whole safety story.
+#: A test walks the real schema and fails if a new table lands outside it.
+PURGE_ORDER = (
+    "readings",
+    "device_events",
+    "rtl_active_state",
+    "user_device_assignments",
+    "rtl_programming_requests",
+    "devices",
+    "transformers",
+    "plants",
+)
+
+#: Domains --purge destroys that NOTHING can rebuild. Named so the operator
+#: reads them before the prompt, not after the deletion.
+PURGE_DESTROYS_IRRECOVERABLY = (
+    "device_events",
+    "user_device_assignments",
+    "rtl_active_state",
+    "rtl_programming_requests",
+)
+
+
+def _reset_measurements(schema: str) -> int:
+    """Replace the synthetic measurements. Nothing else is touched.
+
+    Deleting the hierarchy here is what used to break: four tables added by
+    later work reference `devices`, every constraint is NO ACTION, and none
+    of them was cleared first — so `--reset` failed outright on any database
+    that had registered an RTL or run the event seed (SEED-RESET-1).
+
+    Removing those deletes loses nothing, which is the part worth stating.
+    All three hierarchy inserts below are already `ON CONFLICT DO NOTHING`
+    and `build_hierarchy` is stable regardless of input ordering, so the same
+    30/71/120 rows with the same ids are produced on every run. Re-inserting
+    over an existing hierarchy was already a no-op; deleting it first was
+    only ever a way to make that no-op look like work.
+    """
     with session_scope() as session:
-        session.execute(text(f"DELETE FROM {schema}.readings"))
-        session.execute(text(f"DELETE FROM {schema}.devices"))
-        session.execute(text(f"DELETE FROM {schema}.transformers"))
-        session.execute(text(f"DELETE FROM {schema}.plants"))
-    print("  Reset complete — all data deleted.")
+        result = session.execute(text(f"DELETE FROM {schema}.readings"))
+        removed = result.rowcount or 0
+    print(f"  Reset: {removed} reading(s) replaced. Hierarchy and operational")
+    print("  history (events, assignments, active state, requests) preserved.")
+    return removed
+
+
+def _table_counts(schema: str, tables) -> dict:
+    with session_scope() as session:
+        return {
+            table: int(
+                session.execute(
+                    text(f"SELECT COUNT(*) FROM {schema}.{table}")
+                ).scalar_one()
+            )
+            for table in tables
+        }
+
+
+def purge(schema: str, *, acknowledged: bool = False) -> bool:
+    """The destructive teardown, separate from `--reset` on purpose.
+
+    Hiding this inside `--reset` is what produced SEED-RESET-1: a command
+    whose name promised a refresh quietly attempted a demolition. It now
+    states what it is about to destroy, with counts, and refuses without a
+    second explicit acknowledgement.
+
+    No CASCADE, here or on the constraints (ADR-010 D4). Cascading would make
+    the delete succeed while silently taking audit and assignment history
+    with it — the same defect wearing the fix's clothes, and harder to spot
+    because the error message disappears.
+    """
+    counts = _table_counts(schema, PURGE_ORDER)
+    print("PURGE will permanently delete:")
+    for table in PURGE_ORDER:
+        note = (
+            "  <- cannot be rebuilt by any seed"
+            if table in PURGE_DESTROYS_IRRECOVERABLY
+            else ""
+        )
+        print(f"  {counts[table]:>9,} rows  {schema}.{table}{note}")
+
+    if not acknowledged:
+        print(
+            "\nRefused. Re-run with --purge --yes-destroy-operational-history "
+            "if that is genuinely what you want.\n"
+            "To refresh measurements instead, use --reset."
+        )
+        return False
+
+    with session_scope() as session:
+        for table in PURGE_ORDER:
+            session.execute(text(f"DELETE FROM {schema}.{table}"))
+    print("\n  Purge complete.")
+    return True
 
 
 def _seed_readings_bulk(
@@ -167,8 +288,8 @@ def seed(*, reset: bool = False) -> None:
             sys.exit(1)
 
     if reset:
-        print("Resetting existing data...")
-        _reset_data(schema)
+        print("Resetting measurements...")
+        _reset_measurements(schema)
 
     # Load plants
     plants = _load_plants()
@@ -288,8 +409,40 @@ def seed(*, reset: bool = False) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed plant_monitoring schema")
-    parser.add_argument("--reset", action="store_true", help="Delete existing data before seeding")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help=(
+            "Replace the synthetic readings. Hierarchy and operational "
+            "history (events, assignments, active state, programming "
+            "requests) are preserved."
+        ),
+    )
+    parser.add_argument(
+        "--purge",
+        action="store_true",
+        help=(
+            "DESTRUCTIVE. Delete the hierarchy and every dependent domain. "
+            "Reports what it would destroy and refuses without "
+            "--yes-destroy-operational-history."
+        ),
+    )
+    parser.add_argument(
+        "--yes-destroy-operational-history",
+        action="store_true",
+        dest="acknowledged",
+        help="Second acknowledgement required by --purge.",
+    )
     args = parser.parse_args()
+
+    if args.purge:
+        # Deliberately does not fall through into a seed: a purge and a
+        # rebuild are two decisions, and running them as one is how the old
+        # --reset came to hide a demolition behind a refresh.
+        if not purge(monitoring.schema, acknowledged=args.acknowledged):
+            sys.exit(1)
+        return
+
     seed(reset=args.reset)
 
 
