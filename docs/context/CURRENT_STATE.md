@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-30T06:29:02Z
+Date: 2026-08-30T06:30:16Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `a41bf16` "docs(cc1): record ADR-006 as implemented by 267b11a" (not `main`)
-- Working tree: 9 entries — see below
+- current branch `cc-1-command-center-foundation` = `b8315c8` "feat(cc1): page-owned auto-refresh for Command Center (Phase 12)" (not `main`)
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2426 passed, 474 deselected in 14.33s
+- `python -m pytest -m "not db"` → 2426 passed, 474 deselected in 14.06s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 16 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 17 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -57,7 +57,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-002-fleet-attention-is-freshness-only.md | Approved | `29a4c5a` (Fleet Condition panels on the Overview page) |
 | ADR-003-location-is-plant.md | Approved | `699ece0` (normalized `plant_monitoring` schema) |
 | ADR-004-device-scope-is-not-user-selectable.md | Approved | `9966bd7` (`DeviceScope` as the single device-visibility authority), merged to `main` at `71b8db6` |
-| ADR-005-auto-refresh-is-page-owned-polling.md | Approved | `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting) |
+| ADR-005-auto-refresh-is-page-owned-polling.md | Approved | `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting), `b8315c8` (Command Center's own interval and failure contract) |
 | ADR-006-route-scoped-theming-is-architecture.md | Approved — implemented at CC-1 Phase 11 | `267b11a` |
 | ADR-007-event-demo-seed-uses-ingest-event.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; the seed itself is a CC-1 Phase 0 prerequisite |
 | ADR-008-command-center-reuses-existing-read-paths.md | Approved | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6) |
@@ -70,14 +70,10 @@ CC-1 Phase 11 — Command Center Theme + Shell Integration — full detail in `d
 ## Working tree
 
 ```
-M assets/app.css
- M callbacks/command_center.py
- M docs/context/CC1_ROADMAP.md
- M pages/command_center.py
+M docs/context/DECISION_INDEX.md
+ M docs/decisions/ADR-005-auto-refresh-is-page-owned-polling.md
 ?? "command center/"
-?? components/command_center/refresh.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
-?? tests/test_command_center_refresh.py
 ```
 

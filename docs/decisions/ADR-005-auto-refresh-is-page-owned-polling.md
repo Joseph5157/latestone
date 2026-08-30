@@ -3,7 +3,7 @@
 Status: Approved
 Date: 2026-08-28
 Evidence: `pages/device_dashboard.py:216` (existing page-owned `dcc.Interval`); `components/fleet_summary.py:153` and `tests/test_fleet_overview.py:442` (Fleet Overview deliberately has none); `config/settings.py:136` (`refresh_interval_seconds`)
-Implemented-by: `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting)
+Implemented-by: `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting), `b8315c8` (Command Center's own interval and failure contract)
 Supersedes: an assumption that an app-wide refresh interval exists for Command Center to hook into
 
 ## Decision
