@@ -4804,6 +4804,14 @@ body {
 /* Unavailable: neutral, dashed, and never mistakable for a measured value.
    The dash sits before the word so the row reads as "no value — and here
    is why" rather than as an empty cell that failed to populate. */
+/* The `dd` in the selector is LOAD-BEARING, not decoration. Without it this
+   rule is 0,1,0 and loses to `.command-center__condition-facts dd` at 0,1,1
+   — so the Unavailable value silently rendered in PRIMARY text colour, the
+   opposite of the muted treatment this rule was written to give it. Invisible
+   on the light canvas the app shipped with; obvious the moment Phase 11's
+   dark canvas raised the contrast between the two. A test now asserts this
+   rule out-specifies that one rather than merely existing. */
+.command-center__condition-facts dd.command-center__unavailable,
 .command-center__unavailable {
   display: inline-flex;
   align-items: baseline;
@@ -5508,4 +5516,179 @@ body {
     flex: 1 1 auto;
     min-height: 0;
   }
+}
+
+
+/* ==========================================================================
+   Command Center: route-scoped appearance (CC-1 Phase 11, ADR-006)
+   ==========================================================================
+
+   The application's FIRST theme, and the whole design goal is containment.
+   Every rule below is scoped to `.page--command-center`, which exists only
+   while that route is mounted — so `/plants`, Reports and Notifications are
+   unchanged by construction rather than by re-inspection.
+
+   THE HOOK IS NOT NEW. `.app-root:has(...)` / `.app-shell:has(...)` is the
+   same technique the fixed cockpit above already uses, and the same one
+   `.app-shell:has(.login-page)` used before that. It reaches the sidebar and
+   the utility column from a class the PAGE renders, which is why no shell
+   file was touched to obtain a theme.
+
+   Custom properties inherit, so redefining the tokens on the shell ancestor
+   re-themes everything inside it — workspace, sidebar and utility chrome —
+   from one block. That inheritance is the reason this is ~80 lines instead
+   of a repaint of every rule.
+
+   NOT gated on viewport height, unlike the cockpit block: appearance is not
+   a layout concern, and a short window still needs legible colours. */
+
+/* --------------------------------------------------------------------------
+   Semantics — applied in BOTH appearances, scoped by ROUTE not by theme.
+
+   Two of these differ from what the rest of the application renders, which
+   is exactly why they cannot live in `:root`:
+
+   - No Data is PURPLE here; `--state-none-*` is grey and Fleet Overview
+     renders it.
+   - Warning and Stale must be distinguishable; today they are the SAME
+     token (`--state-stale-text` backs both).
+
+   Colour still never carries meaning alone — every one of these tones has a
+   word beside it in the markup (Phases 6, 9, 10). These values change what
+   the word is painted in, never whether it is there. */
+.app-root:has(.page--command-center) {
+  /* INHERITED text must be themed, not just text that has its own rule.
+     `body` sets a hardcoded light `color`, and any element without a colour
+     rule of its own inherits it — the page H1 has no such rule, so in dark
+     mode it rendered #1f2937 on #121820: 1.22:1, effectively invisible.
+     Setting it here means every un-ruled descendant follows the appearance
+     instead of only the elements someone remembered to style. In light this
+     resolves to the same value `body` already had, so it is a no-op there. */
+  color: var(--color-text);
+
+  --cc-fresh:    var(--color-muted);   /* quiet on purpose: the majority state */
+  --cc-stale:    #8a5a00;              /* ochre/gold */
+  --cc-no-data:  #5b21b6;              /* purple */
+  --cc-warning:  #9a4a06;              /* amber */
+  --cc-critical: #991b1b;              /* red */
+}
+
+/* Dark appearance. Canvas #121820 (ADR-006), panels slightly lighter than
+   canvas, cool muted gray/blue borders, near-white — never pure white —
+   primary text, muted gray secondary.
+
+   The semantic tones are re-stated at dark-appropriate luminance: the light
+   values above are chosen for contrast on white and would sit at roughly
+   3:1 on #1a232e, which is below the 4.5:1 these carry on light. */
+.app-root:has(.page--command-center.cc-theme--dark) {
+  --color-bg: #121820;
+  --color-surface: #1a232e;
+  --color-border: #2b3949;
+  --color-text: #e6ebf2;
+  --color-muted: #98a4b5;
+  --color-brand: #0d131a;
+  --color-accent: #7aa9ff;
+  --color-accent-bg: #16233a;
+  --focus-ring: 0 0 0 3px rgba(122, 169, 255, 0.5);
+
+  --cc-fresh:    var(--color-muted);
+  --cc-stale:    #e3b341;
+  --cc-no-data:  #b79cf5;
+  --cc-warning:  #f0a75a;
+  --cc-critical: #ff8085;
+}
+
+/* The shell surfaces. They inherit the tokens above; these rules only paint
+   the two elements that carry their own background. */
+.app-root:has(.page--command-center.cc-theme--dark),
+.app-shell:has(.page--command-center.cc-theme--dark) {
+  background: var(--color-bg);
+}
+
+.app-shell:has(.page--command-center.cc-theme--dark) .app-sidebar-shell {
+  background: var(--color-brand);
+  border-right-color: var(--color-border);
+}
+
+/* The utility column (Asset Navigator) is chrome, not content — it follows
+   the shell, and the frozen spec names it explicitly. */
+.app-shell:has(.page--command-center.cc-theme--dark) .app-shell__utility {
+  background: var(--color-surface);
+  border-left-color: var(--color-border);
+}
+
+/* The active nav item is a light pill with brand-navy text — a pairing that
+   inverts in dark, where `--color-brand` becomes the near-black sidebar
+   ground and the pill becomes a dark surface: 1.18:1, unreadable. The
+   selected state is re-expressed with the accent pair instead of inheriting
+   a contrast that only worked in one appearance. */
+.app-shell:has(.page--command-center.cc-theme--dark) .app-sidebar__link--active {
+  background: var(--color-accent-bg);
+  color: var(--color-text);
+}
+
+/* --------------------------------------------------------------------------
+   The tone vocabulary, re-pointed at the semantic tokens above. Route-scoped
+   selectors, so they outrank the base rules by specificity without those
+   base rules changing — Fleet Overview keeps reading `--state-*`. */
+.page--command-center .command-center__tone--fresh    { color: var(--cc-fresh); }
+.page--command-center .command-center__tone--stale    { color: var(--cc-stale); }
+.page--command-center .command-center__tone--no-data  { color: var(--cc-no-data); }
+.page--command-center .command-center__tone--none     { color: var(--cc-fresh); }
+.page--command-center .command-center__tone--warning  { color: var(--cc-warning); }
+.page--command-center .command-center__tone--critical { color: var(--cc-critical); }
+.page--command-center .command-center__tone--event    { color: var(--color-muted); }
+
+.page--command-center .command-center__priority-badge--no-data { color: var(--cc-no-data); }
+.page--command-center .command-center__priority-badge--stale   { color: var(--cc-stale); }
+
+/* Unavailable needs NO rule here, and that is the point worth recording.
+   `.command-center__unavailable` already resolves to `--color-muted`, which
+   the dark block redefines — so it follows the appearance while staying
+   neutral in both, with nothing added. It is the absence of a derivable
+   count (ADR-001), not a severity; giving it a `--cc-` semantic token would
+   assert a state the model cannot support. A test holds this. */
+
+/* --------------------------------------------------------------------------
+   The Dark | Light control. */
+.command-center__theme {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  flex: none;
+}
+
+/* 600, not 700 — only Regular and SemiBold ship (tests/test_typography.py). */
+.command-center__theme-option {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: var(--sp-1) var(--sp-3);
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.command-center__theme-option--active {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+}
+
+.command-center__theme-option:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The titlebar now holds the title and the control, so it becomes a row. */
+.command-center__titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
 }

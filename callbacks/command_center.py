@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from dash import Input, Output, State, html, no_update
+from dash import Input, Output, State, ctx, html, no_update
 
 from components.command_center.affected_locations import (
     affected_locations_card,
@@ -18,6 +18,7 @@ from components.command_center.affected_locations import (
 )
 from components.command_center.electrical import electrical_conditions_card
 from components.command_center.primitives import scope_indicator_text
+from components.command_center import theme
 from components.command_center.priority import priority_investigation_card
 from components.command_center.recent_events import recent_events_card
 from components.command_center.selected_location import selected_location_card
@@ -90,6 +91,56 @@ def register(app) -> None:
             # slow fleet, not a failed read.
             logger.exception("Failed to load Command Center snapshot")
             return no_update, [], [], [], [], [], [], error_panel()
+
+
+    @app.callback(
+        Output(theme.STORE_ID, "data"),
+        Input(theme.TOGGLE_DARK_ID, "n_clicks"),
+        Input(theme.TOGGLE_LIGHT_ID, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def choose_theme(_dark_clicks, _light_clicks):
+        """Which appearance the operator picked (ADR-006).
+
+        Reads `ctx.triggered_id` rather than comparing click counts: counts
+        drift the moment a button is re-rendered with `n_clicks=0`, and the
+        question here is only ever "which one was pressed".
+        """
+        pressed = ctx.triggered_id
+        if pressed == theme.TOGGLE_LIGHT_ID:
+            return {"theme": theme.LIGHT}
+        if pressed == theme.TOGGLE_DARK_ID:
+            return {"theme": theme.DARK}
+        return no_update
+
+    @app.callback(
+        Output(theme.ROOT_ID, "className"),
+        Output(theme.TOGGLE_DARK_ID, "className"),
+        Output(theme.TOGGLE_LIGHT_ID, "className"),
+        Output(theme.TOGGLE_DARK_ID, "aria-pressed"),
+        Output(theme.TOGGLE_LIGHT_ID, "aria-pressed"),
+        Input(theme.STORE_ID, "data"),
+    )
+    def apply_theme(data):
+        """One className swap re-themes the workspace AND the shell around
+        it — the sidebar and utility chrome follow via `:has()` in the
+        stylesheet, so nothing in the shell is touched (ADR-006, amended).
+
+        Driven by the STORE rather than by the buttons, so the stored choice
+        is re-applied whenever the page mounts. Without that, returning to
+        `/command-center` in the same session would render the default while
+        the store still said otherwise.
+        """
+        choice = (data or {}).get("theme", theme.DEFAULT_THEME)
+        dark_class, dark_pressed = theme.option_state(theme.DARK, choice)
+        light_class, light_pressed = theme.option_state(theme.LIGHT, choice)
+        return (
+            theme.root_class_name(choice),
+            dark_class,
+            light_class,
+            dark_pressed,
+            light_pressed,
+        )
 
     @app.callback(
         Output("command-center-locations-list", "children"),

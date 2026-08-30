@@ -10,7 +10,9 @@ presentation throughout — no imports from Fleet Overview components
 """
 from __future__ import annotations
 
-from dash import html
+from dash import dcc, html
+
+from components.command_center import theme
 
 #: Situation Summary (Phase 5) is live: an empty region the callback fills
 #: with the four real cards. It sits in its own full-width row above the
@@ -44,7 +46,12 @@ PRIORITY_INVESTIGATION_ID = "command-center-priority-investigation"
 
 def layout() -> html.Div:
     return html.Div(
-        className="page page--monitoring page--command-center",
+        # The theme class rides beside the route class on ONE element, and
+        # `assets/app.css` reaches the sidebar and utility chrome from here
+        # via `:has()` — the same hook the fixed cockpit already uses. No
+        # shell file knows a theme exists (ADR-006, amended).
+        id=theme.ROOT_ID,
+        className=theme.root_class_name(theme.DEFAULT_THEME),
         children=[
             # No app_header here, unlike every other page. The Eskom/
             # Powerplant brand bar and its breadcrumb restate what the
@@ -52,6 +59,14 @@ def layout() -> html.Div:
             # strip costs ~60px of the panel budget to say nothing new.
             # Sign-out is not lost with it: Logout now lives in the
             # globally-mounted sidebar (components/app_sidebar.py).
+            # Session-scoped, the lifetime ADR-006 named and the one
+            # `auth-store` already uses. Not localStorage: the choice is a
+            # property of this shift at this console, not of the machine.
+            dcc.Store(
+                id=theme.STORE_ID,
+                storage_type="session",
+                data={"theme": theme.DEFAULT_THEME},
+            ),
             html.Div(
                 className="command-center__titlebar",
                 children=[
@@ -70,6 +85,7 @@ def layout() -> html.Div:
                             ),
                         ],
                     ),
+                    theme.theme_toggle(theme.DEFAULT_THEME),
                 ],
             ),
             html.Div(id="command-center-error"),

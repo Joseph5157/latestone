@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-30T05:15:51Z
+Date: 2026-08-30T05:52:21Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `ce5d4ac` "feat(cc1): Priority Investigation â€” ranked RTLs to open first (Phase 10)" (not `main`)
-- Working tree: 6 entries — see below
+- current branch `cc-1-command-center-foundation` = `53a50f0` "docs(cc1): record ADR-009 as implemented, correct its title" (not `main`)
+- Working tree: 12 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2366 passed, 474 deselected in 14.89s
+- `python -m pytest -m "not db"` → 2392 passed, 474 deselected in 14.10s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 13 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 14 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -58,23 +58,29 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-003-location-is-plant.md | Approved | `699ece0` (normalized `plant_monitoring` schema) |
 | ADR-004-device-scope-is-not-user-selectable.md | Approved | `9966bd7` (`DeviceScope` as the single device-visibility authority), merged to `main` at `71b8db6` |
 | ADR-005-auto-refresh-is-page-owned-polling.md | Approved | `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting) |
-| ADR-006-route-scoped-theming-is-architecture.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; implementation is CC-1 Phase 1 |
+| ADR-006-route-scoped-theming-is-architecture.md | Approved — implemented at CC-1 Phase 11 | not yet (Phase 11 lands it; sha recorded in the follow-up) |
 | ADR-007-event-demo-seed-uses-ingest-event.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; the seed itself is a CC-1 Phase 0 prerequisite |
 | ADR-008-command-center-reuses-existing-read-paths.md | Approved | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6) |
 | ADR-009-priority-investigation-ranks-on-freshness-only.md | Approved | `ce5d4ac` |
 
 ## Active gate
 
-CC-1 Phase 10 — Priority Investigation — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Phase 11 — Command Center Theme + Shell Integration — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/CURRENT_STATE.md
- M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md
+M assets/app.css
+ M callbacks/command_center.py
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CC1_ROADMAP.md
+ M docs/context/CURRENT_STATE.md
+ M docs/decisions/ADR-006-route-scoped-theming-is-architecture.md
+ M pages/command_center.py
 ?? "command center/"
+?? components/command_center/theme.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
+?? tests/test_command_center_theme.py
 ```
 

@@ -2,140 +2,121 @@
 
 Status: Approved
 Date: 2026-08-30
-Gate: CC-1 Phase 10 — Priority Investigation
-Precondition: Phase 9 complete and committed (`a49620f`), browser-verified.
-Flow: DECIDE (complete) → IMPLEMENT (complete) → TEST (complete) →
-FRESHNESS SEED (built, **deliberately not applied**) → VISUAL VERIFY
-(**deferred — see below**) → COMMIT → **FULL STOP**
-Commit/push permission: Commit GRANTED on `cc-1-command-center-foundation`
-with the deferred-verification note below intact. Push NOT GRANTED.
-**Stop after committing.**
-
-## Outcome
-
-> **Phase 10 implementation and semantic verification complete. Mixed
-> Fresh/STALE/NO_DATA browser verification deferred because the available
-> freshness seed is destructive and lacks a safe rollback path.**
-
-This is a blocked visual-verification condition, not a Phase 10 failure.
-The blocker is tracked as **SEED-RESET-1** in
-`docs/context/KNOWN_DEFECTS.md`, to be fixed before the Phase 12 visual
-acceptance pass and explicitly not inside this tranche.
-
-`db/seed_freshness_demo.py` ships built, tested and unapplied. It is
-dry-run by default; running it with `--apply` is a one-way local change
-until SEED-RESET-1 is fixed.
+Gate: CC-1 Phase 11 — Command Center Theme + Shell Integration
+Precondition: Phase 10 complete and committed (`ce5d4ac`, `53a50f0`).
+Flow: **HOOK INSPECTION (complete — see below)** → DECIDE (complete) →
+IMPLEMENT → TEST → REGRESSION (`/plants`, Reports, Notifications) →
+VISUAL VERIFY → COMMIT → **FULL STOP**
+Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
+once local verification passes. Push NOT GRANTED. **Stop after committing.**
 
 ## Task
 
-The last question in the investigation chain:
+Dark/light appearance for the Command Center, applied to the whole visible
+shell while `/command-center` is active — sidebar, workspace, utility
+chrome. Every other route keeps the appearance it has today.
 
-> How much? → Where? → Which transformer? → What just happened? →
-> **Which exact RTLs do I open first?**
+This is architecture, not polish (ADR-006). It is also **not** a licence to
+redesign: this gate is passed by a *small* hook, not by a better shell.
 
-A compact ranked list of individual RTLs. It must NOT become an alarm
-queue.
+## THE OPEN QUESTION, ANSWERED
 
-## The decision record
+ADR-006 and `CC1_ROADMAP.md` Phase 11 both require this be settled against
+the real files before any edit, and both say to reject a plan that rewrites
+`app_shell.py` / `app_sidebar.py` / `app_header.py` to obtain dark mode.
 
-`docs/decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md`
-holds the reasoning. The five rulings it fixes:
+**The hook already exists and is already shipped.** `assets/app.css:5294`
+uses `.app-root:has(.page--command-center)` and
+`.app-shell:has(.page--command-center)` to give the cockpit its fixed
+layout across the *whole shell* — sidebar included — with **zero Python
+changes to any of the three shell files** (commit `d0d9f3a`). The class is
+emitted by the Command Center page itself; the shell reacts to it.
 
-- **D1** Population is `STALE + NO_DATA`, the same as Needs Attention
-  (ADR-002). FRESH never appears. No event affects membership or order.
-- **D2** Order: NO_DATA before STALE via `severity_rank` (never a private
-  copy) → within NO_DATA, plant / transformer / device case-insensitively →
-  within STALE, oldest lagging metric first → `device_id` always last.
-- **D3** A STALE age is the **min** over the device's metric timestamps, on
-  a new `FleetHealth.device_oldest_metric_updated` derived from rows
-  already fetched. Populated **only when every metric row has a
-  timestamp**, so a NO_DATA device holds `None` and there is no number to
-  fabricate a duration from.
-- **D4** Copy names what it measures. NO_DATA reuses
-  `situation_summary.NO_DATA_EXPLANATION`; STALE says "Oldest monitored
-  metric last reported …", never "latest available monitored data".
-- **D5** Eight rows, and no footer link — `/command-center/locations` is
-  the ranked PLANT list (ADR-003), not an RTL list, and an approximate
-  destination is worse than none.
+Theming needs that same hook, carrying a theme class rather than only a
+route class. Measured, not assumed:
 
-## The correction that produced D3
+| Surface | Colour literals outside `:root` | Consequence |
+|---|---|---|
+| Command Center rules | **0** | themes purely by token override |
+| `.app-shell*` / `.app-sidebar*` | 9 | all `#ffffff` / `rgba(255,255,255,a)` |
+| `:root` token definitions | 19 | the palette itself |
 
-Worth restating, because the plan and the code disagreed and the code won
-(`SOURCE_AUTHORITY.md` rung 2 over rung 4):
+The sidebar is *already* a dark navy surface (`--color-brand: #1f3a5f`)
+carrying white text at alpha. Those nine literals are alpha-on-brand and
+survive both appearances unchanged.
 
-`device_last_updated` is a MAX over metric rows
-(`services/monitoring_service.py:388-394`). On a device that is STALE
-because one of eight metrics stopped, it holds the FRESHEST metric's time —
-so a row built on it reads `STALE · 2m ago` and the ranking key sorts a
-nine-hour outage below a forty-minute one. The min is the honest number and
-is available from the same pass.
+`app_header.py` is **not in the Command Center render path at all** — the
+page deliberately renders no `app_header` (`pages/command_center.py`), so
+one of the three files at issue is not even reachable from this gate.
 
-## Read paths — ADR-008 is UNCHANGED
+**Therefore: no shell file is rewritten. No shell file is edited.**
 
-Phase 10 adds no read path. It composes:
+## Decisions this gate makes
 
-- `get_fleet_health()` — already fetched once per render by the façade.
-- `hierarchy_service.list_device_paths()` — the batched label lookup
-  ADR-008 approved in Phase 9, called ONCE for the whole render: the union
-  of the event rows' devices and the attention population. The NO_DATA
-  order is by plant NAME, so the names decide which eight rows survive the
-  cap and cannot be fetched for the eight alone. Two batched calls would
-  still be two queries — the façade's contract is one per read path.
+- **D1 — The hook.** The Command Center page root carries its theme class
+  alongside `page--command-center`. Shell surfaces react via the existing
+  `:has()` technique. Scoped token overrides only; no global palette edit.
+- **D2 — Theme state is explicit.** A `Dark | Light` toggle inside Command
+  Center. NOT inferred from `prefers-color-scheme`: the frozen spec
+  (`command center/components/CC11_THEME_TOGGLE.md`) does not ask for it,
+  and a control room's ambient choice is not the operating system's to
+  make.
+- **D3 — Persistence is session-scoped.** A `dcc.Store` with
+  `storage_type="session"` — the lifetime ADR-006 named and the one
+  `auth-store` already uses. No account preference system, no cookie.
+- **D4 — The semantic palette is CC-SCOPED, and that is forced.** Two of
+  the required colours differ from what the app renders today:
+  - **No Data -> purple.** Today `--state-none-*` is grey and Fleet
+    Overview renders it. Redefining that token globally would change
+    `/plants`.
+  - **Warning -> amber, Stale -> ochre/gold.** Today they are the *same
+    token*: `--state-stale-text` backs both `.command-center__tone--warning`
+    and `.command-center__tone--stale`. The spec requires them
+    distinguishable.
 
-If this phase appears to need a third read, that is the signal to stop and
-re-open ADR-008, not to add one quietly.
+  Both therefore land as overrides inside the Command Center scope, in
+  both appearances, never in `:root`.
+- **D5 — Unavailable stays neutral.** It is the absence of a derivable
+  count (ADR-001), not a severity. Giving it a severity colour would
+  assert a state the model cannot support.
 
-## Boundary
+## Constraints
 
-`command_center_service.py` produces presentation-ready priority rows —
-tone, badge label, hierarchy label, age sentence, href. The component
-renders them and reproduces no freshness ranking (AGENTS.md rule 8).
+- IBM Plex Sans remains the face (`--font-ui`); no type change.
+- Telemetry/numeric values keep `font-variant-numeric: tabular-nums`.
+- Normal/fresh stays quiet and neutral — it is the majority state, and a
+  fleet that is fine should not glow.
+- Colour never carries meaning alone: every coloured state keeps its word.
+  Already true of the Phase 6/9/10 panels; it must survive the repaint.
 
 ## Required tests
 
-- only STALE / NO_DATA RTLs enter the list; FRESH never appears
-- NO_DATA ranks before STALE
-- one fresh metric + one never-reported metric stays NO_DATA
-- NO_DATA never gets a fabricated duration
-- a STALE age comes only from trustworthy stale timestamps — asserted
-  against the mixed 7-fresh/1-stale device, where a max-based age would
-  pass a naive test and this one must not
-- events do not change priority ranking (a storm of events, identical
-  order)
-- a missing hierarchy label falls back to the stable id without dropping
-  the device
-- ordering is fully deterministic
-- the device link resolves through the existing route contract
-- an empty attention population renders a measured calm state
-- zero monitored RTLs stays distinct from zero affected RTLs
-- Phase 5-9 cards remain unchanged
+- the theme class reaches the page root, and only there
+- toggling changes it; the choice survives a re-render
+- every dark rule is scoped — no dark token override at `:root` or on a
+  bare element selector
+- `--state-none-*` and `--state-stale-*` are unchanged in `:root`, so Fleet
+  Overview is untouched by construction
+- the semantic vocabulary keeps its labels (colour never alone)
+- Phase 5-10 panels render identically in structure under both appearances
 
-## Blocking debt: the freshness seed — BUILT, NOT APPLIED
+## Regression surface
 
-`db/seed_freshness_demo.py` covers four RTLs: a Fresh control, a plainly
-Stale one, a **mixed-metric Stale** one (D3's case — seven metrics fresh,
-one silent for hours) and a mixed-metric NO_DATA one.
-
-It cannot be applied safely. Staleness and absence cannot be INSERTED —
-freshness is `now - max(reading_ts)` and NO_DATA is the absence of a row —
-so the seed must DELETE readings, and SEED-RESET-1 means there is no
-working way back. The seed is therefore complete and parked.
-
-Consequence, stated plainly: **D3's mixed-metric branch is verified by test
-only.** It has not been seen on screen.
+`/plants`, Reports and Notifications must be visually unchanged — the
+frozen spec names exactly these three. Fleet Overview is frozen.
 
 ## Non-goals
 
-⛔ event severity ranking · ⛔ Critical/Warning current counts · ⛔ theming ·
-⛔ auto-refresh · ⛔ Top-N Affected Locations refinement · ⛔ Asset Navigator
-changes · ⛔ `/` landing-route change · ⛔ acknowledge/resolve workflows ·
-⛔ no push
+- **auto-refresh** — ADR-005, with its own semantics (cadence, preserving
+  Plant selection, last-good snapshot on failure) and its own gate. The
+  roadmap does not group it with theming, so this gate does not adopt it.
+- global dark mode for other routes; shell refactor; type/scale changes;
+  Asset Navigator behaviour changes; a new component library; any
+  `/` landing-route change; no push.
 
 ## Carried forward, not in this gate
 
-- Browser-verify EVT-D5 with a NON-ADMIN before the final client pass. The
-  positive case was verified in Phase 9 (an administrator sees the
-  unregistered-UID row); the negative case is covered by test only.
-- Consider renaming the Recent Events footer to "Open Notification
-  Center →". The destination is correct; the label says *notifications* on
-  a panel titled *Events*.
+- EVT-D5 non-admin browser verification -> final acceptance checklist.
+- Recent Events footer wording -> "Open Notification Center ->", polish gate.
+- Mixed Fresh/STALE/NO_DATA browser verification -> blocked on SEED-RESET-1
+  (`docs/context/KNOWN_DEFECTS.md`), before Phase 12 acceptance.

@@ -277,7 +277,57 @@ Answers "which RTL should I inspect next." Ranking comes from existing
 freshness/event data only — no invented electrical severity precedence
 unless a future domain contract supports one (ADR-001 principle extended).
 
-## Phase 11 — Whole-shell dark/light theme
+## Phase 11 — Whole-shell dark/light theme — DONE (2026-08-30)
+
+Dark/light for the Command Center, applied to the whole visible shell while
+`/command-center` is active. Dark is the default; the choice persists for
+the session in a `dcc.Store`, and is never inferred from
+`prefers-color-scheme` — a day shift and a night shift on one machine want
+different answers from the same OS setting.
+
+### ADR-006's open question, answered: the hook already existed
+
+`.app-root:has(.page--command-center)` / `.app-shell:has(...)` has scoped
+whole-shell LAYOUT to this route since `d0d9f3a`, reaching the sidebar with
+zero Python changes to `app_shell.py`, `app_sidebar.py` or `app_header.py`.
+Theming carries a theme class on the same element and reuses it. **No shell
+file was edited**, and `app_header.py` is not even in this route's render
+path. A test asserts no theme class ever appears in those three files: if
+one does, the hook stopped being minimal and the gate re-opens.
+
+Measured before deciding: Command Center rules held **zero** colour
+literals outside `:root` (so it themes purely by token override), the shell
+held nine, all white-on-navy alpha that survive both appearances.
+
+### The scoping rule ADR-006 did not anticipate
+
+The semantic palette is route-scoped in BOTH appearances, not only dark.
+No Data is purple here while `--state-none-*` stays grey for Fleet
+Overview, and Warning/Stale had to be separated because they were the SAME
+token. Neither could be expressed by editing `:root` without restyling
+`/plants`.
+
+### Two contrast defects the browser found and the tests had not
+
+- The page `<h1>` had no colour rule at all, so it inherited `body`'s
+  hardcoded light `#1f2937`: **1.22:1** on the dark canvas. Fixed at the
+  source — the route scope now sets `color`, so every un-ruled descendant
+  follows the appearance rather than only the elements someone styled.
+- The active sidebar item paired `--color-brand` text on a `--color-surface`
+  pill, which inverts in dark: **1.18:1**. Re-expressed with the accent pair.
+- Separately, `.command-center__unavailable` had **never** applied: at
+  0,1,0 it lost to `.command-center__condition-facts dd` at 0,1,1, so the
+  Unavailable value always rendered in primary text colour. Pre-existing and
+  invisible on a light canvas. The test now asserts the rule out-specifies
+  its competitor rather than merely existing.
+
+Verified in the browser: every measured pair clears WCAG AA in both
+appearances; `/plants`, Reports and Notifications carry no theme class and
+resolve `--cc-*` to nothing; the stored choice survives navigating away and
+back; 1440/1366/1024 all clean with no horizontal scroll; no new console
+errors.
+
+## Phase 11 — Whole-shell dark/light theme (original plan)
 
 Architecture, decided at Phase 1, not late polish (ADR-006). Dark canvas
 ≈`#121820` (not pure black); light reuses the existing token foundation.
