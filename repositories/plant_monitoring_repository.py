@@ -348,6 +348,56 @@ def get_device_breadcrumb(device_id: str) -> DevicePath | None:
     return DevicePath(*row) if row else None
 
 
+def list_device_paths(
+    device_ids, *, allowed_device_ids: frozenset[str] | None
+) -> list[DevicePath]:
+    """Label paths for a BOUNDED set of devices, in one query (ADR-008).
+
+    The batched form of `get_device_breadcrumb`. Command Center names the
+    assets on its event rows through this: resolving them through
+    `list_transformers`/`list_devices` would be one query per distinct plant
+    AND per distinct transformer on screen, which is the N+1 shape ADR-008
+    exists to prevent on a page intended to auto-refresh.
+
+    `allowed_device_ids` is keyword-only and undefaulted for the same reason
+    it is everywhere else here: an omitted argument must not silently return
+    the fleet (ROLE-3 invariant 8). Scope is applied in SQL, never by the
+    caller filtering afterwards.
+
+    STATUS IS NOT FILTERED, unlike `list_devices`. That filter answers "what
+    is selectable for live monitoring"; this answers "what is this device
+    called", and an event that already happened does not stop needing a name
+    because its RTL was later deactivated.
+
+    Ids that match nothing are simply absent from the result — a caller
+    labels what it can and keeps the rest.
+    """
+    ids = list(dict.fromkeys(device_ids))
+    if not ids:
+        return []          # no ids, no query — mirrors list_recent_device_events
+
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    statement = _scoped(
+        text(
+            f"""
+            SELECT p.plant_id, p.name, t.transformer_id, t.transformer_code,
+                   d.device_id, d.device_code, d.status
+            FROM {_SCHEMA}.devices d
+            JOIN {_SCHEMA}.transformers t ON t.transformer_id = d.transformer_id
+            JOIN {_SCHEMA}.plants p       ON p.plant_id = t.plant_id
+            WHERE d.device_id IN :device_ids{scope_sql}
+            ORDER BY d.device_id
+            """
+        ).bindparams(bindparam("device_ids", expanding=True, type_=String)),
+        allowed_device_ids,
+    )
+    with session_scope() as session:
+        rows = session.execute(
+            statement, {"device_ids": ids, **scope_params}
+        ).all()
+    return [DevicePath(*row) for row in rows]
+
+
 def count_hierarchy_by_plant(
     *, allowed_device_ids: frozenset[str] | None, include_inactive: bool = False
 ) -> dict[str, tuple[int, int]]:

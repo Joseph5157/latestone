@@ -60,15 +60,14 @@ class TestCommandCenterLayout:
         """Phase 8: transformer concentration for the selected plant."""
         assert find_by_id(layout(), "command-center-selected-location") is not None
 
-    def test_the_remaining_panels_are_still_named_placeholders(self):
-        """Phases 9-10 (docs/context/CC1_ROADMAP.md). The shell names every
-        slot still to come, so nothing is silently missing when content lands."""
-        text = text_of(layout())
-        for panel_title in [
-            "Recent Operational Events",
-            "Priority Investigation",
-        ]:
-            assert panel_title in text
+    def test_recent_events_is_a_live_region_not_a_placeholder(self):
+        """Phase 9: persisted operational events. Id unchanged from Phase 4."""
+        assert find_by_id(layout(), "command-center-recent-events") is not None
+
+    def test_the_remaining_panel_is_still_a_named_placeholder(self):
+        """Phase 10 (docs/context/CC1_ROADMAP.md). The shell names every slot
+        still to come, so nothing is silently missing when content lands."""
+        assert "Priority Investigation" in text_of(layout())
 
     def test_panels_do_not_claim_no_data_or_unavailable(self):
         """These panels are not built yet - a different fact from evaluated

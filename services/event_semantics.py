@@ -75,6 +75,13 @@ class EventSemantics:
     #: EVT-D7: classification ONLY. Who receives a forwarded startup /
     #: check-in is deferred to the forwarding-delivery planning slice.
     forwarding_relevant: bool
+    #: The event TYPE's human name, in the EVENT's own vocabulary — not the
+    #: notification category's. ``battery_low`` is "Battery Low" here and
+    #: "Battery Alarm" as a category (config/notifications.py); both are
+    #: right for their own surface, and flattening them would misname one.
+    #: Defaulted so an unmapped type stays inert; every mapped type supplies
+    #: one and a test enforces that.
+    display_label: str | None = None
 
 
 _SEMANTICS: dict[str, EventSemantics] = {
@@ -82,32 +89,38 @@ _SEMANTICS: dict[str, EventSemantics] = {
         notification_category_key=CATEGORY_BATTERY_ALARM,
         is_reportable_alarm=True,
         forwarding_relevant=False,
+        display_label="Battery Low",
     ),
     EVENT_TYPE_POWER_DOWN: EventSemantics(
         notification_category_key=CATEGORY_POWER_DOWN,
         is_reportable_alarm=True,
         forwarding_relevant=False,
+        display_label="Power Down",
     ),
     EVENT_TYPE_SENSOR_ERROR: EventSemantics(
         notification_category_key=CATEGORY_SENSOR_ERROR,
         is_reportable_alarm=True,
         forwarding_relevant=False,
+        display_label="Sensor Error",
     ),
     EVENT_TYPE_STARTUP: EventSemantics(
         notification_category_key=CATEGORY_STARTUP_CHECKIN,
         is_reportable_alarm=False,
         forwarding_relevant=True,
+        display_label="Startup",
     ),
     EVENT_TYPE_CHECK_IN: EventSemantics(
         notification_category_key=CATEGORY_STARTUP_CHECKIN,
         is_reportable_alarm=False,
         forwarding_relevant=True,
+        display_label="Check-In",
     ),
     # Quarantine surface only (EVT-D5); never an alarm, never forwarded.
     EVENT_TYPE_INVALID_UID: EventSemantics(
         notification_category_key=None,
         is_reportable_alarm=False,
         forwarding_relevant=False,
+        display_label="Invalid UID",
     ),
 }
 
@@ -125,6 +138,17 @@ def semantics_for(event_type: str) -> EventSemantics:
     stored at any time; they simply have no consumer behaviour yet.
     """
     return _SEMANTICS.get(event_type, _DEFAULT_SEMANTICS)
+
+
+def display_label_for(event_type: str) -> str:
+    """The event type's human name.
+
+    Falls back to the RAW TYPE for an unmapped name rather than hiding the
+    row or inventing a label: open-vocabulary persistence (INGEST-D7) means
+    an unknown type can be stored at any time, and an operator is better
+    served by ``some_future_type`` than by a blank cell or a guess.
+    """
+    return semantics_for(event_type).display_label or event_type
 
 
 def mapped_event_types() -> tuple[str, ...]:
@@ -355,6 +379,7 @@ __all__ = [
     "alarm_event_projections",
     "alarm_label_for_event_type",
     "build_event_notifications",
+    "display_label_for",
     "mapped_event_types",
     "notification_backed_event_types",
     "reportable_alarm_event_types",

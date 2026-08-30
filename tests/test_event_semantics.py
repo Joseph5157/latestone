@@ -93,6 +93,45 @@ class TestMapping:
         assert sem.semantics_for(EVENT_TYPE_CHECK_IN).forwarding_relevant is True
         assert sem.semantics_for(EVENT_TYPE_BATTERY_LOW).forwarding_relevant is False
 
+    def test_every_mapped_type_has_a_human_display_label(self):
+        """A consumer naming an event type must not spell the name itself.
+
+        Without a label here, Command Center's event rows and the
+        Notification Center would each invent their own word for the same
+        persisted type, which is the drift EVT-D1 exists to prevent.
+        """
+        for event_type in sem.mapped_event_types():
+            label = sem.semantics_for(event_type).display_label
+            assert label, f"{event_type} has no display label"
+            assert label != event_type, (
+                f"{event_type}'s label is still the raw type name"
+            )
+
+    @pytest.mark.parametrize(
+        "event_type,label",
+        [
+            (EVENT_TYPE_BATTERY_LOW, "Battery Low"),
+            (EVENT_TYPE_POWER_DOWN, "Power Down"),
+            (EVENT_TYPE_SENSOR_ERROR, "Sensor Error"),
+            (EVENT_TYPE_STARTUP, "Startup"),
+            (EVENT_TYPE_CHECK_IN, "Check-In"),
+            (EVENT_TYPE_INVALID_UID, "Invalid UID"),
+        ],
+    )
+    def test_display_labels_use_the_event_vocabulary(self, event_type, label):
+        """The EVENT's own vocabulary, not the notification CATEGORY's.
+
+        `battery_low` is labelled "Battery Low" here and "Battery Alarm" as a
+        notification category; both are correct for their own surface, and
+        flattening them would misname one.
+        """
+        assert sem.semantics_for(event_type).display_label == label
+
+    def test_display_label_for_falls_back_to_the_raw_type(self):
+        """INGEST-D7 open vocabulary: an unmapped type that somehow reaches a
+        display is named honestly rather than hidden or invented."""
+        assert sem.display_label_for("some_future_type") == "some_future_type"
+
     def test_no_forwarding_recipient_logic_exists(self):
         """EVT-D7 frozen: no recipient-resolution function of any kind."""
         public_names = [n.lower() for n in dir(sem) if not n.startswith("_")]

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-29T14:15:49Z
+Date: 2026-08-30T03:46:37Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `825e59b` "feat(cc1): Selected Location â€” transformer concentration (Phase 8)" (not `main`)
-- Working tree: 11 entries — see below
+- current branch `cc-1-command-center-foundation` = `13f2bfc` "feat(cc1): default selection, composition split, distinct empty states" (not `main`)
+- Working tree: 25 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2192 passed, 466 deselected in 13.79s
+- `python -m pytest -m "not db"` → 2274 passed, 474 deselected in 14.26s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 10 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 11 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -64,21 +64,35 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CC-1 Phase 8 — Selected Location / Transformer Concentration — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-1 Phase 9 — Recent Operational Events — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M assets/app.css
- M components/command_center/selected_location.py
+ M callbacks/command_center.py
+ M docs/context/ACTIVE_GATE.md
  M docs/context/CC1_ROADMAP.md
+ M docs/context/CURRENT_STATE.md
+ M docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md
+ M pages/command_center.py
+ M repositories/plant_monitoring_repository.py
  M services/command_center_service.py
+ M services/event_semantics.py
+ M services/hierarchy_service.py
  M tests/test_command_center_locations.py
+ M tests/test_command_center_page.py
  M tests/test_command_center_selected_location.py
- M tests/test_command_center_selected_panel.py
  M tests/test_command_center_service.py
+ M tests/test_event_semantics.py
 ?? "command center/"
+?? components/command_center/recent_events.py
+?? db/seed_events_demo.py
 ?? scripts/generate_workflow_deep_dive_pdf.py
 ?? scripts/generate_workflow_pdf.py
+?? tests/test_command_center_recent_events.py
+?? tests/test_command_center_recent_events_panel.py
+?? tests/test_device_paths_db.py
+?? tests/test_seed_events_demo.py
 ```
 

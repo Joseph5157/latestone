@@ -1,8 +1,9 @@
 # ADR-008: Command Center's read side reuses existing entry points — never new duplicate SQL
 
 Status: Approved
-Date: 2026-08-29 (amended twice on 2026-08-29: Phase 7 added the plant
-label lookup, Phase 8 generalised it to hierarchy labels)
+Date: 2026-08-29 (amended three times on 2026-08-29: Phase 7 added the plant
+label lookup, Phase 8 generalised it to hierarchy labels, Phase 9 added the
+batched device-path lookup and the events failure boundary)
 Evidence: `services/monitoring_service.py:430` (`get_fleet_health`), `repositories/plant_monitoring_repository.py:2450` (`list_recent_device_events`), `services/hierarchy_service.py:27` (`list_plants`), `services/hierarchy_service.py:39` (`list_transformers`)
 Implemented-by: `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6)
 Supersedes: n/a — first decision on this question; corrects an imprecision in ADR-002's original "Affected areas" (fixed 2026-08-29, same commit as this ADR)
@@ -42,6 +43,26 @@ scope)` and `list_transformers(plant_id, *, scope)` — as a single category
 rather than two entries, because enumerating one per level would mean
 amending this ADR again at every depth for the same reason.
 
+Phase 9 adds a third member to the same category:
+`services/hierarchy_service.py:list_device_paths(device_ids, *, scope)` over
+`repositories/plant_monitoring_repository.py:list_device_paths`, returning
+the existing `DevicePath` (plant name, transformer code, device code) for a
+BOUNDED set of device ids in ONE query, scope-enforced in SQL by the same
+`_scope_clause` idiom as every other read here.
+
+A new function rather than the per-level listings already approved above,
+because the per-level route is the pathology this ADR exists to prevent.
+Labelling the events on screen through `list_transformers` and `list_devices`
+means one query per distinct plant AND one per distinct transformer among the
+visible rows — up to ~20 extra queries per render on a page the roadmap
+intends to auto-refresh (CC1_ROADMAP Phase 11). One batched query is by far
+the smaller commitment, and it is the reason this entry is an addition to the
+category rather than a reinterpretation of it.
+
+Its discipline is the same shape as the transformer listing's: called once
+per render, for the VISIBLE event rows only — never per row, and never over
+the unbounded query window the repository's `limit` allows.
+
 These need their scope stating precisely, because they are the entry
 points most likely to be misused later. They supply **labels, not facts**.
 `FleetHealth` is keyed by `plant_id` and `transformer_id` and carries no
@@ -49,6 +70,12 @@ names or codes, so a display that must read "KZN North" rather than
 `plant-07`, or `aa12` rather than `plant-01-t1`, needs those from somewhere.
 That is the *only* thing these calls are for. The transformer listing is
 additionally called for the ONE selected plant only, never per row.
+
+`list_device_paths` deliberately does NOT apply `hierarchy_service`'s
+active-only default. That filter answers "what is selectable for live
+monitoring"; naming an event that already happened is a different question,
+and dropping the label for a device deactivated after the event would leave a
+real, persisted event row wearing raw ids for no operator-visible reason.
 
 Every **number** — affected counts, composition, ranking order, at plant
 AND transformer level — is still derived from the `FleetHealth` already
@@ -61,7 +88,12 @@ this lookup contributes names only.
 An entity present in `FleetHealth` but absent from the label lookup keeps
 its id as its label rather than being dropped — the freshness snapshot
 is the authority on which plants exist in scope, and a labelling call must
-never silently shrink the population the numbers were computed over.
+never silently shrink the population the numbers were computed over. The
+same rule governs events: the persisted event row is the authority that
+something happened, so an event whose device resolves to no path keeps its
+raw ids and is still shown. It loses its **link**, not its row — offering
+"Open asset" for an asset that did not resolve would be a claim the lookup
+just failed to support.
 
 This is the read-side mirror of ADR-007 (which fixes the write side —
 `ingest_event()`, never `insert_device_event()` directly). Together they
@@ -108,10 +140,45 @@ application of the one already there. ADR-004's "General... read-only is a
 constraint on actions, not on sight" is the same principle stated from the
 device-scope side.
 
+## The events read has its own failure boundary (added Phase 9)
+
+Every other read here answers "what is the state of the fleet". The events
+read answers "what happened recently", which is CONTEXT around that state,
+not the state itself. The two therefore fail differently and must not share
+one boundary: an operator who cannot see the last ten events can still act on
+Needs Attention, Affected Locations and the transformer concentration, and
+blanking all of them because an event query failed would remove far more
+truth than the failure actually cost.
+
+So `get_command_center_snapshot` catches the events read specifically, logs
+it, and returns a snapshot whose `recent_events_failed` flag is set. The
+failure is never flattened into an empty list: "no events occurred" and "the
+events could not be read" are different facts and the panel states which one
+it has, the same distinction ADR-001 draws between `Unavailable` and `0` and
+ADR-002 draws between a calm plant and an unmonitored one.
+
+The boundary is deliberately one-directional. A failure of `get_fleet_health`
+or of the plant labels still fails the whole snapshot: those ARE the page.
+
+## Unregistered-UID events are administrator-only (added Phase 9)
+
+`list_recent_device_events` excludes rows with no `device_id` unless
+`include_unattributed=True`. Those rows are the `invalid_uid` quarantine, and
+an unregistered UID belongs to no device set, so scope alone cannot express
+who may see it (EVT-D5).
+
+Command Center therefore applies the precedent already set at
+`callbacks/notifications.py:106` (`include_unregistered=is_admin`) rather than
+inventing a rule: the callback resolves the caller once, and only an
+administrator's snapshot requests unattributed rows. This is an application of
+an existing decision to a new surface, not a new decision.
+
 ## Affected areas
 
 - `services/command_center_service.py` (not yet created) — the only caller
   of both functions on Command Center's behalf
-- `services/monitoring_service.py`, `repositories/plant_monitoring_repository.py` — unchanged; Command Center is a new caller, not a new implementation
+- `services/monitoring_service.py` — unchanged; Command Center is a new caller, not a new implementation
+- `repositories/plant_monitoring_repository.py`, `services/hierarchy_service.py` — Phase 9 adds `list_device_paths`; every pre-existing read is unchanged
+- `services/event_semantics.py` — Phase 9 adds `display_label` to `EventSemantics`, so no consumer spells out an event type's human name itself
 - `services/authorization.py` — `ROUTE_POLICY["command_center"] = _EVERY_ROLE`
 - `components/command_center/` (not yet created) — fresh presentation only

@@ -2,100 +2,100 @@
 
 Status: Approved
 Date: 2026-08-29
-Gate: CC-1 Phase 8 — Selected Location / Transformer Concentration
-Precondition: Phase 7 + 7a complete and committed (`ed59876`, `25b7e81`,
-`04d89bb`), plus the cockpit/logout work (`d0d9f3a`, `fb6fae2`).
-Flow: DECIDE (complete) → **IMPLEMENT** → TEST/VISUAL VERIFY → COMMIT → **FULL STOP (no Phase 9)**
+Gate: CC-1 Phase 9 — Recent Operational Events
+Precondition: Phase 8 complete and committed (`825e59b`, `13f2bfc`).
+Flow: DECIDE (complete) → IMPLEMENT (complete) → TEST (complete) → **VISUAL VERIFY** → COMMIT → **FULL STOP (no Phase 10)**
 Commit/push permission: Commit permitted on `cc-1-command-center-foundation`
-once tests and browser verification pass. Push NOT GRANTED. **Stop after
-committing — Phase 9 (Recent Operational Events) needs its own approval.**
+once browser verification passes. Push NOT GRANTED. **Stop after
+committing — Phase 10 (Priority Investigation) needs its own approval.**
 
 ## Task
 
-Selecting a Plant answers the next question: **"which transformers inside
-this Plant are driving the attention?"**
+The fourth question in the investigation chain:
 
-Ranked transformer concentration within the selected plant, and deep links
-out to the existing Plant / Transformer / RTL routes — flattening
-investigation without duplicating the hierarchy.
+> How much? → Where? → Which transformer? → **What just happened?**
 
-## Selection is a URL query parameter, not a Store
+A read-only operational event panel over persisted events. It must NOT
+become an alarm-management system.
 
-`/command-center?plant=<plant_id>`, mirroring the `?assign=` precedent
-already in `routes.py`, whose own comment states the reasoning this reuses:
-"a query parameter rather than a route: the destination is the existing
-page in its existing state."
+## The distinction the whole phase exists to hold
 
-Chosen over `dcc.Store` deliberately. The gate requires selection to
-survive a polling refresh — a URL parameter survives it *by construction*,
-since no callback can clear what it does not own. It is also bookmarkable
-and shareable ("Command Center with KZN North selected"), and the back
-button works. A Store would give none of that and would need explicit
-protection from every future refresh callback.
+    a recent Power Down EVENT   ≠   an RTL currently in Critical STATE
+    a recent Battery Low EVENT  ≠   an RTL currently in Warning  STATE
 
-An unknown or out-of-scope `plant_id` selects nothing and shows the
-prompt — never an error, and never a message confirming that some plant
-the caller cannot see exists. Same posture as `parse_assign_request`'s
-"an unknown value simply opens nothing".
+Events are displayed as occurrences. The Phase 6 card's current state stays
+`Unavailable` until a closure contract exists (ADR-001). A test asserts a
+storm of Power Down events changes neither the Needs Attention count nor
+the plant ranking nor the current-state cards.
 
-## Read paths
+## Presentation mapping is derived, never restated
 
-No new query for ranking: transformer counts come from
-`FleetHealth.transformers_for_plant()`, already fetched.
+Severity tone comes from Phase 6's `ELECTRICAL_CONDITIONS` at call time, so
+re-pointing that table re-points these rows (a test does exactly that).
+Event type NAMES come from `services/event_semantics.py`'s new
+`display_label`, so no consumer spells out "Battery Low" itself — the same
+EVT-D1 rule that keeps "Battery Low" (device condition) and "Battery Alarm"
+(notification category) from being flattened into one word.
 
-Transformer CODES need `hierarchy_service.list_transformers(plant_id, *,
-scope)` — called for the one selected plant only, never per row. ADR-008
-amended before implementation: its three read entry points are now stated
-as three read *categories*, with plant and transformer listings as one
-"hierarchy labels" category, so reading one more level of the same
-hierarchy for the same reason does not re-open the decision each time.
+Everything the device did NOT classify — startup, check-in, sensor error,
+invalid UID — takes a neutral tone. Owning a Critical style is not a reason
+to spend it.
 
-## Ranking
+## Read paths — ADR-008 amended BEFORE the code
 
-Same rule as plants, one level down: affected count DESCENDING, then
-transformer code ascending (case-insensitive), then transformer_id as the
-final deterministic key. Affected is still `Stale + No Data` (ADR-002). No
-event data participates.
+Three additions, all recorded in ADR-008 first:
+
+1. `hierarchy_service.list_device_paths(device_ids, *, scope)` — ONE batched
+   query resolving plant name / transformer code / device code for the
+   VISIBLE rows. A new function rather than the approved per-level listings
+   because those would be one query per distinct plant AND per distinct
+   transformer on screen — ~20 extra per render on a page the roadmap
+   intends to auto-refresh, which is the N+1 ADR-008 exists to prevent.
+   Status is deliberately not filtered: an event that already happened does
+   not stop needing a name because its RTL was later deactivated.
+2. The events read has its own **failure boundary**. It is context around
+   the fleet's state, not the state itself, so its failure must not blank
+   Needs Attention, Affected Locations and the transformer concentration.
+   `recent_events_failed` keeps "nothing happened" and "we could not look"
+   structurally apart. One-directional: a `get_fleet_health` failure still
+   fails the whole snapshot, because that IS the page.
+3. Unregistered-UID rows are **administrator-only**, applying
+   `callbacks/notifications.py:106`'s existing precedent rather than
+   inventing a rule — an unknown UID belongs to no device set, so scope
+   alone cannot express who may see it (EVT-D5).
+
+## Honesty rules on the rows
+
+- `Open asset →` appears ONLY where the asset actually resolved. An
+  unregistered UID gets plain text, never a disabled-looking link: a greyed
+  control still claims the asset exists.
+- Battery voltage is display payload. The Phase 6 AST threshold guard is
+  retained; the blanket "never touch `battery_voltage`" guard was
+  **narrowed, not deleted**, to "never rank or threshold it, aliases
+  included" — checked against a deliberate violation, which the first
+  version of the narrowed guard did not catch.
+- Empty state says "No recent operational events are available." Never "No
+  problems" or "System healthy".
 
 ## Non-goals
 
-Recent events (Phase 9); priority assets (Phase 10); auto-refresh;
-dark/light theming; Asset Navigator changes; map/GIS; any change to Fleet
-Overview or to the ranking rule itself.
+No acknowledge / clear / resolve / assign / silence / escalate / close.
+None has a persisted workflow, and a button that looks like it acknowledges
+an alarm and does nothing is worse than no button. The only action is
+"Investigate / Open asset".
 
-## Required tests
+⛔ No Priority Investigation panel · ⛔ No theming · ⛔ No auto-refresh ·
+⛔ No Top-N affected-location collapse · ⛔ No landing-route change ·
+⛔ No push
 
-- selecting a plant yields its transformers, ranked
-- affected = Stale + No Data at transformer level; composition sums
-- ranking tie-break deterministic and case-insensitive
-- no plant selected → an honest prompt, not an empty panel
-- unknown / out-of-scope plant_id selects nothing rather than erroring
-- a transformer missing a code keeps its id rather than disappearing
-- no new repository query for transformer ranking
-- deep links point at the existing Plant / Transformer / RTL routes
-- selection survives a re-render (it is in the URL)
-- Phase 5/6/7 values unchanged; Fleet Overview unchanged
+## Demo data
 
-## Decisions this gate depends on
+`python -m db.seed_events_demo` — opt-in, through `ingest_event()`, never
+`repo.insert_device_event()`. Append-only, so no `--reset`; a second run is
+refused unless `--again`.
 
-- [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) — affected = Stale + No Data
-- [ADR-003](../decisions/ADR-003-location-is-plant.md) — Location = Plant; no Zone/Feeder/GIS
-- [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) — scope is authorization-derived
-- [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) — read paths; amended this gate for the Plant-label lookup
+## Still open after this gate
 
-## Verification gate
-
-Browser at 1920x1080 and 1440x900: the full list scrolls normally (this
-page is deliberately not the fixed cockpit), the panel's "View all" reaches
-it, and the sidebar still highlights Command Center. Command Center itself
-and Fleet Overview unchanged. No new console errors. Then commit locally
-and **stop**.
-
-## Relevant files
-
-- `routes.py` — the route and its nav-key mapping
-- `services/authorization.py` — `ROUTE_POLICY` entry
-- `components/command_center/affected_locations.py` — shared row rendering
-- `pages/command_center_locations.py` — the full view (new)
-- `callbacks/routing.py` / `callbacks/command_center.py` — dispatch + populate
-- `assets/app.css` — `.command-center__` namespace only
+The FRESHNESS demo seed (one Fresh, one Stale, one mixed-metric NO_DATA
+RTL) remains blocking debt for Phase 12 — a different gap from the event
+seed this phase closed. See `docs/context/CC1_ROADMAP.md` Phase 12.

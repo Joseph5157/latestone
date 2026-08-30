@@ -59,6 +59,24 @@ def _snapshot_from_rows(monkeypatch, rows, *, scope=UNRESTRICTED, plants=None):
     monkeypatch.setattr(svc, "list_transformers", lambda plant_id, *, scope: [])
     return svc.get_command_center_snapshot(scope=scope)
 
+def _stub_event(event_id, *, device_id="plant-01-t1-d1", event_type="power_down"):
+    """A DeviceEventRecord-shaped stub (repositories/...:DeviceEventRecord)."""
+    return SimpleNamespace(
+        event_id=event_id,
+        device_id=device_id,
+        transformer_id="plant-01-t1",
+        reported_uid=None,
+        event_type=event_type,
+        severity=None,
+        event_ts=NOW,
+        temperature=None,
+        battery_voltage=None,
+        message=None,
+        source="test",
+        created_at=NOW,
+    )
+
+
 _FAKE_FLEET_HEALTH = FleetHealth(
     devices={
         "plant-01-t1-d1": FreshnessRollup(
@@ -75,6 +93,31 @@ _FAKE_FLEET_HEALTH = FleetHealth(
     plant_last_updated={},
 )
 
+#: The same fleet, but with the hierarchy populated so a plant is actually
+#: selectable. `_FAKE_FLEET_HEALTH` has no plants, which makes the Phase 8
+#: fallback resolve to None and quietly skips the transformer lookup - fine
+#: for the tests that use it, useless for asserting the read-path budget.
+_SELECTABLE_FLEET_HEALTH = FleetHealth(
+    devices=_FAKE_FLEET_HEALTH.devices,
+    transformers={
+        "plant-01-t1": FreshnessRollup(
+            state=Freshness.STALE,
+            counts={Freshness.FRESH: 1, Freshness.STALE: 1},
+            total=2,
+        )
+    },
+    plants={
+        "plant-01": FreshnessRollup(
+            state=Freshness.STALE,
+            counts={Freshness.FRESH: 1, Freshness.STALE: 1},
+            total=2,
+        )
+    },
+    counts={Freshness.FRESH: 1, Freshness.STALE: 1},
+    _transformer_plant={"plant-01-t1": "plant-01"},
+    plant_last_updated={},
+)
+
 
 class TestGetCommandCenterSnapshot:
     def test_calls_each_read_path_exactly_once(self, monkeypatch):
@@ -86,37 +129,56 @@ class TestGetCommandCenterSnapshot:
         of read entry points, so adding a fourth fails here and forces the
         ADR amendment rather than slipping in at a call site.
         """
-        calls = {"fleet_health": 0, "events": 0, "plants": 0}
+        calls = {
+            "fleet_health": 0, "events": 0, "plants": 0,
+            "transformers": 0, "device_paths": 0,
+        }
 
         def _fake_fleet_health(now, *, scope):
             calls["fleet_health"] += 1
-            return _FAKE_FLEET_HEALTH
+            return _SELECTABLE_FLEET_HEALTH
 
         def _fake_events(**kwargs):
             calls["events"] += 1
-            return []
+            return [_stub_event(1, device_id="plant-01-t1-d2")]
 
         def _fake_plants(*, scope):
             calls["plants"] += 1
             return []
 
+        def _fake_transformers(plant_id, *, scope):
+            calls["transformers"] += 1
+            return []
+
+        def _fake_device_paths(device_ids, *, scope):
+            calls["device_paths"] += 1
+            return []
+
         monkeypatch.setattr(svc, "get_fleet_health", _fake_fleet_health)
         monkeypatch.setattr(svc, "list_recent_device_events", _fake_events)
         monkeypatch.setattr(svc, "list_plants", _fake_plants)
+        monkeypatch.setattr(svc, "list_transformers", _fake_transformers)
+        monkeypatch.setattr(svc, "list_device_paths", _fake_device_paths)
 
         svc.get_command_center_snapshot(scope=UNRESTRICTED)
 
-        assert calls == {"fleet_health": 1, "events": 1, "plants": 1}
+        assert calls == {
+            "fleet_health": 1, "events": 1, "plants": 1,
+            "transformers": 1, "device_paths": 1,
+        }
 
     def test_snapshot_carries_the_fleet_health_and_events_through(self, monkeypatch):
         monkeypatch.setattr(svc, "get_fleet_health", lambda now, *, scope: _FAKE_FLEET_HEALTH)
-        monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: ["event-1"])
+        monkeypatch.setattr(
+            svc, "list_recent_device_events", lambda **kwargs: [_stub_event(7)]
+        )
         monkeypatch.setattr(svc, "list_plants", lambda *, scope: [])
+        monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
 
         snapshot = svc.get_command_center_snapshot(scope=UNRESTRICTED)
 
         assert snapshot.fleet_health is _FAKE_FLEET_HEALTH
-        assert snapshot.recent_events == ["event-1"]
+        assert [e.event_id for e in snapshot.recent_events] == [7]
         assert snapshot.monitored_device_count == 2
 
     def test_scope_device_ids_pass_through_to_the_event_read(self, monkeypatch):
@@ -386,32 +448,103 @@ class TestNoThresholdLogicInCommandCenter:
             f"event arrives already classified (EVT-D4). Found: {offenders}"
         )
 
-    def test_no_source_reads_the_battery_voltage_payload(self):
-        """battery_voltage is display/audit payload on an event, never a
-        classification input (ADR-001). Command Center has no reason to
-        touch it at all this phase.
+    def test_battery_voltage_is_never_ranked_or_thresholded(self):
+        """battery_voltage is display payload, never a classification input
+        (ADR-001, EVT-D4).
 
-        AST again, not a text scan: components/command_center/electrical.py
-        spells the forbidden pattern out in its docstring precisely so the
-        rule stays visible to the next reader, and prose explaining what not
-        to do must not be indistinguishable from doing it. Attribute access,
-        a bare name, and an exact-string key are usage; a docstring that
-        happens to contain the word is not.
+        Phase 6 enforced this as "Command Center never touches the field at
+        all", which was true then and is not now: Phase 9's event rows show
+        the voltage the device reported as secondary context, which the gate
+        explicitly asks for. Widening the ban to keep the old test passing
+        would have been the wrong trade - so the guard was narrowed to the
+        rule it was always standing in for.
+
+        Displaying it is allowed. ORDERING or EQUALITY-testing it is not:
+        `event.battery_voltage < anything` is Command Center deciding a
+        severity the device already decided, whatever number follows. That is
+        strictly stronger than the threshold-literal guard above for this
+        field, because it catches a hand-typed 3.6 that is in no constant.
+
+        `is None` / `is not None` stay legal - presence is not magnitude, and
+        the row has to know whether it has a payload to render.
+
+        ALIASES COUNT. A first version of this guard matched only
+        `event.battery_voltage` directly, and `voltage = event.battery_voltage;
+        if voltage < 3.4` walked straight past it - the guard was checked
+        against a deliberate violation and did not fire. Names bound from a
+        payload attribute are therefore treated as the payload itself.
         """
         import ast
+
+        ranking_ops = (ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.Eq, ast.NotEq)
+        payload_fields = {"battery_voltage", "temperature"}
+
+        def _is_payload_attr(node) -> bool:
+            return isinstance(node, ast.Attribute) and node.attr in payload_fields
 
         offenders = []
         for path in self._command_center_sources():
             tree = ast.parse(path.read_text(encoding="utf-8"))
+
+            # Names bound from a payload attribute anywhere in the module.
+            aliases = set(payload_fields)
             for node in ast.walk(tree):
-                used = (
-                    (isinstance(node, ast.Attribute) and node.attr == "battery_voltage")
-                    or (isinstance(node, ast.Name) and node.id == "battery_voltage")
-                    or (
-                        isinstance(node, ast.Constant)
-                        and node.value == "battery_voltage"
-                    )
+                targets = []
+                if isinstance(node, ast.Assign) and _is_payload_attr(node.value):
+                    targets = node.targets
+                elif (
+                    isinstance(node, ast.AnnAssign)
+                    and node.value is not None
+                    and _is_payload_attr(node.value)
+                ):
+                    targets = [node.target]
+                elif isinstance(node, ast.NamedExpr) and _is_payload_attr(node.value):
+                    targets = [node.target]
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        aliases.add(target.id)
+
+            def _is_payload(node) -> bool:
+                return _is_payload_attr(node) or (
+                    isinstance(node, ast.Name) and node.id in aliases
                 )
-                if used:
+
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Compare):
+                    continue
+                if not any(isinstance(op, ranking_ops) for op in node.ops):
+                    continue
+                if any(_is_payload(o) for o in (node.left, *node.comparators)):
                     offenders.append(f"{path.name}:{node.lineno}")
-        assert not offenders, offenders
+        assert not offenders, (
+            "Command Center must never rank or threshold an event's own "
+            "payload - the event arrives already classified (EVT-D4). "
+            f"Found: {offenders}"
+        )
+
+    def test_the_severity_of_an_event_row_is_decided_by_its_type_alone(self):
+        """The behavioural half of the guard above, and the one that would
+        actually catch a regression: a structural test proves no comparison
+        is written, this proves the payload cannot influence the outcome even
+        through some indirect route."""
+        from types import SimpleNamespace
+
+        from config.events import EVENT_TYPE_BATTERY_LOW, EVENT_TYPE_STARTUP
+
+        def _event(event_type, voltage):
+            return SimpleNamespace(
+                event_id=1, device_id=None, transformer_id="t1",
+                reported_uid=None, event_type=event_type, severity=None,
+                event_ts=datetime(2026, 8, 29, 14, 0, tzinfo=timezone.utc),
+                temperature=None, battery_voltage=voltage, message=None,
+                source="t", created_at=NOW,
+            )
+
+        reference = datetime(2026, 8, 29, 14, 30, tzinfo=timezone.utc)
+        # Well ABOVE both device thresholds, yet the device classified it.
+        high = svc._recent_event(_event(EVENT_TYPE_BATTERY_LOW, 4.20), {}, reference)
+        # Well BELOW both, and still only a startup.
+        low = svc._recent_event(_event(EVENT_TYPE_STARTUP, 3.10), {}, reference)
+
+        assert high.tone == "warning"
+        assert low.tone == svc.TONE_EVENT

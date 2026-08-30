@@ -1,35 +1,69 @@
 """Command Center service - the one facade assembling a presentation-ready
 snapshot for /command-center (ADR-008).
 
-Calls `get_fleet_health()` and `list_recent_device_events()` exactly once
-each per render, mirroring `get_fleet_health`'s own call discipline: resolve
-once, pass the result down, never call this per-component. Owns no query of
-its own - AGENTS.md rule 1 (no raw SQL in UI/page/component code) extends
-here too: everything below is composition over what those two functions
-already return, never a new SELECT.
+Calls each of ADR-008's approved read paths at most once per render,
+mirroring `get_fleet_health`'s own call discipline: resolve once, pass the
+result down, never call this per-component. Owns no query of its own -
+AGENTS.md rule 1 (no raw SQL in UI/page/component code) extends here too:
+everything below is composition over what those reads already return, never
+a new SELECT.
 
-Phase 3+4 (foundation and shell): only the fields the empty shell needs are
-populated. Panel content (Phase 5 onward, docs/context/CC1_ROADMAP.md)
-extends `CommandCenterSnapshot`, it does not replace this module's shape.
+Two boundaries this module holds and the components below it do not:
+
+- FRESHNESS vs EVENTS. `attention_rtls` and every ranking come from
+  `FleetHealth` alone (ADR-002); events never enter them. Events answer "did
+  something happen", freshness answers "is the data current now", and mixing
+  the two time semantics is the thing ADR-002 exists to forbid.
+- OCCURRENCE vs STATE. A recent Power Down event is displayed; a count of
+  RTLs *currently* in Critical is not derivable and stays `Unavailable`
+  (ADR-001 - no closure contract exists).
+
+Each phase extends `CommandCenterSnapshot`; none replaces this module's
+shape (docs/context/CC1_ROADMAP.md).
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config.events import EVENT_TYPE_BATTERY_LOW, EVENT_TYPE_POWER_DOWN
-from repositories.plant_monitoring_repository import (
-    DeviceEventRecord,
-    list_recent_device_events,
-)
+from repositories.plant_monitoring_repository import list_recent_device_events
+from routes import device_href
 from services import event_semantics
 from services.device_scope import DeviceScope
-from services.hierarchy_service import list_plants, list_transformers
+from services.hierarchy_service import (
+    list_device_paths,
+    list_plants,
+    list_transformers,
+)
 from services.monitoring_service import FleetHealth, Freshness, get_fleet_health
 
+logger = logging.getLogger(__name__)
+
 #: Technical pilot-safety bound, matching NOTIFICATION_QUERY_LIMIT's own
-#: rationale (services/event_semantics.py) - not product semantics.
+#: rationale (services/event_semantics.py) - not product semantics. It is the
+#: CEILING a caller cannot ask past, not the number Command Center wants.
 RECENT_EVENTS_LIMIT = 500
+
+#: How many event rows the panel shows, and therefore how many the query asks
+#: for. The repository already orders `event_ts DESC, event_id DESC`, so
+#: LIMIT N *is* the newest N - fetching 500 to render 10 would make the query,
+#: and the label lookup behind it, fifty times larger than the panel. Ten is
+#: enough to be operationally useful without turning a context strip into an
+#: alarm list; the Notification Center stays the deeper destination.
+RECENT_EVENT_ROWS = 10
+
+#: The neutral presentation every event that is NOT one of the two
+#: device-classified conditions takes. A word, not an absence: colour never
+#: carries meaning alone, so a neutral marker still needs a label beside it.
+TONE_EVENT = "event"
+TONE_EVENT_LABEL = "Event"
+
+#: An event attributed to a transformer but to no device and no reported UID
+#: (INGEST-D2 rule 4). Named rather than left blank so the row reads as a
+#: fact about attribution rather than as a field that failed to load.
+UNATTRIBUTED_ASSET_LABEL = "Unattributed"
 
 #: Device-definition legend copy (ADR-001). These figures describe what the
 #: DEVICE already decided before emitting the event - they are never
@@ -163,6 +197,154 @@ class SelectedLocation:
 
 
 @dataclass(frozen=True)
+class RecentEvent:
+    """One persisted event, as the operator reads it.
+
+    Presentation-ready by construction: the component renders these strings
+    and never inspects `event_type` itself. Same rule the Situation Summary
+    follows, for the same reason — two parts of one screen interpreting the
+    same event vocabulary is how they come to disagree about what it means.
+
+    An OCCURRENCE, never a state. A row here says "this happened at 14:02";
+    it does not say the RTL is in that condition now, and nothing derived
+    from these rows may claim otherwise (ADR-001 — no closure contract).
+    """
+
+    event_id: int
+    occurred_at: datetime
+    event_type: str
+    #: The event's own name, from the shared semantics layer (EVT-D1).
+    display_label: str
+    #: CSS tone key — "critical" | "warning" | TONE_EVENT.
+    tone: str
+    tone_label: str
+    #: What the event happened TO: a device code, "UID 29841", or a raw id
+    #: when the label lookup could not resolve one.
+    asset_label: str
+    #: "Plant / Transformer", the unregistered-UID note, or None.
+    context_label: str | None
+    #: Secondary payload the event carried. Display only.
+    detail: str | None
+    #: The existing RTL route — present ONLY when the asset actually resolved.
+    asset_href: str | None
+    time_label: str
+    time_title: str
+
+
+def _tone_for(event_type: str) -> tuple[str, str]:
+    """The severity presentation for one event type.
+
+    Derived from ELECTRICAL_CONDITIONS at call time rather than copied into
+    a second table: that tuple is Command Center's single statement of
+    `power_down -> Critical`, and a second copy is how the Phase 6 card and
+    these rows would eventually disagree about the same event type.
+
+    Everything else is neutral. Owning a Critical style is not a reason to
+    spend it on an event the device did not classify as one.
+    """
+    for condition in ELECTRICAL_CONDITIONS:
+        if condition.event_type == event_type:
+            return condition.severity_key, condition.severity_label
+    return TONE_EVENT, TONE_EVENT_LABEL
+
+
+def _event_detail(event) -> str | None:
+    """Secondary payload, formatted for display and for nothing else.
+
+    The voltage is what the DEVICE measured before it decided (EVT-D4). It
+    is shown because an operator heading to the asset benefits from it; it
+    is never compared, ranked or thresholded here, and a structural test
+    (tests/test_command_center_service.py) fails the build if it ever is.
+    """
+    voltage = event.battery_voltage
+    if voltage is None:
+        return None
+    return f"Battery voltage · {voltage:.2f} V"
+
+
+def _time_labels(occurred_at: datetime, reference: datetime) -> tuple[str, str]:
+    """A compact clock time, plus the unambiguous one for the row's title.
+
+    Same-day events show the bare time; anything older carries its date. A
+    three-day-old event rendered as "14:02" reads as this afternoon, which
+    is the panel implying a recency it does not have.
+
+    Times are UTC, as persisted (INGEST-D4). The panel names that once in
+    its subtitle rather than suffixing every row.
+    """
+    title = occurred_at.strftime("%Y-%m-%d %H:%M UTC")
+    if occurred_at.date() == reference.date():
+        return occurred_at.strftime("%H:%M"), title
+    return occurred_at.strftime("%d %b %H:%M"), title
+
+
+def _recent_event(event, paths: dict, reference: datetime) -> RecentEvent:
+    """Project one persisted event onto its row.
+
+    Three attribution cases, kept apart because they are three different
+    facts about what is KNOWN, not three renderings of one:
+
+    - a resolved device: real labels, and a link to its existing RTL page
+    - a device the label lookup missed: its id, and NO link — offering
+      "Open asset" would claim an asset the lookup just failed to support
+    - an unregistered UID (EVT-D5): no device exists, so no page does
+    """
+    if event.device_id is not None:
+        path = paths.get(event.device_id)
+        asset_label = path.device_code if path else event.device_id
+        context_label = (
+            f"{path.plant_name} / {path.transformer_code}" if path else None
+        )
+        asset_href = device_href(event.device_id) if path else None
+    elif event.reported_uid is not None:
+        asset_label = f"UID {event.reported_uid}"
+        context_label = event_semantics.UNREGISTERED_NOTIFICATION_TYPE
+        asset_href = None
+    else:
+        asset_label = event.transformer_id or UNATTRIBUTED_ASSET_LABEL
+        context_label = None
+        asset_href = None
+
+    tone, tone_label = _tone_for(event.event_type)
+    time_label, time_title = _time_labels(event.event_ts, reference)
+    return RecentEvent(
+        event_id=event.event_id,
+        occurred_at=event.event_ts,
+        event_type=event.event_type,
+        display_label=event_semantics.display_label_for(event.event_type),
+        tone=tone,
+        tone_label=tone_label,
+        asset_label=asset_label,
+        context_label=context_label,
+        detail=_event_detail(event),
+        asset_href=asset_href,
+        time_label=time_label,
+        time_title=time_title,
+    )
+
+
+def _recent_events(
+    events, reference: datetime, scope: DeviceScope
+) -> tuple[RecentEvent, ...]:
+    """The visible event rows, labelled in ONE batched lookup (ADR-008).
+
+    Order is the repository's, untouched: it already sorts `event_ts DESC,
+    event_id DESC` (INGEST-D4 tiebreak), and re-sorting here would be a
+    second ordering rule free to disagree with the query's. Severity never
+    enters it — a severity-first order would lift an old Power Down above a
+    newer Startup and quietly turn a chronology into a priority queue, which
+    is the alarm-management system this panel is explicitly not.
+    """
+    device_ids = [e.device_id for e in events if e.device_id is not None]
+    paths = (
+        {p.device_id: p for p in list_device_paths(device_ids, scope=scope)}
+        if device_ids
+        else {}
+    )
+    return tuple(_recent_event(event, paths, reference) for event in events)
+
+
+@dataclass(frozen=True)
 class CommandCenterSnapshot:
     """One presentation-ready Command Center render.
 
@@ -174,7 +356,16 @@ class CommandCenterSnapshot:
     """
 
     fleet_health: FleetHealth
-    recent_events: list[DeviceEventRecord]
+
+    #: Presentation-ready event rows, newest first. Occurrences, never a
+    #: current state — see RecentEvent.
+    recent_events: tuple[RecentEvent, ...]
+
+    #: Whether the event read FAILED, as opposed to returning nothing.
+    #: Structurally distinct for the same reason `current_count is None` is
+    #: distinct from `0`: "nothing happened" and "we could not look" are
+    #: different facts, and the panel must be able to say which one it has.
+    recent_events_failed: bool
 
     #: The monitored RTL population - active devices under active
     #: transformers. Backs the header's scope indicator (ADR-004), Fleet
@@ -407,19 +598,64 @@ def _selected_location(
     )
 
 
+def _read_recent_events(
+    *,
+    scope: DeviceScope,
+    reference: datetime,
+    event_limit: int,
+    include_unregistered: bool,
+) -> tuple[tuple[RecentEvent, ...], bool]:
+    """The events read, behind its own failure boundary (ADR-008).
+
+    Every other read in this façade answers "what is the state of the
+    fleet". This one answers "what happened recently", which is CONTEXT
+    around that state rather than the state itself — so an operator who
+    cannot see the last ten events can still act on Needs Attention,
+    Affected Locations and the transformer concentration. Blanking all of
+    those because an event query failed would remove far more truth than the
+    failure actually cost.
+
+    The failure is never flattened into an empty list. It is returned as a
+    flag beside an empty tuple, so the panel can state which of the two it
+    has.
+
+    The boundary is deliberately one-directional: a `get_fleet_health` or
+    label failure still fails the whole snapshot, because those ARE the page.
+    """
+    try:
+        events = list_recent_device_events(
+            event_types=event_semantics.mapped_event_types(),
+            allowed_device_ids=scope.device_ids,
+            include_unattributed=include_unregistered,
+            limit=min(event_limit, RECENT_EVENTS_LIMIT),
+        )
+        return _recent_events(events, reference, scope), False
+    except Exception:
+        logger.exception("Command Center could not read recent device events")
+        return (), True
+
+
 def get_command_center_snapshot(
     *,
     scope: DeviceScope,
     now: datetime | None = None,
-    event_limit: int = RECENT_EVENTS_LIMIT,
+    event_limit: int = RECENT_EVENT_ROWS,
     selected_plant_id: str | None = None,
+    include_unregistered: bool = False,
 ) -> CommandCenterSnapshot:
-    """Assemble one Command Center snapshot. Call once per render."""
+    """Assemble one Command Center snapshot. Call once per render.
+
+    `include_unregistered` is the EVT-D5 administrator gate, decided by the
+    caller exactly as `callbacks/notifications.py` already decides it: an
+    unregistered UID belongs to no device set, so scope alone cannot express
+    who may see it. The default is the safe one.
+    """
     fleet_health = get_fleet_health(now, scope=scope)
-    events = list_recent_device_events(
-        event_types=event_semantics.mapped_event_types(),
-        allowed_device_ids=scope.device_ids,
-        limit=event_limit,
+    recent_events, recent_events_failed = _read_recent_events(
+        scope=scope,
+        reference=now or datetime.now(timezone.utc),
+        event_limit=event_limit,
+        include_unregistered=include_unregistered,
     )
     # Labels only (ADR-008) - every Plant-level number and the ranking order
     # come from fleet_health above. Scoped like every other read so an
@@ -436,7 +672,8 @@ def get_command_center_snapshot(
 
     return CommandCenterSnapshot(
         fleet_health=fleet_health,
-        recent_events=events,
+        recent_events=recent_events,
+        recent_events_failed=recent_events_failed,
         monitored_device_count=monitored,
         fresh_rtls=counts.get(Freshness.FRESH, 0),
         stale_rtls=stale,

@@ -30,6 +30,26 @@ def _compose(monkeypatch, rows, *, plants, scope=UNRESTRICTED):
     return svc.get_command_center_snapshot(scope=scope)
 
 
+
+def _noisy_event(event_id, device_id):
+    """A DeviceEventRecord-shaped stub. Full shape so the Phase 9 projection
+    runs for real - a partial stub would make these tests pass by never
+    exercising the code path they are guarding against."""
+    return SimpleNamespace(
+        event_id=event_id,
+        device_id=device_id,
+        transformer_id="t1",
+        reported_uid=None,
+        event_type="power_down",
+        severity=None,
+        event_ts=NOW,
+        temperature=None,
+        battery_voltage=None,
+        message=None,
+        source="test",
+        created_at=NOW,
+    )
+
 class TestAffectedComposition:
     """p1: 2 stale + 1 no-data = 3 affected of 4 monitored.
     p2: 1 stale = 1 affected of 2 monitored."""
@@ -158,6 +178,7 @@ class TestRankingRules:
             svc, "list_plants", lambda *, scope: [_plant("p1", "One"), _plant("p2", "Two")]
         )
         monkeypatch.setattr(svc, "list_transformers", lambda plant_id, *, scope: [])
+        monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
 
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])
         without = [
@@ -165,7 +186,7 @@ class TestRankingRules:
             for r in svc.get_command_center_snapshot(scope=UNRESTRICTED).affected_locations
         ]
 
-        noisy = [SimpleNamespace(device_id="d2", event_type="power_down")] * 50
+        noisy = [_noisy_event(i, "d2") for i in range(50)]
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: noisy)
         with_events = [
             (r.plant_id, r.affected_rtls)

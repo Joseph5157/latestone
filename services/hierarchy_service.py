@@ -65,6 +65,20 @@ def list_devices(
     )
 
 
+def list_device_paths(device_ids, *, scope: DeviceScope) -> list[DevicePath]:
+    """Label paths (plant name / transformer code / device code) for a
+    bounded set of devices, within the caller's scope (ADR-008, Phase 9).
+
+    Deliberately has no `include_inactive` flag and applies no `_active_only`
+    filter. Every other listing here decides what is SELECTABLE for live
+    monitoring; this one names assets on records of things that already
+    happened, and an event does not stop needing a name because its RTL was
+    deactivated afterwards. Adding the flag would invite a caller to hide
+    real history behind an administrative status.
+    """
+    return repo.list_device_paths(device_ids, allowed_device_ids=scope.device_ids)
+
+
 def get_plant_or_none(plant_id: str) -> PlantRecord | None:
     return repo.get_plant(plant_id)
 

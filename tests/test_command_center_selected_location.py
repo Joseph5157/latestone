@@ -56,6 +56,26 @@ PLANTS = [_plant("p1", "Durban"), _plant("p2", "Newcastle")]
 TRANSFORMERS = [_transformer("t1", "TRF-04"), _transformer("t2", "TRF-07")]
 
 
+
+def _noisy_event(event_id, device_id):
+    """A DeviceEventRecord-shaped stub. Full shape so the Phase 9 projection
+    runs for real - a partial stub would make these tests pass by never
+    exercising the code path they are guarding against."""
+    return SimpleNamespace(
+        event_id=event_id,
+        device_id=device_id,
+        transformer_id="t1",
+        reported_uid=None,
+        event_type="power_down",
+        severity=None,
+        event_ts=NOW,
+        temperature=None,
+        battery_voltage=None,
+        message=None,
+        source="test",
+        created_at=NOW,
+    )
+
 class TestDefaultAndFallbackSelection:
     """Nothing chosen, an unknown id, or a plant that has dropped out of
     scope all resolve to the WORST AFFECTED plant - the panel opens on the
@@ -242,6 +262,7 @@ class TestTransformerRankingRules:
         monkeypatch.setattr(
             svc, "list_transformers", lambda plant_id, *, scope: list(TRANSFORMERS)
         )
+        monkeypatch.setattr(svc, "list_device_paths", lambda ids, *, scope: [])
 
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: [])
         without = [
@@ -251,7 +272,7 @@ class TestTransformerRankingRules:
             ).selected_location.transformers
         ]
 
-        noisy = [SimpleNamespace(device_id="d1", event_type="power_down")] * 50
+        noisy = [_noisy_event(i, "d1") for i in range(50)]
         monkeypatch.setattr(svc, "list_recent_device_events", lambda **kwargs: noisy)
         with_events = [
             (t.transformer_id, t.affected_rtls)

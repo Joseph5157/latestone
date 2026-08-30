@@ -169,21 +169,50 @@ Selection survives a routine polling refresh (ADR-005). Actions deep-link to
 the existing Plant/Transformer/RTL routes — flattening investigation without
 duplicating the hierarchy.
 
-## Phase 9 — Recent Operational Events
+## Phase 9 — Recent Operational Events — DONE (2026-08-29)
 
-Large panel. Persisted events only, via `list_recent_device_events()`
-(ADR-008):
+Persisted events only, via `list_recent_device_events()` (ADR-008), newest
+first, at the repository's own order. Severity presentation is DERIVED from
+Phase 6's `ELECTRICAL_CONDITIONS` rather than restated, so the current-state
+card and the event rows cannot disagree about `power_down -> Critical`.
+Event type NAMES moved into `services/event_semantics.py` (`display_label`)
+so no consumer spells them out.
+
+ADR-008 amended a third time, before the code, for three things: a batched
+`list_device_paths` label lookup (one query for the visible rows, not one
+per plant and one per transformer — a ~20-query-per-render N+1 on a page
+meant to auto-refresh), the events failure boundary, and the EVT-D5
+administrator gate on unregistered-UID rows.
 
 ```text
-14:02  RTL-081  Startup
-13:41  RTL-017  Invalid UID
-13:12  RTL-104  Power Down
-12:56  RTL-220  Battery Low
+● CRITICAL                    14:02
+Power Down            29017
+Three Gorges Dam / aa12    Open asset →
+Battery voltage · 3.54 V
 ```
 
-"Open asset →" where an entity resolves; plain text where it doesn't. No
-acknowledge button, no fake delivery state, no pretending events are
-persistent alarms (events have no closure contract — ADR-001).
+"Open asset →" ONLY where the asset resolved; plain text where it didn't,
+including every unregistered UID. No acknowledge / clear / resolve /
+silence / escalate control, no fake delivery state, no pretending events
+are persistent alarms (events have no closure contract — ADR-001).
+
+Three outcomes kept structurally apart: rows, "no recent operational events
+are available", and "could not be loaded". The third is why the events read
+has its own boundary in the façade — an event query failing must not blank
+the freshness truth beside it.
+
+### Blocking debt CLEARED: the operational-event seed
+
+`db/seed_events_demo.py` (opt-in, `python -m db.seed_events_demo`) ingests a
+13-event batch through `ingest_event()` — never `insert_device_event()` —
+so a demo `invalid_uid` row is quarantined by the real resolution rather
+than declared, and a demo `startup` really does activate its RTL and write
+its system-originated audit row. No `--reset`: event persistence is
+append-only (INGEST-D3), so a second run is refused rather than silently
+doubling.
+
+The FRESHNESS demo seed (Fresh / Stale / mixed-metric NO_DATA) is a
+different gap and is still open — see Phase 12 below.
 
 ## Phase 10 — Priority investigation
 

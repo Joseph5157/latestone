@@ -4991,6 +4991,152 @@ body {
   white-space: normal;
 }
 
+/* Recent Operational Events (Phase 9) — a dense chronology, not an alarm
+   list. Three lines per row: severity + time, then what happened and to
+   what, then where it is and the way in. Two lines for the first two would
+   double the row height in a panel that has a fixed vertical budget.
+
+   Reuses the Phase 6 tone classes (`--critical` / `--warning`) rather than
+   defining event colours of its own: `power_down -> Critical` is stated
+   once, in the service, and both surfaces read it from there. */
+.command-center__events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.command-center__event-row {
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.command-center__event-row:first-child {
+  padding-top: 0;
+}
+
+.command-center__event-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* Severity left, time hard right: the times form their own aligned column
+   down the panel, which is what makes a chronology scannable. */
+.command-center__event-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.command-center__event-category {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.command-center__event-marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* 600, not 700 — only Regular and SemiBold ship (tests/test_typography.py). */
+.command-center__event-severity {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The neutral tone for everything the device did not classify as Critical
+   or Warning. Quiet on purpose: a startup is information, not a call for
+   someone, and spending a colour on it would devalue the two that matter. */
+.command-center__tone--event { color: var(--color-muted); }
+
+.command-center__event-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--color-muted);
+  flex: none;
+}
+
+.command-center__event-body {
+  margin-top: var(--sp-1);
+}
+
+.command-center__event-title,
+.command-center__event-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.command-center__event-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The RTL's UID — the operator's actual handle on the asset, so it stays
+   readable and is never the part that gets truncated first. */
+.command-center__event-asset {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--color-text);
+  flex: none;
+}
+
+.command-center__event-context {
+  font-size: 12px;
+  color: var(--color-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-center__event-action {
+  font-size: 12px;
+  color: var(--color-accent);
+  text-decoration: none;
+  flex: none;
+}
+
+.command-center__event-action:hover {
+  text-decoration: underline;
+}
+
+.command-center__event-detail {
+  margin: var(--sp-1) 0 0 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+}
+
+/* Same treatment as the Affected Locations list: bound the HEIGHT, keep
+   every row reachable. The region takes focus so its lower rows are not
+   visually present but functionally unreachable (WCAG 2.1.1). */
+.command-center__event-scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: var(--sp-2);
+}
+
+.command-center__event-scroll:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+
 /* NOTE ON PLACEMENT: this block must stay LAST in the Command Center
    section. Media queries add no specificity, so it ties with the base
    rules above and wins only on source order. Placed before them, the
@@ -5204,6 +5350,21 @@ body {
   }
 
   .command-center__ranking-scroll {
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* Recent Events owns its own labelled scroll region for the same reason,
+     so its card body must not scroll too — nested scrollbars mean the outer
+     one steals the wheel and the inner rows become hard to reach. */
+  .command-center__panels .command-center__card-body:has(.command-center__event-scroll) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .command-center__event-scroll {
     max-height: none;
     flex: 1 1 auto;
     min-height: 0;

@@ -18,9 +18,12 @@ from components.command_center.affected_locations import (
 )
 from components.command_center.electrical import electrical_conditions_card
 from components.command_center.primitives import scope_indicator_text
+from components.command_center.recent_events import recent_events_card
 from components.command_center.selected_location import selected_location_card
 from components.command_center.situation_summary import situation_summary_panels
 from components.status_panels import error_panel
+from services.auth_service import from_session
+from services.authorization import ADMINISTRATOR
 from services.command_center_service import get_command_center_snapshot
 from services.device_scope import scope_from_session
 
@@ -36,6 +39,7 @@ def register(app) -> None:
         Output("command-center-exception-intelligence", "children"),
         Output("command-center-affected-locations", "children"),
         Output("command-center-selected-location", "children"),
+        Output("command-center-recent-events", "children"),
         Output("command-center-error", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
@@ -47,14 +51,22 @@ def register(app) -> None:
         which RTLs are stale.
         """
         if not context or context.get("route") != "command_center":
-            return (no_update,) * 6
+            return (no_update,) * 7
 
         try:
             # Resolved once per render (ADR-004/ADR-008), same discipline
             # get_fleet_health's own docstring requires of every caller.
             scope = scope_from_session(auth_data)
+            # EVT-D5, applying the precedent this app already set in
+            # callbacks/notifications.py: an unregistered UID belongs to no
+            # device set, so scope alone cannot decide who may see the
+            # quarantine rows. Only an administrator asks for them.
+            user = from_session(auth_data)
+            is_admin = user is not None and user.role == ADMINISTRATOR
             snapshot = get_command_center_snapshot(
-                scope=scope, selected_plant_id=context.get("plant_id")
+                scope=scope,
+                selected_plant_id=context.get("plant_id"),
+                include_unregistered=is_admin,
             )
             return (
                 scope_indicator_text(snapshot.monitored_device_count),
@@ -62,6 +74,10 @@ def register(app) -> None:
                 electrical_conditions_card(snapshot),
                 affected_locations_card(snapshot),
                 selected_location_card(snapshot),
+                # An events read that failed did NOT fail the snapshot — the
+                # facade holds that boundary (ADR-008) and the card states
+                # which of "nothing happened" / "could not look" it has.
+                recent_events_card(snapshot),
                 None,
             )
         except Exception:
@@ -70,7 +86,7 @@ def register(app) -> None:
             # left showing "Loading…" forever — a stuck spinner reads as a
             # slow fleet, not a failed read.
             logger.exception("Failed to load Command Center snapshot")
-            return no_update, [], [], [], [], error_panel()
+            return no_update, [], [], [], [], [], error_panel()
 
     @app.callback(
         Output("command-center-locations-list", "children"),
