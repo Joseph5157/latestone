@@ -62,11 +62,15 @@ def layout() -> html.Div:
             # Session-scoped, the lifetime ADR-006 named and the one
             # `auth-store` already uses. Not localStorage: the choice is a
             # property of this shift at this console, not of the machine.
-            dcc.Store(
-                id=theme.STORE_ID,
-                storage_type="session",
-                data={"theme": theme.DEFAULT_THEME},
-            ),
+            # NO `data=` HERE, deliberately. Dash re-applies a Store's
+            # declared initial data every time the component MOUNTS, and this
+            # page remounts on every in-app navigation — so declaring a
+            # default overwrote the operator's stored choice each time they
+            # selected a Plant, silently snapping the appearance back to
+            # dark. Omitting it lets the persisted session value load.
+            # `apply_theme` already reads a missing value as DEFAULT_THEME,
+            # so a genuinely first visit still opens dark.
+            dcc.Store(id=theme.STORE_ID, storage_type="session"),
             # Page-owned, so leaving the route destroys it (ADR-005). There
             # is no app-wide interval and adding one would change Fleet
             # Overview's deliberately-tested absence of refresh.

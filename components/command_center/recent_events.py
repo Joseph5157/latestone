@@ -28,6 +28,11 @@ from components.command_center.primitives import cc_card
 
 #: The deeper destination. Command Center holds recent context; the
 #: Notification Center is where an operator investigates the full history.
+#:
+#: The label names the DESTINATION, not the rows. "View all notifications"
+#: implied these event rows were notifications, which is the EVT-D1
+#: distinction this panel exists to hold: a device condition ("Battery Low")
+#: and a notification category ("Battery Alarm") are different things.
 NOTIFICATIONS_PATH = "/notifications"
 
 #: Rows shown before the list becomes a scroll region. Same rule as Affected
@@ -175,7 +180,7 @@ def recent_events_card(snapshot) -> html.Section:
     body: list = [
         _scrollable(listing) if len(events) > SCROLL_AFTER_ROWS else listing,
         dcc.Link(
-            "View all notifications →",
+            "Open Notification Center →",
             href=NOTIFICATIONS_PATH,
             className="command-center__view-all",
         ),

@@ -31,7 +31,16 @@ LOCATIONS_PATH = "/command-center/locations"
 #: concentration picture this panel exists to give. The CSS max-height is
 #: set just under this many rows so the next one is visibly clipped, which
 #: is what tells the operator there is more to see.
-SCROLL_AFTER_ROWS = 9
+#: How many affected Plants the COCKPIT panel names. A deliberate decision,
+#: not an accident of what Phase 7 happened to produce: thirty rows in a
+#: fixed-height cell means comparing rank 3 against rank 27 by scrolling a
+#: small pane, which is not comparing at all.
+#:
+#: Progressive disclosure, never truncation of the DATA. The service still
+#: ranks every plant, `/command-center/locations` still shows all of them,
+#: and the subtitle keeps stating the true total — so the population is
+#: reported honestly even while the panel shows a working subset.
+TOP_N = 8
 
 
 def bar_width_percent(affected: int, worst: int) -> float:
@@ -126,6 +135,43 @@ def _subtitle(snapshot, ranked: list) -> str:
     return f"{len(ranked)} of {total} {noun} affected"
 
 
+def _selected_plant_id(snapshot) -> str | None:
+    selected = getattr(snapshot, "selected_location", None)
+    return getattr(selected, "plant_id", None) if selected else None
+
+
+def visible_locations(ranked: list, selected_plant_id: str | None):
+    """The rows the panel shows, and the selected row it had to keep.
+
+    Returns `(shown, retained)`. `retained` is the selected plant when it
+    ranks below the cut and had to be appended, else None — the caller needs
+    to know, because a row that is present for a different reason than the
+    others deserves to say so rather than looking like rank 9.
+
+    The DATA is never truncated: `ranked` still holds every affected plant,
+    the subtitle still counts them, and the full page still lists them.
+    """
+    if len(ranked) <= TOP_N:
+        return list(ranked), None
+
+    shown = list(ranked[:TOP_N])
+    if selected_plant_id is None:
+        return shown, None
+    if any(row.plant_id == selected_plant_id for row in shown):
+        return shown, None
+
+    below = next(
+        (row for row in ranked[TOP_N:] if row.plant_id == selected_plant_id),
+        None,
+    )
+    if below is None:
+        # Selected, but not affected at all — nothing to retain. It is a calm
+        # plant, and this panel ranks exceptions.
+        return shown, None
+    return shown + [below], below
+
+
+
 def affected_locations_card(snapshot) -> html.Section:
     """The Affected Locations card.
 
@@ -135,6 +181,7 @@ def affected_locations_card(snapshot) -> html.Section:
     plants that need someone.
     """
     ranked = [row for row in snapshot.affected_locations if row.affected_rtls]
+    shown, retained = visible_locations(ranked, _selected_plant_id(snapshot))
 
     if not ranked:
         # Two different facts, kept apart. "Nothing is wrong" is a measured
@@ -148,13 +195,35 @@ def affected_locations_card(snapshot) -> html.Section:
         )
         body = [html.P(message, className="command-center__empty-note")]
     else:
-        listing = ranked_locations_list(ranked)
-        body = [_scrollable(listing) if len(ranked) > SCROLL_AFTER_ROWS else listing]
-        # Only offered when there is something to open. A "View all" over an
-        # empty list promises content that is not there.
+        listing = ranked_locations_list(shown)
+        # ALWAYS wrapped, not conditionally. The region is a HEIGHT bound,
+        # not a row-count decision: inside the fixed cockpit its CSS flexes
+        # it to whatever the cell allows, so even eight rows must live inside
+        # it or the panel overflows its grid area on a short viewport. The
+        # old row-count condition became unreachable the moment TOP_N capped
+        # the list below it, which would have silently removed the bound.
+        body = [_scrollable(listing)]
+        if retained:
+            # The selected plant ranks below the cut. It stays visible rather
+            # than vanishing the moment it stops being one of the worst — a
+            # selection that disappears reads as a bug, and the operator
+            # chose this plant on purpose.
+            body.append(
+                html.P(
+                    f"{retained.plant_name} is shown because it is selected "
+                    f"(rank {ranked.index(retained) + 1} of {len(ranked)}).",
+                    className="command-center__retained-note",
+                )
+            )
+        # Only offered when there is something to open. A link over an empty
+        # list promises content that is not there.
+        if len(shown) < len(ranked):
+            label = f"Show all {len(ranked)} affected plants →"
+        else:
+            label = "View all →"
         body.append(
             dcc.Link(
-                "View all →",
+                label,
                 href=LOCATIONS_PATH,
                 className="command-center__view-all",
             )

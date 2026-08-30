@@ -315,3 +315,31 @@ class TestInheritedTextIsThemed:
             if "app-sidebar__link--active" in s and theme.THEME_CLASS_DARK in s
         ]
         assert scoped, "no dark-appearance rule for the active nav item"
+
+
+class TestTheStoredChoiceSurvivesRemount:
+    """Found in acceptance: selecting a Plant reset the appearance to dark.
+
+    Dash re-applies a `dcc.Store`'s declared `data=` on every MOUNT, and this
+    page remounts on every in-app navigation — so a declared default silently
+    overwrote the operator's stored choice, store and all. The store must
+    declare no initial data so the persisted session value loads instead.
+    """
+
+    def _theme_store(self):
+        for node in _walk(layout()):
+            if getattr(node, "id", None) == theme.STORE_ID:
+                return node
+        raise AssertionError("theme store is not mounted")
+
+    def test_the_store_declares_no_initial_data(self):
+        store = self._theme_store()
+        assert store.to_plotly_json()["props"].get("data") is None
+
+    def test_the_store_is_session_scoped(self):
+        assert self._theme_store().storage_type == "session"
+
+    def test_a_missing_stored_value_still_opens_on_the_default(self):
+        """Omitting the initial data must not leave a first visit themeless."""
+        assert theme.theme_class(None) == theme.theme_class(theme.DEFAULT_THEME)
+        assert theme.root_class_name(None) == theme.root_class_name(theme.DEFAULT_THEME)

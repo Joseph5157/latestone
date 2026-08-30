@@ -9,10 +9,11 @@ from dataclasses import dataclass
 
 from components.command_center.affected_locations import (
     LOCATIONS_PATH,
-    SCROLL_AFTER_ROWS,
+    TOP_N,
     affected_locations_card,
     bar_width_percent,
     ranked_locations_list,
+    visible_locations,
 )
 from tests.dash_tree import find_by_class, links as _links, text_of, walk
 
@@ -138,51 +139,131 @@ def _focusable(node):
     return [n for n in walk(node) if getattr(n, "tabIndex", None) is not None]
 
 
-class TestLongListScrolls:
-    """30 affected plants made the panel dominate the page. Bounding its
-    HEIGHT is the fix; bounding the DATA is not - hiding affected plants
-    behind a "+22 more" cap would remove exactly the concentration picture
-    this panel exists to give."""
+class TestTopNDisclosure:
+    """The panel names the worst TOP_N plants; the full population stays one
+    click away.
 
-    LONG = _many(SCROLL_AFTER_ROWS + 12)
+    This SUPERSEDES the Phase 7 decision that the panel should list all 30.
+    That reasoning was sound about the danger — hiding affected plants behind
+    a "+22 more" cap removes the concentration picture — and it is answered
+    here by DISCLOSURE rather than truncation: the service still ranks every
+    plant, the subtitle still counts them, and the full page still lists them.
+    Thirty rows in a fixed-height cell meant comparing rank 3 against rank 27
+    by scrolling a small pane, which is not comparing at all.
+    """
 
-    def test_a_long_list_is_wrapped_in_a_scroll_region(self):
-        assert _scroll_regions(affected_locations_card(_Snap(self.LONG)))
+    LONG = _many(TOP_N + 12)
 
-    def test_every_row_is_still_rendered_not_truncated(self):
+    def test_only_the_top_n_are_named(self):
         card = affected_locations_card(_Snap(self.LONG))
-        assert len(find_by_class(card, "command-center__rank-bar-fill")) == len(self.LONG)
+        assert len(find_by_class(card, "command-center__rank-bar-fill")) == TOP_N
 
-    def test_the_scroll_region_is_keyboard_reachable(self):
+    def test_the_worst_plants_are_the_ones_kept(self):
+        shown, _ = visible_locations(list(self.LONG), None)
+        assert [row.plant_id for row in shown] == [
+            row.plant_id for row in self.LONG[:TOP_N]
+        ]
+
+    def test_a_list_at_the_cap_is_untouched(self):
+        exactly = _many(TOP_N)
+        shown, retained = visible_locations(list(exactly), None)
+        assert len(shown) == TOP_N
+        assert retained is None
+
+    def test_a_short_list_is_untouched(self):
+        shown, retained = visible_locations(list(_many(3)), None)
+        assert len(shown) == 3
+        assert retained is None
+
+    def test_the_footer_offers_the_full_population_with_its_size(self):
+        """"Show all" without a number makes the operator click to find out
+        how much they are not seeing."""
+        text = text_of(affected_locations_card(_Snap(self.LONG)))
+        assert f"Show all {len(self.LONG)} affected plants" in text
+
+    def test_the_footer_does_not_promise_more_when_nothing_is_hidden(self):
+        text = text_of(affected_locations_card(_Snap(_many(3))))
+        assert "Show all" not in text
+
+    def test_the_data_is_never_truncated_only_the_view(self):
+        """The service's ranking still holds every plant — the cap is a
+        presentation choice made here, and reversible here."""
+        snap = _Snap(self.LONG)
+        assert len(snap.affected_locations) == TOP_N + 12
+
+
+class TestSelectedPlantStaysVisible:
+    """A selection that vanishes reads as a bug. The operator chose it."""
+
+    LONG = _many(TOP_N + 12)
+
+    def _snap_selecting(self, plant_id):
+        class _Sel:
+            def __init__(self, pid):
+                self.plant_id = pid
+
+        snap = _Snap(self.LONG)
+        object.__setattr__(snap, "selected_location", _Sel(plant_id))
+        return snap
+
+    def test_a_selection_below_the_cut_is_retained(self):
+        below = self.LONG[TOP_N + 3]
+        shown, retained = visible_locations(list(self.LONG), below.plant_id)
+        assert retained is below
+        assert shown[-1] is below
+        assert len(shown) == TOP_N + 1
+
+    def test_a_selection_inside_the_cut_adds_nothing(self):
+        inside = self.LONG[2]
+        shown, retained = visible_locations(list(self.LONG), inside.plant_id)
+        assert retained is None
+        assert len(shown) == TOP_N
+
+    def test_a_retained_row_says_why_it_is_there(self):
+        """It is present for a different reason than the eight above it, and
+        would otherwise read as rank 9."""
+        below = self.LONG[TOP_N + 3]
+        card = affected_locations_card(self._snap_selecting(below.plant_id))
+        text = text_of(card)
+        assert below.plant_name in text
+        assert "because it is selected" in text
+        assert f"rank {TOP_N + 4} of {len(self.LONG)}" in text
+
+    def test_an_unaffected_selection_retains_nothing(self):
+        """This panel ranks exceptions. A calm plant has no row to keep."""
+        shown, retained = visible_locations(list(self.LONG), "not-affected")
+        assert retained is None
+        assert len(shown) == TOP_N
+
+
+class TestTheListIsAlwaysHeightBounded:
+    """The scroll region is a HEIGHT bound, not a row-count decision.
+
+    Inside the fixed cockpit its CSS flexes it to the cell, so the rows must
+    live inside it even at eight — otherwise the panel overflows its grid
+    area on a short viewport.
+    """
+
+    def test_rows_are_wrapped_in_the_scroll_region(self):
+        assert _scroll_regions(affected_locations_card(_Snap(_many(3))))
+
+    def test_the_region_is_keyboard_reachable(self):
         """A scrollable region that cannot take focus is unreachable by
-        keyboard (WCAG 2.1.1) - the content is visually present and
-        functionally unavailable."""
-        region = _scroll_regions(affected_locations_card(_Snap(self.LONG)))[0]
+        keyboard (WCAG 2.1.1)."""
+        region = _scroll_regions(affected_locations_card(_Snap(RANKED)))[0]
         # The STRING "0", not int 0: Dash types this prop as a string and
         # logs an invalid-argument error for an int on every callback fire.
-        # Asserting the Python attribute alone let that through once.
         assert region.tabIndex == "0"
 
-    def test_the_scroll_region_is_named_for_assistive_tech(self):
-        """A focusable region with no accessible name announces as nothing."""
-        region = _scroll_regions(affected_locations_card(_Snap(self.LONG)))[0]
+    def test_the_region_is_named_for_assistive_tech(self):
+        region = _scroll_regions(affected_locations_card(_Snap(RANKED)))[0]
         assert region.role == "region"
         assert region.__getattribute__("aria-label")
 
-
-class TestShortListDoesNotScroll:
-    SHORT = _many(3)
-
-    def test_a_short_list_has_no_scroll_region(self):
-        assert not _scroll_regions(affected_locations_card(_Snap(self.SHORT)))
-
-    def test_a_short_list_adds_no_tab_stop(self):
+    def test_an_empty_state_adds_no_tab_stop(self):
         """A focus stop that scrolls nothing is noise in the tab order."""
-        assert not _focusable(affected_locations_card(_Snap(self.SHORT)))
-
-    def test_the_boundary_row_count_does_not_scroll(self):
-        exactly = _many(SCROLL_AFTER_ROWS)
-        assert not _scroll_regions(affected_locations_card(_Snap(exactly)))
+        empty = _Snap((), has_affected_locations=False)
+        assert not _focusable(affected_locations_card(empty))
 
 
 class TestScaleIsKnownWithoutScrolling:
@@ -213,7 +294,7 @@ class TestViewAllLink:
 
 
 class TestFullViewRendersEverything:
-    LONG = _many(SCROLL_AFTER_ROWS + 12)
+    LONG = _many(TOP_N + 12)
 
     def test_renders_every_affected_plant(self):
         listing = ranked_locations_list(list(self.LONG))
@@ -226,12 +307,25 @@ class TestFullViewRendersEverything:
         assert not _find(listing, "command-center__ranking-scroll")
 
     def test_panel_and_full_view_render_the_same_rows(self):
-        """One row renderer, two surfaces. A second copy would let the
-        panel and the page drift into disagreeing about the same plant."""
-        panel_names = [
-            t for t in _texts(affected_locations_card(_Snap(self.LONG)))
-        ]
-        full_names = [t for t in _texts(ranked_locations_list(list(self.LONG)))]
-        for location in self.LONG:
+        """One row renderer, two surfaces. A second copy would let the panel
+        and the page drift into disagreeing about the same plant.
+
+        Asserted over the plants the panel SHOWS, not over all of them: the
+        panel is now a Top-N view, and demanding every plant appear in it
+        would be testing the old disclosure decision, not the shared
+        renderer this test is actually about.
+        """
+        panel_names = _texts(affected_locations_card(_Snap(self.LONG)))
+        full_names = _texts(ranked_locations_list(list(self.LONG)))
+        shown, _ = visible_locations(list(self.LONG), None)
+
+        for location in shown:
             assert any(location.plant_name in t for t in panel_names)
+        # The full view keeps its whole point: every affected plant.
+        for location in self.LONG:
             assert any(location.plant_name in t for t in full_names)
+
+    def test_the_panel_shows_fewer_plants_than_the_full_view(self):
+        """The reason the full view exists at all."""
+        shown, _ = visible_locations(list(self.LONG), None)
+        assert len(shown) < len(self.LONG)
