@@ -7,7 +7,7 @@ Evidence: `assets/app.css` (`.command-center__rank-row`,
 `components/command_center/affected_locations.py:46` (`bar_width_percent`,
 unchanged); `pages/command_center_locations.py:31` (the page that does not
 carry `page--command-center`)
-Implemented-by: not yet
+Implemented-by: `e33d0e1`
 Supersedes: nothing — ADR-011 stands unchanged
 
 ## Context
