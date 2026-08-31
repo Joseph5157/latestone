@@ -17,6 +17,18 @@ Run before starting any task:
 
     python scripts/build_context_pack.py
 
+    --check        run every validation and report, but write NOTHING.
+    --skip-tests   skip the test baseline (the slow check); composable
+                   with --check.
+
+`--check` exists for read-only work — an audit or review whose charter
+forbids modifying the repository. Without it, Step 0 of AGENTS.md and a
+no-write charter are in direct conflict, because `CURRENT_STATE.md` is
+TRACKED and this script stamps a timestamp into it, so an ordinary run
+dirties the working tree even when nothing has drifted. `--check` still
+renders both documents and throws them away, so it cannot report CLEAN on a
+pack that would fail to build.
+
 Exits non-zero, and says exactly why, if: an ADR referenced by the active
 gate doesn't exist; an ADR's `Implemented-by` commit isn't reachable in this
 repo; a `Relevant files` citation doesn't resolve; a frozen pack's own
@@ -263,6 +275,7 @@ def run_tests() -> tuple[bool, str]:
 
 def main(argv: list[str]) -> int:
     skip_tests = "--skip-tests" in argv
+    check_only = "--check" in argv
     problems: list[str] = []
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -309,23 +322,29 @@ def main(argv: list[str]) -> int:
     ambiguities = section(gate_text, "Known ambiguities")
     task = section(gate_text, "Task")
 
-    AGENT_CONTEXT_DIR.mkdir(exist_ok=True)
-    START_HERE.write_text(
-        render_start_here(
-            now, git, gate_fields, task, gate_adrs, relevant_files,
-            manifest_results, test_ok, test_summary, non_goals, ambiguities, problems,
-        ),
-        encoding="utf-8", newline="\n",
+    # Rendered even under --check, and then discarded. A dry run that skipped
+    # rendering could report CLEAN on a pack that cannot actually be built,
+    # which is the one answer this script must never give.
+    start_here_text = render_start_here(
+        now, git, gate_fields, task, gate_adrs, relevant_files,
+        manifest_results, test_ok, test_summary, non_goals, ambiguities, problems,
     )
-    CURRENT_STATE.write_text(
-        render_current_state(now, git, all_adrs(), test_ok, test_summary, gate_fields),
-        encoding="utf-8", newline="\n",
+    current_state_text = render_current_state(
+        now, git, all_adrs(), test_ok, test_summary, gate_fields
     )
+
+    if not check_only:
+        AGENT_CONTEXT_DIR.mkdir(exist_ok=True)
+        START_HERE.write_text(start_here_text, encoding="utf-8", newline="\n")
+        CURRENT_STATE.write_text(current_state_text, encoding="utf-8", newline="\n")
 
     status = "CLEAN" if not problems else f"{len(problems)} PROBLEM(S)"
     print(f"build_context_pack: {status}")
-    print(f"  wrote {START_HERE.relative_to(ROOT)}")
-    print(f"  wrote {CURRENT_STATE.relative_to(ROOT)}")
+    verb = "would write" if check_only else "wrote"
+    print(f"  {verb} {START_HERE.relative_to(ROOT)}")
+    print(f"  {verb} {CURRENT_STATE.relative_to(ROOT)}")
+    if check_only:
+        print("  --check: nothing written, working tree untouched")
     for p in problems:
         print(f"  PROBLEM: {p}")
     return 1 if problems else 0

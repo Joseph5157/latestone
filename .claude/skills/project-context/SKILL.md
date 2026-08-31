@@ -25,8 +25,10 @@ If another process skill also applies (`superpowers:brainstorming`,
 
 **1. Verify repository and baseline.**
 
-Run `python scripts/build_context_pack.py`. If it exits non-zero, it printed
-specific `PROBLEM:` lines — a broken ADR citation, an unreachable
+Run `python scripts/build_context_pack.py` — or `--check` if this task is
+read-only and may not write (it runs every validation and writes nothing;
+the plain command rewrites the tracked `CURRENT_STATE.md` and so dirties the
+tree). If it exits non-zero, it printed specific `PROBLEM:` lines — a broken ADR citation, an unreachable
 `Implemented-by` commit, a `Relevant files` path that no longer exists, a
 frozen pack whose hash no longer verifies, or a red test baseline. **Stop.**
 Show the user the problems. Do not work around a failed pack by reading

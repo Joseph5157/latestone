@@ -91,6 +91,21 @@ track cannot shrink, so at 1000-1100px viewports the count was pushed
 50-84px outside the panel. Verified at eight widths; 2,459 not-db tests
 pass. This gate is complete.
 
+## Also landed on this branch, outside the gate
+
+`scripts/build_context_pack.py --check`. Not a CC-2 decision and not an ADR —
+a tooling fix, recorded here only so a commit outside this gate's scope is not
+a mystery to the next reader.
+
+Step 0 of `AGENTS.md` and a read-only charter were in direct conflict: an
+audit agent forbidden from writing could not run the generator, because
+`docs/context/CURRENT_STATE.md` is TRACKED and the script stamps a timestamp
+into it, so an ordinary run dirties the tree even when nothing has drifted.
+A verification step was only available as a side-effecting write. `--check`
+runs every validation, renders both documents, discards them, and writes
+nothing. Five tests pin that it stays that way, including one that a real run
+still writes.
+
 ## Carried forward, not done here
 
 - In light appearance the cockpit bar is `--cc-stale` (#8a5a00) and

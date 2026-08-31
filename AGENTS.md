@@ -20,6 +20,13 @@ data is not yet available. It is not a demo — do not call it one.
    hash doesn't verify, or the test baseline is red. **Stop and resolve that
    before reading anything else** — do not work around a failed pack by
    reading the source files directly instead.
+
+   **Read-only work uses `--check`.** An audit or review forbidden from
+   modifying the repository cannot run the plain command: `CURRENT_STATE.md`
+   is tracked and the script stamps a timestamp into it, so an ordinary run
+   dirties the tree even when nothing has drifted. `--check` runs every
+   validation, prints the same verdict, and writes nothing. It is not a way
+   to skip Step 0 — it is Step 0 for a reader.
 1. `docs/context/SOURCE_AUTHORITY.md` — which source wins.
 2. `docs/context/ACTIVE_GATE.md` — the only task in scope right now.
 3. The ADRs that gate names, in `docs/decisions/`.

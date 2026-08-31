@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-31T04:57:11Z
+Date: 2026-08-31T05:49:51Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `2c9a17d` "docs(cc2): record 59f92a9 against ADR-012" (not `main`)
-- Working tree: 1 entries — see below
+- current branch `cc-1-command-center-foundation` = `24d010d` "docs(cc2): close the gate â€” push granted and exercised at 2c9a17d" (not `main`)
+- Working tree: 6 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 13.82s
+- `python -m pytest -m "not db"` → 2464 passed, 487 deselected in 20.47s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 28 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 29 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `cc-1-command-center-progress` | 10 | 196 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
@@ -74,6 +74,11 @@ CC-2 Rank Bar Legibility — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M .claude/skills/project-context/SKILL.md
+ M AGENTS.md
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ M scripts/build_context_pack.py
+?? tests/test_build_context_pack_check.py
 ```
 
