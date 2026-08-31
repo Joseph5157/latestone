@@ -2,115 +2,179 @@
 
 Status: Open
 Date: 2026-08-31
-Gate: CC-2 Rank Bar Legibility
-Branch: `cc-1-command-center-foundation` @ `00644f3`, pushed and in sync
-with `origin`.
+Gate: FIX-1 Callback Regression Hardening
+Branch: `cc-1-command-center-foundation` @ `5ec3862`, in sync with `origin`.
 
-## Why this gate exists
+The previous gate, CC-2, is complete. Its record is
+`docs/decisions/ADR-012-rank-bars-are-capped-and-route-themed.md`, which
+carries the outcome, both implementing shas, and the two items deliberately
+carried forward. Do not look for it here.
 
-CC-1 acceptance passed and its record stands at
-`docs/context/CC1_ACCEPTANCE.md`. This is a defect gate opened afterwards
-against a panel that gate accepted.
+## Task
 
-Measured on the running application at 1920x1080, `Affected Locations`:
+Repair five verified callback-layer defects and establish regression coverage
+at the boundary where they occurred.
 
-| element | width | share of row |
-|---|---|---|
-| plant name | 160px | 15% |
-| bar track | 847px | 80% |
-| affected count | 23px | 2% |
+**The finding is bigger than the five defects.** Every one of them is in a
+Dash callback, and the callback layer has no direct tests:
 
-The bar is 80% of the row. What it encodes across all 30 plants is four
-distinct values (7, 6, 3, 1); inside the cockpit panel's top 8 it is **two**
-(7 and 6). Five of the eight visible bars are pixel-identical, and the one
-real distinction — 6 versus 7 — draws as 121px of difference behind 726px of
-shared, information-free fill.
+| callback | test files referencing it |
+|---|---|
+| `download_report_csv` | 0 |
+| `confirm_user_form` | 0 |
+| `open_assign_drawer` | 0 |
+| `open_manage_drawer` | 0 |
+| `populate_device_admin` | 0 |
 
-The count is the answer to the panel's question and it is the smallest thing
-in the row. `affected_locations.py:89-91` already says the bar is decoration
-over a number that is in the DOM beside it; the decoration outweighs the
-number 37 to 1.
+2,464 tests pass while Add User raises `NameError` on **every** save. A green
+suite currently proves nothing about whether these workflows run. Regression
+coverage at the callback boundary is therefore part of this gate, not
+optional cleanup afterwards — the fixes are the occasion, the coverage is the
+point.
 
-A second, separate defect surfaced while measuring: the bar is **not
-theme-aware**. `--state-stale-text` (#713f12) and `--state-none-bg` (#f1f3f5)
-are `:root` light-mode tokens with no dark restatement, so in the Command
-Center's dark appearance the bar renders a dark-brown fill on a near-white
-track inside a #1a232e panel. The route-scoped `--cc-stale` token that exists
-for exactly this was never wired to this mark.
+**Work test-first.** Add a failing regression test BEFORE each production
+change, and report the failure evidence before fixing. A fix landed without a
+test that was first seen to fail has not been verified, it has been asserted.
 
-## Scope
+### The five verified defects
 
-1. Cap the bar column so surplus panel width stops flowing to the least
-   informative element.
-2. Point the fill and track at theme-aware tokens.
-3. Nothing else.
+Each was confirmed against the source, not taken from a report.
 
-## Non-goals
+1. **`callbacks/report_center.py:720` — export raises `TypeError`.**
+   `download_report_csv` calls `require_action(user, EXPORT_DATA)`, but
+   `require_action(user, action, *, device_id: str)` takes `device_id` as
+   keyword-only with no default. Reproduced live:
+   `TypeError: require_action() missing 1 required keyword-only argument: 'device_id'`.
+   The surrounding `except AuthorizationError` cannot catch it.
 
-- **The encoding basis does not change.** `bar_width_percent` stays
-  worst-relative from a zero baseline. Whether a proportional bar is the
-  right mark at all for a 4-value distribution is a real question and is
-  explicitly NOT decided here.
-- No service, ranking, or `TOP_N` change. ADR-011 stands.
-- No change to `/command-center/locations` semantics.
+2. **`callbacks/user_admin.py:270` — save raises `NameError`.**
+   `confirm_user_form` reads `user.user_id`, but line 250 discards the return
+   of `from_session(auth_data)` and `user` is bound nowhere in that scope
+   (AST-verified: read = True, bound = False).
 
-## Known ambiguity
+3. **`callbacks/user_admin.py:38-45` — an unchanged username reads as a
+   duplicate.** `_validate_user_form(username)` rejects when `get_user()`
+   finds any record, including the one being edited. It never receives
+   `existing_username`.
 
-`--cc-stale` is scoped to `.page--command-center`, which
-`/command-center/locations` deliberately does not carry
-(`pages/command_center_locations.py:31`). The fill must therefore fall back
-to the existing token there, or the bars on that page render transparent.
+4. **`callbacks/device_assign.py:145` and `callbacks/device_manage.py:73` —
+   Assign and Manage cannot be told apart.** Both fire on the DataTable
+   `active_cell` with `column_id == "actions"`, an identical condition.
+   `active_cell` identifies the cell, never which markdown link inside it was
+   clicked.
+
+5. **`callbacks/device_admin.py:189` — the Inactive filter is dead.**
+   `pages/device_admin.py:75` offers an `Inactive` option, but
+   `list_all_devices()` is called with its `include_inactive=False` default,
+   so inactive devices never enter the table for the filter to match.
+
+## The three review points
+
+This gate does NOT run start to finish unattended. Stop and report at each
+boundary; the next stage is not authorized until the previous one is
+reviewed.
+
+### FIX-1A — Users add/edit, then the inactive-device filter
+
+Defects 2 and 3 are **one coherent change**: they live in the same save path,
+and 3 returns first, so an edit with an unchanged username never reaches the
+`NameError`. Fixing 3 alone widens 2's blast radius.
+
+Required cases, failing first: add user as an authenticated administrator
+reaches persistence with the actor id derived from `from_session`; edit with
+an unchanged username validates; edit onto **another** user's username is
+still refused; an invalid or absent session fails closed.
+
+Then, separately, the inactive filter. Do **not** change
+`list_all_devices()`'s default globally — `db/live_simulator.py`,
+`db/seed_admin_demo.py`, `db/seed_events_demo.py` and `callbacks/listings.py`
+all rely on it. Device Administration should explicitly request the
+population its advertised filter needs.
+
+**STOP AND REPORT.**
+
+### FIX-1B — Export authorization, decided before it is implemented
+
+Do not pass a fabricated `device_id` to satisfy the signature. Do not swap in
+`require_capability` blindly either: `EXPORT_DATA` is currently in
+`ACTION_POLICY`, not `CAPABILITY_POLICY`, and `may_perform_capability`
+default-denies an unknown capability — so a naive swap refuses every role.
+
+Produce a read-only decision note first: is export a device action or an
+application capability; does a report span zero, one, or many devices; what
+scope enforcement already happens when rows are built; would moving the
+constant change any existing authorization outcome; which roles keep export;
+what test proves no scope widening. If the answer is to move it, that is an
+ADR-level change (it would be ADR-013) and the ADR lands before the code.
+
+**STOP AND REPORT THE DECISION BEFORE TOUCHING THE POLICY TABLES.**
+
+### FIX-1C — Assign vs Manage, redesigned not patched
+
+No string parsing of cell contents, no click-position heuristics. The
+interaction contract is wrong, not the parsing. Compare separate
+columns/buttons against pattern-matching per-row ids on callback simplicity,
+accessibility, visual impact, and testability, and propose the smallest
+robust contract.
+
+Tests must prove that Assign opens only the assignment drawer, Manage only
+the management drawer, the device id is correct, an unauthorized action is
+still refused, and the existing `?assign=<device_id>` deep link from the
+Overview still works.
+
+**STOP AFTER DESIGN AND FAILING-TEST EVIDENCE. Do not implement until
+reviewed.**
+
+## Non-goals (explicit)
+
+- Authorization is never weakened to make a test pass. A refusal that becomes
+  a pass is a defect, not a fix.
+- No fabricated device identifiers to satisfy an API signature.
+- No route, schema, or public-behaviour change beyond what a verified defect
+  requires.
+- Not in scope, and explicitly not bugs: absent SMS/email transport,
+  Maximum Temperature as prototype, demo authentication, polling rather than
+  streaming, programming requests not reaching hardware. These are known
+  scope and integration limits.
+- No Command Center work. ADR-011 and ADR-012 stand.
+
+## Known ambiguities
+
+- Whether `EXPORT_DATA` is an action or a capability is the open question of
+  FIX-1B, not a settled premise. ADR-004 fixed that device scope is
+  authorization-derived and never user-selectable; it did not decide how a
+  multi-device export expresses that.
+- `pages/device_admin.py` advertises Active/Inactive as though the underlying
+  read supports it. Whether "All" is also intended is not stated anywhere and
+  should be settled from the page, not assumed.
 
 ## Relevant files
 
-- `assets/app.css` (`.command-center__rank-row`, `__rank-bar`,
-  `__rank-bar-fill`, `__rank-value`)
-- `components/command_center/affected_locations.py`
-- `components/command_center/selected_location.py`
-- `tests/test_command_center_affected_locations.py`
-- `tests/test_command_center_selected_panel.py`
+- `callbacks/report_center.py` — defect 1, `download_report_csv`
+- `callbacks/user_admin.py` — defects 2 and 3, one change
+- `callbacks/device_admin.py` — defect 5, `populate_device_admin`
+- `callbacks/device_assign.py` — defect 4, `open_assign_drawer`
+- `callbacks/device_manage.py` — defect 4, `open_manage_drawer`
+- `pages/device_admin.py` — the advertised Active/Inactive filter
+- `components/entity_table.py` — the shared actions cell
+- `services/action_guard.py` — `require_action` / `require_capability`
+- `services/authorization.py` — `ACTION_POLICY`, `CAPABILITY_POLICY`
+- `services/report_export.py` — where export scope is enforced today
+- `services/hierarchy_service.py` — `list_all_devices`
+- `repositories/plant_monitoring_repository.py` — `include_inactive`
 
 ## Required tests
 
 `python -m pytest -m "not db" -v`
 
+Plus the new callback regression tests, each demonstrated failing before its
+fix. Tests must never write to the real `plant_monitoring` schema — use the
+`isolated_schema` fixture — and unmarked tests may not open a DB connection.
+
 ## Commit/push permission
 
-GRANTED and exercised. The user reviewed the rendered result and approved
-both the commits and the push on 2026-08-31. Branch pushed at `2c9a17d`.
-
-## Status of the work
-
-Both defects in scope are fixed, recorded in ADR-012, and pushed:
-
-- `e33d0e1` — bar capped, tokens made route-scoped
-- `59f92a9` — bar track made shrinkable, scrollbar gutter reserved
-
-`59f92a9` also fixed a regression `e33d0e1` introduced: a bare `15rem`
-track cannot shrink, so at 1000-1100px viewports the count was pushed
-50-84px outside the panel. Verified at eight widths; 2,459 not-db tests
-pass. This gate is complete.
-
-## Also landed on this branch, outside the gate
-
-`scripts/build_context_pack.py --check`. Not a CC-2 decision and not an ADR —
-a tooling fix, recorded here only so a commit outside this gate's scope is not
-a mystery to the next reader.
-
-Step 0 of `AGENTS.md` and a read-only charter were in direct conflict: an
-audit agent forbidden from writing could not run the generator, because
-`docs/context/CURRENT_STATE.md` is TRACKED and the script stamps a timestamp
-into it, so an ordinary run dirties the tree even when nothing has drifted.
-A verification step was only available as a side-effecting write. `--check`
-runs every validation, renders both documents, discards them, and writes
-nothing. Five tests pin that it stays that way, including one that a real run
-still writes.
-
-## Carried forward, not done here
-
-- In light appearance the cockpit bar is `--cc-stale` (#8a5a00) and
-  `/command-center/locations` is the fallback (#713f12). Unifying them means
-  extending the route-scoped semantics block to
-  `.page--command-center-locations` — an ADR-006 theming change.
-- Whether a proportional bar is the right mark at all for a four-value
-  distribution. See "What this ADR does not decide" in ADR-012.
+NOT GRANTED until the final review. Work through FIX-1A, FIX-1B and FIX-1C
+stopping at each review point, then report: files changed, tests added, proof
+each failed first, the `EXPORT_DATA` decision, the Assign/Manage decision,
+targeted and full non-DB results, remaining risks, `git diff --check`, and
+`git status --short`.

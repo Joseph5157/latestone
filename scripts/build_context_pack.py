@@ -206,7 +206,11 @@ def load_adr(name: str) -> AdrInfo:
     sha = None
     ok = True
     if raw and not raw.lower().startswith("not yet"):
-        sha = raw.split()[0].strip("`,()")
+        # `;` belongs in the strip set for the same reason `,` does: both are
+        # used to separate multiple shas in an Implemented-by field. Without
+        # it, `` `abc1234`; more prose `` yielded the sha "abc1234`;" and
+        # reported a correctly-recorded ADR as unreachable.
+        sha = raw.split()[0].strip("`,;()")
         ok = commit_reachable(sha)
     return AdrInfo(name, True, status, raw or None, sha, ok)
 

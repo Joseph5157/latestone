@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-31T05:49:51Z
+Date: 2026-08-31T07:27:42Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `24d010d` "docs(cc2): close the gate â€” push granted and exercised at 2c9a17d" (not `main`)
-- Working tree: 6 entries — see below
+- current branch `cc-1-command-center-foundation` = `5ec3862` "feat(tooling): add --check to build_context_pack, a dry run that writes nothing" (not `main`)
+- Working tree: 4 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2464 passed, 487 deselected in 20.47s
+- `python -m pytest -m "not db"` → 2464 passed, 487 deselected in 19.86s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 29 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 30 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `cc-1-command-center-progress` | 10 | 196 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
@@ -65,20 +65,18 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-009-priority-investigation-ranks-on-freshness-only.md | Approved | `ce5d4ac` |
 | ADR-010-monitoring-reset-preserves-operational-history.md | Approved | `29f5290` |
 | ADR-011-affected-locations-is-top-n-with-disclosure.md | Approved | `6aafc4c` |
-| ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | `e33d0e1`; the shrink and gutter fixes `59f92a9` |
+| ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | `e33d0e1` (bar cap, route-scoped tokens), `59f92a9` (shrink, scrollbar gutter) |
 
 ## Active gate
 
-CC-2 Rank Bar Legibility — full detail in `docs/context/ACTIVE_GATE.md`.
+FIX-1 Callback Regression Hardening — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M .claude/skills/project-context/SKILL.md
- M AGENTS.md
- M docs/context/ACTIVE_GATE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
+ M docs/decisions/ADR-012-rank-bars-are-capped-and-route-themed.md
  M scripts/build_context_pack.py
-?? tests/test_build_context_pack_check.py
 ```
 
