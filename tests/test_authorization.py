@@ -251,9 +251,18 @@ class TestTheActionMatrix:
         assert may_perform_action(TECHNICIAN, MANAGE_ASSIGNMENT, is_assigned=True) is False
         assert may_perform_action(GENERAL, MANAGE_ASSIGNMENT, is_assigned=True) is False
 
-    def test_export_is_open_to_every_confirmed_role(self):
+    def test_export_is_no_longer_an_action(self):
+        """ADR-013 moved EXPORT_DATA to CAPABILITY_POLICY.
+
+        The original assertion here — every role may export on any device —
+        survives as `test_export_is_open_to_every_confirmed_role` in the
+        capability matrix below. What is asserted instead is that the action
+        table no longer claims it, so the two tables cannot both answer for
+        export and disagree.
+        """
+        assert EXPORT_DATA not in ACTION_POLICY
         for role in EVERY_CONFIRMED_ROLE:
-            assert may_perform_action(role, EXPORT_DATA, is_assigned=False) is True
+            assert may_perform_action(role, EXPORT_DATA, is_assigned=True) is False
 
 
 class TestActionDefaultDeny:
@@ -262,7 +271,11 @@ class TestActionDefaultDeny:
     def test_unknown_action_is_denied(self):
         assert may_perform_action(ADMINISTRATOR, "launch_missiles", is_assigned=True) is False
 
-    @pytest.mark.parametrize("action", ASSIGNED_ONLY_ACTIONS + [MANAGE_ASSIGNMENT, EXPORT_DATA])
+    # EXPORT_DATA left this list with ADR-013: it is no longer an action, so
+    # asserting it here would test the unknown-ACTION default-deny above
+    # under a misleading name. The unknown-role case for export moved to
+    # `TestCapabilityPolicy.test_unknown_role_may_not_perform_a_capability`.
+    @pytest.mark.parametrize("action", ASSIGNED_ONLY_ACTIONS + [MANAGE_ASSIGNMENT])
     def test_unknown_role_may_not_act(self, action):
         """Migrated from prototype_access's unknown-role cases, and widened:
         the old module only checked this for three of its six functions."""
@@ -299,11 +312,28 @@ class TestCapabilityPolicy:
         assert may_perform_capability(TECHNICIAN, VIEW_ADMINISTRATION_OVERVIEW) is False
         assert may_perform_capability(GENERAL, VIEW_ADMINISTRATION_OVERVIEW) is False
 
+    def test_export_is_open_to_every_confirmed_role(self):
+        """Migrated intact from the action matrix by ADR-013.
+
+        The claim is unchanged — every confirmed role may export — only the
+        table answering it moved. Asserted against the same
+        `EVERY_CONFIRMED_ROLE` set as before, so a silent narrowing or
+        widening during the migration would have failed here.
+        """
+        for role in EVERY_CONFIRMED_ROLE:
+            assert may_perform_capability(role, EXPORT_DATA) is True
+
     def test_unknown_capability_is_denied(self):
         assert may_perform_capability(ADMINISTRATOR, "read_minds") is False
 
-    def test_unknown_role_may_not_perform_a_capability(self):
-        assert may_perform_capability("unknown", VIEW_ADMINISTRATION_OVERVIEW) is False
+    @pytest.mark.parametrize(
+        "capability", [VIEW_ADMINISTRATION_OVERVIEW, EXPORT_DATA]
+    )
+    def test_unknown_role_may_not_perform_a_capability(self, capability):
+        """EXPORT_DATA is parametrized here by ADR-013, taking over the
+        unknown-role case it used to carry in the action matrix. Export is
+        open to every CONFIRMED role, which is not the same as open."""
+        assert may_perform_capability("unknown", capability) is False
 
     @pytest.mark.parametrize("role", [None, 42, True, ""])
     def test_non_string_role_may_not_perform_a_capability(self, role):

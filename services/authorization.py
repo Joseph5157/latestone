@@ -129,12 +129,15 @@ class AuthorizationError(Exception):
 #: of thing.
 VIEW_ADMINISTRATION_OVERVIEW = "view_administration_overview"
 REGISTER_DEVICE = "register_device"
+# ADR-013: device-less because a report spans zero, one or many devices —
+# there is no single device_id to name. Grouped with the capabilities, not
+# with the actions below, so the constant's position states its dimension.
+EXPORT_DATA = "export_data"
 
 PROGRAM_RTL = "program_rtl"
 TOGGLE_MESSAGE_FORWARDING = "toggle_message_forwarding"
 DEACTIVATE_RTL = "deactivate_rtl"
 MANAGE_ASSIGNMENT = "manage_assignment"
-EXPORT_DATA = "export_data"
 
 #: capability -> roles. Role-only: no device is involved, so there is no
 #: assignment condition to apply and no database read to make one.
@@ -147,6 +150,12 @@ EXPORT_DATA = "export_data"
 CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     VIEW_ADMINISTRATION_OVERVIEW: _ADMIN_ONLY,
     REGISTER_DEVICE: _ADMIN_ONLY,
+    # ADR-013, moved from ACTION_POLICY where it read
+    # `(_EVERY_ROLE, _NO_ROLE)`. The empty assigned-only set was the tell:
+    # no role's export permission ever depended on an assignment, so the
+    # device dimension it was declared in did nothing. The SAME role set
+    # carries over — this is a change of dimension, not of permission.
+    EXPORT_DATA: _EVERY_ROLE,
 }
 
 _NO_ROLE: frozenset[str] = frozenset()
@@ -166,7 +175,6 @@ ACTION_POLICY: dict[str, tuple[frozenset[str], frozenset[str]]] = {
     TOGGLE_MESSAGE_FORWARDING: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
     DEACTIVATE_RTL: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
     MANAGE_ASSIGNMENT: (_ADMIN_ONLY, _NO_ROLE),
-    EXPORT_DATA: (_EVERY_ROLE, _NO_ROLE),
 }
 
 

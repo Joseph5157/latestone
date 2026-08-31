@@ -35,12 +35,25 @@ from services.prototype_users import (
 logger = logging.getLogger(__name__)
 
 
-def _validate_user_form(username: str) -> dict[str, str]:
-    """Validate required fields. Returns {field: error_message} dict."""
+def _validate_user_form(
+    username: str, existing_username: str | None = None
+) -> dict[str, str]:
+    """Validate required fields. Returns {field: error_message} dict.
+
+    `existing_username` is the record being edited, and without it this
+    function cannot tell "someone else already has this name" from "this user
+    still has their own name". It previously had no way to know, so re-saving
+    a user under their unchanged username was refused as a duplicate.
+
+    Absent (an add), every existing name is a rival. Present (an edit), the
+    editor's own name is theirs to keep — and only that one name; taking a
+    DIFFERENT user's username is still refused.
+    """
     errors = {}
-    if not username or not username.strip():
+    name = (username or "").strip()
+    if not name:
         errors["username"] = "Username is required."
-    elif get_user(username.strip()) is not None:
+    elif name != (existing_username or "") and get_user(name) is not None:
         errors["username"] = "Username already exists."
     return errors
 
@@ -247,11 +260,17 @@ def register(app) -> None:
         if not n_clicks:
             return no_update, no_update, no_update, no_update
 
-        if from_session(auth_data) is None:
+        # BIND the identity, don't just test it. The result was previously
+        # discarded and `user.user_id` read further down from a name that was
+        # never bound, so every save raised NameError. The actor is the whole
+        # point of the AUD-1 rule below: an audited write needs the identity,
+        # not merely the knowledge that one exists.
+        user = from_session(auth_data)
+        if user is None:
             logger.warning("User save refused: no valid session.")
             return no_update, action_refused_notice(), no_update, no_update
 
-        errors = _validate_user_form(username)
+        errors = _validate_user_form(username, existing_username)
         if errors:
             # Show error, keep drawer open
             return errors.get("username", ""), "", no_update, no_update

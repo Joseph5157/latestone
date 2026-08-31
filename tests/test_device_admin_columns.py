@@ -48,13 +48,21 @@ class TestColumnSpec:
     def test_the_two_new_columns_are_declared(self):
         assert [c["id"] for c in DEVICE_ADMIN_COLUMNS] == [
             "device", "plant", "transformer", "status",
-            "freshness", "last_reading", "technician", "actions",
+            "freshness", "last_reading", "technician", "assign", "manage",
         ]
 
     def test_actions_stay_last(self):
         """Controls belong at the end of the row, after everything they
-        act on."""
-        assert DEVICE_ADMIN_COLUMNS[-1]["id"] == "actions"
+        act on. Two of them since FIX-1C, still last."""
+        assert [c["id"] for c in DEVICE_ADMIN_COLUMNS[-2:]] == ["assign", "manage"]
+
+    def test_each_action_is_separately_addressable(self):
+        """The FIX-1C contract at the column level: a DataTable click is
+        identified by `column_id`, so two actions sharing one column cannot
+        be told apart. One column per action, or the drawers collide."""
+        ids = [c["id"] for c in DEVICE_ADMIN_COLUMNS]
+        assert "actions" not in ids
+        assert len({"assign", "manage"} & set(ids)) == 2
 
 
 class TestLastReading:

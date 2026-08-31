@@ -47,6 +47,15 @@ from components.device_manage_drawer import (
 
 logger = logging.getLogger(__name__)
 
+#: `open_manage_drawer`'s "I am not the callback for this click" reply, one
+#: `no_update` per declared Output. Named and counted in one place because
+#: the four hand-written `(no_update,) * 11` tuples it replaces were all one
+#: short of the twelve Outputs, and nothing in the code said what the number
+#: was supposed to be. A test asserts this length against the callback's own
+#: Output list, so the two cannot drift again.
+_MANAGE_DRAWER_OUTPUTS = 12
+_DECLINED = (no_update,) * _MANAGE_DRAWER_OUTPUTS
+
 
 def register(app) -> None:
     """Register device management callbacks on the Dash app."""
@@ -69,22 +78,31 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def open_manage_drawer(active_cell, table_data):
-        """Open the manage drawer when Manage is clicked."""
-        if not active_cell or active_cell.get("column_id") != "actions":
-            return (no_update,) * 11
+        """Open the manage drawer when the Manage column is clicked.
+
+        Keyed on the `manage` column. It previously accepted `"actions"` —
+        the same cell `open_assign_drawer` accepted — and then tried to tell
+        the two apart by looking for "Manage" in the cell's markdown. That
+        could not work: every row's markdown was the same literal string, so
+        the check passed on every row and both drawers opened on one click.
+
+        The declines below return `_DECLINED`, sized from this callback's own
+        Output list. They used to be 11-tuples against 12 declared Outputs —
+        dormant only because the text check above made them nearly
+        unreachable, and a Dash output-count error the moment a decline
+        actually happened, which is exactly what routing by column makes
+        routine.
+        """
+        if not active_cell or active_cell.get("column_id") != "manage":
+            return _DECLINED
 
         row_id = active_cell.get("row_id")
         if not row_id:
-            return (no_update,) * 11
+            return _DECLINED
 
         row = next((r for r in (table_data or []) if r.get("id") == row_id), None)
         if not row:
-            return (no_update,) * 11
-
-        # Check if this is a Manage action (not View or Assign)
-        actions_text = row.get("actions", "")
-        if "Manage" not in actions_text:
-            return (no_update,) * 11
+            return _DECLINED
 
         return (
             {"display": "block"},           # show drawer

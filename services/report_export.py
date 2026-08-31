@@ -9,9 +9,15 @@ Frozen decisions:
 - R4-D2  Pipeline: domain rows → ExportDocument → formatter. Report data
          services stay format-ignorant; a future client-approved format
          is a new formatter plus a registry entry, nothing more.
-- R4-D3  Authorization lives in the CALLBACK via require_action(
-         EXPORT_DATA) before any rows are fetched; this module performs
-         none.
+- R4-D3  SUPERSEDED by ADR-013, in the part that named the guard.
+         Authorization still lives in the CALLBACK and still runs before
+         any rows are fetched, and this module still performs none — that
+         much stands. But it is `require_capability(EXPORT_DATA)`, not
+         `require_action(EXPORT_DATA)`: export names no device, so the
+         device-dimensioned guard never applied. As written, R4-D3
+         described a two-argument `require_action` that had already
+         stopped existing, and the download path it specified raised
+         TypeError in every commit that contained it.
 - R4-D4  Domain-native export: values come from report-service domain
          rows, never rendered HTML. None → empty cell (never the UI "—");
          timestamps → ISO 8601 UTC; numerics keep raw textual precision;

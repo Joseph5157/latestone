@@ -26,7 +26,12 @@ DEVICE_ADMIN_COLUMN_WIDTHS = {
     "freshness": "11%",
     "last_reading": "11%",
     "technician": "14%",
-    "actions": "18%",
+    # The former single "actions" column's 18%, split between the two
+    # columns that replaced it (FIX-1C). The total still accounts for the
+    # whole table: short of 100% and dash_table hands the remainder to one
+    # column, which is the void these shares exist to prevent.
+    "assign": "9%",
+    "manage": "9%",
 }
 
 
@@ -105,7 +110,13 @@ def layout() -> html.Div:
                     {"name": "Data", "id": "freshness"},
                     {"name": "Last reading", "id": "last_reading"},
                     {"name": "Technician", "id": "technician"},
-                    {"name": "Actions", "id": "actions", "presentation": "markdown"},
+                    # One column per action (FIX-1C). Must stay identical to
+                    # DEVICE_ADMIN_COLUMNS in callbacks/device_admin.py: this
+                    # is the first paint, that is what replaces it on the
+                    # callback's first fire, and a difference reshuffles the
+                    # table under the operator.
+                    {"name": "Assign", "id": "assign", "presentation": "markdown"},
+                    {"name": "Manage", "id": "manage", "presentation": "markdown"},
                 ],
                 rows=[],
                 link_column_id="device",

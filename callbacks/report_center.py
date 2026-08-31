@@ -16,7 +16,7 @@ from config.metrics import get_metric
 from config.reports import get_report, REPORTS
 from components.entity_table import entity_table
 from services import hierarchy_service
-from services.action_guard import require_action
+from services.action_guard import require_capability
 from services.auth_service import from_session
 from services.authorization import AuthorizationError, EXPORT_DATA
 from services.device_scope import DeviceScope, scope_from_session
@@ -714,10 +714,16 @@ def register(app) -> None:
         if not n_clicks or not report_key:
             return no_update, no_update, no_update
 
-        # R4-D3: the established guard, before any rows are fetched.
+        # ADR-013 (supersedes R4-D3's wording): the guard runs before any
+        # rows are fetched, which R4-D3 got right — but as a CAPABILITY.
+        # Export names no device: the report below spans a plant, a
+        # transformer, one device or none. Scope is not this guard's job and
+        # never was; `scope_from_session` threads the caller's DeviceScope
+        # into row construction a few lines down, and the repository ANDs
+        # `allowed_device_ids` into the query.
         user = from_session(auth_data)
         try:
-            require_action(user, EXPORT_DATA)
+            require_capability(user, EXPORT_DATA)
         except AuthorizationError:
             logger.warning(
                 "Refused export attempt for %r by %r",

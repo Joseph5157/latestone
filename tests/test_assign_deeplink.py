@@ -127,9 +127,20 @@ class TestAssignDrawerOpenState:
         _no_technicians(monkeypatch)
         assert assign_drawer_open_state(None) is None
 
-    def test_nothing_to_open_when_the_row_has_no_assign_action(self, monkeypatch):
+    def test_a_device_not_in_the_table_opens_nothing(self, monkeypatch):
+        """Replaces the old markdown check (FIX-1C).
+
+        This used to assert that a row whose actions text lacked "Assign"
+        opened nothing. That check never fired — every row carried the same
+        literal markdown — and which action was clicked is now answered by
+        `column_id` upstream. The guarantee that actually protected this
+        path survives and is asserted instead: an `?assign=` value naming
+        something not on the page resolves to no row, so a hand-edited URL
+        cannot address a device the table is not showing.
+        """
         _no_technicians(monkeypatch)
-        assert assign_drawer_open_state(table_row(actions="[View](#)")) is None
+        assert find_device_row([table_row()], "not-on-this-page") is None
+        assert assign_drawer_open_state(None) is None
 
     def test_opens_the_drawer(self, monkeypatch):
         _one_technician(monkeypatch)

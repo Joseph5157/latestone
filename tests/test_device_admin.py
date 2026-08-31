@@ -102,13 +102,18 @@ class TestBuildDeviceAdminRows:
         assert ghost["_state"] == "no_data"
 
     def test_row_carries_id_and_actions(self):
+        """FIX-1C: the actions live in one column PER ACTION now, so a click
+        can be attributed. View is not among them — the device name
+        navigates, which is where View already went."""
         health = _health([("p1", "d1", FRESH_TS)])
         devices = [_Device("d1", "29017", "active", "aa12", "Itaipu")]
         rows = build_device_admin_rows(devices, health)
         assert rows[0]["id"] == "d1"
-        assert "[View](#)" in rows[0]["actions"]
-        assert "[Assign](#)" in rows[0]["actions"]
-        assert "[Manage](#)" in rows[0]["actions"]
+        assert rows[0]["assign"] == "[Assign](#)"
+        assert rows[0]["manage"] == "[Manage](#)"
+        assert "actions" not in rows[0], (
+            "the shared cell that delivered one click to both drawers is gone"
+        )
 
     def test_plant_and_transformer_labels_present(self):
         health = _health([("p1", "d1", FRESH_TS)])
@@ -117,12 +122,15 @@ class TestBuildDeviceAdminRows:
         assert rows[0]["plant"] == "Itaipu"
         assert rows[0]["transformer"] == "aa12"
 
-    def test_actions_include_all_three_links(self):
+    def test_each_action_cell_holds_exactly_one_link(self):
+        """The invariant behind FIX-1C. Two links in one cell is precisely
+        what `active_cell` cannot disambiguate, so a cell carrying more than
+        one action is the defect returning."""
         health = _health([("p1", "d1", FRESH_TS)])
         devices = [_Device("d1", "29017", "active", "aa12", "Itaipu")]
         rows = build_device_admin_rows(devices, health)
-        actions = rows[0]["actions"]
-        assert actions.count("[") == 3  # View, Assign, Manage
+        for column in ("assign", "manage"):
+            assert rows[0][column].count("[") == 1, column
 
 
 class TestDeviceRowTarget:

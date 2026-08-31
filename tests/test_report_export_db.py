@@ -13,7 +13,7 @@ from sqlalchemy import text
 from config.events import EVENT_TYPE_BATTERY_LOW, EVENT_TYPE_POWER_DOWN
 from db.engine import session_scope
 from repositories import plant_monitoring_repository as repo
-from services.action_guard import require_action
+from services.action_guard import require_capability
 from services.auth_service import AuthenticatedUser
 from services.authorization import AuthorizationError, EXPORT_DATA
 from services.device_scope import DeviceScope
@@ -165,12 +165,19 @@ class TestExportAuthorizationIntegration:
         )
 
     def test_every_confirmed_role_passes_the_export_guard(self):
-        """R4-D3: EXPORT_DATA grants all roles with no assignment condition
-        (policy frozen in services/authorization.py)."""
+        """EXPORT_DATA grants all roles with no assignment condition.
+
+        ADR-013 supersedes R4-D3's naming of `require_action` here: the claim
+        is identical and the role set is identical, but export names no
+        device, so it is asserted through the capability guard. The `device_id`
+        this used to pass was inert — `require_action` short-circuits before
+        the assignment read whenever the any-device set already allows the
+        role, which for EXPORT_DATA was every role.
+        """
         for role in ("administrator", "technician", "general"):
             user = self._user(1, "someone", role)
-            require_action(user, EXPORT_DATA, device_id=D1)   # must not raise
+            require_capability(user, EXPORT_DATA)   # must not raise
 
     def test_absent_identity_is_refused_before_any_rows_are_fetched(self):
         with pytest.raises(AuthorizationError):
-            require_action(None, EXPORT_DATA, device_id=D1)
+            require_capability(None, EXPORT_DATA)

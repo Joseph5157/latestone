@@ -219,9 +219,11 @@ class TestTechnicianAgainstRealAssignments:
             )
 
     def test_may_export_without_any_assignment(self, people):
-        action_guard.require_action(
-            people["tech_a"], EXPORT_DATA, device_id=DEVICE_ID
-        )
+        """ADR-013 made this structural rather than incidental: with export a
+        capability there is no device to hold an assignment against, so a
+        technician with no assignment row exports for the same reason an
+        administrator does."""
+        action_guard.require_capability(people["tech_a"], EXPORT_DATA)
 
 
 class TestOtherRolesAgainstRealAssignments:
@@ -247,6 +249,6 @@ class TestOtherRolesAgainstRealAssignments:
             )
 
     def test_general_may_still_export(self, people):
-        action_guard.require_action(
-            people["general"], EXPORT_DATA, device_id=DEVICE_ID
-        )
+        """Invariant 3 against real rows, through the capability guard
+        (ADR-013). General mutates nothing and still exports."""
+        action_guard.require_capability(people["general"], EXPORT_DATA)

@@ -93,12 +93,19 @@ class TestTechnician:
             )
 
     def test_may_export_without_an_assignment_lookup(self, monkeypatch):
-        """Export is open to every role on any device, so the assignment read
-        is skipped for a technician too — not only for administrators."""
+        """Export is open to every role with no assignment condition, so no
+        assignment is read for a technician either.
+
+        ADR-013: this used to go through `require_action(..., device_id="d1")`
+        and assert the read was skipped. The device_id was always inert — the
+        assertion it existed to make is now structural, because
+        `require_capability` has no device to read an assignment against. The
+        claim is unchanged; the guard proving it is the honest one.
+        """
         calls = []
         _patch_scope(monkeypatch, DeviceScope(frozenset()), calls)
 
-        action_guard.require_action(_user("technician"), EXPORT_DATA, device_id="d1")
+        action_guard.require_capability(_user("technician"), EXPORT_DATA)
 
         assert calls == []
 
@@ -133,8 +140,10 @@ class TestGeneral:
             action_guard.require_action(_user("general"), PROGRAM_RTL, device_id="d1")
 
     def test_may_still_export(self, monkeypatch):
+        """Invariant 3 holds through ADR-013: General mutates nothing and
+        still exports. Only the guard changed, not the permission."""
         _patch_scope(monkeypatch, DeviceScope(None))
-        action_guard.require_action(_user("general"), EXPORT_DATA, device_id="d1")
+        action_guard.require_capability(_user("general"), EXPORT_DATA)
 
 
 class TestFailClosed:

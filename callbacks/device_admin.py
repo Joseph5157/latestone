@@ -29,11 +29,24 @@ DEVICE_ADMIN_COLUMNS = [
     {"name": "Data", "id": "freshness"},
     {"name": "Last reading", "id": "last_reading"},
     {"name": "Technician", "id": "technician"},
-    {"name": "Actions", "id": "actions", "presentation": "markdown"},
+    # ONE COLUMN PER ACTION. A DataTable's `active_cell` names a cell and
+    # says nothing about which markdown link inside it was clicked, so the
+    # single "Actions" cell these replace delivered every click to BOTH the
+    # assign and the manage callback — `column_id` was identical, and the
+    # text checks that tried to tell them apart could not, because every
+    # row's markdown was the same literal string.
+    #
+    # `column_id` is the routing key both callbacks already used; the defect
+    # was one cell carrying two actions, not the mechanism. Splitting the
+    # cell makes each action addressable without pattern-matching ids or a
+    # click-position heuristic.
+    {"name": "Assign", "id": "assign", "presentation": "markdown"},
+    {"name": "Manage", "id": "manage", "presentation": "markdown"},
 ]
 
-# Markdown action links — dash_table renders markdown cells
-_VIEW_LINK = "[View](#)"
+# Markdown action links — dash_table renders markdown cells. There is no
+# View link: the device name navigates (`navigate_from_device_admin_table`
+# on `column_id == "device"`), which is where View already went.
 _ASSIGN_LINK = "[Assign](#)"
 _MANAGE_LINK = "[Manage](#)"
 
@@ -86,7 +99,8 @@ def build_device_admin_rows(
             # failed lookup, and unassigned RTLs are the queue Administration
             # exists to clear.
             "technician": assignments.get(d.device_id) or "Unassigned",
-            "actions": f"{_VIEW_LINK} {_ASSIGN_LINK} {_MANAGE_LINK}",
+            "assign": _ASSIGN_LINK,
+            "manage": _MANAGE_LINK,
             "_state": state_value,
             "_severity": severity_rank(rollup.state) if rollup else 2,
         })
@@ -186,7 +200,19 @@ def register(app) -> None:
         result: dict = {}
 
         def build():
-            devices = hierarchy_service.list_all_devices()
+            # `include_inactive=True` is requested HERE, not by moving the
+            # shared default. This page advertises an Active/Inactive filter
+            # (pages/device_admin.py) and states an active/inactive split in
+            # its summary line, so it is the caller that needs the wider
+            # population — while `db/live_simulator.py`, the two seeds and
+            # `callbacks/listings.py` all rely on the active-only default and
+            # must keep it.
+            #
+            # Without this the filter was correct code over a population that
+            # could not contain what it was asked for: choosing "Inactive"
+            # returned nothing, and the summary's inactive count was
+            # structurally always 0.
+            devices = hierarchy_service.list_all_devices(include_inactive=True)
             # Administration surface: the device admin table is
             # administrator-only by ROUTE_POLICY, so it is deliberately
             # unrestricted rather than resolving a caller scope — same

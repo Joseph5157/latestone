@@ -79,14 +79,16 @@ def assign_drawer_open_state(row: dict | None):
     workflow: same technician options, same pre-selected technician, same
     empty state, same device context.
 
-    Returns None when there is nothing to open — no row, or a row whose
-    actions do not include Assign — which each caller turns into `no_update`.
-    Callers append the result-slot clear themselves, so this helper stays
-    purely about opening.
+    Returns None when there is no row to open on, which each caller turns
+    into `no_update`. It also used to return None for "a row whose actions do
+    not include Assign" — a check on the shared Actions cell's markdown that
+    never fired, because every row carried the same literal string. Which
+    action was clicked is now answered by `column_id`, upstream of here, and
+    whether the device is addressable at all is answered by `find_device_row`
+    against the rendered table. Callers append the result-slot clear
+    themselves, so this helper stays purely about opening.
     """
     if not row:
-        return None
-    if "Assign" not in (row.get("actions") or ""):
         return None
 
     tech_options = get_technician_options()
@@ -141,8 +143,12 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def open_assign_drawer(active_cell, table_data):
-        """Open the assignment drawer when Assign is clicked."""
-        if not active_cell or active_cell.get("column_id") != "actions":
+        """Open the assignment drawer when the Assign column is clicked.
+
+        Keyed on the `assign` column, which exists precisely so this and
+        `open_manage_drawer` stop receiving the same click.
+        """
+        if not active_cell or active_cell.get("column_id") != "assign":
             return (no_update,) * 11
 
         row = find_device_row(table_data, active_cell.get("row_id"))
