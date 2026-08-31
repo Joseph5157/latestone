@@ -7,7 +7,7 @@ Evidence: `assets/app.css` (`.command-center__rank-row`,
 `components/command_center/affected_locations.py:46` (`bar_width_percent`,
 unchanged); `pages/command_center_locations.py:31` (the page that does not
 carry `page--command-center`)
-Implemented-by: `e33d0e1`
+Implemented-by: `e33d0e1`; the shrink and gutter fixes `PENDING`
 Supersedes: nothing — ADR-011 stands unchanged
 
 ## Context
@@ -48,9 +48,9 @@ wired to it.
 
 ## Decision
 
-### The bar is a fixed 15rem track; no track absorbs the surplus
+### The bar is a capped 15rem track; no track absorbs the surplus
 
-`grid-template-columns: minmax(0, 18rem) 15rem auto`, with
+`grid-template-columns: minmax(0, 18rem) minmax(0, 15rem) auto`, with
 `justify-content: start`.
 
 240px resolves a four-value distribution comfortably, and the pixels past it
@@ -84,6 +84,36 @@ not carry (it is not the fixed cockpit). Without the fallback the bars on
 that page would render transparent; with it, that page keeps exactly the
 colour it has today.
 
+### The bar track is a ceiling, not a fixed width
+
+`minmax(0, 15rem)`, not `15rem`. The first implementation used the bare
+value, and a fixed track cannot shrink: in the narrow `Selected Location`
+cell the bar kept its full 240px and pushed the count out of the panel.
+Measured at a 1100px viewport the row overflowed its body by 51px and the
+count landed 50px past the right edge; at 1000px, 84px past. The count was
+not merely cramped, it was gone. The `@media (max-width: 900px)` track takes
+the same treatment.
+
+This was a regression introduced by the cap itself, found by measuring the
+panel at eight viewport widths rather than only at 1920.
+
+### A scrolling card body reserves a scrollbar gutter
+
+`padding-right: var(--sp-2)` on
+`.command-center__panels .command-center__card-body`.
+
+`Affected Locations`, `Recent Events` and `Priority Investigation` each own
+a NAMED scroll region and received a gutter with it.
+`Selected Location` owns none, so it falls through to the generic scrolling
+card body — which had no gutter, while its rank rows put the count flush
+against the right edge, exactly where the scrollbar paints. The value the
+panel exists to report sat under the slider.
+
+`padding-right` rather than `scrollbar-gutter: stable`, deliberately: no
+gutter is generated for OVERLAY scrollbars, and an overlay scrollbar is
+precisely the case that covers the count. Padding reserves the space
+whichever kind the browser draws.
+
 ### The encoding basis does not change
 
 `bar_width_percent` stays worst-relative from a zero baseline. Only the
@@ -92,7 +122,8 @@ mark's geometry and tokens change.
 ## Consequences
 
 - The bar is 240px on all three surfaces — cockpit dark, cockpit light, and
-  the full locations page — where it was previously 847px and 1207px.
+  the full locations page — where it was previously 847px and 1207px, and
+  shrinks below that only where the cell is too narrow to hold it.
   The two surfaces now scale identically in pixels as well as in percent,
   which `ranked_locations_list` already claimed.
 - The `.command-center__locations-full` grid override was deleted rather than

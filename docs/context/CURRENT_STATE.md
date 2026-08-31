@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-31T04:50:57Z
+Date: 2026-08-31T04:54:56Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `e33d0e1` "fix(cc2): cap the rank bar and put it on route-scoped tokens" (not `main`)
+- current branch `cc-1-command-center-foundation` = `155529b` "docs(cc2): record ADR-012 as implemented by e33d0e1" (not `main`)
 - Working tree: 2 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 13.72s
+- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 13.49s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 25 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 26 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `cc-1-command-center-progress` | 10 | 196 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
@@ -65,7 +65,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-009-priority-investigation-ranks-on-freshness-only.md | Approved | `ce5d4ac` |
 | ADR-010-monitoring-reset-preserves-operational-history.md | Approved | `29f5290` |
 | ADR-011-affected-locations-is-top-n-with-disclosure.md | Approved | `6aafc4c` |
-| ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | `e33d0e1` |
+| ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | `e33d0e1`; the shrink and gutter fixes `PENDING` |
 
 ## Active gate
 
@@ -74,7 +74,7 @@ CC-2 Rank Bar Legibility — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/DECISION_INDEX.md
+M assets/app.css
  M docs/decisions/ADR-012-rank-bars-are-capped-and-route-themed.md
 ```
 

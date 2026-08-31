@@ -4892,7 +4892,13 @@ body {
    plant name in the fleet, which was ellipsising at the old 10rem cap. */
 .command-center__rank-row {
   display: grid;
-  grid-template-columns: minmax(0, 18rem) 15rem auto;
+  /* The bar track is `minmax(0, 15rem)`, not a bare `15rem`. A fixed track
+     cannot shrink, so in the narrow `Selected Location` cell it kept its
+     240px and pushed the count clean out of the panel: measured at a
+     1100px viewport the row overflowed its body by 51px and the count
+     landed 50px past the right edge, invisible. 15rem is a ceiling, not a
+     floor. */
+  grid-template-columns: minmax(0, 18rem) minmax(0, 15rem) auto;
   /* Required, not cosmetic. An `auto` track absorbs free space under the
      default `normal`/stretch, so the count column silently stretched across
      the leftover ~500px and its right-aligned glyph landed back at the
@@ -4969,7 +4975,7 @@ body {
   }
 
   .command-center__rank-row {
-    grid-template-columns: minmax(0, 1fr) 8rem auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 8rem) auto;
   }
 }
 
@@ -5498,10 +5504,22 @@ body {
     flex: none;
   }
 
+  /* `padding-right` reserves the scrollbar gutter, the same way
+     `.command-center__ranking-scroll` does. Three panels own a NAMED scroll
+     region and got that gutter with it; `Selected Location` owns none, so it
+     falls through to this generic body — and its rank rows put the count
+     flush against the right edge, exactly where the scrollbar paints. The
+     count is the value the panel exists to report and it sat under the
+     slider.
+
+     `padding-right`, not `scrollbar-gutter: stable`: a gutter is not
+     generated for OVERLAY scrollbars, which is the case that hides the
+     count. Padding reserves the space whichever kind the browser draws. */
   .command-center__panels .command-center__card-body {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    padding-right: var(--sp-2);
   }
 
   /* Affected Locations already owns a labelled, keyboard-reachable scroll
