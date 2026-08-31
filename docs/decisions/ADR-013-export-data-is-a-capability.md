@@ -7,7 +7,7 @@ Evidence: `services/authorization.py` (`CAPABILITY_POLICY`, `ACTION_POLICY`);
 `callbacks/report_center.py` (`download_report_csv`, `_gather_export_rows`);
 `services/report_service.py:61` (`installed_rtls_rows`, scope intersection);
 `services/report_export.py` (R4-D3)
-Implemented-by: not yet
+Implemented-by: `723dd0b`
 Supersedes: **R4-D3** (`services/report_export.py`), in the part naming the
 guard
 

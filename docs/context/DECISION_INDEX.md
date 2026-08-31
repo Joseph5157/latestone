@@ -27,7 +27,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-010](../decisions/ADR-010-monitoring-reset-preserves-operational-history.md) | A monitoring reset replaces measurements and preserves operational history; the destructive teardown is a separate, acknowledged `--purge`; no CASCADE | Approved | `29f5290` |
 | [ADR-011](../decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md) | Affected Locations names the worst 8 Plants and discloses the rest; a selected Plant below the cut is retained and says why | Approved | `6aafc4c` |
 | [ADR-012](../decisions/ADR-012-rank-bars-are-capped-and-route-themed.md) | The rank bar is a fixed 15rem track on route-scoped tokens; no track absorbs surplus width, and the encoding basis is unchanged | Approved | `e33d0e1`, `59f92a9` |
-| [ADR-013](../decisions/ADR-013-export-data-is-a-capability.md) | EXPORT_DATA is a device-less capability, not a device action; same roles, guard changed to `require_capability`, scope still enforced by the repository's `allowed_device_ids` | Approved | not yet |
+| [ADR-013](../decisions/ADR-013-export-data-is-a-capability.md) | EXPORT_DATA is a device-less capability, not a device action; same roles, guard changed to `require_capability`, scope still enforced by the repository's `allowed_device_ids` | Approved | `723dd0b` |
 
 ## Reading this table
 
@@ -44,9 +44,7 @@ either "approved" means "built" or "not yet" means "undecided."
 - ADR-010 is not a CC-1 decision at all: it records the SEED-RESET-1 defect
   fix, which CC-1 acceptance depended on but which governs the seeds rather
   than the Command Center.
-- Every ADR in this table carries an `Implemented-by` sha except ADR-013,
-  which is built but not yet committed — record its sha in the commit
-  that lands it.
+- Every ADR in this table carries an `Implemented-by` sha.
 - ADR-013 is the first SUPERSESSION in this table, and it supersedes a
   decision that is not an ADR: R4-D3, frozen in
   `services/report_export.py`'s docstring. That docstring is corrected in

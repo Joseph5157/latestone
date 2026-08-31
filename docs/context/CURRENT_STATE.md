@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-31T07:59:21Z
+Date: 2026-08-31T12:42:49Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `1759c7f` "docs(fix1): open FIX-1 â€” callback regression hardening" (not `main`)
+- current branch `cc-1-command-center-foundation` = `723dd0b` "fix(fix-1): repair callback defects and add regression coverage" (not `main`)
 - Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2464 passed, 487 deselected in 21.86s
+- `python -m pytest -m "not db"` → 2504 passed, 487 deselected in 21.40s
 
 ## Branches
 
@@ -43,14 +43,14 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 31 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 33 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `cc-1-command-center-progress` | 10 | 196 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-12 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+13 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -66,6 +66,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-010-monitoring-reset-preserves-operational-history.md | Approved | `29f5290` |
 | ADR-011-affected-locations-is-top-n-with-disclosure.md | Approved | `6aafc4c` |
 | ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | `e33d0e1` (bar cap, route-scoped tokens), `59f92a9` (shrink, scrollbar gutter) |
+| ADR-013-export-data-is-a-capability.md | Approved | `723dd0b` |
 
 ## Active gate
 
@@ -74,8 +75,8 @@ FIX-1 Callback Regression Hardening — full detail in `docs/context/ACTIVE_GATE
 ## Working tree
 
 ```
-M .claude/skills/project-context/SKILL.md
- M AGENTS.md
- M docs/context/ACTIVE_GATE.md
+M docs/context/ACTIVE_GATE.md
+ M docs/context/DECISION_INDEX.md
+ M docs/decisions/ADR-013-export-data-is-a-capability.md
 ```
 
