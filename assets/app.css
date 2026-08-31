@@ -4869,12 +4869,36 @@ body {
   border-radius: var(--radius-sm);
 }
 
-/* Label / bar / count. The label column is capped rather than sized to
-   content so one very long plant name cannot squeeze every bar in the
-   chart down to a stub. */
+/* Label / bar / count.
+
+   The BAR is the fixed track and the NAME takes the surplus — the reverse
+   of the original, and the reversal is the point. With the bar on `1fr` it
+   absorbed every spare pixel of the panel, so the widest panel drew the
+   longest bars: `Affected Locations` (the only `--wide` panel) gave the bar
+   847px of a 1053px row, 80%, against 23px for the count that actually
+   answers the question. Width flowed to the least informative element, and
+   widening the panel made the chart worse.
+
+   15rem is chosen against the data, not the container. The affected count
+   spans four distinct values fleet-wide (7/6/3/1) and two within the
+   cockpit's top 8; 240px renders that comfortably, and the pixels past it
+   were encoding nothing.
+
+   NO track takes the surplus. Giving it to the name (the first thing tried)
+   just moved the void: the name sat at the left edge and the bar at the
+   right with ~500px of nothing between them, so the row stopped reading as
+   one object. Every track is capped instead, leftover falls after the
+   count, and name -> bar -> count stay adjacent — 18rem clears the longest
+   plant name in the fleet, which was ellipsising at the old 10rem cap. */
 .command-center__rank-row {
   display: grid;
-  grid-template-columns: minmax(0, 10rem) 1fr auto;
+  grid-template-columns: minmax(0, 18rem) 15rem auto;
+  /* Required, not cosmetic. An `auto` track absorbs free space under the
+     default `normal`/stretch, so the count column silently stretched across
+     the leftover ~500px and its right-aligned glyph landed back at the
+     card's right edge — the exact separation the capped bar was undoing,
+     with the bar no longer even pointing at it. */
+  justify-content: start;
   align-items: center;
   gap: var(--sp-3);
 }
@@ -4901,10 +4925,21 @@ body {
   white-space: nowrap;
 }
 
+/* Theme-aware, which this mark was not. `--state-stale-text` and
+   `--state-none-bg` are `:root` light tokens with no dark restatement, so
+   in the Command Center's dark appearance the bar drew a dark-brown fill
+   (#713f12) on a near-white track (#f1f3f5) inside a #1a232e panel — the
+   one element on the page still painted for light mode.
+
+   `--cc-stale` is the route-scoped token that exists for exactly this and
+   is restated at dark-appropriate luminance. It is scoped to
+   `.page--command-center`, which `/command-center/locations` deliberately
+   does not carry, so the fallback is not defensive noise: it is that page's
+   real value. */
 .command-center__rank-bar {
   height: 14px;
   border-radius: 3px;
-  background: var(--state-none-bg);
+  background: var(--color-border);
   overflow: hidden;
   min-width: 0;
 }
@@ -4912,7 +4947,7 @@ body {
 .command-center__rank-bar-fill {
   height: 100%;
   border-radius: 3px;
-  background: var(--state-stale-text);
+  background: var(--cc-stale, var(--state-stale-text));
 }
 
 .command-center__rank-value {
@@ -4924,16 +4959,17 @@ body {
   text-align: right;
 }
 
-/* Below the two-column grid the wide panel is just a panel again, and the
-   label column gives up its fixed cap so names keep as much room as the
-   narrow viewport can spare. */
+/* Below the two-column grid the wide panel is just a panel again. The bar
+   gives up a third of its track rather than the name giving up room: on a
+   narrow viewport the name is what stops being readable first, and the bar
+   still resolves four values at 8rem. */
 @media (max-width: 900px) {
   .command-center__panel--wide {
     grid-column: auto;
   }
 
   .command-center__rank-row {
-    grid-template-columns: minmax(0, 7rem) 1fr auto;
+    grid-template-columns: minmax(0, 1fr) 8rem auto;
   }
 }
 
@@ -4984,14 +5020,13 @@ body {
   padding: var(--sp-4);
 }
 
-/* The panel caps its name column so one long plant name cannot squeeze
-   every bar to a stub in a narrow cell. That trade-off does not apply
-   here: this page exists to show everything, and truncating the names on
-   it would defeat the point. Names wrap instead of ellipsing. */
-.command-center__locations-full .command-center__rank-row {
-  grid-template-columns: minmax(0, 22rem) 1fr auto;
-}
-
+/* This page inherits the shared row grid rather than overriding it. It used
+   to set `minmax(0, 22rem) 1fr auto`, which put the bar back on `1fr` on
+   the widest rows in the application — 1207px of track for the same four
+   values. The base rule already gives the name every spare pixel, which is
+   what the old override was reaching for; only the wrapping is still this
+   page's own. This page exists to show everything, and truncating the names
+   on it would defeat the point, so names wrap instead of ellipsing. */
 .command-center__locations-full .command-center__rank-name,
 .command-center__locations-full .command-center__rank-composition {
   overflow: visible;

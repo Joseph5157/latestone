@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-30T11:48:24Z
+Date: 2026-08-31T04:47:47Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `6aafc4c` "feat(cc1): Top-8 Affected Locations, footer copy, theme-persistence fix" (not `main`)
-- Working tree: 7 entries — see below
+- current branch `cc-1-command-center-foundation` = `00644f3` "chore(scripts): track the workflow PDF generators" (not `main`)
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 14.27s
+- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 14.38s
 
 ## Branches
 
@@ -43,13 +43,14 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 21 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 24 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 10 | 196 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-11 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+12 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -64,20 +65,19 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-009-priority-investigation-ranks-on-freshness-only.md | Approved | `ce5d4ac` |
 | ADR-010-monitoring-reset-preserves-operational-history.md | Approved | `29f5290` |
 | ADR-011-affected-locations-is-top-n-with-disclosure.md | Approved | `6aafc4c` |
+| ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | not yet |
 
 ## Active gate
 
-CC-1 Final Acceptance — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-2 Rank Bar Legibility — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M assets/app.css
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
  M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md
-?? "command center/"
-?? docs/context/CC1_ACCEPTANCE.md
-?? scripts/generate_workflow_deep_dive_pdf.py
-?? scripts/generate_workflow_pdf.py
+?? docs/decisions/ADR-012-rank-bars-are-capped-and-route-themed.md
 ```
 

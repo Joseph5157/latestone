@@ -26,6 +26,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-009](../decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md) | Priority Investigation ranks on freshness only; a STALE age is the OLDEST metric's timestamp, and exists only when every metric has one | Approved | `ce5d4ac` |
 | [ADR-010](../decisions/ADR-010-monitoring-reset-preserves-operational-history.md) | A monitoring reset replaces measurements and preserves operational history; the destructive teardown is a separate, acknowledged `--purge`; no CASCADE | Approved | `29f5290` |
 | [ADR-011](../decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md) | Affected Locations names the worst 8 Plants and discloses the rest; a selected Plant below the cut is retained and says why | Approved | `6aafc4c` |
+| [ADR-012](../decisions/ADR-012-rank-bars-are-capped-and-route-themed.md) | The rank bar is a fixed 15rem track on route-scoped tokens; no track absorbs surplus width, and the encoding basis is unchanged | Approved | not yet |
 
 ## Reading this table
 
@@ -42,7 +43,12 @@ either "approved" means "built" or "not yet" means "undecided."
 - ADR-010 is not a CC-1 decision at all: it records the SEED-RESET-1 defect
   fix, which CC-1 acceptance depended on but which governs the seeds rather
   than the Command Center.
-- Every ADR in this table carries an `Implemented-by` sha.
+- Every ADR in this table carries an `Implemented-by` sha except ADR-012,
+  which is written and built but not yet committed. Record its sha in the
+  commit that lands it, the way ADR-005/006/009/010 were recorded.
+- ADR-012 is not a CC-1 decision either. It is the CC-2 defect gate against
+  a panel CC-1 accepted, and it deliberately supersedes nothing: ADR-011
+  governs *which* plants the panel names, ADR-012 only how the row is drawn.
 - ADR-002 was corrected 2026-08-29 (same day as ADR-008): its original
   "Affected areas" pointed at `components/fleet_condition.py` as something
   to reuse. It isn't — see ADR-008. The decision itself (`Requires
