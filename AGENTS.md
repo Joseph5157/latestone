@@ -156,3 +156,12 @@ inspect recent readings, and observe the data freshness status.
 - Run the relevant tests and fix failures before moving on.
 - Keep README commands accurate.
 - Stop before commit/push when the active gate requires review.
+- **A gate opens and closes on a green pack.** Run
+  `python scripts/build_context_pack.py` (or `--check`) when a gate is
+  written, and again before it is closed. Both, not one: the open run proves
+  the gate's own citations resolve, and the close run proves the work did not
+  break someone else's. This catches what the test suite structurally cannot
+  — a broken ADR citation, an `Implemented-by` naming a commit that does not
+  exist, a `Relevant files` path that has moved, a frozen manifest that no
+  longer verifies. FIX-1's open run caught an ADR-012 `Implemented-by` field
+  that 2,464 passing tests had nothing to say about.

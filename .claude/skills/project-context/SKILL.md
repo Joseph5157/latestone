@@ -98,6 +98,11 @@ follow-up someone else does later.**
 - Re-run `scripts/build_context_pack.py` so `docs/context/CURRENT_STATE.md`
   reflects the new HEAD. It is generated and tracked specifically so this
   step is one command, not a rewrite.
+- **The pack must be green at gate close, not only at gate open.** Both runs
+  are required. The open run proves the new gate's own citations resolve; the
+  close run proves this gate's work did not break another record's. Neither
+  is something the test suite can check — a green suite says nothing about an
+  `Implemented-by` that names a commit which does not exist.
 - When the gate itself completes, rewrite `ACTIVE_GATE.md` for whatever
   gate opens next.
 

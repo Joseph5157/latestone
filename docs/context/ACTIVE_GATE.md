@@ -148,6 +148,27 @@ reviewed.**
   read supports it. Whether "All" is also intended is not stated anywhere and
   should be settled from the page, not assumed.
 
+## After this gate — queued, and deliberately not merged into it
+
+Recorded here so the sequence survives a lost conversation. Neither is in
+scope, and pulling either forward would make FIX-1 harder to review: a
+regression found afterwards must be attributable to FIX-1 alone, not to
+integration work that landed in the same window.
+
+- **INT-1 — merge the Command Center branch to `main`.**
+  `cc-1-command-center-foundation` is 31 commits ahead of `main` and 0
+  behind, a clean fast-forward; local `main` is also 7 commits ahead of
+  `origin/main` and unpushed. No open PRs. Upstream integration, not defect
+  repair.
+- **CLIENT-SYNC-1 — bring the client readers onto the accepted
+  Command Center.** `client/cc-1-command-center-progress` still carries the
+  pre-CC-2 CSS (`minmax(0, 10rem) 1fr auto`, `--state-stale-text`), and the
+  client repo now has three read-only collaborators. Client synchronization,
+  a third concern again.
+
+The order is deliberate: **defect repair → upstream integration → client
+synchronization.**
+
 ## Relevant files
 
 - `callbacks/report_center.py` — defect 1, `download_report_csv`
