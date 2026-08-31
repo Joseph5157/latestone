@@ -2,6 +2,30 @@
 # Text files are stored LF in the repository and checked out LF everywhere.
 * text=auto eol=lf
 
+# The frozen Command Center planning pack is a CHECKSUMMED artifact, and the
+# rule above was wrong for it. `* text=auto eol=lf` normalized eight CRLF
+# files to LF on the way in, so their bytes stopped matching the SHA-256
+# lines in `command center/MANIFEST.txt` — which hashes the pack as
+# delivered. `scripts/build_context_pack.py` verifies that manifest on every
+# run, so a fresh clone reported a broken frozen pack. The working tree only
+# looked fine because the original files sat there undisturbed; the first
+# `git checkout` materialised them as LF and the check went red.
+#
+# `-text` means no conversion in either direction: what was committed is what
+# is checked out. Scoped to this directory because that is exactly the unit
+# the manifest covers — every path here is verified by it, and no path
+# outside it is. Line-ending normalization stays the default everywhere else.
+#
+# QUOTED because the directory name contains a space. Unquoted, git splits on
+# it and reads `center/**` as an attribute name — `.gitattributes:18: not a
+# valid attribute name` — leaving the pattern inert while looking correct.
+# `whitespace=-trailing-space` rides along for the same paths: with `-text`,
+# git sees each preserved CR as trailing whitespace and `git diff --check`
+# flags every line of every CRLF file. This repo runs that check at each gate,
+# so without it the fix trades a red context pack for a permanently noisy
+# whitespace check. It suppresses only that class, only here.
+"command center/**" -text whitespace=-trailing-space
+
 # Binary files: never touch these.
 *.png  binary
 *.jpg  binary
