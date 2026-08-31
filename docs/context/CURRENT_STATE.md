@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-31T12:42:49Z
+Date: 2026-08-31T13:06:08Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `723dd0b` "fix(fix-1): repair callback defects and add regression coverage" (not `main`)
-- Working tree: 3 entries — see below
+- `main` = `bc711e9` "fix(ctx): store the frozen Command Center pack byte-exact"
+- Working tree: 1 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2504 passed, 487 deselected in 21.40s
+- `python -m pytest -m "not db"` → 2504 passed, 487 deselected in 20.62s
 
 ## Branches
 
@@ -26,6 +26,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-3-unassigned-rtl-panel`
 - `admin-dashboard-final`
 - `bootstrap-1-alembic-authority`
+- `cc-1-command-center-foundation`
 - `ctx-1-context-architecture`
 - `ent-6-ui-and-live-simulator`
 - `fix-registration-window-clock-domain`
@@ -43,10 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 33 | 0 | current branch — this session's in-progress work, not a stale fork |
-| `cc-1-command-center-progress` | 10 | 196 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 10 | 231 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 81 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 231 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -70,13 +70,11 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-FIX-1 Callback Regression Hardening — full detail in `docs/context/ACTIVE_GATE.md`.
+INT-1 Command Center integration, with CTX-PACK-1 folded in — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-013-export-data-is-a-capability.md
 ```
 
