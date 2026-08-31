@@ -76,5 +76,26 @@ to the existing token there, or the bars on that page render transparent.
 
 ## Commit/push permission
 
-NOT GRANTED. Implement and verify, then show the rendered result and ask.
-The user opened this gate; they have not yet seen what it produces.
+GRANTED and exercised. The user reviewed the rendered result and approved
+both the commits and the push on 2026-08-31. Branch pushed at `2c9a17d`.
+
+## Status of the work
+
+Both defects in scope are fixed, recorded in ADR-012, and pushed:
+
+- `e33d0e1` — bar capped, tokens made route-scoped
+- `59f92a9` — bar track made shrinkable, scrollbar gutter reserved
+
+`59f92a9` also fixed a regression `e33d0e1` introduced: a bare `15rem`
+track cannot shrink, so at 1000-1100px viewports the count was pushed
+50-84px outside the panel. Verified at eight widths; 2,459 not-db tests
+pass. This gate is complete.
+
+## Carried forward, not done here
+
+- In light appearance the cockpit bar is `--cc-stale` (#8a5a00) and
+  `/command-center/locations` is the fallback (#713f12). Unifying them means
+  extending the route-scoped semantics block to
+  `.page--command-center-locations` — an ADR-006 theming change.
+- Whether a proportional bar is the right mark at all for a four-value
+  distribution. See "What this ADR does not decide" in ADR-012.

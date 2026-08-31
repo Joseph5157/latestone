@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-31T04:55:21Z
+Date: 2026-08-31T04:57:11Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-1-command-center-foundation` = `59f92a9` "fix(cc2): let the bar shrink, and reserve the scrollbar gutter" (not `main`)
-- Working tree: 2 entries — see below
+- current branch `cc-1-command-center-foundation` = `2c9a17d` "docs(cc2): record 59f92a9 against ADR-012" (not `main`)
+- Working tree: 1 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 13.63s
+- `python -m pytest -m "not db"` → 2459 passed, 487 deselected in 13.82s
 
 ## Branches
 
@@ -43,7 +43,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-foundation` | 27 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-foundation` | 28 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `cc-1-command-center-progress` | 10 | 196 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 46 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 196 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
@@ -74,7 +74,6 @@ CC-2 Rank Bar Legibility — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-012-rank-bars-are-capped-and-route-themed.md
+M docs/context/ACTIVE_GATE.md
 ```
 
