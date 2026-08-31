@@ -7,7 +7,7 @@ Evidence: `assets/app.css` (`.command-center__rank-row`,
 `components/command_center/affected_locations.py:46` (`bar_width_percent`,
 unchanged); `pages/command_center_locations.py:31` (the page that does not
 carry `page--command-center`)
-Implemented-by: `e33d0e1`; the shrink and gutter fixes `PENDING`
+Implemented-by: `e33d0e1`; the shrink and gutter fixes `59f92a9`
 Supersedes: nothing — ADR-011 stands unchanged
 
 ## Context
