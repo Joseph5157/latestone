@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-03T10:15:15Z
+Date: 2026-09-03T10:32:58Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `576b7cc` "docs(context): backfill ROLE-4B provenance"
-- Working tree: 3 entries — see below
+- `main` = `ca01576` "docs(context): close ROLE-4C general persona audit"
+- Working tree: 2 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2601 passed, 496 deselected in 19.65s
+- `python -m pytest -m "not db"` → 2601 passed, 496 deselected in 19.67s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 239 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 89 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 239 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 240 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 90 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 240 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -73,13 +73,12 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-ROLE-4C — General User persona completion — full detail in `docs/context/ACTIVE_GATE.md`.
+ROLE-4D — three-persona browser acceptance — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
 ?? debug.log
 ```
 
