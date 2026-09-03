@@ -9,9 +9,9 @@ the shape it corrects); `tests/test_plant_monitoring_repository.py:28-34`
 (why the budgets exist); `tests/test_plant_monitoring_repository.py:311-323`
 and `:495-505` (the two sibling guards); `docs/CODE_AUDIT.md:349-355` (the
 first record of the intermittent failure)
-Implemented-by: not yet recorded as a sha — the code lands in this ADR's
-own commit (`fix(db): bound latest-reading query cost`), which cannot cite
-itself; backfill the sha the way FIX-1 did in `5901945`
+Implemented-by: `3b33015` (`fix(db): bound latest-reading query cost`; full
+sha 3b330152c176a51af570f148008413c05c435d45 — the commit carries this ADR
+too, so the sha is recorded here afterwards, as FIX-1 did in `5901945`)
 Supersedes: nothing — it extends ADR-008's "reuse the existing read paths"
 to the one read path that did not obey the repository's own query contract
 

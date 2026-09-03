@@ -123,15 +123,26 @@ Verified at closure: `git diff --check` clean, `git diff --cached --check`
 clean, staged set exactly the six reviewed files, and the context pack CLEAN
 both before staging and after the commit.
 
-### One bookkeeping item, deliberately left open
+### Provenance
 
-`ADR-014`'s `Implemented-by` reads `not yet recorded as a sha`, because the
-closure was specified as a single commit and an ADR cannot cite the commit
-that carries it. `scripts/build_context_pack.py:208` requires that field to
-either begin "not yet" or name a reachable commit, so a forward reference
-would have failed the pack. Backfill the sha in a follow-up context commit,
-the way FIX-1 did in `5901945` — the same two-step this repository already
-uses to record provenance.
+Recorded in two steps, which is what this repository's validator requires
+rather than a stylistic choice. An ADR cannot cite the commit that carries
+it, and `scripts/build_context_pack.py:208` accepts an `Implemented-by` only
+if it begins "not yet" or names a **reachable** commit — so a forward
+reference to the closure commit would have failed the pack. The closure
+commit therefore recorded the field truthfully as not-yet-a-sha, and
+
+```text
+3b330152c176a51af570f148008413c05c435d45
+fix(db): bound latest-reading query cost
+```
+
+was written into `ADR-014` and `DECISION_INDEX.md` immediately afterwards, by
+`docs(context): backfill DB-ORDER-1 provenance`. FIX-1 used the same two-step
+in `5901945`.
+
+Nothing is outstanding. The technical decision was not touched by the
+backfill; only the provenance fields changed.
 
 ## Next queued gate — do not start
 

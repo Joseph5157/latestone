@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-03T05:27:06Z
+Date: 2026-09-03T05:32:14Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `c4896e9` "docs(context): close CLIENT-SYNC-1 and record provenance"
-- Working tree: 7 entries — see below
+- `main` = `3b33015` "fix(db): bound latest-reading query cost"
+- Working tree: 4 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2504 passed, 489 deselected in 19.08s
+- `python -m pytest -m "not db"` → 2504 passed, 489 deselected in 19.78s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 233 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 83 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 233 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 234 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 84 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 234 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -67,7 +67,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-011-affected-locations-is-top-n-with-disclosure.md | Approved | `6aafc4c` |
 | ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | `e33d0e1` (bar cap, route-scoped tokens), `59f92a9` (shrink, scrollbar gutter) |
 | ADR-013-export-data-is-a-capability.md | Approved | `723dd0b` |
-| ADR-014-latest-reads-are-bounded-seeks.md | Approved | not yet recorded as a sha — the code lands in this ADR's own commit (`fix(db): bound latest-reading query cost`), which cannot cite itself; backfill the sha the way FIX-1 did in `5901945` |
+| ADR-014-latest-reads-are-bounded-seeks.md | Approved | `3b33015` (`fix(db): bound latest-reading query cost`; full sha 3b330152c176a51af570f148008413c05c435d45 — the commit carries this ADR too, so the sha is recorded here afterwards, as FIX-1 did in `5901945`) |
 
 ## Active gate
 
@@ -77,11 +77,8 @@ DB-ORDER-1 — diagnose and remove the DB test-order sensitivity — full detail
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
  M docs/context/DECISION_INDEX.md
- M repositories/plant_monitoring_repository.py
- M tests/test_plant_monitoring_repository.py
+ M docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md
 ?? debug.log
-?? docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md
 ```
 
