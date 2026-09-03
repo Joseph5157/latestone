@@ -1,184 +1,126 @@
 # Active Gate
 
-Status: Complete — reviewed, accepted, committed and pushed
+Status: Audited — held at human review, no code change proposed
 Date: 2026-09-03
-Gate: ROLE-4B — Technician operational surface
-Branch: `main`, baseline `f102573`
-Commit/push permission: GRANTED at ROLE-4B-CLOSE, after review, for the
-reviewed ROLE-4B file set onto `main`. The gate was implemented under an
-explicit "do not commit, do not push" and held for that review.
+Gate: ROLE-4C — General User persona completion
+Branch: `main`, baseline `576b7cc`
+Commit/push permission: **NOT APPLICABLE.** Nothing was changed. This file is
+the only edit in the working tree, left uncommitted for review as the gate
+instructed ("do not commit, do not push").
 
 ## Purpose
 
-Make the Technician's already-authorized assigned-device actions reachable
-through normal Technician navigation, without opening an Administrator route
-and without changing any policy.
+Determine whether the existing `general` persona already satisfies the
+client's third runtime role, and identify the smallest real gap if not — audit
+first, code only if the audit finds a defect.
 
-## The gap this closes
+## Finding: no defect found
 
-ROLE-3 gave a technician `program_rtl`, `toggle_message_forwarding` and
-`deactivate_rtl` on an assigned device, and `require_action` has enforced it
-since. But the only surface rendering those three was
-`device_manage_drawer()`, mounted once, at `pages/device_admin.py:135` — the
-`/admin/devices` page, which `ROUTE_POLICY` reserves for `_ADMIN_ONLY`.
+**Classification: A — COMPLETE AS-IS.**
 
-A permission with nowhere to happen. It is why CC-1 acceptance verified the
-non-administrator side by substituting the authorization identity in the
-session store (`CC1_ACCEPTANCE.md`, "Deferred, explicitly", item 1).
+The client Functional Specification (`docs/RTL_FUNCTIONAL_SPEC_EXTRACT.md:206-
+212`) states the General User requirement in full:
 
-## Decision — ADR-016
+> Eskom employee not assigned as Administrator or Technician. Can log on. Can
+> view transformer data. Can export data only. Message forwarding/programming
+> options should not be available.
 
-**A device's operational actions are a shared surface; fleet administration is
-not.**
+Every clause is implemented and was re-verified against live `HEAD` — both by
+reading the policy tables (`ROUTE_POLICY`, `CAPABILITY_POLICY`, `ACTION_POLICY`,
+`device_scope._UNRESTRICTED_ROLES`) and by a live credentialed browser session
+as `demo.general01` (no session-store substitution): sidebar limited to
+Overview/Command Center/Notifications/Reports; Overview, Command Center, the
+full Plant→Transformer→Device hierarchy and Notifications all render
+completely with no admin residue; Report Center generated a real 7-row RTL
+Alarms report and enabled Download CSV; `/admin/devices` returned "No access";
+the device page's operational-controls slot (ROLE-4B) stayed empty. 636
+targeted tests plus the 3,097-test full suite pass unchanged.
 
-The device page mounts the **same** drawer the admin page mounts — not a copy,
-not a technician variant. `assign_device_drawer()` is deliberately not mounted
-there: assignment is what *grants* technician authority, so a technician who
-could manage it could grant it to themselves.
+**No UI led to a workflow that reaches a denial.** No dead CTA, no empty
+container with a dangling heading, no Admin terminology surfaced to the
+General user themselves was found anywhere in the audited pages.
 
-`/admin/devices` was **not** opened to technicians. That would have collapsed
-"operate the equipment I am responsible for" into "administer the fleet".
+### A note on this gate's own premise
 
-`action_guard.may_action` was added and `require_action` now calls it — one
-decision, two presentations. A component deciding visibility by comparing roles
-would be a second permission table beside `ACTION_POLICY` that no policy test
-would catch drifting.
+The gate specification's §2 asserted "the client documentation uses
+terminology such as: Client, Viewer." That is not supported by the repository.
+Every client-facing source (`RTL_FUNCTIONAL_SPEC_EXTRACT.md`,
+`RTL_CLIENT_REVIEW_GATE.md`) uses **General / General User** exclusively, and
+no ADR or planning document introduces "Viewer" or "Client" as a role label.
+The one place "General/Viewer" appears in this repository is this file's own
+prior shorthand, written at ROLE-4B's closure — an informal aside, not client
+evidence. No terminology change was made or is warranted; `"General User"`
+remains correct wherever it already appears (only in the Administrator's own
+user-management screens — `components/user_form_drawer.py`,
+`callbacks/user_admin.py` — never shown to the General persona about
+themselves, since no header/sidebar surface displays the signed-in user's own
+name or role at all).
 
-**New route: NO.** **Policy change: NONE.**
+**Two distinct things, not to be conflated going forward:** the client persona
+name is **General User** (used in prose, UI copy, and gate/ADR text); the
+persisted application role value stored in `plant_monitoring.users.role` and
+compared throughout `services/authorization.py`/`device_scope.py` is the
+lowercase string `general`, and that value is unchanged and not renamed by
+this gate. From this closure onward, the three client personas are named
+**Administrator / Technician / General User** — not Viewer, not Client.
+
+## Why no ADR
+
+ROLE-4C changed no durable rule. ADR-004 (device scope), ADR-008 (Command
+Center route policy) and ADR-013 (EXPORT_DATA as a capability) already state
+and justify every property this audit confirmed. Writing ADR-017 to restate
+them would be documentation churn, which the gate itself warned against.
 
 ## In scope
 
-- `services/action_guard.py` — `may_action`, the non-raising sibling;
-  `require_action` delegates to it.
-- `components/device_operations.py` — new; markup only, no policy.
-- `pages/device_dashboard.py` — the operations container and the shared drawer.
-- `callbacks/device_manage.py` — `device_operations_children` (decides),
-  `render_device_operations` and `open_manage_drawer_from_device` (wire it).
-- `assets/app.css` — the section's styling, joining the existing shared
-  accent-fill button rule rather than redeclaring it.
-- `components/status_panels.py` — `inactive_notice` gains
-  `equipment-inactive-notice`; see "Found while implementing" below.
-- `tests/test_technician_operations.py` (new), `tests/test_inactive_policy.py`,
-  `tests/test_equipment_selector.py`.
-
-## Found while implementing
-
-Two existing tests caught real problems, and both fixes are in scope:
-
-1. **`test_inactive_policy.py`** — `inactive_notice()` marked inactive
-   equipment with `status-panel--inactive`, which is a **shared muted-panel
-   style** used in ~20 places, including the manage drawer's own honesty
-   notices. Mounting the drawer on the device page made "is this equipment
-   inactive?" unanswerable by looking for the style. The notice now carries a
-   semantic `equipment-inactive-notice` class beside the style class, the test
-   asks the semantic question, and the other call sites were not touched.
-2. **`test_equipment_selector.py::test_every_callback_id_exists_in_some_layout`**
-   — the new button is rendered by a callback, so no static layout declared it.
-   The panel's factory was added to that test's mountable set, which is what
-   `assign_device_drawer()` and `device_manage_drawer()` already do. The guard
-   still fails on a genuinely orphaned id.
+- This file only. No application source, test, or configuration file was
+  edited.
 
 ## Explicitly out of scope — and not touched
 
-- **ROLE-4C** — broader General/Viewer persona work.
-- **ROLE-4D** — the full three-role browser acceptance matrix.
-- `ROUTE_POLICY`, `ACTION_POLICY`, `CAPABILITY_POLICY`, device scope, the
-  report/export policy — none edited.
-- `pages/device_admin.py` and `components/assign_device_drawer.py` — unchanged.
+- Any product code, test, or documentation beyond this record.
+- **ROLE-4D** — the full three-persona comparative browser acceptance matrix.
+  What ran here was a focused General-only pass, per this gate's own scope.
+- Authorization policy of any kind.
 - S-4/S-5, which remain open.
 - The untracked `debug.log`.
 
-## Relevant files
-
-- `services/action_guard.py`
-- `services/authorization.py` (read only — the policy this obeys)
-- `components/device_operations.py`
-- `callbacks/device_manage.py`
-- `docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md`
-
 ## Verification
 
-Regression seen failing first, for the right reason: **19 failed, 5 passed** —
-the 5 passing were `TestTheAuthorityAlreadyExists`, so the suite proved the
-permission existed while the reachability assertions failed with
-"device_manage_drawer() is not mounted on the device page". After: 38 passed.
+- Existing General-relevant suites — **636 passed** (authorization, action
+  guard ×3, route enforcement, route scope ×2, device scope, scope repository,
+  report export ×2, technician operations, credentialed personas, persona
+  seed, admin overview, admin summary wiring, app sidebar).
+- ROLE-4A regression — **133 passed**. ROLE-4B regression — **38 passed**.
+- DB-marked suite — **496 passed**. Full suite — **3,097 passed** (unchanged
+  from ROLE-4B's closing total — expected, since nothing changed).
+- `git diff --check` / `git status --short` / `git diff --stat` — no
+  application diff exists to check; only this file is modified.
+- Context pack — CLEAN before and after.
 
-- `tests/test_technician_operations.py` — 38 passed.
-- Focused UI/device/routing modules — 204 passed.
-- Programming / forwarding / deactivation — 133 passed.
-- Authorization, action guard, route scope, scope repository, route
-  enforcement — 322 passed.
-- ROLE-4A authentication regression — 152 passed.
-- DB-marked suite — **496 passed**.
-- Full suite — **3,097 passed**.
+### Live credentialed General browser pass (Playwright, 1440×900, real login)
 
-### Browser, credentialed, no session substitution
-
-Playwright, Chromium, 1440×900, real login form.
-
-| Persona | Result |
+| Surface | Result |
 |---|---|
-| `demo.tech01` | Technician sidebar only (Overview, Command Center, Notifications, Reports — no Devices/Registration/Users/Assignments); "24 affected RTLs" = the technician's scope |
-| assigned RTL `plant-11-t2-d1` | Operational controls section present, naming the RTL; **Manage RTL** opened the drawer showing Device 29045 / ku02 / Az Zour South CCGT with **Program RTL**, **Message Forwarding** and **Deactivate RTL** (red), and no assignment control |
-| out-of-scope RTL `plant-14-t1-d1` | **"No access"** — the route refuses before any surface renders |
-| `/admin/devices` as technician | **"No access"** |
-| `admin` | `/admin/devices` renders Device Management, 120 devices, technician column and the Assign/Manage actions — unchanged |
-| `demo.general01` | device page renders full telemetry; `#device-operations` is **empty** |
+| Sidebar | Overview, Command Center, Notifications, Reports only |
+| Overview | Full fleet summary; no Administration block, no residue |
+| Command Center | Fully functional, read-only |
+| Plant → Transformer → Device | Full hierarchy and telemetry render; device page ends after Recent Readings — no operational-controls section |
+| Notifications | 132 formal notifications render; no admin-only content |
+| Reports | Generate Preview produced a real 7-row RTL Alarms (30 Days) report; Download CSV enabled |
+| `/admin/devices` | "No access" |
 
-No `dcc.Store` identity substitution was used at any point. Evidence
-screenshots were kept outside the repository.
+No `dcc.Store` identity substitution was used. Evidence screenshots kept
+outside the repository.
 
 ## What this does not claim
 
-S-4/S-5 are unchanged: the session is still browser-held and the data callbacks
-still do not verify it. This gate makes an authorized action reachable; it does
-not make the UI the security boundary. `require_action` still refuses in every
-confirm callback, and route scope refuses earlier.
-
-This is also not ROLE-4D. The browser check was focused on Technician
-reachability plus one Administrator and one General smoke.
-
-## Outcome
-
-ROLE-4B is **CLOSED**. The reviewed change was committed as
-
-```text
-08e44af75c344533ccca50ce3d72de27c45e1243
-feat(roles): expose technician device operations
-```
-
-covering the guard predicate, the new operations component, the device page,
-the manage callbacks, the stylesheet, the status-panel discriminator, three
-test files and the context records — and pushed to `origin/main` with local and
-remote SHAs verified to match. The untracked `debug.log` was neither staged nor
-committed.
-
-### Provenance
-
-Two commits, which the validator requires rather than a style choice:
-`scripts/build_context_pack.py:208` accepts an `Implemented-by` only if it
-begins "not yet" or names a **reachable** commit, so an ADR can never cite the
-commit that carries it. `08e44af` was written into `ADR-016` and
-`DECISION_INDEX.md` immediately afterwards, by
-`docs(context): backfill ROLE-4B provenance`. ADR-014 and ADR-015 used the same
-two-step.
-
-Nothing is outstanding for ROLE-4B.
-
-### Still open, deliberately
-
-**S-4 / S-5 remain architectural debt.** The session is a browser-side
-`dcc.Store`, the data callbacks do not independently verify it, and anyone who
-can set that store can still set `role` in it. Closing them needs the client's
-authentication mechanism, which is not yet chosen
-(`docs/CODE_AUDIT.md:540-575`). ROLE-4B made an authorized action reachable; it
-did not make the UI the security boundary.
-
-**Full three-role browser acceptance has NOT happened.** What ran here was a
-focused Technician reachability check plus one Administrator and one General
-smoke. The complete persona matrix is ROLE-4D.
+This is not ROLE-4D. Only the General persona was exercised end to end here;
+Administrator and Technician were confirmed unchanged by policy/test evidence,
+not re-walked in the browser during this gate. S-4/S-5 remain open and this
+gate makes no claim about session security.
 
 ## Next queued gate — do not start
 
-**ROLE-4C — broader General/Viewer persona**, then **ROLE-4D — browser
-acceptance for all three roles**. PCB remains paused at `PCB-9-CLOSE`.
+**ROLE-4D — full browser acceptance for Administrator, Technician and General
+User.** PCB remains paused at `PCB-9-CLOSE`.

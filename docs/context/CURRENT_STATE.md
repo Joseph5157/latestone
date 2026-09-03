@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-03T06:49:18Z
+Date: 2026-09-03T10:15:15Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `08e44af` "feat(roles): expose technician device operations"
-- Working tree: 4 entries — see below
+- `main` = `576b7cc` "docs(context): backfill ROLE-4B provenance"
+- Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2601 passed, 496 deselected in 19.85s
+- `python -m pytest -m "not db"` → 2601 passed, 496 deselected in 19.65s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 238 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 88 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 238 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 239 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 89 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 239 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -73,14 +73,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-ROLE-4B — Technician operational surface — full detail in `docs/context/ACTIVE_GATE.md`.
+ROLE-4C — General User persona completion — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md
+ M docs/context/CURRENT_STATE.md
 ?? debug.log
 ```
 
