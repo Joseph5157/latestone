@@ -1,6 +1,6 @@
 # Active Gate
 
-Status: Accepted at human review — closing
+Status: Complete — reviewed, accepted, committed and pushed
 Date: 2026-09-03
 Gate: ROLE-4A — credentialed personas
 Branch: `main`, baseline `524efdf`
@@ -159,6 +159,49 @@ other two personas, add one line with secrets of your own choosing:
 ```
 DEMO_CREDENTIALS={"demo.tech01": "<secret>", "demo.general01": "<secret>"}
 ```
+
+## Outcome
+
+ROLE-4A is **CLOSED**. The reviewed change was committed as
+
+```text
+f0862d085680ca0d4b0f774d6b44f5d224810b75
+feat(auth): add credentialed demo personas
+```
+
+covering the two implementation modules, the new persona seed, four test files,
+two configuration/doc files and the context records, and pushed to
+`origin/main` with local and remote SHAs verified to match. The untracked
+`debug.log` was neither staged nor committed.
+
+Verification baseline at closure: full suite **3,059 passed**, non-DB **2,563
+passed**, auth/session **178**, authorization non-regression **354**, persona
+seed DB tests **7**, credential smoke **3/3** through the real `authenticate()`.
+`git diff --check` clean; context pack CLEAN before staging and after the
+commits.
+
+### Provenance
+
+Two commits, which is what the validator requires rather than a style choice:
+`scripts/build_context_pack.py:208` accepts an `Implemented-by` only if it
+begins "not yet" or names a **reachable** commit, so an ADR can never cite the
+commit that carries it. `f0862d0` was written into `ADR-015` and
+`DECISION_INDEX.md` immediately afterwards, by
+`docs(context): backfill ROLE-4A provenance`. ADR-014 used the same two-step.
+
+Nothing is outstanding for ROLE-4A.
+
+### Still open, deliberately
+
+**S-4 / S-5 remain architectural debt.** The session is a browser-side
+`dcc.Store`, the data callbacks do not independently verify it, and anyone who
+can set that store can still set `role` in it. Closing them needs the client's
+authentication mechanism, which is not yet chosen
+(`docs/CODE_AUDIT.md:540-575`). ROLE-4A must not be described as solving it.
+
+**Browser acceptance has not happened.** The credential path was proven at the
+service boundary against the development database; the full browser role matrix
+is ROLE-4D.
 
 ## Next queued gate — do not start
 

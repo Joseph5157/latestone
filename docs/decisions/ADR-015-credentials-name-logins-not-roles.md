@@ -10,7 +10,9 @@ half); `services/auth_service.py:96` (`authenticate`, the identity half);
 `callbacks/auth.py:30` (the form carries username and password only);
 `docs/RTL_FUNCTIONAL_SPEC_EXTRACT.md:56` (the client lists `Password` as a
 user field); `docs/CODE_AUDIT.md:540-575` ("Security posture", S-4/S-5)
-Implemented-by: not yet — ROLE-4A is held at human review, uncommitted
+Implemented-by: `f0862d0` (`feat(auth): add credentialed demo personas`;
+full sha f0862d085680ca0d4b0f774d6b44f5d224810b75 — the commit carries this ADR
+too, so the sha is recorded here afterwards, as ADR-014 did)
 Supersedes: nothing. It makes explicit the split ROLE-1 already built into
 `authenticate()` and extends it from one credential to several.
 
