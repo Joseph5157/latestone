@@ -1,6 +1,6 @@
 # Active Gate
 
-Status: Accepted at human review — closing
+Status: Complete — reviewed, accepted, committed and pushed
 Date: 2026-09-03
 Gate: ROLE-4B — Technician operational surface
 Branch: `main`, baseline `f102573`
@@ -137,6 +137,46 @@ confirm callback, and route scope refuses earlier.
 
 This is also not ROLE-4D. The browser check was focused on Technician
 reachability plus one Administrator and one General smoke.
+
+## Outcome
+
+ROLE-4B is **CLOSED**. The reviewed change was committed as
+
+```text
+08e44af75c344533ccca50ce3d72de27c45e1243
+feat(roles): expose technician device operations
+```
+
+covering the guard predicate, the new operations component, the device page,
+the manage callbacks, the stylesheet, the status-panel discriminator, three
+test files and the context records — and pushed to `origin/main` with local and
+remote SHAs verified to match. The untracked `debug.log` was neither staged nor
+committed.
+
+### Provenance
+
+Two commits, which the validator requires rather than a style choice:
+`scripts/build_context_pack.py:208` accepts an `Implemented-by` only if it
+begins "not yet" or names a **reachable** commit, so an ADR can never cite the
+commit that carries it. `08e44af` was written into `ADR-016` and
+`DECISION_INDEX.md` immediately afterwards, by
+`docs(context): backfill ROLE-4B provenance`. ADR-014 and ADR-015 used the same
+two-step.
+
+Nothing is outstanding for ROLE-4B.
+
+### Still open, deliberately
+
+**S-4 / S-5 remain architectural debt.** The session is a browser-side
+`dcc.Store`, the data callbacks do not independently verify it, and anyone who
+can set that store can still set `role` in it. Closing them needs the client's
+authentication mechanism, which is not yet chosen
+(`docs/CODE_AUDIT.md:540-575`). ROLE-4B made an authorized action reachable; it
+did not make the UI the security boundary.
+
+**Full three-role browser acceptance has NOT happened.** What ran here was a
+focused Technician reachability check plus one Administrator and one General
+smoke. The complete persona matrix is ROLE-4D.
 
 ## Next queued gate — do not start
 

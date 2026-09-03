@@ -9,9 +9,10 @@ carries none); `services/action_guard.py` (`may_action` / `require_action`);
 `callbacks/device_manage.py` (`render_device_operations`,
 `open_manage_drawer_from_device`); `pages/device_admin.py` (unchanged, still
 mounts both drawers); `docs/context/CC1_ACCEPTANCE.md` ("Deferred, explicitly")
-Implemented-by: not yet — accepted at ROLE-4B human review; implementation
-commit pending (an ADR cannot cite the commit that carries it, so the sha is
-backfilled immediately afterwards, as ADR-014 and ADR-015 were)
+Implemented-by: `08e44af` (`feat(roles): expose technician device
+operations`; full sha 08e44af75c344533ccca50ce3d72de27c45e1243 — the commit
+carries this ADR too, so the sha is recorded here afterwards, as ADR-014 and
+ADR-015 were)
 Supersedes: nothing. It gives the reachability half of ROLE-3's authorization
 model a home, and changes no policy ROLE-3 set.
 

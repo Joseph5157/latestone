@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-03T06:48:09Z
+Date: 2026-09-03T06:49:18Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `f102573` "docs(context): backfill ROLE-4A provenance"
-- Working tree: 14 entries — see below
+- `main` = `08e44af` "feat(roles): expose technician device operations"
+- Working tree: 4 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2601 passed, 496 deselected in 19.42s
+- `python -m pytest -m "not db"` → 2601 passed, 496 deselected in 19.85s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 237 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 87 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 237 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 238 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 88 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 238 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -69,7 +69,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-013-export-data-is-a-capability.md | Approved | `723dd0b` |
 | ADR-014-latest-reads-are-bounded-seeks.md | Approved | `3b33015` (`fix(db): bound latest-reading query cost`; full sha 3b330152c176a51af570f148008413c05c435d45 — the commit carries this ADR too, so the sha is recorded here afterwards, as FIX-1 did in `5901945`) |
 | ADR-015-credentials-name-logins-not-roles.md | Approved | `f0862d0` (`feat(auth): add credentialed demo personas`; full sha f0862d085680ca0d4b0f774d6b44f5d224810b75 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014 did) |
-| ADR-016-operational-actions-are-shared-administration-is-not.md | Approved | not yet — accepted at ROLE-4B human review; implementation commit pending (an ADR cannot cite the commit that carries it, so the sha is backfilled immediately afterwards, as ADR-014 and ADR-015 were) |
+| ADR-016-operational-actions-are-shared-administration-is-not.md | Approved | `08e44af` (`feat(roles): expose technician device operations`; full sha 08e44af75c344533ccca50ce3d72de27c45e1243 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014 and ADR-015 were) |
 
 ## Active gate
 
@@ -78,19 +78,9 @@ ROLE-4B — Technician operational surface — full detail in `docs/context/ACTI
 ## Working tree
 
 ```
-M assets/app.css
- M callbacks/device_manage.py
- M components/status_panels.py
- M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/DECISION_INDEX.md
- M pages/device_dashboard.py
- M services/action_guard.py
- M tests/test_equipment_selector.py
- M tests/test_inactive_policy.py
-?? components/device_operations.py
+ M docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md
 ?? debug.log
-?? docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md
-?? tests/test_technician_operations.py
 ```
 
