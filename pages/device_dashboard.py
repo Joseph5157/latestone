@@ -1,10 +1,29 @@
-"""Device dashboard page shell — layout only, no queries."""
+"""Device dashboard page shell — layout only, no queries.
+
+ROLE-4B mounts the operational surface here. The three actions a technician
+holds on an assigned RTL (`program_rtl`, `toggle_message_forwarding`,
+`deactivate_rtl`) were only ever rendered by `device_manage_drawer()` on
+`/admin/devices`, which `ROUTE_POLICY` reserves for administrators — so the
+permission had no reachable path. The SAME drawer is mounted here; nothing was
+duplicated and no action was widened.
+
+`assign_device_drawer()` is deliberately NOT mounted. Assignment is what grants
+technician authority, so it stays on the administrator page with the rest of
+fleet administration.
+
+The section is a container only. What goes in it is decided per persona and per
+device by `callbacks.device_manage.render_device_operations`, because this
+module has no session and must not acquire one — a layout that inspected a role
+would be a second permission table.
+"""
 from __future__ import annotations
 
 from dash import dcc, html
 
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
+from components.device_manage_drawer import device_manage_drawer
+from components.device_operations import OPERATIONS_ID
 from components.metric_chart import metric_chart
 from components.readings_table import readings_table
 from components.status_panels import inactive_notice
@@ -213,6 +232,15 @@ def layout(
                     readings_table("readings-table"),
                 ],
             ),
+            # ROLE-4B. Empty unless the signed-in persona may perform at
+            # least one operational action on THIS device; `require_action`
+            # in the confirm callbacks is what actually refuses.
+            html.Div(id=OPERATIONS_ID),
+            # The same drawer `/admin/devices` opens. Its ids are fixed rather
+            # than pattern-matched, which is safe because the router renders
+            # exactly one page: the admin page and this one are never mounted
+            # together. A test pins that.
+            device_manage_drawer(),
             dcc.Interval(
                 id="device-refresh-interval",
                 interval=monitoring.refresh_interval_seconds * 1000,

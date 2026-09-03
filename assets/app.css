@@ -4532,6 +4532,7 @@ body {
 .page--user-admin .user-admin-toolbar__add-btn,
 .user-admin-toolbar__add-btn,
 .report-form__btn--primary,
+.device-operations__open,
 .manage-drawer__btn--primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
@@ -4543,6 +4544,7 @@ body {
 .user-form-drawer__btn--primary:hover,
 .user-admin-toolbar__add-btn:hover,
 .report-form__btn--primary:hover,
+.device-operations__open:hover,
 .manage-drawer__btn--primary:hover {
   opacity: 0.9;
 }
@@ -5815,4 +5817,88 @@ body {
 .command-center__refresh-now:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+
+/* ROLE-4B — the device page's operational surface.
+
+   Same card shape as .device-current-state so it reads as another section of
+   this page rather than a panel bolted on: surface, border, radius and the
+   3px accent top rule. It is deliberately NOT styled like the Command Center
+   cockpit; this is the operator's own equipment page. */
+.page--device-dashboard .device-operations {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+.page--device-dashboard .device-operations__bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  justify-content: space-between;
+  margin-top: var(--sp-2);
+  min-width: 0;
+}
+
+/* Which RTL is about to be acted on, stated before the control that acts on
+   it. The drawer repeats it, but the decision to open the drawer is made
+   here. */
+.page--device-dashboard .device-operations__target {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.page--device-dashboard .device-operations__target-label {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.page--device-dashboard .device-operations__target-value {
+  color: var(--color-text);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.page--device-dashboard .device-operations__open {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-4);
+}
+
+.page--device-dashboard .device-operations__open:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+/* Deactivate is destructive and lives one click inside the drawer, so the
+   warning belongs where the drawer is opened -- not only next to the button
+   that finally performs it. */
+.page--device-dashboard .device-operations__danger-note {
+  color: var(--state-error-text);
+  font-size: var(--fs-meta);
+  margin: var(--sp-3) 0 0;
+}
+
+@media (max-width: 640px) {
+  .page--device-dashboard .device-operations__bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page--device-dashboard .device-operations__open {
+    width: 100%;
+  }
 }

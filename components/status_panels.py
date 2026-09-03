@@ -81,7 +81,14 @@ def inactive_notice(entity_type: str) -> html.Div:
     condition, which are shown separately.
     """
     return html.Div(
-        className="status-panel status-panel--inactive",
+        # Two classes doing two jobs. `status-panel--inactive` is a SHARED
+        # MUTED PANEL STYLE, used in ~20 places for notices that have nothing
+        # to do with equipment state; `equipment-inactive-notice` is what
+        # actually means "this equipment is inactive". They were one class
+        # until ROLE-4B mounted the manage drawer — whose honesty notices carry
+        # the same style — on the device page, at which point "is this
+        # equipment inactive?" became unanswerable by looking for the style.
+        className="status-panel status-panel--inactive equipment-inactive-notice",
         children=[
             html.Strong(f"This {entity_type} is inactive."),
             html.Span(" Any data shown is historical."),

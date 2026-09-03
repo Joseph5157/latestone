@@ -18,13 +18,18 @@ from services import (
     rtl_deactivation_service,
     rtl_programming_service,
 )
-from services.action_guard import require_action
+from services.action_guard import may_action, require_action
 from services.auth_service import from_session
 from services.authorization import (
     AuthorizationError,
     DEACTIVATE_RTL,
     PROGRAM_RTL,
     TOGGLE_MESSAGE_FORWARDING,
+)
+from components.device_operations import (
+    OPEN_OPERATIONS_BTN,
+    OPERATIONS_ID,
+    device_operations_panel,
 )
 from components.device_manage_drawer import (
     MANAGE_DRAWER_ID,
@@ -47,18 +52,129 @@ from components.device_manage_drawer import (
 
 logger = logging.getLogger(__name__)
 
-#: `open_manage_drawer`'s "I am not the callback for this click" reply, one
-#: `no_update` per declared Output. Named and counted in one place because
-#: the four hand-written `(no_update,) * 11` tuples it replaces were all one
-#: short of the twelve Outputs, and nothing in the code said what the number
-#: was supposed to be. A test asserts this length against the callback's own
-#: Output list, so the two cannot drift again.
+#: The two drawer openers' "I am not the callback for this click" reply, one
+#: `no_update` per declared Output. Named and counted in one place because the
+#: four hand-written `(no_update,) * 11` tuples it replaces were all one short
+#: of the twelve Outputs, and nothing in the code said what the number was
+#: supposed to be. A test asserts this length against each opener's own Output
+#: list, so the three cannot drift apart.
 _MANAGE_DRAWER_OUTPUTS = 12
 _DECLINED = (no_update,) * _MANAGE_DRAWER_OUTPUTS
+
+#: The three actions this drawer performs, in the order the drawer lists them.
+#: `manage_assignment` is deliberately absent and must stay so: assignment is
+#: what GRANTS technician authority, so a technician who could manage it could
+#: grant it to themselves (services/authorization.py, ACTION_POLICY).
+_OPERATIONAL_ACTIONS = (PROGRAM_RTL, TOGGLE_MESSAGE_FORWARDING, DEACTIVATE_RTL)
+
+
+def device_operations_children(user, device_id: str):
+    """The device page's operational section for `user`, or None.
+
+    ROLE-4B. Returns None — not a disabled panel — when the persona has no
+    authorized action here, so a general user's device page is exactly the page
+    it was before this gate and an out-of-scope RTL offers a technician nothing.
+
+    Asks `may_action` rather than comparing roles. The policy lives in
+    `ACTION_POLICY`; a role comparison here would be a second copy of it that no
+    policy test would catch drifting. The markup lives in
+    `components/device_operations.py` — this decides, it does not draw.
+
+    **This hides, it does not protect.** The confirm callbacks below call
+    `require_action` regardless, so a fabricated click on a control that was
+    never rendered is still refused.
+    """
+    if not device_id:
+        return None
+    if not any(
+        may_action(user, action, device_id=device_id)
+        for action in _OPERATIONAL_ACTIONS
+    ):
+        return None
+    return device_operations_panel(device_id)
 
 
 def register(app) -> None:
     """Register device management callbacks on the Dash app."""
+
+    # --- ROLE-4B: the device page's operational surface ---
+    @app.callback(
+        Output(OPERATIONS_ID, "children"),
+        Input("page-context", "data"),
+        Input("auth-store", "data"),
+    )
+    def render_device_operations(page_context, auth_data):
+        """Fill the device page's operations section for this persona.
+
+        Keyed on `page-context` because that is where the router already put
+        the resolved device (`callbacks/routing.py`, `build_device_context`) —
+        re-resolving the URL here would be a second router.
+
+        Renders nothing off a device route. `/admin/devices` keeps its own
+        entry point through the table's Manage column, and the two never
+        collide because the router mounts one page at a time.
+        """
+        context = page_context or {}
+        if context.get("route") != "device":
+            return None
+        return device_operations_children(
+            from_session(auth_data), context.get("device_id", "")
+        )
+
+    @app.callback(
+        Output(MANAGE_DRAWER_ID, "style", allow_duplicate=True),
+        Output(MANAGE_DEVICE_ID, "data", allow_duplicate=True),
+        Output(MANAGE_ACTION_STORE_ID, "data", allow_duplicate=True),
+        Output("manage-drawer-device-code", "children", allow_duplicate=True),
+        Output("manage-drawer-transformer", "children", allow_duplicate=True),
+        Output("manage-drawer-plant", "children", allow_duplicate=True),
+        Output("manage-program-panel", "style", allow_duplicate=True),
+        Output("manage-forwarding-panel", "style", allow_duplicate=True),
+        Output("manage-deactivate-panel", "style", allow_duplicate=True),
+        Output("manage-action-menu", "style", allow_duplicate=True),
+        Output(PROGRAM_RTL_UID_ID, "value", allow_duplicate=True),
+        Output(PROGRAM_RTL_TRANSFORMER_ID, "value", allow_duplicate=True),
+        Input(OPEN_OPERATIONS_BTN, "n_clicks"),
+        State("page-context", "data"),
+        prevent_initial_call=True,
+    )
+    def open_manage_drawer_from_device(n_clicks, page_context):
+        """Open the same drawer from the device page.
+
+        A second opener rather than a widened first one: `open_manage_drawer`
+        is driven by the admin table's `active_cell` and reads the clicked
+        ROW, which does not exist here. Both write the same outputs, which is
+        why these are `allow_duplicate`; they cannot fire together because
+        their triggers live on different pages.
+
+        The button is only rendered for a persona `may_action` approved, and
+        the confirm callbacks below re-check with `require_action` — so the
+        drawer opening is never itself the permission.
+        """
+        if not n_clicks:
+            return _DECLINED
+
+        context = page_context or {}
+        device_id = context.get("device_id")
+        if context.get("route") != "device" or not device_id:
+            return _DECLINED
+
+        device_code = context.get("device_code", "—")
+        transformer = context.get("transformer_code", "—")
+        return (
+            {"display": "block"},          # show drawer
+            device_id,                      # store device_id
+            "menu",                         # start at action menu
+            device_code,                    # device code
+            transformer,                    # transformer
+            context.get("plant_name", "—"),  # plant
+            {"display": "none"},           # program panel hidden
+            {"display": "none"},           # forwarding panel hidden
+            {"display": "none"},           # deactivate panel hidden
+            {"display": "block"},          # menu visible
+            device_code,                    # pre-fill UID
+            transformer,                    # pre-fill transformer name
+        )
 
     @app.callback(
         Output(MANAGE_DRAWER_ID, "style"),

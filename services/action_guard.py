@@ -1,5 +1,10 @@
 """The one place an action is authorized (ROLE-3).
 
+TWO PRESENTATIONS, ONE DECISION. `may_action` answers the question and
+`require_action` enforces the answer — the guard calls the predicate, so a
+rendered control and an honoured click can never disagree about policy
+(ROLE-4B). Components ask the predicate; they never compare roles themselves.
+
 TWO GUARDS, ONE DIMENSION APART. `require_action` authorizes an action on a
 device and may resolve an assignment to do it. `require_capability`
 authorizes one where no device is involved — page content, or a mutation
@@ -65,28 +70,54 @@ def require_action(
     identical either way: `role in any_device or (is_assigned and role in
     assigned_only)`.
     """
-    if user is None:
-        raise AuthorizationError(f"No identity may perform {action!r}")
-
-    # `is_assigned=False` tests the any-device set alone. Passing here means
-    # assignment is irrelevant to this role/action pair.
-    if may_perform_action(user.role, action, is_assigned=False):
-        return
-
-    is_assigned = scope_for(user).allows(device_id)
-    if may_perform_action(user.role, action, is_assigned=is_assigned):
+    if may_action(user, action, device_id=device_id):
         return
 
     logger.warning(
-        "Action %r refused on device %r for role %r (assigned=%s)",
+        "Action %r refused on device %r for role %r",
         action,
         device_id,
-        user.role,
-        is_assigned,
+        user.role if user else None,
     )
     raise AuthorizationError(
         f"Role {user.role!r} may not perform {action!r} on this device"
+        if user
+        else f"No identity may perform {action!r}"
     )
+
+
+def may_action(
+    user: AuthenticatedUser | None, action: str, *, device_id: str
+) -> bool:
+    """Whether `user` may perform `action` on `device_id`. Never raises.
+
+    THE SAME DECISION `require_action` ENFORCES, asked without raising — it is
+    literally the function `require_action` now calls, so the two cannot drift.
+    That matters because they answer different audiences: this one decides
+    whether to *render* a control, and the guard decides whether to *honour*
+    the click. A UI that offered what the guard refuses would be a lie, and one
+    that hid what the guard allows would be a bug nobody could see.
+
+    ROLE-4B added it so a component can ask the policy instead of carrying a
+    copy of it. Rendering code must not compare roles: `if role == technician`
+    in a template is a second permission table that no test of
+    `ACTION_POLICY` would ever catch drifting.
+
+    **Visibility is not authority.** A false here hides a control; it does not
+    protect anything. `require_action` at the callback boundary is what
+    actually refuses, and it still runs whether or not this was ever consulted.
+    """
+    if user is None:
+        return False
+
+    # `is_assigned=False` tests the any-device set alone. Passing here means
+    # assignment is irrelevant to this role/action pair, so the read below is
+    # never paid for.
+    if may_perform_action(user.role, action, is_assigned=False):
+        return True
+
+    is_assigned = scope_for(user).allows(device_id)
+    return may_perform_action(user.role, action, is_assigned=is_assigned)
 
 
 def require_capability(user: AuthenticatedUser | None, capability: str) -> None:

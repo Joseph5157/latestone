@@ -20,6 +20,7 @@ from callbacks import equipment_selector as sel
 from components.assign_device_drawer import assign_device_drawer
 from components.user_form_drawer import user_form_drawer
 from components.device_manage_drawer import device_manage_drawer
+from components.device_operations import device_operations_panel
 from pages import device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
 from services.device_scope import UNRESTRICTED
 
@@ -80,6 +81,9 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(device_register.layout())
     | collect_ids(assign_device_drawer())
     | collect_ids(device_manage_drawer())
+    # ROLE-4B: rendered into the device page's operations slot by a callback,
+    # so it is mountable even though no static layout contains it.
+    | collect_ids(device_operations_panel("plant-01-t1-d1"))
     | collect_ids(user_admin.layout())
     | collect_ids(user_form_drawer())
     | collect_ids(report_center.layout())

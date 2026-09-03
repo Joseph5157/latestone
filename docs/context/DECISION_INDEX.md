@@ -30,6 +30,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-013](../decisions/ADR-013-export-data-is-a-capability.md) | EXPORT_DATA is a device-less capability, not a device action; same roles, guard changed to `require_capability`, scope still enforced by the repository's `allowed_device_ids` | Approved | `723dd0b` |
 | [ADR-014](../decisions/ADR-014-latest-reads-are-bounded-seeks.md) | Every latest-reading read is a bounded index seek, at device grain too; `get_latest_readings_for_device` no longer scans the device's history, and the guard measures rows examined rather than wall-clock | Approved | `3b33015` |
 | [ADR-015](../decisions/ADR-015-credentials-name-logins-not-roles.md) | Credential configuration names logins and can never express a role; the `users` row decides user_id, name, role and status. No password column, no migration — the rule survives the eventual swap to the client's mechanism | Approved | `f0862d0` |
+| [ADR-016](../decisions/ADR-016-operational-actions-are-shared-administration-is-not.md) | A device's operational actions are a shared surface reachable from the device page by any role authorized for them; assignment/registration stay administrator-only on `/admin/devices`. `may_action` and `require_action` are one decision, so a rendered control and an honoured click cannot disagree | Approved | not yet |
 
 ## Reading this table
 

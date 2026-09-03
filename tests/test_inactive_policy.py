@@ -87,7 +87,7 @@ class TestInactiveNotice:
     def test_is_not_an_error_panel(self):
         """Inactive is a normal state, not a failure."""
         notice = inactive_notice("plant")
-        assert find_by_class(notice, "status-panel--inactive")
+        assert find_by_class(notice, "equipment-inactive-notice")
         assert not find_by_class(notice, "status-panel--error")
 
 
@@ -101,7 +101,7 @@ class TestPagesMarkInactiveEquipment:
         ],
     )
     def test_notice_shown_when_inactive(self, layout_fn, entity):
-        assert find_by_class(layout_fn("inactive"), "status-panel--inactive"), (
+        assert find_by_class(layout_fn("inactive"), "equipment-inactive-notice"), (
             f"{entity} page did not mark inactive equipment"
         )
 
@@ -114,7 +114,7 @@ class TestPagesMarkInactiveEquipment:
         ],
     )
     def test_no_notice_when_active(self, layout_fn):
-        assert not find_by_class(layout_fn("active"), "status-panel--inactive")
+        assert not find_by_class(layout_fn("active"), "equipment-inactive-notice")
 
     @pytest.mark.parametrize(
         "layout_fn",
@@ -126,4 +126,4 @@ class TestPagesMarkInactiveEquipment:
     )
     def test_no_notice_when_status_is_unknown(self, layout_fn):
         """A layout built before the record resolves must not accuse it."""
-        assert not find_by_class(layout_fn(), "status-panel--inactive")
+        assert not find_by_class(layout_fn(), "equipment-inactive-notice")
