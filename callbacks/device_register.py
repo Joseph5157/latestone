@@ -16,7 +16,7 @@ from dash import Input, Output, State, no_update, html
 from components.status_panels import action_refused_notice, error_panel
 from services import device_scope, hierarchy_service
 from services.action_guard import require_capability
-from services.auth_service import from_session
+from services.auth_service import current_identity
 from services.authorization import AuthorizationError, REGISTER_DEVICE
 from services.device_registration import RegistrationError, register_device
 
@@ -24,10 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 def _plant_options() -> list[dict]:
-    """Plant options for the dropdown — reused by plant and equipment selectors."""
-    # Administration surface: the device-management population is deliberately
-    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
-    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
+    """Plant options for the dropdown — reused by plant and equipment selectors.
+
+    AUTH-HARDEN-1R (blocker 1). Registration IS Administrator-only content, so
+    the UNRESTRICTED scope below is correct once authorized — that was never
+    the defect. The defect was this function, and every callback that calls
+    it, running with no authorization check of its own: `/admin/devices/new`
+    being administrator-only gates the PAGE, not this independently
+    invokable data callback. Callers below authorize first and query second.
+    """
     return [
         {"label": p.name, "value": p.plant_id}
         for p in hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
@@ -35,12 +40,10 @@ def _plant_options() -> list[dict]:
 
 
 def _transformer_options(plant_id: str) -> list[dict]:
-    """Transformer options for a given plant."""
+    """Transformer options for a given plant. See `_plant_options` — same
+    fleet-wide-once-authorized reasoning; callers authorize first."""
     if not plant_id:
         return []
-    # Administration surface: the device-management population is deliberately
-    # fleet-wide, like list_all_devices (spec §4.6). ROUTE_POLICY gates this page
-    # administrator-only. Stated explicitly rather than omitted, per invariant 8.
     return [
         {"label": t.transformer_code, "value": t.transformer_id}
         for t in hierarchy_service.list_transformers(
@@ -111,6 +114,15 @@ def register(app) -> None:
         Input("device-register-plant", "id"),
     )
     def _populate_plants(_id):
+        # AUTH-HARDEN-1R (blocker 1). This callback fires on mount, for
+        # anyone who can invoke it directly — not only an Administrator who
+        # navigated here through the (administrator-only) route. Authorize
+        # BEFORE the fleet-wide read, not after.
+        try:
+            require_capability(current_identity(), REGISTER_DEVICE)
+        except AuthorizationError:
+            return []
+
         try:
             return _plant_options()
         except Exception:
@@ -124,6 +136,12 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def _populate_transformers(plant_id):
+        # AUTH-HARDEN-1R (blocker 1). Same reasoning as _populate_plants.
+        try:
+            require_capability(current_identity(), REGISTER_DEVICE)
+        except AuthorizationError:
+            return [], True
+
         try:
             options = _transformer_options(plant_id)
             return options, not options
@@ -148,6 +166,26 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def _show_review(n_clicks, code, plant_id, transformer_id, status):
+        # AUTH-HARDEN-1R (blocker 1). This is the review step: it resolves
+        # `plant_id`/`transformer_id` — browser-supplied — to real names via
+        # the UNRESTRICTED fleet-wide lookup below. That lookup is legitimate
+        # ONLY for an authorized Administrator; a Technician or General User
+        # invoking this callback directly with arbitrary IDs must not receive
+        # those names. Same refusal shape as _submit_registration below, so
+        # a caller sees one consistent "not permitted" outcome regardless of
+        # which registration callback they reached.
+        try:
+            require_capability(current_identity(), REGISTER_DEVICE)
+        except AuthorizationError:
+            return (
+                "", "", "",
+                no_update,               # form stays as it was
+                no_update,               # review stays as it was
+                no_update,
+                {"display": "block"},    # error visible
+                action_refused_notice(),
+            )
+
         errors = _validate_form(code, plant_id, transformer_id)
         if errors:
             return (
@@ -230,7 +268,7 @@ def register(app) -> None:
         # refusal has to exist here too. The callback supplies identity and
         # capability and nothing else — it compares no role of its own.
         try:
-            user = from_session(auth_data)
+            user = current_identity()
             require_capability(user, REGISTER_DEVICE)
         except AuthorizationError:
             return (

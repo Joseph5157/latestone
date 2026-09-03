@@ -16,6 +16,7 @@ import pytest
 
 from callbacks import device_assign, device_manage, device_register
 from services import hierarchy_service
+from tests.auth_test_support import as_session
 
 ADMINISTRATOR_SESSION = {
     "authenticated": True,
@@ -99,9 +100,10 @@ class _ProgrammingSpy:
 
 
 class TestProgramRtl:
-    def _call(self, session):
+    def _call(self, monkeypatch, session):
         handler = _handlers(device_manage)["confirm_program_rtl"]
-        return handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", session)
+        with as_session(monkeypatch, session):
+            return handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", session)
 
     def test_administrator_reaches_the_service_with_session_identity(
         self, monkeypatch
@@ -111,7 +113,7 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        result, msisdn_error = self._call(ADMINISTRATOR_SESSION)
+        result, msisdn_error = self._call(monkeypatch, ADMINISTRATOR_SESSION)
 
         assert spy.calls == [
             {
@@ -128,7 +130,7 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        result, _ = self._call(GENERAL_SESSION)
+        result, _ = self._call(monkeypatch, GENERAL_SESSION)
         assert _is_refusal(result)
         assert spy.calls == []
 
@@ -139,15 +141,14 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        result, _ = self._call(session)
+        result, _ = self._call(monkeypatch, session)
         assert _is_refusal(result)
         assert spy.calls == []
 
-    def test_the_refusal_names_no_policy_detail(self):
+    def test_the_refusal_names_no_policy_detail(self, monkeypatch):
         """The panel states the outcome. It does not echo the role, the
         action or the device id back at the operator."""
-        handler = _handlers(device_manage)["confirm_program_rtl"]
-        result, _ = handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", GENERAL_SESSION)
+        result, _ = self._call(monkeypatch, GENERAL_SESSION)
         text = _rendered_text(result)
         assert "general" not in text.lower()
         assert DEVICE_ID not in text
@@ -162,7 +163,7 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", explode
         )
 
-        result, msisdn_error = self._call(ADMINISTRATOR_SESSION)
+        result, msisdn_error = self._call(monkeypatch, ADMINISTRATOR_SESSION)
 
         assert not _is_refusal(result)
         assert msisdn_error == "boom"
@@ -177,7 +178,7 @@ class TestProgramRtl:
             device_manage.rtl_programming_service, "record_request", spy
         )
 
-        result, _ = self._call(ADMINISTRATOR_SESSION)
+        result, _ = self._call(monkeypatch, ADMINISTRATOR_SESSION)
         rendered = _rendered_text(result).lower()
 
         assert "programming request recorded" in rendered
@@ -205,9 +206,10 @@ class _ForwardingSpy:
 
 
 class TestMessageForwarding:
-    def _call(self, session, device_id=DEVICE_ID, state="enabled"):
+    def _call(self, monkeypatch, session, device_id=DEVICE_ID, state="enabled"):
         handler = _handlers(device_manage)["confirm_message_forwarding"]
-        return handler(1, device_id, state, session)
+        with as_session(monkeypatch, session):
+            return handler(1, device_id, state, session)
 
     def test_authorized_caller_reaches_the_service_with_session_identity(
         self, monkeypatch
@@ -215,7 +217,7 @@ class TestMessageForwarding:
         spy = _ForwardingSpy()
         monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-        self._call(ADMINISTRATOR_SESSION)
+        self._call(monkeypatch, ADMINISTRATOR_SESSION)
 
         assert spy.calls == [
             {"enabled": True, "actor_user_id": ADMINISTRATOR_SESSION["user_id"]}
@@ -225,7 +227,7 @@ class TestMessageForwarding:
         spy = _ForwardingSpy()
         monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-        assert _is_refusal(self._call(GENERAL_SESSION))
+        assert _is_refusal(self._call(monkeypatch, GENERAL_SESSION))
         assert spy.calls == []
 
     @pytest.mark.parametrize("session", [STALE_SESSION, None], ids=["stale", "no-session"])
@@ -233,14 +235,14 @@ class TestMessageForwarding:
         spy = _ForwardingSpy()
         monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-        assert _is_refusal(self._call(session))
+        assert _is_refusal(self._call(monkeypatch, session))
         assert spy.calls == []
 
     def test_disable_reaches_the_service_as_false(self, monkeypatch):
         spy = _ForwardingSpy()
         monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-        self._call(ADMINISTRATOR_SESSION, state="disabled")
+        self._call(monkeypatch, ADMINISTRATOR_SESSION, state="disabled")
 
         assert spy.calls == [{"enabled": False, "actor_user_id": ADMINISTRATOR_SESSION["user_id"]}]
 
@@ -250,7 +252,7 @@ class TestMessageForwarding:
 
         monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", explode)
 
-        result = self._call(ADMINISTRATOR_SESSION)
+        result = self._call(monkeypatch, ADMINISTRATOR_SESSION)
 
         assert not _is_refusal(result)
         assert "not saved" in _rendered_text(result).lower()
@@ -261,7 +263,7 @@ class TestMessageForwarding:
         spy = _ForwardingSpy()
         monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-        rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION)).lower()
+        rendered = _rendered_text(self._call(monkeypatch, ADMINISTRATOR_SESSION)).lower()
 
         assert "delivery integration is not yet connected" in rendered
         assert "will now be forwarded" not in rendered
@@ -274,7 +276,7 @@ class TestMessageForwarding:
         spy = _ForwardingSpy()
         monkeypatch.setattr(device_manage.message_forwarding_service, "set_forwarding", spy)
 
-        rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION, state=state)).lower()
+        rendered = _rendered_text(self._call(monkeypatch, ADMINISTRATOR_SESSION, state=state)).lower()
 
         assert "for your account" in rendered
         assert "not specifically to this rtl" in rendered
@@ -300,9 +302,10 @@ class _DeactivationSpy:
 
 
 class TestDeactivateRtl:
-    def _call(self, session):
+    def _call(self, monkeypatch, session):
         handler = _handlers(device_manage)["confirm_deactivate_rtl"]
-        return handler(1, DEVICE_ID, session)
+        with as_session(monkeypatch, session):
+            return handler(1, DEVICE_ID, session)
 
     def test_administrator_reaches_the_service_with_session_identity(
         self, monkeypatch
@@ -312,7 +315,7 @@ class TestDeactivateRtl:
             device_manage.rtl_deactivation_service, "deactivate_rtl", spy
         )
 
-        self._call(ADMINISTRATOR_SESSION)
+        self._call(monkeypatch, ADMINISTRATOR_SESSION)
 
         assert spy.calls == [
             {
@@ -327,7 +330,7 @@ class TestDeactivateRtl:
             device_manage.rtl_deactivation_service, "deactivate_rtl", spy
         )
 
-        assert _is_refusal(self._call(GENERAL_SESSION))
+        assert _is_refusal(self._call(monkeypatch, GENERAL_SESSION))
         assert spy.calls == []
 
     @pytest.mark.parametrize("session", [STALE_SESSION, None], ids=["stale", "no-session"])
@@ -337,7 +340,7 @@ class TestDeactivateRtl:
             device_manage.rtl_deactivation_service, "deactivate_rtl", spy
         )
 
-        assert _is_refusal(self._call(session))
+        assert _is_refusal(self._call(monkeypatch, session))
         assert spy.calls == []
 
     def test_service_failure_shows_friendly_panel_not_a_crash(self, monkeypatch):
@@ -348,7 +351,7 @@ class TestDeactivateRtl:
             device_manage.rtl_deactivation_service, "deactivate_rtl", explode
         )
 
-        result = self._call(ADMINISTRATOR_SESSION)
+        result = self._call(monkeypatch, ADMINISTRATOR_SESSION)
 
         assert not _is_refusal(result)
         assert "not deactivated" in _rendered_text(result).lower()
@@ -370,7 +373,7 @@ class TestDeactivateRtl:
             monkeypatch.setattr(
                 device_manage.rtl_deactivation_service, "deactivate_rtl", spy
             )
-            rendered = _rendered_text(self._call(ADMINISTRATOR_SESSION)).lower()
+            rendered = _rendered_text(self._call(monkeypatch, ADMINISTRATOR_SESSION)).lower()
             for phrase in required:
                 assert phrase in rendered, f"{outcome}: missing {phrase!r}"
             for banned in ("queued", "command sent", "prototype"):
@@ -386,11 +389,12 @@ class TestConfirmAssignment:
     """ENT-5 outcome grammar: one visible result per confirm, drawer stays
     open, authorize-before-write, and no asset-assignment mock anywhere."""
 
-    def _call(self, session, technician=None):
+    def _call(self, monkeypatch, session, technician=None):
         """Runs confirm_assignment and returns its result panel (the
         secondary-button label is dropped)."""
         handler = _handlers(device_assign)["confirm_assignment"]
-        result, _close_label = handler(1, DEVICE_ID, technician, session)
+        with as_session(monkeypatch, session):
+            result, _close_label = handler(1, DEVICE_ID, technician, session)
         return result
 
     def test_administrator_assigns_and_success_is_rendered(self, monkeypatch):
@@ -401,7 +405,7 @@ class TestConfirmAssignment:
             lambda *a, **k: calls.append(a),
         )
 
-        result = self._call(ADMINISTRATOR_SESSION, technician="someone")
+        result = self._call(monkeypatch, ADMINISTRATOR_SESSION, technician="someone")
 
         assert len(calls) == 1
         assert calls[0][0] == DEVICE_ID
@@ -417,7 +421,7 @@ class TestConfirmAssignment:
             lambda *a, **k: calls.append(a),
         )
 
-        result = self._call(GENERAL_SESSION, technician="someone")
+        result = self._call(monkeypatch, GENERAL_SESSION, technician="someone")
 
         assert calls == [], "a refusal must perform zero writes"
         assert _is_refusal(result)
@@ -439,7 +443,7 @@ class TestConfirmAssignment:
 
         monkeypatch.setattr(guard, "scope_for", lambda user: DeviceScope(frozenset({DEVICE_ID})))
 
-        result = self._call(TECHNICIAN_SESSION, technician="someone")
+        result = self._call(monkeypatch, TECHNICIAN_SESSION, technician="someone")
 
         assert calls == [], "a refusal must perform zero writes"
         assert _is_refusal(result)
@@ -452,7 +456,7 @@ class TestConfirmAssignment:
             lambda *a, **k: calls.append(a),
         )
 
-        result = self._call(None, technician="someone")
+        result = self._call(monkeypatch, None, technician="someone")
 
         assert calls == []
         assert _is_refusal(result)
@@ -469,7 +473,7 @@ class TestConfirmAssignment:
             explode,
         )
 
-        result = self._call(ADMINISTRATOR_SESSION, technician="ghost")
+        result = self._call(monkeypatch, ADMINISTRATOR_SESSION, technician="ghost")
 
         rendered = _rendered_text(result).lower()
         assert "assignment saved" not in rendered
@@ -488,7 +492,7 @@ class TestConfirmAssignment:
             lambda *a, **k: unassign_calls.append(a),
         )
 
-        result = self._call(ADMINISTRATOR_SESSION, technician=None)
+        result = self._call(monkeypatch, ADMINISTRATOR_SESSION, technician=None)
 
         assert len(unassign_calls) == 1
         assert "assignment saved" in _rendered_text(result).lower()
@@ -512,7 +516,7 @@ class TestConfirmAssignment:
             lambda device_id: None,
         )
 
-        result = self._call(ADMINISTRATOR_SESSION, technician=None)
+        result = self._call(monkeypatch, ADMINISTRATOR_SESSION, technician=None)
 
         assert writes == []
         assert "nothing to save" in _rendered_text(result).lower()
@@ -583,16 +587,17 @@ class TestDeviceRegistration:
     observable at all.
     """
 
-    def _call(self, session):
+    def _call(self, monkeypatch, session):
         handler = _handlers(device_register)["_submit_registration"]
-        return handler(1, "dv1", "plant-01", "plant-01-t1", "active", session)
+        with as_session(monkeypatch, session):
+            return handler(1, "dv1", "plant-01", "plant-01-t1", "active", session)
 
     def test_administrator_reaches_the_registration_service(self, monkeypatch):
         spy = _RegisterSpy()
         _silence_label_lookups(monkeypatch)
         monkeypatch.setattr(device_register, "register_device", spy)
 
-        self._call(ADMINISTRATOR_SESSION)
+        self._call(monkeypatch, ADMINISTRATOR_SESSION)
 
         assert spy.calls, "an administrator must reach register_device"
 
@@ -611,7 +616,7 @@ class TestDeviceRegistration:
         spy = _RegisterSpy()
         monkeypatch.setattr(device_register, "register_device", spy)
 
-        result = self._call(session)
+        result = self._call(monkeypatch, session)
 
         assert spy.calls == [], "a refused caller must not reach register_device"
         assert result[4] == {"display": "block"}, "the error slot must be shown"
@@ -621,7 +626,7 @@ class TestDeviceRegistration:
         """The notice names no role, action or device."""
         monkeypatch.setattr(device_register, "register_device", _RegisterSpy())
 
-        result = self._call(TECHNICIAN_SESSION)
+        result = self._call(monkeypatch, TECHNICIAN_SESSION)
 
         rendered = _rendered_text(result[5]).lower()
         for leak in ("technician", "register_device", "administrator"):

@@ -17,6 +17,7 @@ from dash import html
 
 from callbacks import navigation, routing
 from components.app_sidebar import SIDEBAR_SECTIONS, sidebar_nav
+from services.auth_service import AuthenticatedUser
 from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN
 from tests.dash_tree import find_by_class, links, text_of
 
@@ -30,6 +31,18 @@ def session(role: str | None, authenticated: bool = True) -> dict:
     return data
 
 
+def identity(role: str) -> AuthenticatedUser:
+    """A trusted identity for `route_decision`'s tests.
+
+    AUTH-HARDEN-1: `route_decision` takes the CURRENT TRUSTED identity
+    directly — never the browser's `auth-store` payload the old `session()`
+    helper above builds. There is no dict to tamper here: the object either
+    exists (because `current_identity()` re-read a real, active `users` row)
+    or it does not.
+    """
+    return AuthenticatedUser(user_id=7, username="someone", full_name="Some One", role=role)
+
+
 # ---------------------------------------------------------------------------
 # The routing decision, as a pure function
 # ---------------------------------------------------------------------------
@@ -38,23 +51,16 @@ def session(role: str | None, authenticated: bool = True) -> dict:
 class TestRouteDecision:
     """`routing.route_decision` answers what to do before anything renders."""
 
-    def test_unauthenticated_goes_to_login_not_forbidden(self):
-        """A signed-out visitor has not been refused anything — they have not
-        asked yet. Showing them 'no access' would be both wrong and alarming."""
-        assert routing.route_decision({"authenticated": False}, "admin_devices") == (
-            routing.DECISION_LOGIN
-        )
+    def test_no_trusted_identity_goes_to_login_not_forbidden(self):
+        """No trusted server session — whether nobody ever signed in, or the
+        session the server once trusted is gone (deleted, deactivated,
+        expired) — has not been refused anything. Showing 'no access' would be
+        both wrong and alarming; both cases read the same: sign in (again)."""
+        assert routing.route_decision(None, "admin_devices") == routing.DECISION_LOGIN
         assert routing.route_decision(None, "overview") == routing.DECISION_LOGIN
 
-    def test_a_session_without_an_identity_is_not_authorised(self):
-        """The pre-ROLE-1 payload. It satisfies the flag the older callbacks
-        read, but it names nobody, so it cannot be granted a role's access."""
-        assert routing.route_decision({"authenticated": True}, "admin_devices") == (
-            routing.DECISION_FORBIDDEN
-        )
-
     def test_administrator_is_allowed_through(self):
-        assert routing.route_decision(session(ADMINISTRATOR), "admin_devices") == (
+        assert routing.route_decision(identity(ADMINISTRATOR), "admin_devices") == (
             routing.DECISION_ALLOW
         )
 
@@ -63,7 +69,7 @@ class TestRouteDecision:
         "route", ["admin_devices", "device_register", "admin_users"]
     )
     def test_admin_management_is_refused_by_direct_url(self, role, route):
-        assert routing.route_decision(session(role), route) == (
+        assert routing.route_decision(identity(role), route) == (
             routing.DECISION_FORBIDDEN
         )
 
@@ -72,19 +78,23 @@ class TestRouteDecision:
         "route", ["overview", "plant", "transformer", "device", "notifications", "reports"]
     )
     def test_monitoring_notifications_and_reports_stay_open(self, role, route):
-        assert routing.route_decision(session(role), route) == routing.DECISION_ALLOW
+        assert routing.route_decision(identity(role), route) == routing.DECISION_ALLOW
 
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN, GENERAL])
     def test_an_unknown_route_is_not_a_permissions_problem(self, role):
         """A typo'd URL must read as 'no such page', never as 'you may not
         have this page' — otherwise every mistyped path implies something
         exists behind it."""
-        assert routing.route_decision(session(role), "unknown") == (
+        assert routing.route_decision(identity(role), "unknown") == (
             routing.DECISION_ALLOW
         )
 
-    def test_a_tampered_role_is_refused(self):
-        assert routing.route_decision(session("superuser"), "overview") == (
+    def test_an_unrecognised_role_is_refused(self):
+        """`current_identity()` can never actually construct one of these —
+        it fails closed to None first (see auth_service tests) — but
+        `route_decision` refuses it anyway rather than assuming its own
+        caller's discipline."""
+        assert routing.route_decision(identity("superuser"), "overview") == (
             routing.DECISION_FORBIDDEN
         )
 

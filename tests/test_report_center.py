@@ -290,11 +290,14 @@ class TestScopeLabel:
     carry `db` so the pure-logic suite stays runnable without Docker."""
 
     def test_fleet(self):
-        assert _scope_label("fleet") == "Entire Fleet"
+        # AUTH-HARDEN-1R: device_scope is now required on every call — every
+        # real caller always has one — even though the "fleet" branch never
+        # reads it.
+        assert _scope_label("fleet", device_scope=UNRESTRICTED) == "Entire Fleet"
 
     @pytest.mark.db
     def test_plant(self):
-        result = _scope_label("plant", plant_id="p1")
+        result = _scope_label("plant", plant_id="p1", device_scope=UNRESTRICTED)
         assert "Plant:" in result
 
     @pytest.mark.db
@@ -306,7 +309,7 @@ class TestScopeLabel:
 
     @pytest.mark.db
     def test_device(self):
-        result = _scope_label("device", device_id="d1")
+        result = _scope_label("device", device_id="d1", device_scope=UNRESTRICTED)
         assert "Device:" in result
 
 

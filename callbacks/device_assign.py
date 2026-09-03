@@ -32,9 +32,9 @@ from components.assign_device_drawer import (
 from components.status_panels import action_refused_notice
 from routes import parse_assign_request
 from services import prototype_assignments
-from services.action_guard import require_action
-from services.auth_service import from_session
-from services.authorization import AuthorizationError, MANAGE_ASSIGNMENT
+from services.action_guard import require_action, require_capability
+from services.auth_service import current_identity
+from services.authorization import AuthorizationError, MANAGE_ASSIGNMENT, MANAGE_DEVICES
 from services.prototype_users import get_technician_options
 
 logger = logging.getLogger(__name__)
@@ -147,7 +147,19 @@ def register(app) -> None:
 
         Keyed on the `assign` column, which exists precisely so this and
         `open_manage_drawer` stop receiving the same click.
+
+        AUTH-HARDEN-1 (Phase 1F): this reads `get_technician_options()` and
+        `get_assigned_technician(device_id)` for whatever device_id the
+        caller supplies — normally a row from the already-admin-gated table,
+        but this callback is independently invokable with a fabricated
+        `table_data`/`active_cell`, and assignment is administrator-only
+        content. Refused before either read runs.
         """
+        try:
+            require_capability(current_identity(), MANAGE_DEVICES)
+        except AuthorizationError:
+            return (no_update,) * 11
+
         if not active_cell or active_cell.get("column_id") != "assign":
             return (no_update,) * 11
 
@@ -183,7 +195,14 @@ def register(app) -> None:
         once the table has populated is what guarantees they exist. The device
         is then resolved against those rows, so an unknown identifier opens
         nothing.
+
+        Same guard as `open_assign_drawer` above, and for the same reason.
         """
+        try:
+            require_capability(current_identity(), MANAGE_DEVICES)
+        except AuthorizationError:
+            return (no_update,) * 11
+
         row = find_device_row(table_data, parse_assign_request(search))
         return _open_outputs(assign_drawer_open_state(row))
 
@@ -225,7 +244,7 @@ def register(app) -> None:
             return no_update, no_update
 
         try:
-            user = from_session(auth_data)
+            user = current_identity()
             require_action(user, MANAGE_ASSIGNMENT, device_id=device_id)
         except AuthorizationError:
             return action_refused_notice(), no_update

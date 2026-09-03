@@ -19,7 +19,7 @@ from services import (
     rtl_programming_service,
 )
 from services.action_guard import may_action, require_action
-from services.auth_service import from_session
+from services.auth_service import current_identity
 from services.authorization import (
     AuthorizationError,
     DEACTIVATE_RTL,
@@ -118,7 +118,7 @@ def register(app) -> None:
         if context.get("route") != "device":
             return None
         return device_operations_children(
-            from_session(auth_data), context.get("device_id", "")
+            current_identity(), context.get("device_id", "")
         )
 
     @app.callback(
@@ -278,7 +278,7 @@ def register(app) -> None:
         if trigger_id == "manage-menu-forwarding":
             prefill = no_update
             try:
-                user = from_session(auth_data)
+                user = current_identity()
                 if user is not None:
                     state = message_forwarding_service.get_state(user.user_id)
                     prefill = "enabled" if state.enabled else "disabled"
@@ -333,7 +333,7 @@ def register(app) -> None:
         if not n_clicks:
             return no_update, no_update
 
-        user = from_session(auth_data)
+        user = current_identity()
 
         # Authorized BEFORE the write below: a refusal that lands after
         # the mutation has already happened is not a refusal.
@@ -393,7 +393,7 @@ def register(app) -> None:
         if not n_clicks:
             return no_update
 
-        user = from_session(auth_data)
+        user = current_identity()
 
         # Authorized BEFORE the state write below: a refusal that lands after
         # the mutation has already happened is not a refusal.
@@ -464,7 +464,7 @@ def register(app) -> None:
         if not n_clicks:
             return no_update
 
-        user = from_session(auth_data)
+        user = current_identity()
 
         # Authorized BEFORE the write below: a refusal that lands after
         # the mutation has already happened is not a refusal.

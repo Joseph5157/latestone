@@ -1,197 +1,157 @@
 # Active Gate
 
-Status: Accepted — held at human review, no code change proposed
+Status: CLOSED — committed to `main` in this closure commit
 Date: 2026-09-03
-Gate: ROLE-4D — three-persona browser acceptance
-Branch: `main`, baseline `ca01576`
-Commit/push permission: **NOT APPLICABLE.** Nothing was changed. This file is
-the only edit in the working tree, left uncommitted for review as the gate
-instructed ("do not commit, do not push").
+Gate: AUTH-HARDEN-1 (+ AUTH-HARDEN-1R, AUTH-HARDEN-1R2) — server-trusted
+authorization
+Branch: `main`, baseline `0c40478a458b619f1f28751f7697aea3e48e7128`
+Commit/push permission: **COMMIT GRANTED, PUSH NOT GRANTED.** This gate's own
+closure instruction is "commit the completed tranche; do not push." See `git
+log -1` for the resulting commit; `origin/main` is unchanged.
 
 ## Purpose
 
-Prove, side by side and through the real credentialed login form, that
-Administrator, Technician and General User each receive the correct
-navigation, data scope, routes, controls and denials — closing the loop ROLE-
-4A (authentication), ROLE-4B (Technician reachability) and ROLE-4C (General
-User audit) opened separately.
+Close S-4/S-5 (`docs/CODE_AUDIT.md`, "Security posture") — the gap ROLE-4D
+explicitly declined to claim closed: "the session is still a browser-side
+`dcc.Store`, and the data callbacks still do not independently verify it."
+Replace that with a real server-trusted session so role-based authorization
+stops being an application-level affordance and becomes an actual boundary.
 
-## Finding: no defect found
+## What changed
 
-**All three personas accepted. No product code, test, or configuration file
-was changed.**
+**A Flask signed session, not the browser-side `auth-store`, is now the
+identity source.** `server.secret_key` (`app.py`, `config.settings.
+flask_session`) signs the cookie. `services.auth_service.
+start_trusted_session(user_id)` is called once, from `callbacks.auth.
+handle_login`, after a real credential has already resolved a real `users`
+row in that same call — nothing browser-supplied is read first.
+`end_trusted_session()` clears it on logout.
 
-Every persona was exercised through the normal login form (Playwright,
-Chromium, 1440×900, `http://127.0.0.1:8073` against the local development
-database with `DEMO_CREDENTIALS` configured for `demo.tech01`/
-`demo.general01`) — never by editing `dcc.Store`, injecting session state, or
-bypassing `authenticate()`.
+**`current_identity()` re-reads the database on every call — no caching.**
+The signed session carries nothing but a `user_id`; role, status and full
+name come from the CURRENT `users` row every time. A demotion or
+deactivation an administrator performs while the affected user's tab stays
+open takes effect on that user's very next protected request, not on their
+next login — verified directly (see Verification below).
+`services.device_scope.current_device_scope()` applies the same rule to
+`DeviceScope`.
 
-### Two scope coincidences worth recording as evidence, not narration
+**`auth-store` is now presentation-only.** It still carries the identity for
+the four callbacks that branch on its `authenticated` flag (pre-login
+cosmetics: hiding the equipment selector, etc.) and for whatever the UI
+renders from it, but no authorization decision reads it. Every previously
+independently-invokable callback that used to answer whoever asked now calls
+`current_identity()`/`current_device_scope()` first: device telemetry
+refresh, the device-admin and user-admin tables, the user-save mutation,
+device assignment, message forwarding, RTL programming, RTL deactivation,
+device registration's loaders and review step, plant/transformer detail, and
+report scope labels.
 
-- Technician's Overview read "Showing 5 of **24** affected RTLs" — matching
-  `demo.tech01`'s live assignment count (`user_device_assignments`, re-queried
-  at gate open) exactly, and its Notifications summary's ">24h No Data 24"
-  matched the same number again from an independent code path
-  (`current_notifications` vs the Overview's admin-summary query).
-- Administrator's Notification Center showed **133** notifications including
-  one `Unregistered UID`; General User's showed exactly **132** — the same set
-  minus that one row. This is `callbacks/notifications.py`'s
-  `include_unregistered=is_admin` gate, observed live rather than only read in
-  source.
+**The router's existence oracle is closed (AUTH-HARDEN-1R2).** For a
+restricted Technician, `callbacks/routing.py` now checks `entity_in_scope`
+*before* any unrestricted existence lookup for plant, transformer and device
+routes — a nonexistent id and a real-but-out-of-scope id both resolve to the
+identical Forbidden response, with no unrestricted query ever run to tell
+them apart. Administrator/General are unaffected (`entity_in_scope`
+short-circuits `True` with no query for an unrestricted scope).
 
-### Administrator
-
-Sidebar: Overview, Command Center, Devices, Assignments (disabled
-placeholder), Registration, Notifications, Reports, Users — the full
-authorized surface. `/admin/devices` showed all 120 devices with the
-technician column and Assign/Manage actions. `/admin/devices/new` and
-`/admin/users` both reachable (7 users listed, `Administrator`/`Technician`
-display labels correct — not the lowercase persisted values). On an arbitrary
-device not assigned to any relationship with the admin account, the manage
-drawer offered Program RTL, Message Forwarding and Deactivate RTL — proving
-"any device", not merely "a device". Command Center and Reports both render.
-
-### Technician (`demo.tech01`)
-
-Sidebar: Overview, Command Center, Notifications, Reports only — Devices,
-Registration, Users, Operations section and Assignments all absent, and none
-leaked from the prior Administrator session (verified empty before login). On
-an assigned RTL (`plant-03-t3-d2`, device 29018), the operational surface
-rendered with all three actions and no assignment control. A known
-out-of-scope RTL (`plant-20-t1-d1`) returned "No access" by direct URL. All
-three admin routes (`/admin/devices`, `/admin/devices/new`, `/admin/users`)
-returned "No access". Notifications scoped to 26 entries with no
-`Unregistered UID` row. Reports reachable; `callbacks/report_center.py`
-threads `scope_from_session` through report generation, so export inherits
-the same device-scope semantics as everything else.
-
-### General User (`demo.general01`)
-
-Sidebar identical in shape to Technician's (Overview, Command Center,
-Notifications, Reports) but scope is unrestricted: Overview read "5 of **120**
-affected RTLs" — full fleet, not 24. Viewing the SAME device Technician had
-just operated on (29018) showed full telemetry with `#device-operations`
-provably empty (`innerHTML` checked, not just visually absent) — proving no
-control leaked across the session boundary. All three admin routes denied.
-Notifications: 132, `Unregistered UID` correctly absent. Reports/export were
-exercised end to end in ROLE-4C (a real 7-row RTL Alarms report, Download CSV
-enabled) and reconfirmed reachable here.
-
-### Cross-persona session cleanliness
-
-Administrator → logout → Technician → logout → General User, each transition
-checked before the next login: after each logout the login form was present
-and the sidebar `<nav>` was mounted but empty (`innerText === ""`) — the
-"hidden, not unmounted" architecture (`components/app_sidebar.py`) holding
-under an actual transition, not just in its own docstring claim. No prior
-persona's sidebar items, selected-device context, or operational controls
-persisted into the next login.
+Full narrative, including the three read-path defects AUTH-HARDEN-1R found
+and fixed (registration loaders, plant/transformer detail, report labels) and
+the exact reordering AUTH-HARDEN-1R2 made, is recorded in
+`docs/CODE_AUDIT.md`'s "AUTH-HARDEN-1 (+ 1R, 1R2) closes S-4 and S-5" entry —
+this file summarizes; that one is the detailed record.
 
 ## Why no ADR
 
-ROLE-4D is acceptance evidence for decisions ROLE-2/3/ADR-004/ADR-008/ADR-013/
-ADR-015/ADR-016 already made and justified. It establishes no new rule.
+This is architecture the module docstrings (`services/auth_service.py`,
+`services/authorization.py`, `services/device_scope.py`,
+`services/hierarchy_service.py::entity_in_scope`) already state and justify
+inline, and `docs/CODE_AUDIT.md` already tracks S-4/S-5 as a running,
+append-only security log — adding a fourth parallel record would duplicate
+rather than clarify. Follow the reasoning at its source.
 
 ## In scope
 
-- This file only. No application source, test, or configuration file was
-  edited.
+- Server-trusted Flask session (identity + scope resolution).
+- Closing S-4/S-5 for every previously browser-trusting protected callback.
+- The router existence-oracle fix and its test coverage.
+- Report/export scope-label metadata protection and its test coverage.
+- Tests: `tests/auth_test_support.py`, `tests/test_auth_harden.py`,
+  `tests/test_auth_harden_repair.py` (new), plus corrections to
+  `tests/test_route_scope.py` / `tests/test_route_scope_db.py` where their
+  prior assertions described the disclosure this closure fixes.
+- This closure's own documentation (`docs/CODE_AUDIT.md`, this file).
 
 ## Explicitly out of scope — and not touched
 
-- Any product code, test, or documentation beyond this record.
-- Authorization policy of any kind.
-- S-4/S-5, which remain open.
-- The untracked `debug.log`.
+- Microsoft Entra ID / any real SSO — `DEMO_CREDENTIALS` remains the
+  authentication mechanism.
+- Physical RTL programming, SMS forwarding, the 18:30 forwarding scheduler,
+  the Maximum Temperature report — none of these are implemented by this
+  gate; do not read anything above as claiming otherwise.
+- New alarms, UI redesign, new roles, an audit UI.
+- Production cookie/deployment hardening (`SESSION_COOKIE_SECURE`, explicit
+  `SameSite`, HTTPS enforcement, a production `FLASK_SECRET_KEY` that fails
+  closed rather than falling back to a per-process random key) — recorded as
+  a non-blocking follow-up below, not part of S-4/S-5's closure.
+- `services.device_scope.scope_from_session()` — kept, unused by any
+  protected path, per the repository's "remove only what is demonstrably
+  unused everywhere" convention.
+- `callbacks/listings.py::hierarchy_code_index()` — recorded as a
+  non-blocking follow-up below.
+- `debug.log` — untracked, untouched throughout.
+
+## Non-blocking follow-ups (not implemented here)
+
+1. `callbacks/listings.py::hierarchy_code_index()` runs a broader-than-
+   strictly-necessary fleet-wide `list_all_devices()` read when at least one
+   plant is non-fresh. No demonstrated disclosure — its output only labels
+   entries the caller's own scope-filtered `health`/`plants` already
+   restricted to. Defense-in-depth follow-up only.
+2. `services/device_scope.py::scope_from_session()` remains a legacy
+   compatibility helper with no protected production caller.
+3. Production cookie/deployment hardening (see "Explicitly out of scope"
+   above) remains future work.
 
 ## Verification
 
-- ROLE-4A regression — **133 passed**. ROLE-4B regression — **38 passed**.
-- ROLE-4C / general-relevant suites (authorization, action guard ×3, route
-  enforcement, route scope ×2, device scope, scope repository, report export
-  ×2, admin overview, admin summary wiring, app sidebar) — **532 passed**.
-- DB-marked suite — **496 passed**. Full suite — **3,097 passed** (unchanged
-  from ROLE-4C's closing total — expected, since nothing changed).
-- `git diff --check` / `git status --short` / `git diff --stat` — no
-  application diff exists to check; only this file is modified.
-- Context pack — CLEAN before and after.
+Three independent verification passes, each starting from a fresh read of
+the actual code and re-running the tests rather than trusting the prior
+pass's narrative:
 
-### Comparative matrices, browser-observed
+- **AUTH-HARDEN-1** — 3112 passed (baseline 3097), 15 named AUTH-HARDEN
+  tests, manual security recheck matrix (role forgery, user_id forgery,
+  mid-session revocation, out-of-scope device denial).
+- **AUTH-HARDEN-1R** — found and fixed 3 blockers (registration loaders,
+  plant/transformer detail, report labels) independent verification
+  surfaced; 27 new AUTH-HARDEN-R tests, each invoking a REAL registered
+  callback against a REAL (fake- or DB-backed) trusted session — never a
+  hand-built identity. 3139 passed.
+- **AUTH-HARDEN-1R2** — found and fixed the router existence oracle plus an
+  ineffective export test (checked the status message, not the actual
+  downloadable payload); 22 new/corrected tests, including a deliberate
+  revert-and-rerun proof that the new router tests actually fail against the
+  old existence-first ordering. 3161 passed.
+- **Final independent re-verification** (read-only, no code changes) —
+  re-ran the full matrix cold, confirmed the router order, the export
+  payload flow, and a residual search for the same defect class elsewhere in
+  `callbacks/`; verdict **AUTH-HARDEN-1 VERIFIED WITH NON-BLOCKING
+  FOLLOW-UPS — SAFE TO COMMIT**.
 
-**Sidebar**
+Final numbers for this closure commit:
 
-| Navigation item | Administrator | Technician | General User |
-|---|---|---|---|
-| Overview | yes | yes | yes |
-| Command Center | yes | yes | yes |
-| Devices | yes | absent | absent |
-| Registration | yes | absent | absent |
-| Notifications | yes | yes | yes |
-| Reports | yes | yes | yes |
-| Users | yes | absent | absent |
-| Assignments (disabled placeholder) | yes | absent | absent |
-
-**Routes**
-
-| Route | Administrator | Technician | General User |
-|---|---|---|---|
-| Overview | 200 | 200 | 200 |
-| Command Center | 200 | 200 | 200 |
-| Plant / Transformer | 200 | 200 | 200 |
-| Assigned device (29018) | 200 | 200 | 200 (read-only) |
-| Out-of-scope device (plant-20-t1-d1) | N/A | No access | N/A |
-| Notifications | 200 (133) | 200 (26) | 200 (132) |
-| Reports | 200 | 200 | 200 |
-| Admin Devices | 200 | No access | No access |
-| Registration | 200 | No access | No access |
-| Users | 200 | No access | No access |
-
-**Actions**
-
-| Capability | Administrator | Technician | General User |
-|---|---|---|---|
-| Program RTL | any device | assigned only | denied |
-| Message Forwarding | any device | assigned only | denied |
-| Deactivate RTL | any device | assigned only | denied |
-| Manage Assignment | any device | denied | denied |
-| Register Device | allowed | denied | denied |
-| User Administration | allowed | denied | denied |
-| Report Export | allowed | allowed, scoped | allowed, full-fleet (proven in ROLE-4C) |
-
-### Data scope
-
-- Administrator: unrestricted (`device_scope._UNRESTRICTED_ROLES`).
-- Technician: 24 active assignments for `demo.tech01`, re-queried live against
-  `user_device_assignments` at gate open — unchanged since ROLE-4B/4C.
-- General User: unrestricted, same set as Administrator
-  (`_UNRESTRICTED_ROLES` includes `GENERAL`) — confirmed by the 120-vs-24
-  Overview contrast and the identical-device telemetry-vs-controls split
-  against Technician.
-
-## What this does not claim
-
-**S-4/S-5 remain open.** The session is still a browser-side `dcc.Store`, and
-the data callbacks still do not independently verify it. This gate proves
-intended application behaviour under *normal* credentialed use through the
-real UI; it does not establish a server-trusted session boundary, and no part
-of this record should be read as claiming otherwise. Direct-URL denial was
-proven for every admin route and the out-of-scope device; browser-store
-forgery was explicitly not attempted, per this gate's own scope.
-
-## Final persona classification
-
-```text
-Administrator — IMPLEMENTED AND UI-ACCEPTED
-Technician     — IMPLEMENTED AND UI-ACCEPTED
-General User   — IMPLEMENTED AND UI-ACCEPTED
-```
-
-This supersedes the original live-role-audit's "Technician/General partial"
-classification. ROLE-4A/4B/4C/4D closed that gap; the earlier finding is
-historical record, not current status.
+- Route R2 tests: 42 passed
+- Export/report-label R2 tests: 16 passed
+- Full AUTH-HARDEN (`test_auth_harden.py` + `test_auth_harden_repair.py`):
+  61 passed
+- Route/report/listing regression (14 files): 436 passed
+- DB-marked suite: 510 passed, 2651 deselected
+- Full suite: 3161 passed (from a 3097 pre-AUTH-HARDEN baseline — zero
+  existing tests deleted, skipped, or weakened across all three tranches;
+  two tests were corrected because their prior assertions described the
+  existence-oracle disclosure this closure fixes, not weakened to obtain
+  green)
 
 ## Next queued gate
 
-None queued. ROLE-4A/4B/4C/4D are all closed. PCB remains paused at
-`PCB-9-CLOSE`; the next move is for the operator to decide.
+None queued. The operator decides what comes next.

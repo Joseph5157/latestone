@@ -7,6 +7,7 @@ freshness figures they opened the page for.
 """
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime, timezone
 
 import pytest
@@ -15,6 +16,7 @@ from callbacks import listings
 from pages import plants_overview
 from repositories.plant_monitoring_repository import AdminDeviceRow
 from services.admin_overview_service import AdminOverviewSummary
+from tests.auth_test_support import no_trusted_session, trusted_session
 from tests.dash_tree import (
     find_by_class,
     find_by_exact_class,
@@ -306,61 +308,42 @@ class TestUnassignedPanelInTheSlot:
 
 
 # ==========================================================================
-# ROLE-3 Task 12 — the Administration block is Administrator-only content
+# ROLE-3 Task 12 / AUTH-HARDEN-1 — the Administration block is
+# Administrator-only content
 #
 # `admin_summary_output` swallows its own failures and returns None, so a
 # test that only asserted "absent for a technician" would pass even if the
 # block were still being built and merely erroring. The load-bearing
 # assertion in this section is therefore always the NO-QUERY one: a denied
 # role must not reach get_admin_overview at all.
+#
+# AUTH-HARDEN-1 removed `administration_section`'s identity PARAMETER
+# entirely — it now asks `current_identity()` directly, so there is no dict
+# left to tamper with. "denied" is expressed below as a real (fake-backed)
+# trusted session for a non-admin role, or no trusted session at all; the
+# structural questions the old dict-shaped cases asked (a role with no
+# identity, a non-integer user_id, a case-tampered role) are
+# `current_identity()`'s own concern and are covered by
+# tests/test_auth_identity.py, not here.
 # ==========================================================================
 
-ADMINISTRATOR_SESSION = {
-    "authenticated": True,
-    "user_id": 1,
-    "username": "admin",
-    "full_name": "Admin",
-    "role": "administrator",
-}
+ADMIN_USER_ID = 1
+TECHNICIAN_USER_ID = 42
+GENERAL_USER_ID = 7
 
-TECHNICIAN_SESSION = {
-    "authenticated": True,
-    "user_id": 42,
-    "username": "tech",
-    "full_name": "Tech",
-    "role": "technician",
-}
+DENIED_IDENTITIES = ["technician", "general", "no session"]
 
-GENERAL_SESSION = {
-    "authenticated": True,
-    "user_id": 7,
-    "username": "general",
-    "full_name": "General",
-    "role": "general",
-}
 
-#: The pre-ROLE-1 payload: a valid flag and no usable identity.
-STALE_SESSION = {"authenticated": True}
-
-#: A client-set store claiming a role the session never earned.
-TAMPERED_SESSION = {
-    "authenticated": True,
-    "user_id": 42,
-    "username": "tech",
-    "full_name": "Tech",
-    "role": "Administrator",  # exact-match policy: not the administrator
-}
-
-DENIED_SESSIONS = [
-    (TECHNICIAN_SESSION, "technician"),
-    (GENERAL_SESSION, "general"),
-    (STALE_SESSION, "pre-ROLE-1 payload"),
-    (TAMPERED_SESSION, "case-tampered role"),
-    (None, "no session"),
-    ({}, "empty store"),
-    ({"authenticated": False}, "signed out"),
-    ({"authenticated": True, "role": "administrator"}, "role without identity"),
-]
+@contextlib.contextmanager
+def _as(monkeypatch, label: str):
+    """A trusted session for `label`, or `no_trusted_session()` for "no session"."""
+    if label == "no session":
+        with no_trusted_session():
+            yield
+        return
+    user_id = {"technician": TECHNICIAN_USER_ID, "general": GENERAL_USER_ID}[label]
+    with trusted_session(monkeypatch, user_id=user_id, role=label):
+        yield
 
 
 def _watch_admin_query(monkeypatch, calls, summary=None):
@@ -382,7 +365,8 @@ class TestAdministrationSectionVisibility:
         calls = []
         _watch_admin_query(monkeypatch, calls, _summary(rows=(_row(1),)))
 
-        block = listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+        with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+            block = listings.administration_section(NOW)
 
         assert block is not None
         assert calls, "the administrator's section issued no query"
@@ -392,26 +376,22 @@ class TestAdministrationSectionVisibility:
         one of them."""
         _watch_admin_query(monkeypatch, [], _summary(rows=(_row(1),)))
 
-        block = listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+        with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+            block = listings.administration_section(NOW)
 
         assert len(find_by_exact_class(block, "kpi-card")) == 3
         assert find_by_exact_class(block, "unassigned-rtls") != []
 
-    @pytest.mark.parametrize(
-        "session,label", DENIED_SESSIONS, ids=[label for _s, label in DENIED_SESSIONS]
-    )
-    def test_absent_for_every_denied_session(self, monkeypatch, session, label):
+    @pytest.mark.parametrize("label", DENIED_IDENTITIES)
+    def test_absent_for_every_denied_identity(self, monkeypatch, label):
         calls = []
         _watch_admin_query(monkeypatch, calls)
 
-        assert listings.administration_section(session, NOW) is None
+        with _as(monkeypatch, label):
+            assert listings.administration_section(NOW) is None
 
-    @pytest.mark.parametrize(
-        "session,label", DENIED_SESSIONS, ids=[label for _s, label in DENIED_SESSIONS]
-    )
-    def test_a_denied_session_issues_no_administration_query(
-        self, monkeypatch, session, label
-    ):
+    @pytest.mark.parametrize("label", DENIED_IDENTITIES)
+    def test_a_denied_identity_issues_no_administration_query(self, monkeypatch, label):
         """Invariant 6, and the load-bearing assertion of this section.
 
         The section is SKIPPED, not built and discarded. `_watch_admin_query`
@@ -421,38 +401,9 @@ class TestAdministrationSectionVisibility:
         calls = []
         _watch_admin_query(monkeypatch, calls)
 
-        listings.administration_section(session, NOW)
+        with _as(monkeypatch, label):
+            listings.administration_section(NOW)
 
-        assert calls == []
-
-
-class TestIdentityComesFromTheSession:
-    def test_a_raw_role_key_without_an_identity_is_not_enough(self, monkeypatch):
-        """The store is client-settable. Reading `auth_data["role"]` directly
-        would accept this payload; `from_session` rejects it because it
-        carries no user_id, username or full_name.
-        """
-        calls = []
-        _watch_admin_query(monkeypatch, calls)
-
-        payload = {"authenticated": True, "role": "administrator"}
-        assert listings.administration_section(payload, NOW) is None
-        assert calls == []
-
-    def test_the_role_is_compared_exactly(self, monkeypatch):
-        calls = []
-        _watch_admin_query(monkeypatch, calls)
-
-        assert listings.administration_section(TAMPERED_SESSION, NOW) is None
-        assert calls == []
-
-    def test_a_non_integer_user_id_is_rejected(self, monkeypatch):
-        """from_session rejects a bool user_id (bool is an int in Python)."""
-        calls = []
-        _watch_admin_query(monkeypatch, calls)
-
-        payload = dict(ADMINISTRATOR_SESSION, user_id=True)
-        assert listings.administration_section(payload, NOW) is None
         assert calls == []
 
 
@@ -470,7 +421,8 @@ class TestTheCapabilityIsNotTheRoute:
             listings, "may_access_route", lambda *a, **k: False, raising=False
         )
 
-        assert listings.administration_section(ADMINISTRATOR_SESSION, NOW) is not None
+        with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+            assert listings.administration_section(NOW) is not None
 
 
 class TestErrorIsolationSurvivesGating:
@@ -484,7 +436,8 @@ class TestErrorIsolationSurvivesGating:
             lambda **kwargs: (_ for _ in ()).throw(RuntimeError("db down")),
         )
 
-        assert listings.administration_section(ADMINISTRATOR_SESSION, NOW) is None
+        with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+            assert listings.administration_section(NOW) is None
 
     def test_gating_adds_no_second_query(self, monkeypatch):
         """No new queries: the whole section is still ONE administration
@@ -492,7 +445,8 @@ class TestErrorIsolationSurvivesGating:
         calls = []
         _watch_admin_query(monkeypatch, calls, _summary(rows=(_row(1),)))
 
-        listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+        with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+            listings.administration_section(NOW)
 
         assert len(calls) == 1
 
@@ -508,7 +462,8 @@ class TestDeviceScopeDoesNotLeakIntoAdministration:
         calls = []
         _watch_admin_query(monkeypatch, calls, _summary())
 
-        listings.administration_section(ADMINISTRATOR_SESSION, NOW)
+        with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+            listings.administration_section(NOW)
 
         assert calls == [{"now": NOW}]
 

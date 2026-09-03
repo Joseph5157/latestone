@@ -16,10 +16,11 @@ from config.metrics import get_metric
 from config.reports import get_report, REPORTS
 from components.entity_table import entity_table
 from services import hierarchy_service
+from services.hierarchy_service import entity_in_scope
 from services.action_guard import require_capability
-from services.auth_service import from_session
+from services.auth_service import current_identity
 from services.authorization import AuthorizationError, EXPORT_DATA
-from services.device_scope import DeviceScope, scope_from_session
+from services.device_scope import DeviceScope, current_device_scope
 from services.report_export import (
     EXPORT_FORMAT_LABEL,
     EXPORTABLE_REPORTS,
@@ -107,21 +108,45 @@ def _scope_label(
     transformer_id: str = "",
     device_id: str = "",
     *,
-    device_scope: DeviceScope = None,
+    device_scope: DeviceScope,
 ) -> str:
     """Build human-readable scope label.
 
     `scope` here is the report's *asset scope* selection ("fleet"/"plant"/
     "transformer"/"device") — an unrelated string that predates ROLE-3 and is
-    not renamed to avoid a churny diff. `device_scope` is the caller's
-    `DeviceScope`, required whenever this needs to list transformers.
+    not renamed to avoid a churny diff. `device_scope` is the CURRENT trusted
+    caller's `DeviceScope` and is now required (no default): every branch
+    below resolves a NAME from a browser-supplied id, which is exactly the
+    kind of read `entity_in_scope` exists to gate first.
+
+    AUTH-HARDEN-1R (blocker 3). `plant_id`/`transformer_id`/`device_id` are
+    untrusted REQUESTED filters, not proof of anything. Report ROWS were
+    already correctly scoped (`installed_rtls_rows`/`rtl_alarms_30d_rows`
+    both take `device_scope` and filter with it) — this function's labels
+    were not: a Technician could type an arbitrary plant/transformer/device
+    id into the report form and this would happily resolve and display its
+    real name, which is a metadata leak even though no ROW data followed it.
+    Both callers of this function (preview and CSV export) share it, so
+    fixing it once fixes both paths.
+
+    Out of scope reads the same as "not found": the raw id is echoed back
+    rather than a resolved name, so this deliberately does not confirm
+    whether the requested asset exists.
     """
     if scope == "fleet":
         return "Entire Fleet"
     if scope == "plant" and plant_id:
-        plant = hierarchy_service.get_plant_or_none(plant_id)
+        plant = (
+            hierarchy_service.get_plant_or_none(plant_id)
+            if entity_in_scope(device_scope, plant_id=plant_id)
+            else None
+        )
         return f"Plant: {plant.name if plant else plant_id}"
     if scope == "transformer" and transformer_id:
+        # Already scope-filtered: list_transformers queries with
+        # allowed_device_ids=device_scope.device_ids, so an out-of-scope
+        # transformer_id is simply absent from this list — `transformer`
+        # stays None for it, same as a nonexistent one.
         transformer = next(
             (
                 t for t in hierarchy_service.list_transformers(plant_id, scope=device_scope)
@@ -129,10 +154,21 @@ def _scope_label(
             ),
             None
         )
-        plant = hierarchy_service.get_plant_or_none(plant_id) if plant_id else None
+        # The plant's name is resolved ONLY once the transformer lookup above
+        # has already proven it in scope — never independently, which is what
+        # let a forged plant_id resolve a real name regardless of the
+        # transformer requested alongside it.
+        plant = (
+            hierarchy_service.get_plant_or_none(plant_id)
+            if transformer and plant_id else None
+        )
         return f"Transformer: {transformer.transformer_code if transformer else transformer_id} ({plant.name if plant else plant_id})"
     if scope == "device" and device_id:
-        device = hierarchy_service.get_device_context(device_id)
+        device = (
+            hierarchy_service.get_device_context(device_id)
+            if entity_in_scope(device_scope, device_id=device_id)
+            else None
+        )
         return f"Device: {device.device_code if device else device_id}"
     return scope.capitalize()
 
@@ -506,7 +542,7 @@ def register(app) -> None:
     )
     def populate_report_plants(_, auth_data):
         try:
-            return _plant_options(scope_from_session(auth_data))
+            return _plant_options(current_device_scope())
         except Exception:
             logger.exception("Failed to populate report plant options")
             return []
@@ -520,7 +556,7 @@ def register(app) -> None:
     )
     def populate_report_transformers(plant_id, auth_data):
         try:
-            options = _transformer_options(plant_id, scope_from_session(auth_data))
+            options = _transformer_options(plant_id, current_device_scope())
             return options, not options
         except Exception:
             logger.exception("Failed to populate report transformers for %r", plant_id)
@@ -535,7 +571,7 @@ def register(app) -> None:
     )
     def populate_report_devices(transformer_id, auth_data):
         try:
-            options = _device_options(transformer_id, scope_from_session(auth_data))
+            options = _device_options(transformer_id, current_device_scope())
             return options, not options
         except Exception:
             logger.exception("Failed to populate report devices for %r", transformer_id)
@@ -614,21 +650,21 @@ def register(app) -> None:
         if report and report.key == "installed_rtls":
             result = _build_installed_rtls_report(
                 asset_scope, plant_id, transformer_id, device_id,
-                scope_from_session(auth_data),
+                current_device_scope(),
             )
             return {"display": "block"}, result
 
         if report and report.key == "rtl_alarms_30d":
             result = _build_rtl_alarms_report(
                 asset_scope, plant_id, transformer_id, device_id,
-                scope_from_session(auth_data),
+                current_device_scope(),
             )
             return {"display": "block"}, result
 
         # Build scope description
         scope_desc = _scope_label(
             asset_scope, plant_id, transformer_id, device_id,
-            device_scope=scope_from_session(auth_data),
+            device_scope=current_device_scope(),
         )
 
         # Build period description
@@ -718,10 +754,10 @@ def register(app) -> None:
         # rows are fetched, which R4-D3 got right — but as a CAPABILITY.
         # Export names no device: the report below spans a plant, a
         # transformer, one device or none. Scope is not this guard's job and
-        # never was; `scope_from_session` threads the caller's DeviceScope
-        # into row construction a few lines down, and the repository ANDs
-        # `allowed_device_ids` into the query.
-        user = from_session(auth_data)
+        # never was; `current_device_scope()` threads the CURRENT trusted
+        # caller's DeviceScope into row construction a few lines down, and
+        # the repository ANDs `allowed_device_ids` into the query.
+        user = current_identity()
         try:
             require_capability(user, EXPORT_DATA)
         except AuthorizationError:
@@ -737,7 +773,7 @@ def register(app) -> None:
             )
 
         try:
-            scope = scope_from_session(auth_data)
+            scope = current_device_scope()
             rows = _gather_export_rows(
                 report_key, asset_scope, plant_id, transformer_id,
                 device_id, scope,

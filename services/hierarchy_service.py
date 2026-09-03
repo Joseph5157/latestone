@@ -65,6 +65,64 @@ def list_devices(
     )
 
 
+def entity_in_scope(
+    scope: DeviceScope,
+    *,
+    device_id: str | None = None,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+) -> bool:
+    """Whether a resolved entity is visible to `scope`.
+
+    AUTH-HARDEN-1R (blocker 2). Moved here from `callbacks/routing.py`
+    (re-exported there unchanged) so callers OTHER than the router — the
+    plant/transformer detail data callbacks in `callbacks/listings.py` — can
+    revalidate an entity against the CURRENT trusted scope too. The router's
+    own check only ever guarded the render that BUILT `page-context`; a data
+    callback listening on that same store as an Input is independently
+    invokable with a forged plant_id/transformer_id, exactly the class of
+    bypass P0-3 closed for device telemetry. This is that same fix for plant
+    and transformer metadata.
+
+    AUTH-HARDEN-1R2: for a RESTRICTED scope, call this FIRST, before any
+    unrestricted existence lookup — never after. This function is itself
+    scope-filtered (`list_transformers`/`list_devices` take
+    `allowed_device_ids`), so a nonexistent entity and a real-but-out-of-scope
+    one both simply come back False from here; the caller must not run its
+    own existence lookup first to tell the two apart, because for a
+    restricted Technician that IS the distinction ROLE-1 froze as
+    unacceptable at the identity/route layer and AUTH-HARDEN-1R2 closed here:
+    a restricted caller must not be able to learn that an id exists at all
+    once it is confirmed not theirs. `callbacks/routing.py`'s plant/
+    transformer/device branches and `callbacks/listings.py`'s detail
+    callbacks all call this before their own existence lookup for exactly
+    this reason. (Existence-then-membership, in that order, remains correct
+    ONLY for an UNRESTRICTED scope — Administrator/General — where this
+    function short-circuits True with no query below, so the caller's own
+    existence lookup is the only check that ever really runs and Not Found
+    stays the honest answer.)
+
+    A plant or transformer is visible when it holds at least one visible
+    device, so a Technician cannot hand-type a path to an otherwise-valid
+    plant containing none of their RTLs.
+
+    The unrestricted short-circuit is first for cost, not just clarity: an
+    Administrator would otherwise pay for a listing query on every plant and
+    transformer render purely to discard the answer.
+
+    Default-deny: called with no identifier, it refuses.
+    """
+    if scope.is_unrestricted:
+        return True
+    if device_id is not None:
+        return scope.allows(device_id)
+    if transformer_id is not None:
+        return bool(list_devices(transformer_id, scope=scope))
+    if plant_id is not None:
+        return bool(list_transformers(plant_id, scope=scope))
+    return False
+
+
 def list_device_paths(device_ids, *, scope: DeviceScope) -> list[DevicePath]:
     """Label paths (plant name / transformer code / device code) for a
     bounded set of devices, within the caller's scope (ADR-008, Phase 9).

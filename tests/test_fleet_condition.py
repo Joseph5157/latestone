@@ -142,7 +142,7 @@ def test_existing_single_service_snapshot_feeds_layer2_and_lower_outputs(monkeyp
     monkeypatch.setattr(listings.hierarchy_service, "list_plants", read_plants)
     monkeypatch.setattr(listings.hierarchy_service, "get_plant_hierarchy_counts", read_counts)
     monkeypatch.setattr(listings.monitoring_service, "get_fleet_health", read_health)
-    monkeypatch.setattr(listings, "scope_from_session", lambda _: UNRESTRICTED)
+    monkeypatch.setattr(listings, "current_device_scope", lambda: UNRESTRICTED)
     # The stale/no-data rows above make hierarchy_code_index fetch display
     # codes; without this the callback reaches the real database and this
     # test stops being a "not db" test.
@@ -169,6 +169,10 @@ def test_existing_single_service_snapshot_feeds_layer2_and_lower_outputs(monkeyp
 
 def test_query_failure_remains_an_error_not_a_fabricated_empty_fleet(monkeypatch, overview_callback):
     monkeypatch.setattr(listings.hierarchy_service, "list_plants", Mock(side_effect=RuntimeError("test unavailable")))
+    # AUTH-HARDEN-1: scope now comes from the trusted server session; this
+    # test is about the query-failure path, not identity, so the scope
+    # resolution is stubbed out rather than requiring a Flask request context.
+    monkeypatch.setattr(listings, "current_device_scope", lambda: UNRESTRICTED)
     fn, _spec = overview_callback
     result = fn({"route": "overview"}, None)
     assert result[2] is not None

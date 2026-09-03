@@ -25,10 +25,10 @@ from components.command_center.recent_events import recent_events_card
 from components.command_center.selected_location import selected_location_card
 from components.command_center.situation_summary import situation_summary_panels
 from components.status_panels import error_panel
-from services.auth_service import from_session
+from services.auth_service import current_identity
 from services.authorization import ADMINISTRATOR
 from services.command_center_service import get_command_center_snapshot
-from services.device_scope import scope_from_session
+from services.device_scope import current_device_scope
 
 logger = logging.getLogger(__name__)
 
@@ -105,12 +105,12 @@ def register(app) -> None:
         try:
             # Resolved once per render (ADR-004/ADR-008), same discipline
             # get_fleet_health's own docstring requires of every caller.
-            scope = scope_from_session(auth_data)
+            scope = current_device_scope()
             # EVT-D5, applying the precedent this app already set in
             # callbacks/notifications.py: an unregistered UID belongs to no
             # device set, so scope alone cannot decide who may see the
             # quarantine rows. Only an administrator asks for them.
-            user = from_session(auth_data)
+            user = current_identity()
             is_admin = user is not None and user.role == ADMINISTRATOR
             # One reference time, used for the fetch AND for the label, so
             # `Last updated` names the moment the DATA describes rather than
@@ -241,7 +241,7 @@ def register(app) -> None:
             return no_update, no_update, no_update
 
         try:
-            scope = scope_from_session(auth_data)
+            scope = current_device_scope()
             snapshot = get_command_center_snapshot(scope=scope)
             ranked = [row for row in snapshot.affected_locations if row.affected_rtls]
 

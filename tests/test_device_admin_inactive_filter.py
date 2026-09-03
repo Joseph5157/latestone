@@ -26,6 +26,7 @@ import types
 import pytest
 
 from callbacks import device_admin
+from tests.auth_test_support import trusted_session
 
 ADMIN_CONTEXT = {"route": "admin_devices"}
 
@@ -78,7 +79,14 @@ class _CapturingApp:
 
 @pytest.fixture
 def fleet(monkeypatch):
-    """Device Administration wired to a two-device fleet, no database."""
+    """Device Administration wired to a two-device fleet, no database.
+
+    AUTH-HARDEN-1: `populate_device_admin` now requires a trusted Administrator
+    identity (P0-4). This fixture's whole subject is the fleet-population
+    defect, not authorization, so it signs in as a real (fake-backed)
+    Administrator via `trusted_session` and holds that request context open
+    for the test body — `_run` below calls the handler outside this fixture.
+    """
     spy = _FleetReadSpy([ACTIVE_DEVICE, INACTIVE_DEVICE])
     monkeypatch.setattr(device_admin.hierarchy_service, "list_all_devices", spy)
 
@@ -94,7 +102,9 @@ def fleet(monkeypatch):
 
     app = _CapturingApp()
     device_admin.register(app)
-    return app.functions["populate_device_admin"], spy
+
+    with trusted_session(monkeypatch, user_id=1, role="administrator"):
+        yield app.functions["populate_device_admin"], spy
 
 
 def _run(handler, status):

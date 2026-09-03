@@ -15,6 +15,9 @@ from services import (
     device_scope, hierarchy_service, monitoring_service, prototype_assignments,
 )
 from components.freshness_badge import format_age
+from services.action_guard import require_capability
+from services.auth_service import current_identity
+from services.authorization import AuthorizationError, MANAGE_DEVICES
 from services.monitoring_service import reading_age, severity_rank
 
 logger = logging.getLogger(__name__)
@@ -195,6 +198,19 @@ def register(app) -> None:
     def populate_device_admin(context, search, status):
         if not context or context.get("route") != "admin_devices":
             return (no_update,) * 5
+
+        # P0-4 (AUTH-HARDEN-1). `admin_devices` is administrator-only by
+        # ROUTE_POLICY, but this callback answers whoever invokes it directly
+        # and the route check only ever guarded the RENDER that built
+        # page-context, not this independently-triggerable one. Without this,
+        # a forged {"route": "admin_devices"} handed the full 120-device
+        # roster — including which technician is assigned to each — to any
+        # authenticated role.
+        try:
+            require_capability(current_identity(), MANAGE_DEVICES)
+        except AuthorizationError:
+            logger.warning("Device administration data refused: not an administrator.")
+            return [], DEVICE_ADMIN_COLUMNS, error_panel(), "", None
 
         rendered_at = monitoring_service._now()
         result: dict = {}

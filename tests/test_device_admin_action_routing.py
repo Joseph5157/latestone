@@ -26,6 +26,7 @@ import pytest
 from dash import no_update
 
 from callbacks import device_admin, device_assign, device_manage
+from tests.auth_test_support import trusted_session
 
 ROWS = [
     {
@@ -67,12 +68,20 @@ def _handlers(module):
 
 @pytest.fixture(autouse=True)
 def _no_database(monkeypatch):
-    """The drawers read technician options and current assignment."""
+    """The drawers read technician options and current assignment.
+
+    AUTH-HARDEN-1: `open_assign_drawer`/`open_assign_drawer_from_url` now
+    require a trusted Administrator identity (Phase 1F). This module's whole
+    subject is which COLUMN opens which drawer, not authorization, so every
+    test here runs as a real (fake-backed) Administrator.
+    """
     monkeypatch.setattr(device_assign, "get_technician_options", lambda: [])
     monkeypatch.setattr(
         device_assign.prototype_assignments, "get_assigned_technician",
         lambda device_id: None,
     )
+    with trusted_session(monkeypatch, user_id=1, role="administrator"):
+        yield
 
 
 def _cell(column_id, row_id="d1"):

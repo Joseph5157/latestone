@@ -38,6 +38,7 @@ from services.authorization import (
 )
 from services.auth_service import AuthenticatedUser
 from services.device_scope import DeviceScope
+from tests.auth_test_support import no_trusted_session, trusted_session
 
 EVERY_ROLE = (ADMINISTRATOR, TECHNICIAN, GENERAL)
 
@@ -131,11 +132,18 @@ class _RowsSpy:
 
 @pytest.fixture
 def download(monkeypatch):
-    """The download callback, wired to spies instead of the database."""
+    """The download callback, wired to spies instead of the database.
+
+    AUTH-HARDEN-1: identity and scope now come from `current_identity()` /
+    `current_device_scope()`, never from the `auth_data` argument the callback
+    still accepts (kept only so it re-fires on login/logout). Each test below
+    establishes a REAL (fake-backed) trusted session for the role under test
+    via `trusted_session`, rather than handing the callback a session dict.
+    """
     rows = _RowsSpy()
     monkeypatch.setattr(report_center, "installed_rtls_rows", rows)
     monkeypatch.setattr(
-        report_center, "scope_from_session", lambda data: ASSIGNED_SCOPE
+        report_center, "current_device_scope", lambda: ASSIGNED_SCOPE
     )
     # Resolves plant/transformer names for the document header, which is a
     # database read and not what these tests are about.
@@ -148,24 +156,26 @@ def download(monkeypatch):
     return app.functions["download_report_csv"], rows
 
 
-def _click(handler, session, asset_scope="plant"):
-    return handler(1, "installed_rtls", asset_scope, "p1", None, None, session)
+def _click(handler, asset_scope="plant"):
+    return handler(1, "installed_rtls", asset_scope, "p1", None, None, None)
 
 
-def test_download_does_not_raise_type_error(download):
+def test_download_does_not_raise_type_error(download, monkeypatch):
     """The defect itself: this raised TypeError before any row was fetched."""
     handler, _rows = download
 
-    payload, _status, _style = _click(handler, _session(ADMINISTRATOR))
+    with trusted_session(monkeypatch, user_id=1, role=ADMINISTRATOR):
+        payload, _status, _style = _click(handler)
 
     assert payload is not None
 
 
 @pytest.mark.parametrize("role", EVERY_ROLE)
-def test_permitted_roles_reach_export_generation(download, role):
+def test_permitted_roles_reach_export_generation(download, monkeypatch, role):
     handler, rows = download
 
-    payload, status, style = _click(handler, _session(role))
+    with trusted_session(monkeypatch, user_id=1, role=role):
+        payload, status, style = _click(handler)
 
     assert rows.calls, f"{role} must reach row construction"
     assert isinstance(payload, dict) and payload.get("filename"), (
@@ -176,22 +186,29 @@ def test_permitted_roles_reach_export_generation(download, role):
 
 
 def test_refusal_happens_before_any_row_work(download):
-    """R4-D3's one surviving requirement: refuse before rows are fetched."""
+    """R4-D3's one surviving requirement: refuse before rows are fetched.
+
+    No trusted session at all — the AUTH-HARDEN-1 equivalent of the old
+    pre-ROLE-1 STALE_SESSION payload: authenticated flag or not, there is
+    nobody the server recognises.
+    """
     handler, rows = download
 
-    payload, status, _style = _click(handler, STALE_SESSION)
+    with no_trusted_session():
+        payload, status, _style = _click(handler)
 
     assert rows.calls == [], "a refused export must not query anything"
     assert payload is not None  # a no_update sentinel, not a file
     assert "not permitted" in str(status)
 
 
-def test_technician_export_stays_inside_the_assigned_scope(download):
+def test_technician_export_stays_inside_the_assigned_scope(download, monkeypatch):
     """The guard is not what constrains this — the DeviceScope threaded into
     row construction is. Migrating the guard must not change that."""
     handler, rows = download
 
-    _click(handler, _session(TECHNICIAN))
+    with trusted_session(monkeypatch, user_id=1, role=TECHNICIAN):
+        _click(handler)
 
     assert rows.calls, "the technician must reach row construction"
     assert rows.calls[0]["device_scope"] is ASSIGNED_SCOPE, (
@@ -200,12 +217,13 @@ def test_technician_export_stays_inside_the_assigned_scope(download):
     assert rows.calls[0]["device_scope"].device_ids == frozenset({"d-assigned"})
 
 
-def test_out_of_scope_devices_cannot_be_reached_through_export(download):
+def test_out_of_scope_devices_cannot_be_reached_through_export(download, monkeypatch):
     """No scope widening: the export passes the caller's scope, and never a
     broader one, whatever asset scope was chosen in the form."""
     handler, rows = download
 
-    _click(handler, _session(TECHNICIAN), asset_scope="device")
+    with trusted_session(monkeypatch, user_id=1, role=TECHNICIAN):
+        _click(handler, asset_scope="device")
 
     scope = rows.calls[0]["device_scope"]
     assert scope.allows("d-assigned") is True

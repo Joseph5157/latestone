@@ -23,6 +23,7 @@ from components.device_manage_drawer import device_manage_drawer
 from components.device_operations import device_operations_panel
 from pages import device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
 from services.device_scope import UNRESTRICTED
+from tests.auth_test_support import trusted_session
 
 
 # --------------------------------------------------------------------------
@@ -166,15 +167,20 @@ class TestPlantOptionsAuthGate:
         assert sel.plant_options(None) == []
 
     def test_plants_are_listed_once_authenticated(self, monkeypatch):
+        """AUTH-HARDEN-1: scope now comes from the trusted server session, so
+        this test signs in as a real (fake-backed) Administrator rather than
+        relying on the `auth_data` dict's `authenticated` flag for anything
+        beyond the pre-login gate."""
         monkeypatch.setattr(
             sel.hierarchy_service,
             "list_plants",
             lambda *, scope: [_plant("p1", "Alpha"), _plant("p2", "Beta")],
         )
-        assert sel.plant_options({"authenticated": True}) == [
-            {"label": "Alpha", "value": "p1"},
-            {"label": "Beta", "value": "p2"},
-        ]
+        with trusted_session(monkeypatch, user_id=1, role="administrator"):
+            assert sel.plant_options({"authenticated": True}) == [
+                {"label": "Alpha", "value": "p1"},
+                {"label": "Beta", "value": "p2"},
+            ]
 
 
 # --------------------------------------------------------------------------

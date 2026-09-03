@@ -28,7 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from repositories import plant_monitoring_repository as repo
-from services.auth_service import AuthenticatedUser, from_session
+from services.auth_service import AuthenticatedUser, current_identity, from_session
 from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN
 
 
@@ -84,5 +84,24 @@ def scope_from_session(auth_data) -> DeviceScope:
     uses — rather than reading the store's raw `role` key. A tampered or
     pre-ROLE-1 payload therefore reaches nothing here for the same reason it
     reaches no policied route.
+
+    NOT USED BY PROTECTED CALLBACKS as of AUTH-HARDEN-1 — `auth_data` is
+    browser-supplied and a `role`/`user_id` in it is no longer trusted for
+    authorization. Kept for anything that still legitimately reads the
+    session payload for display purposes; every scope decision that gates
+    data or an action calls `current_device_scope()` below instead.
     """
     return scope_for(from_session(auth_data))
+
+
+def current_device_scope() -> DeviceScope:
+    """The CURRENT trusted caller's device scope (AUTH-HARDEN-1).
+
+    `scope_for(current_identity())` — the same pure policy, applied to the
+    server-trusted identity instead of the browser-supplied one. This is what
+    every protected data/action callback calls now: a Technician's scope
+    always reflects their CURRENT active assignments and CURRENT role, because
+    `current_identity()` re-reads the database on every call rather than
+    trusting whatever `auth-store` says.
+    """
+    return scope_for(current_identity())

@@ -104,7 +104,15 @@ def register(app) -> None:
         # so swapping in the client's real authentication needs no change to
         # callback code. The store now carries the full identity (ROLE-1); the
         # `authenticated` flag other callbacks read is unchanged.
-        return login_outputs(username, password)
+        error, session_payload = login_outputs(username, password)
+        # AUTH-HARDEN-1: the trusted server session is established HERE, inside
+        # the real callback dispatch (a Flask request), from the user_id
+        # `login_outputs` just resolved server-side — never from anything the
+        # browser has sent back. `login_outputs` itself stays a pure function
+        # so its existing tests need no Flask request context.
+        if session_payload is not no_update:
+            auth_service.start_trusted_session(session_payload["user_id"])
+        return error, session_payload
 
     @app.callback(
         Output("login-password", "type"),
@@ -127,6 +135,12 @@ def register(app) -> None:
         prevent_initial_call="initial_duplicate",
     )
     def _sign_out(pathname):
+        # AUTH-HARDEN-1: clears the trusted server session, not just the
+        # browser's auth-store. Guarded on the same condition
+        # `sign_out_outputs` checks internally — this fires on every pathname
+        # change, and only /logout should end the session.
+        if pathname == LOGOUT_PATH:
+            auth_service.end_trusted_session()
         return sign_out_outputs(pathname)
 
     # Logout stays a plain `<a href="/logout">` (see components.app_header).

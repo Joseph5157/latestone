@@ -33,7 +33,7 @@ from components.equipment_selector import (
 )
 from routes import device_href
 from services import hierarchy_service
-from services.device_scope import DeviceScope, scope_from_session
+from services.device_scope import DeviceScope, current_device_scope
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,10 @@ def plant_options(auth_data) -> list[dict]:
     """
     if not _is_authenticated(auth_data):
         return []
-    scope = scope_from_session(auth_data)
+    # AUTH-HARDEN-1: `auth_data` still gates the cosmetic "not before login"
+    # check above (auth-store's `authenticated` flag), but the actual scope
+    # comes from the trusted server session, never from this payload.
+    scope = current_device_scope()
     return [
         {"label": p.name, "value": p.plant_id}
         for p in hierarchy_service.list_plants(scope=scope)
@@ -142,7 +145,7 @@ def register(app) -> None:
     )
     def _populate_transformers(plant_id, auth_data):
         try:
-            return transformer_options(plant_id, scope_from_session(auth_data))
+            return transformer_options(plant_id, current_device_scope())
         except Exception:
             logger.exception("Equipment selector failed for plant_id=%r", plant_id)
             return [], True, None
@@ -157,7 +160,7 @@ def register(app) -> None:
     )
     def _populate_devices(transformer_id, auth_data):
         try:
-            return device_options(transformer_id, scope_from_session(auth_data))
+            return device_options(transformer_id, current_device_scope())
         except Exception:
             logger.exception(
                 "Equipment selector failed for transformer_id=%r", transformer_id

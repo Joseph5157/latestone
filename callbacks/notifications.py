@@ -19,9 +19,9 @@ from dash import Input, Output, State, no_update, html
 
 from components.status_panels import error_panel
 from services import monitoring_service
-from services.auth_service import from_session
+from services.auth_service import current_identity
 from services.authorization import ADMINISTRATOR
-from services.device_scope import scope_from_session
+from services.device_scope import current_device_scope
 from services.notification_service import (
     current_notifications,
     notification_summary,
@@ -91,8 +91,8 @@ def register(app) -> None:
             # constrains device-backed rows; only administrators see the
             # quarantined unregistered-UID surface (EVT-D5 — an unknown UID
             # belongs to no device scope, so nobody scoped can own it).
-            scope = scope_from_session(auth_data)
-            user = from_session(auth_data)
+            scope = current_device_scope()
+            user = current_identity()
             is_admin = user is not None and user.role == ADMINISTRATOR
 
             rows = monitoring_service.latest_reading_rows(scope=scope)

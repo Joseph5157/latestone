@@ -21,9 +21,10 @@ from routes import (
     parse_query,
 )
 from services import hierarchy_service
-from services.auth_service import from_session
+from services.hierarchy_service import entity_in_scope
+from services.auth_service import AuthenticatedUser, current_identity
 from services.authorization import ROUTE_POLICY, may_access_route
-from services.device_scope import DeviceScope, scope_from_session
+from services.device_scope import DeviceScope, current_device_scope
 
 #: What the router should do with a request, decided before anything renders.
 DECISION_LOGIN = "login"
@@ -66,18 +67,25 @@ def build_device_context(device_path, metric_key: str, period_value: str) -> dic
     }
 
 
-def route_decision(auth_data, route_name: str) -> str:
+def route_decision(user: AuthenticatedUser | None, route_name: str) -> str:
     """Login, forbidden, or allow — decided before any page is built (ROLE-2).
+
+    AUTH-HARDEN-1: takes the CURRENT TRUSTED identity directly, never the
+    browser's `auth-store` payload. `route_to_page` below resolves it exactly
+    once, via `current_identity()`, and passes it in — the same identity the
+    scope calculation for this render uses, so the two cannot disagree about
+    who is asking.
 
     THREE OUTCOMES, KEPT APART ON PURPOSE:
 
-    * Not signed in -> login. A visitor with no session has not been refused
-      anything; they have not asked yet. "No access" would be both wrong and
-      alarming.
-    * Signed in, route not permitted -> forbidden. Explicit, per the ROLE-1
-      decision that an authenticated user reaching for a resource they are not
-      entitled to must never be folded into the same silent outcome as a bad
-      identifier.
+    * No trusted identity -> login. This covers a visitor who never signed in
+      AND a session the server no longer recognises (deleted, deactivated, or
+      simply expired) — both read the same way to the operator: sign in
+      (again). Neither has been refused anything they asked for.
+    * A real identity, route not permitted -> forbidden. Explicit, per the
+      ROLE-1 decision that an authenticated user reaching for a resource they
+      are not entitled to must never be folded into the same silent outcome as
+      a bad identifier.
     * Anything else -> allow, including `unknown`. A route the policy does not
       mention is not the policy's business here: `unknown` means no such page,
       and refusing it would make every typo'd URL imply something exists behind
@@ -85,61 +93,31 @@ def route_decision(auth_data, route_name: str) -> str:
       is denied — the test suite fails when a route ships without an entry, so
       the omission is caught before it can widen access.
 
-    A session that is authenticated but carries no usable identity (the
-    pre-ROLE-1 `{"authenticated": True}` payload, or a tampered role) reaches
-    the routes nobody may have: `from_session` returns None and every policied
-    route is refused.
+    A browser-edited `role` cannot reach here at all: there is no `role` field
+    on `user` that came from anywhere but the CURRENT `users` row.
     """
-    if not auth_data or not auth_data.get("authenticated"):
+    if user is None:
         return DECISION_LOGIN
     if route_name not in ROUTE_POLICY:
         return DECISION_ALLOW
 
-    user = from_session(auth_data)
-    if user is not None and may_access_route(user.role, route_name):
+    if may_access_route(user.role, route_name):
         return DECISION_ALLOW
 
     logger.warning(
         "Route %r refused for session role %r",
         route_name,
-        user.role if user else None,
+        user.role,
     )
     return DECISION_FORBIDDEN
 
 
-def entity_in_scope(
-    scope: DeviceScope,
-    *,
-    device_id: str | None = None,
-    plant_id: str | None = None,
-    transformer_id: str | None = None,
-) -> bool:
-    """Whether a resolved entity is visible to `scope`.
-
-    EXISTENCE IS CHECKED FIRST, BY THE CALLER, AND MEMBERSHIP SECOND (ROLE-3
-    invariant 5). Folding the two into one filtered lookup would make an
-    out-of-scope device indistinguishable from a nonexistent one, which is
-    exactly what ROLE-1 froze as unacceptable.
-
-    A plant or transformer is visible when it holds at least one visible
-    device, so a Technician cannot hand-type a path to an otherwise-valid
-    plant containing none of their RTLs.
-
-    The unrestricted short-circuit is first for cost, not just clarity: an
-    Administrator would otherwise pay for a listing query on every plant and
-    transformer render purely to discard the answer.
-
-    Default-deny: called with no identifier, it refuses.
-    """
-    if scope.is_unrestricted:
-        return True
-    if device_id is not None:
-        return scope.allows(device_id)
-    if transformer_id is not None:
-        return bool(hierarchy_service.list_devices(transformer_id, scope=scope))
-    if plant_id is not None:
-        return bool(hierarchy_service.list_transformers(plant_id, scope=scope))
-    return False
+#: AUTH-HARDEN-1R: moved to `services/hierarchy_service.py` so
+#: `callbacks/listings.py` can reuse the SAME predicate for its own
+#: independently-invokable plant/transformer detail callbacks, rather than
+#: a second implementation. Re-exported here unchanged — `routing.
+#: entity_in_scope(...)` and every call site below still work exactly as
+#: before.
 
 
 def register(app) -> None:
@@ -156,11 +134,18 @@ def register(app) -> None:
         try:
             route = parse_pathname(pathname)
 
+            # AUTH-HARDEN-1: resolved ONCE, from the trusted server session —
+            # never from `auth_data`, which stays an Input only so this
+            # callback still re-renders the instant login/logout happens.
+            # Both the route decision and the scope below reason about this
+            # SAME identity, so they cannot disagree about who is asking.
+            user = current_identity()
+
             # Authorization runs here, BEFORE any hierarchy lookup below. A
             # refused page must do no data work on the way to being refused:
             # queries run on behalf of someone not entitled to ask are each a
             # place a partial result can reach a log or an error message.
-            decision = route_decision(auth_data, route.name)
+            decision = route_decision(user, route.name)
             if decision == DECISION_LOGIN:
                 from pages.login import login_layout
                 return login_layout(), {}
@@ -170,10 +155,10 @@ def register(app) -> None:
                 # simply never fires for a page that was refused.
                 return forbidden_panel(), {"route": "forbidden"}
 
-            # Resolved ONCE per render and passed down. `scope_from_session`
+            # Resolved ONCE per render and passed down. `current_device_scope`
             # performs an assignment read for technicians, so calling it per
             # entity would turn one render into a query storm.
-            scope = scope_from_session(auth_data)
+            scope = current_device_scope()
 
             metric_key, period_value = parse_query(search)
             custom_start, custom_end = parse_custom_range(search)
@@ -183,15 +168,25 @@ def register(app) -> None:
                 return plants_overview.layout(), ctx
 
             if route.name == "plant":
+                # AUTH-HARDEN-1R2: scope is checked BEFORE the existence
+                # lookup. `entity_in_scope` runs a scope-FILTERED query, so a
+                # nonexistent plant and a real-but-out-of-scope plant both
+                # simply come back False — a restricted (Technician) caller
+                # gets the identical `forbidden_panel` for either, with no
+                # unrestricted lookup ever run to tell the two apart. For an
+                # unrestricted scope (Administrator/General) this check is a
+                # free no-op (`entity_in_scope` short-circuits True without a
+                # query), so their behaviour is unchanged.
+                if not entity_in_scope(scope, plant_id=route.plant_id):
+                    logger.warning(
+                        "Plant %r refused: not visible in the session's device scope",
+                        route.plant_id,
+                    )
+                    return forbidden_panel(), {"route": "forbidden"}
+
                 plant = hierarchy_service.get_plant_or_none(route.plant_id)
                 if plant is None:
                     return not_found_panel("plant"), {"route": "unknown"}
-                if not entity_in_scope(scope, plant_id=plant.plant_id):
-                    logger.warning(
-                        "Plant %r refused: outside the session's device scope",
-                        plant.plant_id,
-                    )
-                    return forbidden_panel(), {"route": "forbidden"}
 
                 ctx = {
                     "route": "plant",
@@ -203,6 +198,19 @@ def register(app) -> None:
                 return plant_detail.layout(plant.name, status=plant.status), ctx
 
             if route.name == "transformer":
+                # AUTH-HARDEN-1R2: same reorder as the plant branch above —
+                # scope first, on the URL's own transformer_id, before any
+                # unrestricted plant/transformer lookup. `entity_in_scope`'s
+                # transformer branch is itself scope-filtered, so it cannot
+                # be used to probe whether an out-of-scope transformer (or
+                # its parent plant) exists.
+                if not entity_in_scope(scope, transformer_id=route.transformer_id):
+                    logger.warning(
+                        "Transformer %r refused: not visible in the session's device scope",
+                        route.transformer_id,
+                    )
+                    return forbidden_panel(), {"route": "forbidden"}
+
                 plant = hierarchy_service.get_plant_or_none(route.plant_id)
                 if plant is None:
                     return not_found_panel("plant"), {"route": "unknown"}
@@ -212,14 +220,6 @@ def register(app) -> None:
                 )
                 if transformer is None:
                     return not_found_panel("transformer"), {"route": "unknown"}
-                if not entity_in_scope(
-                    scope, transformer_id=transformer.transformer_id
-                ):
-                    logger.warning(
-                        "Transformer %r refused: outside the session's device scope",
-                        transformer.transformer_id,
-                    )
-                    return forbidden_panel(), {"route": "forbidden"}
 
                 ctx = {
                     "route": "transformer",
@@ -239,15 +239,21 @@ def register(app) -> None:
                 )
 
             if route.name == "device":
-                device_ctx = hierarchy_service.get_device_context(route.device_id)
-                if device_ctx is None:
-                    return not_found_panel("device"), {"route": "unknown"}
+                # AUTH-HARDEN-1R2: same reorder. For a device, the scope
+                # check is a pure in-memory membership test against the
+                # Technician's assigned-device set (`DeviceScope.allows`) —
+                # no query at all — so checking it first costs nothing and
+                # closes the same oracle for device IDs.
                 if not entity_in_scope(scope, device_id=route.device_id):
                     logger.warning(
-                        "Device %r refused: outside the session's device scope",
+                        "Device %r refused: not visible in the session's device scope",
                         route.device_id,
                     )
                     return forbidden_panel(), {"route": "forbidden"}
+
+                device_ctx = hierarchy_service.get_device_context(route.device_id)
+                if device_ctx is None:
+                    return not_found_panel("device"), {"route": "unknown"}
 
                 ctx = build_device_context(device_ctx, metric_key, period_value)
                 return (

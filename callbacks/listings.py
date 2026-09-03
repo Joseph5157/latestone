@@ -29,9 +29,10 @@ from components.freshness_badge import format_last_reading
 from components.freshness_presentation import FRESHNESS_PRESENTATION
 from routes import device_href
 from services import admin_overview_service, hierarchy_service, monitoring_service
-from services.auth_service import from_session
+from services.hierarchy_service import entity_in_scope
+from services.auth_service import current_identity
 from services.authorization import VIEW_ADMINISTRATION_OVERVIEW, may_perform_capability
-from services.device_scope import DeviceScope, scope_from_session
+from services.device_scope import DeviceScope, current_device_scope
 from services.monitoring_service import Freshness, aggregate_freshness, reading_age, severity_rank
 
 logger = logging.getLogger(__name__)
@@ -477,8 +478,13 @@ def admin_summary_output(now: datetime):
         return None
 
 
-def administration_section(auth_data, rendered_at: datetime):
+def administration_section(rendered_at: datetime):
     """The Administration block, or None when the role may not see it.
+
+    AUTH-HARDEN-1: takes no identity argument at all — it asks
+    `current_identity()` for the CURRENT trusted role rather than accepting
+    one from a caller, so there is no `auth_data` parameter left to read a
+    role out of by mistake.
 
     Gated on an explicit CAPABILITY rather than on
     `may_access_route(role, "admin_devices")`. Those two questions — may this
@@ -486,11 +492,6 @@ def administration_section(auth_data, rendered_at: datetime):
     overview content — happen to have the same answer today and may diverge.
     Navigation is derived from routes because it is the same question viewed
     twice; page content is not.
-
-    Role comes from `from_session`, the same validation the router uses, so a
-    tampered or pre-ROLE-1 payload fails this check for the same reason it
-    fails a route check. Reading `auth_data["role"]` directly would accept a
-    store that carries a role and no identity at all.
 
     Returns None WITHOUT calling `admin_summary_output`, so a denied role
     issues no administration query at all — the section is skipped, not built
@@ -503,7 +504,7 @@ def administration_section(auth_data, rendered_at: datetime):
     and passing a ROLE-3 scope here would silently change what the counts
     mean without changing their labels.
     """
-    user = from_session(auth_data)
+    user = current_identity()
     role = user.role if user else None
     if not may_perform_capability(role, VIEW_ADMINISTRATION_OVERVIEW):
         return None
@@ -663,7 +664,7 @@ def register(app) -> None:
         # moment different from the one the rows were evaluated at.
         rendered_at = datetime.now(timezone.utc)
         # Resolved once for the whole render — same reasoning as `rendered_at`.
-        scope = scope_from_session(auth_data)
+        scope = current_device_scope()
         subtitle = []
 
         # One fetch, one FleetHealth, every output derived from it. Building the
@@ -700,7 +701,7 @@ def register(app) -> None:
             # Administrator-only content: `administration_section` returns None
             # for every other role WITHOUT issuing the query, so a denied role
             # does no administration work on the way to seeing nothing.
-            admin.append(administration_section(auth_data, rendered_at))
+            admin.append(administration_section(rendered_at))
             attention.append(
                 needs_attention(
                     build_exception_queue(
@@ -760,7 +761,25 @@ def register(app) -> None:
         # Resolved once for the whole render, same reasoning as `rendered_at`:
         # re-resolving per section could let two parts of one screen disagree
         # about which devices are visible.
-        scope = scope_from_session(auth_data)
+        scope = current_device_scope()
+
+        # AUTH-HARDEN-1R (blocker 2). `page-context` is Input, not State: this
+        # callback is independently invokable with a forged plant_id, and the
+        # router's own scope check (callbacks/routing.py) only ever ran for
+        # the render that BUILT page-context, not for this one. Without this,
+        # a Technician who fabricates {"route": "plant", "plant_id": "<not
+        # theirs>"} gets that plant's country/fuel/capacity and transformer
+        # rows — the same class of bypass P0-3 closed for device telemetry.
+        # Checked BEFORE build(), so an out-of-scope plant never even reaches
+        # get_plant_or_none()/list_transformers().
+        if not entity_in_scope(scope, plant_id=plant_id):
+            logger.warning(
+                "Plant detail refused: plant %r outside the session's device "
+                "scope",
+                plant_id,
+            )
+            return ([], TRANSFORMER_COLUMNS, error_panel(), None, None, None, None)
+
         result: dict = {}
 
         def build():
@@ -807,7 +826,19 @@ def register(app) -> None:
         transformer_code = context.get("transformer_code", "")
 
         rendered_at = datetime.now(timezone.utc)
-        scope = scope_from_session(auth_data)
+        scope = current_device_scope()
+
+        # AUTH-HARDEN-1R (blocker 2), same reasoning as populate_plant_detail
+        # above: refused before build() reaches list_devices() for an
+        # out-of-scope transformer.
+        if not entity_in_scope(scope, transformer_id=transformer_id):
+            logger.warning(
+                "Transformer detail refused: transformer %r outside the "
+                "session's device scope",
+                transformer_id,
+            )
+            return ([], DEVICE_COLUMNS, error_panel(), None, None, None, None)
+
         result: dict = {}
 
         def build():

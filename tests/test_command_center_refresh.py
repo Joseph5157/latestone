@@ -193,8 +193,8 @@ class TestOneTickOneSnapshot:
             cc, "get_command_center_snapshot",
             lambda **kw: calls.append(kw) or _fake_snapshot(),
         )
-        monkeypatch.setattr(cc, "scope_from_session", lambda a: "SCOPE")
-        monkeypatch.setattr(cc, "from_session", lambda a: SimpleNamespace(role="administrator"))
+        monkeypatch.setattr(cc, "current_device_scope", lambda: "SCOPE")
+        monkeypatch.setattr(cc, "current_identity", lambda: SimpleNamespace(role="administrator"))
 
         handlers.functions["populate_command_center"](CONTEXT, 1, 0, ADMIN_SESSION, None)
         assert len(calls) == 1
@@ -224,8 +224,8 @@ class TestSelectedPlantSurvives:
             cc, "get_command_center_snapshot",
             lambda **kw: seen.append(kw.get("selected_plant_id")) or _fake_snapshot(),
         )
-        monkeypatch.setattr(cc, "scope_from_session", lambda a: "SCOPE")
-        monkeypatch.setattr(cc, "from_session", lambda a: SimpleNamespace(role="administrator"))
+        monkeypatch.setattr(cc, "current_device_scope", lambda: "SCOPE")
+        monkeypatch.setattr(cc, "current_identity", lambda: SimpleNamespace(role="administrator"))
 
         context = {"route": "command_center", "plant_id": "plant-11"}
         for tick in (1, 2, 3):
@@ -253,8 +253,8 @@ class TestRefreshFailureRetainsTheLastGoodSnapshot:
             raise RuntimeError("snapshot read failed")
 
         monkeypatch.setattr(cc, "get_command_center_snapshot", _boom)
-        monkeypatch.setattr(cc, "scope_from_session", lambda a: "SCOPE")
-        monkeypatch.setattr(cc, "from_session", lambda a: SimpleNamespace(role="administrator"))
+        monkeypatch.setattr(cc, "current_device_scope", lambda: "SCOPE")
+        monkeypatch.setattr(cc, "current_identity", lambda: SimpleNamespace(role="administrator"))
         return handlers.functions["populate_command_center"](
             CONTEXT, 5, 0, ADMIN_SESSION, store
         )
@@ -293,8 +293,8 @@ class TestRefreshFailureRetainsTheLastGoodSnapshot:
 
     def test_a_later_success_clears_the_error(self, handlers, monkeypatch):
         monkeypatch.setattr(cc, "get_command_center_snapshot", lambda **kw: _fake_snapshot())
-        monkeypatch.setattr(cc, "scope_from_session", lambda a: "SCOPE")
-        monkeypatch.setattr(cc, "from_session", lambda a: SimpleNamespace(role="administrator"))
+        monkeypatch.setattr(cc, "current_device_scope", lambda: "SCOPE")
+        monkeypatch.setattr(cc, "current_identity", lambda: SimpleNamespace(role="administrator"))
 
         failed_store = {"last_success_at": EARLIER.isoformat(), "failed": True}
         result = handlers.functions["populate_command_center"](
@@ -305,8 +305,8 @@ class TestRefreshFailureRetainsTheLastGoodSnapshot:
 
     def test_a_successful_refresh_advances_last_success_at(self, handlers, monkeypatch):
         monkeypatch.setattr(cc, "get_command_center_snapshot", lambda **kw: _fake_snapshot())
-        monkeypatch.setattr(cc, "scope_from_session", lambda a: "SCOPE")
-        monkeypatch.setattr(cc, "from_session", lambda a: SimpleNamespace(role="administrator"))
+        monkeypatch.setattr(cc, "current_device_scope", lambda: "SCOPE")
+        monkeypatch.setattr(cc, "current_identity", lambda: SimpleNamespace(role="administrator"))
 
         store = {"last_success_at": EARLIER.isoformat(), "failed": False}
         result = handlers.functions["populate_command_center"](
@@ -324,8 +324,8 @@ class TestFirstLoadFailureIsDifferent:
             raise RuntimeError("first read failed")
 
         monkeypatch.setattr(cc, "get_command_center_snapshot", _boom)
-        monkeypatch.setattr(cc, "scope_from_session", lambda a: "SCOPE")
-        monkeypatch.setattr(cc, "from_session", lambda a: SimpleNamespace(role="administrator"))
+        monkeypatch.setattr(cc, "current_device_scope", lambda: "SCOPE")
+        monkeypatch.setattr(cc, "current_identity", lambda: SimpleNamespace(role="administrator"))
         return handlers.functions["populate_command_center"](
             CONTEXT, 0, 0, ADMIN_SESSION, store
         )

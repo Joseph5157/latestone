@@ -14,11 +14,18 @@ from components.app_shell import app_shell
 from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
 from config.logging_config import configure_logging
+from config.settings import flask_session
 
 configure_logging()
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True, title="Power Plant Monitoring")
 server = app.server
+# AUTH-HARDEN-1: signs the trusted server-side session `services.auth_service`
+# uses to identify the logged-in user. Distinct from and more trustworthy than
+# `auth-store`, the plain-JSON dcc.Store the browser can edit freely — see
+# config.settings.FlaskSessionSettings for why an unset FLASK_SECRET_KEY is
+# safe rather than a hole.
+server.secret_key = flask_session.secret_key
 
 # The login card is CSS/JS-rendered, so the browser doesn't discover the hero
 # background-image until Dash's client bundle has parsed and rendered

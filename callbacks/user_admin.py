@@ -23,7 +23,9 @@ from components.user_form_drawer import (
     USER_CANCEL_BTN,
     USER_DISMISS_BTN,
 )
-from services.auth_service import from_session
+from services.action_guard import require_capability
+from services.auth_service import current_identity
+from services.authorization import AuthorizationError, MANAGE_USERS
 from services.prototype_users import (
     get_all_users,
     get_user,
@@ -135,6 +137,17 @@ def register(app) -> None:
         if not context or context.get("route") != "admin_users":
             return (no_update,) * 4
 
+        # P0-4 (AUTH-HARDEN-1). `admin_users` is administrator-only by
+        # ROUTE_POLICY, but this callback is independently invokable with a
+        # forged page-context and previously trusted nothing of its own —
+        # any authenticated role could pull the full user roster. See
+        # confirm_user_form below for the matching P0-2 write-side fix.
+        try:
+            require_capability(current_identity(), MANAGE_USERS)
+        except AuthorizationError:
+            logger.warning("User administration data refused: not an administrator.")
+            return [], [], error_panel(), ""
+
         try:
             users = get_all_users()
             rows = _build_user_rows(users, search_term or "", status_filter or "all")
@@ -176,7 +189,18 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def open_user_drawer(add_clicks, active_cell, table_data):
-        """Open drawer for Add User or Edit action."""
+        """Open drawer for Add User or Edit action.
+
+        AUTH-HARDEN-1 (Phase 1D): loads an existing user's editable data
+        (`get_user(row_id)`) for the Edit path, so this needs the same
+        Administrator guard as `populate_user_admin` — a table row alone does
+        not prove the caller is entitled to open it.
+        """
+        try:
+            require_capability(current_identity(), MANAGE_USERS)
+        except AuthorizationError:
+            return (no_update,) * 8
+
         ctx = __import__("dash").callback_context
         if not ctx.triggered:
             return (no_update,) * 8
@@ -256,6 +280,13 @@ def register(app) -> None:
         is no one to attribute the change to, so the operation fails closed
         and nothing is written (the drawer stays open). ENT-5: that refusal
         is rendered in the drawer's result slot rather than being silent.
+
+        P0-2 (AUTH-HARDEN-1). This used to check only `user is not None` —
+        ANY authenticated identity, not specifically an Administrator — so a
+        Technician or General User invoking this callback directly, with
+        `role="administrator"` among the form fields, could grant themselves
+        or anyone else the administrator role. `require_capability` is the
+        actual fix; the identity bind below still matters for the audit actor.
         """
         if not n_clicks:
             return no_update, no_update, no_update, no_update
@@ -265,9 +296,14 @@ def register(app) -> None:
         # never bound, so every save raised NameError. The actor is the whole
         # point of the AUD-1 rule below: an audited write needs the identity,
         # not merely the knowledge that one exists.
-        user = from_session(auth_data)
-        if user is None:
-            logger.warning("User save refused: no valid session.")
+        user = current_identity()
+        try:
+            require_capability(user, MANAGE_USERS)
+        except AuthorizationError:
+            logger.warning(
+                "User save refused: %r is not an administrator.",
+                user.username if user else None,
+            )
             return no_update, action_refused_notice(), no_update, no_update
 
         errors = _validate_user_form(username, existing_username)

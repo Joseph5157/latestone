@@ -22,14 +22,16 @@ field in it that could say "administrator", so adding a credential can never
 grant a permission — it can only let an existing `users` row be reached. A
 Technician credential yields a Technician session because the row says so.
 
-**This is not an authorization boundary.** The result is held in a
-browser-side `dcc.Store`, and the data callbacks do not independently verify a
-session, so anyone able to set that store can reach the data callbacks.
-ROLE-1 makes identity *consistent and contracted*; it does not make it
-*unforgeable*. Route and navigation enforcement built on this session is an
-application-level affordance until a server-verifiable session mechanism
-exists. Replacing this module is necessary but not sufficient — see
-docs/CODE_AUDIT.md, "Security posture".
+**AUTH-HARDEN-1 closed the trust boundary this docstring used to describe as
+open.** `to_session()`/`from_session()` still exist and the identity still
+rides in the browser-side `auth-store` — but protected callbacks no longer
+read that payload for authorization. `current_identity()` below is what they
+call instead: it re-derives who is signed in from Flask's own signed session
+cookie (set at login by `start_trusted_session()`, cleared at logout by
+`end_trusted_session()`) and reloads the CURRENT `users` row on every call, so
+a browser-edited `role` or `user_id` in `auth-store` no longer has anywhere to
+land. `auth-store` remains presentation state — the four callbacks branching
+on its `authenticated` flag are unaffected — never a permission.
 
 FAILS CLOSED, always to the same `None`. Bad credentials, a credential naming
 no user, a deactivated account and a role outside the confirmed vocabulary are
@@ -43,6 +45,8 @@ import hmac
 import logging
 from dataclasses import dataclass
 from typing import Any, Mapping
+
+from flask import session as _flask_session
 
 from config.settings import demo_auth
 from repositories import plant_monitoring_repository as repo
@@ -235,3 +239,85 @@ def from_session(data: Any) -> AuthenticatedUser | None:
     return AuthenticatedUser(
         user_id=user_id, username=username, full_name=full_name, role=role
     )
+
+
+# ---------------------------------------------------------------------------
+# AUTH-HARDEN-1 — the server-trusted session
+#
+# Everything above this line answers "what does the browser's auth-store
+# claim". Everything below answers "who does the SERVER believe is signed in,
+# right now, according to the CURRENT database row" — the only question a
+# protected operation may act on.
+# ---------------------------------------------------------------------------
+
+#: The one thing Flask's signed session carries: a user_id. Never a role,
+#: never a name — those are re-read from `users` on every call so a role
+#: change or a deactivation takes effect on the NEXT request rather than
+#: requiring logout/login. A browser can read this cookie but cannot alter it
+#: without invalidating Flask's signature (server.secret_key), which is what
+#: makes it trustworthy where `auth-store`'s plain JSON is not.
+_SESSION_USER_ID_KEY = "uid"
+
+
+def start_trusted_session(user_id: int) -> None:
+    """Record `user_id` as the server-trusted signed-in identity.
+
+    Called exactly once, from `callbacks.auth.handle_login`, after
+    `authenticate()` has already resolved a real `users` row in the SAME
+    callback invocation — nothing browser-supplied has been read yet at that
+    point, so binding to it here is safe. `clear()` first: a login on a tab
+    that already held a different trusted session must not merge the two.
+    """
+    _flask_session.clear()
+    _flask_session[_SESSION_USER_ID_KEY] = user_id
+
+
+def end_trusted_session() -> None:
+    """Clear the server-trusted session. Called on logout.
+
+    Idempotent — clearing an already-empty session is a no-op, so callers
+    never need to check whether one existed first.
+    """
+    _flask_session.clear()
+
+
+def current_identity() -> AuthenticatedUser | None:
+    """Who is CURRENTLY signed in, reloaded from the database every call.
+
+    This is the one function every protected operation must call instead of
+    `from_session(auth_data)`. It never trusts the browser: the only input is
+    Flask's signed session cookie, and even that supplies nothing but a
+    user_id — role, status and name are read fresh from `users` here, so a
+    demotion or deactivation the operator performs while the affected user's
+    tab stays open takes effect on that user's NEXT protected call, not on
+    their next login.
+
+    Fails closed exactly like `from_session`: no session, no such user, an
+    inactive account, or a role outside the confirmed vocabulary all return
+    None rather than a partial identity.
+    """
+    user_id = _flask_session.get(_SESSION_USER_ID_KEY)
+    if user_id is None:
+        return None
+
+    row = repo.get_user_by_id(user_id)
+    if row is None:
+        return None
+    if row.status != "active":
+        return None
+    if row.role not in prototype_users.CONFIRMED_ROLES:
+        return None
+
+    return AuthenticatedUser(
+        user_id=row.user_id,
+        username=row.username,
+        full_name=row.full_name,
+        role=row.role,
+    )
+
+
+def current_role() -> str | None:
+    """`current_identity().role`, or None. A thin convenience — the identity
+    itself remains the thing every guard actually takes."""
+    user = current_identity()
+    return user.role if user else None

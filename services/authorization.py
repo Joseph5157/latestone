@@ -18,12 +18,15 @@ rather than ships. `unknown` is deliberately not in the table: it is not an
 application route, and the router keeps "no such page" and "not for you"
 apart.
 
-WHAT THIS IS NOT. This is an application-level control. The router refuses,
-but the data callbacks still answer whoever asks, and the role itself travels
-in a browser-side `dcc.Store` a client can set (S-4/S-5 in
-docs/CODE_AUDIT.md). ROLE-2 shapes what the UI offers; it does not withhold
-data from anyone bypassing the UI. Calling any of this production-secure needs
-the server-verifiable session that work is blocked on.
+WHAT THIS IS NOT. This is a pure policy table, not the identity source. The
+browser-side `auth-store` (`dcc.Store`) a client can set is presentation
+only — it drives which nav items and controls render, nothing more.
+Authorization decisions call this table with the CURRENT trusted identity
+(`services.auth_service.current_identity()`, resolved fresh from the `users`
+row on every protected operation), never with anything read from `auth-store`
+(AUTH-HARDEN-1/1R closed S-4/S-5 in docs/CODE_AUDIT.md on that basis). This
+module still answers only "may this role reach this route" — role resolution,
+scope, and the per-callback guard calls are each some other module's job.
 
 SCOPE. Routes, page-content capabilities, and actions — three dimensions,
 three tables, deliberately not derived from one another. Navigation IS
@@ -129,6 +132,14 @@ class AuthorizationError(Exception):
 #: of thing.
 VIEW_ADMINISTRATION_OVERVIEW = "view_administration_overview"
 REGISTER_DEVICE = "register_device"
+# AUTH-HARDEN-1: the Device Management table/drawers and the User
+# Administration table/drawer are each one screen with no device to scope —
+# same shape as REGISTER_DEVICE, mirroring ROUTE_POLICY's "admin_devices"/
+# "admin_users" entries without being derived from them, for the reason
+# REGISTER_DEVICE's own comment gives: a page that becomes reachable to more
+# roles must not silently widen who may read or write its data.
+MANAGE_DEVICES = "manage_devices"
+MANAGE_USERS = "manage_users"
 # ADR-013: device-less because a report spans zero, one or many devices —
 # there is no single device_id to name. Grouped with the capabilities, not
 # with the actions below, so the constant's position states its dimension.
@@ -150,6 +161,8 @@ MANAGE_ASSIGNMENT = "manage_assignment"
 CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     VIEW_ADMINISTRATION_OVERVIEW: _ADMIN_ONLY,
     REGISTER_DEVICE: _ADMIN_ONLY,
+    MANAGE_DEVICES: _ADMIN_ONLY,
+    MANAGE_USERS: _ADMIN_ONLY,
     # ADR-013, moved from ACTION_POLICY where it read
     # `(_EVERY_ROLE, _NO_ROLE)`. The empty assigned-only set was the tell:
     # no role's export permission ever depended on an assignment, so the

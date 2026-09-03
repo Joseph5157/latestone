@@ -1,7 +1,7 @@
-"""The user save callback, at the boundary where it actually failed (FIX-1A).
+"""The user save callback, at the boundary where it actually failed (FIX-1A / AUTH-HARDEN-1).
 
-`confirm_user_form` had two defects that 2,464 passing tests said nothing
-about, because no test had ever called it:
+`confirm_user_form` had two original defects that 2,464 passing tests said
+nothing about, because no test had ever called it:
 
   - it read `user.user_id` while binding `user` nowhere, so every save raised
     `NameError`;
@@ -9,17 +9,24 @@ about, because no test had ever called it:
     record was being edited, so re-saving a user under their own unchanged
     name was refused as a duplicate.
 
-The second masked the first: validation returns before the `NameError` line,
-so an edit-with-unchanged-name never reached it. Fixing either alone leaves a
-misleading result, which is why they are one change.
+AUTH-HARDEN-1 added a third, more serious one (P0-2): the guard checked only
+"is someone signed in", not "is that someone an Administrator". A Technician
+or General User invoking this callback directly, with `role="administrator"`
+among the form fields, could grant themselves the administrator role.
+`test_a_non_administrator_cannot_save_a_user` is that attack, run against the
+real registered callback.
 
-Two of these tests fail before the fix (add, and edit-unchanged) and two are
-guards that must stay green through it (a real duplicate is still refused, an
-absent session still fails closed). A fix that turns a refusal into a pass is
-not a fix.
+Two of the original tests fail before that first fix (add, and
+edit-unchanged) and two are guards that must stay green through it (a real
+duplicate is still refused, an absent session still fails closed). A fix that
+turns a refusal into a pass is not a fix.
 
 Role-pure and store-pure: the user service is replaced by a spy, so nothing
-here opens a database connection.
+here opens a database connection. Identity is now established the AUTH-HARDEN-1
+way — a real Flask request context and a real trusted session, backed by a
+patched `get_user_by_id` rather than a `dict` handed to the callback — so
+these tests exercise the same `current_identity()` path the app uses, not a
+browser payload the callback no longer trusts.
 """
 from __future__ import annotations
 
@@ -27,17 +34,10 @@ import pytest
 
 from callbacks import user_admin
 from components.status_panels import ACTION_REFUSED_CLASS
+from tests.auth_test_support import no_trusted_session, trusted_session
 
-ADMINISTRATOR_SESSION = {
-    "authenticated": True,
-    "user_id": 1,
-    "username": "admin",
-    "full_name": "Admin",
-    "role": "administrator",
-}
-
-#: Authenticated flag, no usable identity — the pre-ROLE-1 payload.
-STALE_SESSION = {"authenticated": True}
+ADMIN_USER_ID = 1
+TECHNICIAN_USER_ID = 42
 
 
 class _CapturingApp:
@@ -81,46 +81,51 @@ def store(monkeypatch):
     return existing, spy
 
 
-def _save(existing_username, username, session):
-    """Click Confirm on the user drawer."""
+def _save(existing_username, username, role="technician"):
+    """Click Confirm on the user drawer, as whoever is CURRENTLY trusted.
+
+    `auth_data` (the callback's last positional argument) is passed as `None`
+    unconditionally: AUTH-HARDEN-1 means the callback no longer reads it for
+    authorization, and passing a dict here would misleadingly suggest it still
+    matters.
+    """
     return _handler()(
         1, existing_username, username, "person@example.com",
-        "technician", "active", session,
+        role, "active", None,
     )
 
 
 # --------------------------------------------------------------------------
-# The two defects
+# The two original defects — as an Administrator, the only role that could
+# ever legitimately reach a successful save
 # --------------------------------------------------------------------------
 
 
-def test_add_user_persists_with_the_actor_from_the_session(store):
+def test_add_user_persists_with_the_actor_from_the_session(store, monkeypatch):
     """Defect 2: this raised NameError on every save."""
     _existing, spy = store
 
-    username_error, _result, drawer_style, hidden = _save(
-        None, "newbie", ADMINISTRATOR_SESSION
-    )
+    with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+        username_error, _result, drawer_style, hidden = _save(None, "newbie")
 
     assert len(spy.calls) == 1, "the new user must reach persistence"
     _args, kwargs = spy.calls[0]
-    assert kwargs["actor_user_id"] == ADMINISTRATOR_SESSION["user_id"], (
-        "the write must be attributed to the acting session's identity, "
-        "not to an unbound name"
+    assert kwargs["actor_user_id"] == ADMIN_USER_ID, (
+        "the write must be attributed to the CURRENT trusted identity, not to "
+        "an unbound name and not to anything the browser supplied"
     )
     assert username_error == ""
     assert drawer_style == {"display": "none"}, "a successful save closes the drawer"
     assert hidden == "newbie"
 
 
-def test_editing_a_user_under_their_own_unchanged_username_is_allowed(store):
+def test_editing_a_user_under_their_own_unchanged_username_is_allowed(store, monkeypatch):
     """Defect 3: the record being edited was counted as a rival."""
     existing, spy = store
     existing["tech1"] = {"username": "tech1", "role": "technician"}
 
-    username_error, _result, drawer_style, _hidden = _save(
-        "tech1", "tech1", ADMINISTRATOR_SESSION
-    )
+    with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+        username_error, _result, drawer_style, _hidden = _save("tech1", "tech1")
 
     assert username_error == "", (
         "an unchanged username belongs to the user being edited and is not a "
@@ -135,34 +140,73 @@ def test_editing_a_user_under_their_own_unchanged_username_is_allowed(store):
 # --------------------------------------------------------------------------
 
 
-def test_taking_another_users_username_is_still_refused(store):
+def test_taking_another_users_username_is_still_refused(store, monkeypatch):
     """The fix must not turn every duplicate check off."""
     existing, spy = store
     existing["tech1"] = {"username": "tech1", "role": "technician"}
     existing["tech2"] = {"username": "tech2", "role": "technician"}
 
-    username_error, _result, _style, _hidden = _save(
-        "tech1", "tech2", ADMINISTRATOR_SESSION
-    )
+    with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
+        username_error, _result, _style, _hidden = _save("tech1", "tech2")
 
     assert username_error, "renaming onto an existing username must be refused"
     assert spy.calls == [], "a refused save must not reach persistence"
 
 
-def test_a_session_without_identity_fails_closed(store):
-    """AUD-1: no actor, no write."""
+def test_no_session_at_all_fails_closed(store):
+    """AUD-1: no actor, no write. A real Flask request context with nobody
+    signed in — `current_identity()` returns None, exactly as it would for an
+    unauthenticated direct callback invocation (AUTH-HARDEN-14)."""
     _existing, spy = store
 
-    _error, result, _style, _hidden = _save(None, "newbie", STALE_SESSION)
+    with no_trusted_session():
+        _error, result, _style, _hidden = _save(None, "newbie")
 
     assert getattr(result, "className", "") == ACTION_REFUSED_CLASS
-    assert spy.calls == [], "an unattributable write must not happen"
+    assert spy.calls == []
 
 
-def test_no_session_at_all_fails_closed(store):
+# --------------------------------------------------------------------------
+# P0-2 — the defect AUTH-HARDEN-1 exists to close
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("role", ["technician", "general"])
+def test_a_non_administrator_cannot_save_a_user(store, monkeypatch, role):
+    """AUTH-HARDEN-04 / AUTH-HARDEN-05, against the real callback.
+
+    Before this gate, `confirm_user_form` checked only `user is not None` —
+    ANY signed-in identity, not specifically an Administrator. A Technician or
+    General User invoking this callback directly, supplying
+    role="administrator" as one of the form fields, could grant themselves
+    (or anyone) the administrator role. This is that exact attack: a REAL
+    trusted non-admin session, attempting to write role="administrator".
+    """
     _existing, spy = store
 
-    _error, result, _style, _hidden = _save(None, "newbie", None)
+    with trusted_session(monkeypatch, user_id=TECHNICIAN_USER_ID, role=role):
+        _error, result, _style, _hidden = _save(
+            None, "self-promoted", role="administrator"
+        )
+
+    assert getattr(result, "className", "") == ACTION_REFUSED_CLASS
+    assert spy.calls == [], (
+        f"a {role} must not be able to create/edit a user, least of all one "
+        f"granting the administrator role"
+    )
+
+
+def test_a_forged_administrator_role_in_the_form_does_not_help(store, monkeypatch):
+    """The role field being saved is irrelevant to whether the SAVE is
+    allowed — only the trusted CALLER's role decides that. A technician
+    proposing role="technician" for someone else is refused exactly the same
+    as one proposing role="administrator"."""
+    _existing, spy = store
+
+    with trusted_session(monkeypatch, user_id=TECHNICIAN_USER_ID, role="technician"):
+        _error, result, _style, _hidden = _save(
+            None, "someone-else", role="technician"
+        )
 
     assert getattr(result, "className", "") == ACTION_REFUSED_CLASS
     assert spy.calls == []

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 from dataclasses import dataclass
 from urllib.parse import quote_plus
 
@@ -235,6 +236,30 @@ class DemoAuthSettings:
 
 
 @dataclass(frozen=True)
+class FlaskSessionSettings:
+    """Signs the trusted server-side session cookie (AUTH-HARDEN-1).
+
+    This is NOT the `auth-store` `dcc.Store` — that is plain JSON the browser
+    can edit freely and is never trusted for authorization after this gate.
+    This is Flask's own signed session, which `services.auth_service` uses to
+    remember which database user is logged in; the browser can see the cookie
+    but cannot alter it without invalidating its signature.
+
+    `FLASK_SECRET_KEY` is optional for local/demo use: unset falls back to a
+    fresh random key generated once per process start (evaluated exactly once,
+    same as every other default in this file, so every request within one
+    running process shares it). That is not a weaker default, it is a
+    stronger one — no fixed value ships in `.env.example` for an attacker to
+    read — the tradeoff is that a server restart invalidates every open
+    session, which for local/demo Dash is the same "log in again" experience
+    a browser tab close already produces (`auth-store` is session storage).
+    A real deployment must set `FLASK_SECRET_KEY` explicitly so a restart
+    does not sign every operator out.
+    """
+    secret_key: str = os.getenv("FLASK_SECRET_KEY", "") or secrets.token_hex(32)
+
+
+@dataclass(frozen=True)
 class DashSettings:
     debug: bool = _get_bool("DASH_DEBUG", DEFAULT_DASH_DEBUG)
     host: str = os.getenv("DASH_HOST", DEFAULT_DASH_HOST)
@@ -285,5 +310,6 @@ class LiveSimSettings:
 database = DatabaseSettings()
 monitoring = MonitoringSettings()
 demo_auth = DemoAuthSettings()
+flask_session = FlaskSessionSettings()
 dash_settings = DashSettings()
 live_sim = LiveSimSettings()

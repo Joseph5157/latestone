@@ -16,6 +16,7 @@ from components.readings_table import build_table_rows
 from components.status_panels import error_panel
 from routes import device_href
 from services import monitoring_service as svc
+from services.device_scope import current_device_scope
 from services.monitoring_service import Freshness, Period
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,20 @@ def register(app) -> None:
         device_id = context.get("device_id")
         if not device_id:
             return [no_update] * 7
+
+        # P0-3 (AUTH-HARDEN-1). `page-context` is Input, not State: this
+        # callback is independently invokable with a forged device_id, and
+        # the router's own scope check (callbacks/routing.py) only ever ran
+        # for the render that BUILT page-context, not for this one. Without
+        # this line a Technician who fabricates {"route": "device",
+        # "device_id": "<not theirs>"} gets full telemetry for it.
+        if not current_device_scope().allows(device_id):
+            logger.warning(
+                "Device dashboard refresh refused: device %r outside the "
+                "session's device scope",
+                device_id,
+            )
+            return error_outputs()
 
         try:
             # 1. Resolve period

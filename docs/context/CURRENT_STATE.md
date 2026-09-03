@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-03T10:32:58Z
+Date: 2026-09-03T14:49:09Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `ca01576` "docs(context): close ROLE-4C general persona audit"
-- Working tree: 2 entries — see below
+- `main` = `0c40478` "docs(context): close ROLE-4 browser acceptance"
+- Working tree: 39 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2601 passed, 496 deselected in 19.67s
+- `python -m pytest -m "not db"` → 2651 passed, 510 deselected in 20.72s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 240 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 90 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 240 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 241 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 91 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 241 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -73,12 +73,49 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-ROLE-4D — three-persona browser acceptance — full detail in `docs/context/ACTIVE_GATE.md`.
+AUTH-HARDEN-1 (+ AUTH-HARDEN-1R, AUTH-HARDEN-1R2) — server-trusted authorization — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M .env.example
+ M app.py
+ M callbacks/auth.py
+ M callbacks/command_center.py
+ M callbacks/device.py
+ M callbacks/device_admin.py
+ M callbacks/device_assign.py
+ M callbacks/device_manage.py
+ M callbacks/device_register.py
+ M callbacks/equipment_selector.py
+ M callbacks/listings.py
+ M callbacks/notifications.py
+ M callbacks/report_center.py
+ M callbacks/routing.py
+ M callbacks/user_admin.py
+ M config/settings.py
+ M docs/context/ACTIVE_GATE.md
+ M services/auth_service.py
+ M services/authorization.py
+ M services/device_scope.py
+ M services/hierarchy_service.py
+ M tests/test_action_guard_callbacks.py
+ M tests/test_admin_summary_wiring.py
+ M tests/test_command_center_refresh.py
+ M tests/test_device_admin_action_routing.py
+ M tests/test_device_admin_inactive_filter.py
+ M tests/test_equipment_selector.py
+ M tests/test_fleet_condition.py
+ M tests/test_report_center.py
+ M tests/test_report_export_authorization.py
+ M tests/test_route_enforcement.py
+ M tests/test_route_scope.py
+ M tests/test_route_scope_db.py
+ M tests/test_technician_operations.py
+ M tests/test_user_admin_callbacks.py
 ?? debug.log
+?? tests/auth_test_support.py
+?? tests/test_auth_harden.py
+?? tests/test_auth_harden_repair.py
 ```
 

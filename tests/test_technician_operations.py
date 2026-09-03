@@ -40,6 +40,7 @@ from services.authorization import (
     AuthorizationError,
 )
 from services.auth_service import AuthenticatedUser
+from tests.auth_test_support import no_trusted_session, trusted_session
 from tests.dash_tree import find_by_id, text_of, walk
 
 ASSIGNED = "plant-01-t1-d1"
@@ -281,30 +282,40 @@ def _session(who):
 
 
 class TestTheDevicePageCallbacks:
-    def test_the_section_renders_for_a_technician_on_an_assigned_rtl(self, scoped):
-        render = _handlers()["render_device_operations"]
-        assert render(DEVICE_CONTEXT, _session(TECH)) is not None
+    """AUTH-HARDEN-1: `render_device_operations` now calls `current_identity()`
+    directly and ignores its `auth_data` argument entirely, so each test below
+    establishes a REAL (fake-backed) trusted session for the role under test
+    via `trusted_session`, rather than handing the callback a session dict."""
 
-    def test_the_section_is_empty_for_general(self, scoped):
+    def test_the_section_renders_for_a_technician_on_an_assigned_rtl(self, scoped, monkeypatch):
         render = _handlers()["render_device_operations"]
-        assert render(DEVICE_CONTEXT, _session(GENERAL)) is None
+        with trusted_session(monkeypatch, user_id=TECH.user_id, role=TECH.role):
+            assert render(DEVICE_CONTEXT, None) is not None
+
+    def test_the_section_is_empty_for_general(self, scoped, monkeypatch):
+        render = _handlers()["render_device_operations"]
+        with trusted_session(monkeypatch, user_id=GENERAL.user_id, role=GENERAL.role):
+            assert render(DEVICE_CONTEXT, None) is None
 
     def test_the_section_is_empty_when_signed_out(self, scoped):
         render = _handlers()["render_device_operations"]
-        assert render(DEVICE_CONTEXT, {"authenticated": False}) is None
+        with no_trusted_session():
+            assert render(DEVICE_CONTEXT, None) is None
 
-    def test_the_section_is_empty_off_a_device_route(self, scoped):
+    def test_the_section_is_empty_off_a_device_route(self, scoped, monkeypatch):
         """`/admin/devices` keeps its own entry point; this one must not also
         fire there and give the drawer two openers on one page."""
         render = _handlers()["render_device_operations"]
-        assert render({"route": "admin_devices"}, _session(ADMIN)) is None
-        assert render({}, _session(ADMIN)) is None
-        assert render(None, _session(ADMIN)) is None
+        with trusted_session(monkeypatch, user_id=ADMIN.user_id, role=ADMIN.role):
+            assert render({"route": "admin_devices"}, None) is None
+            assert render({}, None) is None
+            assert render(None, None) is None
 
-    def test_the_section_is_empty_for_a_technician_off_scope(self, scoped):
+    def test_the_section_is_empty_for_a_technician_off_scope(self, scoped, monkeypatch):
         render = _handlers()["render_device_operations"]
         context = dict(DEVICE_CONTEXT, device_id=OUT_OF_SCOPE)
-        assert render(context, _session(TECH)) is None
+        with trusted_session(monkeypatch, user_id=TECH.user_id, role=TECH.role):
+            assert render(context, None) is None
 
 
 class TestTheDevicePageOpener:
