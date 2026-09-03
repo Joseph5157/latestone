@@ -1,159 +1,151 @@
 # Active Gate
 
-Status: Complete — committed, pushed and remote-verified
+Status: Complete — reviewed, accepted, committed and pushed
 Date: 2026-09-03
-Gate: CLIENT-SYNC-1 — carry the accepted CC-2 presentation repair to the
-client Command Center progress branch
-Branches: `main` records the gate; `cc-1-command-center-progress` is the
-curated client delivery branch and matches
-`client/cc-1-command-center-progress` at `3d4897c`.
-Commit/push permission: GRANTED by the operator on 2026-09-03 and exercised
-only for the two explicitly authorized branch targets.
+Gate: DB-ORDER-1 — diagnose and remove the DB test-order sensitivity
+Branch: `main`, baseline `c4896e9`
+Commit/push permission: GRANTED by the operator at DB-ORDER-1-CLOSE, after
+review, for exactly the six reviewed files onto `main`. The gate was
+implemented under an explicit "do not commit, do not push" and held for that
+review; the push is the final action of this closure.
 
 ## Purpose
 
-The client progress branch contains the accepted Command Center feature but
-still carries the rank-bar CSS from before CC-2. Three read-only collaborators
-can see that branch. Carry the two presentation-only repairs implemented by
-ADR-012 into that branch without merging either repository history or exposing
-internal engineering material.
+`test_batched_latest_returns_all_eight_metrics` had been intermittently red
+across three separate gates, each time passing in isolation and failing only
+after some other work had run. It was recorded as order sensitivity and
+queued rather than repaired opportunistically inside FIX-1.
 
-This gate follows the completed INT-1/CTX-PACK-1 gate. The operator requested
-continuation from the `PCB-8-CLOSE` handoff on 2026-09-03; no repository file
-uses that label, so this gate is grounded in the first queued successor named
-by the prior gate and in a fresh remote/branch audit.
+Find what actually varies, fix it at the layer that owns it, and make the
+result independent of execution order.
 
 ## Evidence at gate open
 
-- `git fetch client` completed with the remote branch still at `34d5d73`.
-- `main` and the client repository have intentionally separate histories; they
-  have no merge base. The client branch must be curated, not merged.
-- The client branch's relevant CSS is the exact pre-CC-2 form: the rank row is
-  `minmax(0, 10rem) 1fr auto`, the fill uses the light-only freshness token,
-  the full locations page restores a `1fr` bar, and the generic scrolling card
-  body has no overlay-scrollbar clearance.
-- `main` carries the accepted repair in `e33d0e1` and `59f92a9`, recorded by
-  ADR-012.
-- `python scripts/check_client_release.py
-  client/cc-1-command-center-progress` reports 263 files and no internal
-  material.
+- `python scripts/build_context_pack.py --check` — CLEAN, wrote nothing.
+- `main` at `c4896e9`, tracked tree clean, untracked `debug.log` present.
+- DB suite in isolation: **487 passed** — the same count CC-1 recorded
+  (`CC1_ACCEPTANCE.md:17`), so no DB test had been added since.
+- Three prior records of the same failure, none of which agreed on a cause:
+  `docs/CODE_AUDIT.md:349-355` (cold connection), FIX-1's close record in
+  `5901945` (order-dependent after a targeted subset), and CLIENT-SYNC-1's
+  in `c4896e9` (warm vs cold database).
+
+## What it turned out to be
+
+Not leaked test state. Nothing survives between tests; what varies is the
+**database's buffer cache**, and test order only correlates with it.
+
+`readings` is 1,682 MB against 128 MB of `shared_buffers`. The query behind
+that test read **11,528 index rows and 463 buffers to return 8 values**, so
+whether those pages were resident decided its cost:
+
+| cache state | buffers | execution |
+|---|---|---|
+| resident | `hit=463 read=0` | 2.6 ms |
+| evicted | `hit=3 read=460` | 31.9 ms |
+
+Same code, same plan, same process — a 12× swing from cache residency alone.
+
+The shape is also the one the repository's own contract rules out
+(`plant_monitoring_repository.py:559-568`), and the budget it kept crossing
+exists specifically to catch it (`test_plant_monitoring_repository.py:28-34`:
+"a query whose cost grows with history rather than device count must fail
+here rather than in production"). So the test was right and the production
+query was wrong — ownership category G, a genuine defect that ordering
+merely exposed.
+
+Recorded as **ADR-014**.
 
 ## In scope
 
-Apply only the `assets/app.css` hunks from `e33d0e1` and `59f92a9` to the
-client progress branch, preserving their final combined behaviour:
+- `repositories/plant_monitoring_repository.py` —
+  `get_latest_readings_for_device` resolves each metric by bounded index
+  seeks (recursive loose index scan for the metric domain, then one
+  `CROSS JOIN LATERAL (... ORDER BY reading_ts DESC LIMIT 1)` per metric).
+  17 rows and 86 buffers where it previously read 11,528 and 463.
+- `tests/test_plant_monitoring_repository.py` — `TestBatchedLatestQueryShape`,
+  which asserts rows examined from the plan of the statement the repository
+  actually issued, instead of a wall clock that measures the machine's cache.
 
-- cap the rank-bar track while allowing it to shrink in narrow panels;
-- keep name, bar and count adjacent instead of letting a track absorb surplus;
-- use the route-scoped Command Center colour token with the established
-  fallback;
-- remove the full-page override that puts the bar back on `1fr`;
-- reserve padding for an overlay scrollbar in the generic Command Center card
-  body.
+## Explicitly out of scope — and not touched
 
-The final relevant CSS must be byte-for-byte equivalent to `main` for the
-selectors changed by the two implementation commits. No Python, schema, seed,
-test or dependency change is needed.
-
-## Explicitly out of scope
-
-- Merging or rebasing the unrelated `main` and client-repository histories.
-- Copying all of `assets/app.css`; the client branch has intentionally curated
-  baseline differences outside the Command Center repair.
-- Updating `client/main`, `client-release`, or any other client-visible branch.
-- Copying `docs/context/`, `docs/decisions/`, `command center/`, or any other
-  internal planning/engineering material into the client repository.
-- Pulling FIX-1 callback changes or any other queued follow-up into this gate.
+- ROLE-4A..4D and any credential, role-policy or authorization change.
+- Technician action UI, General/Viewer seeding, browser verification.
+- Route policy, Command Center design, reporting, notifications.
+- Schema redesign — the fix needed none; the existing
+  `ix_readings_device_metric_ts` already supports the bounded shape.
+- The wall-clock tests in `TestLatestReadings`, deliberately left as they
+  are (see ADR-014, "The guard changes instrument").
+- The untracked `debug.log`.
 
 ## Relevant files
 
-- `docs/context/ACTIVE_GATE.md`
+- `repositories/plant_monitoring_repository.py`
+- `tests/test_plant_monitoring_repository.py`
+- `docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md`
+- `docs/context/DECISION_INDEX.md`
 - `docs/context/CURRENT_STATE.md` (generated only)
-- `docs/decisions/ADR-012-rank-bars-are-capped-and-route-themed.md`
-- `docs/CLIENT_DELIVERY.md`
-- `scripts/check_client_release.py`
-- `assets/app.css` in the curated client progress worktree
 
-## Required verification
+## Verification
 
-Before this gate can close:
+- Regression seen failing first: **11,528 rows** to return 8, and **2,882**
+  to return 2. After the fix: 17 and 11.
+- Equivalence: all **120 devices** compared against the previous query —
+  **0 mismatches** — plus the metric-filtered path and the unknown-device,
+  unknown-metric and empty-list cases.
+- Focused: repository module **56 passed**; service/analytics/period/route/
+  register consumers **142 passed**.
+- Order independence: the affected module before and after the heavy
+  reading-sweep DB modules, on a cold cache — **121 passed** both directions.
+- DB suite in isolation, cold cache: **489 passed** (487 + the 2 new).
+- Full project suite: **2,993 passed** (2,991 + 2).
+- The wall-clock test's margin moved from 5.27 ms to **2.65 ms** against its
+  80 ms budget; the historical failures were 84.5 ms and 91 ms.
+- `git diff --check` — clean.
 
-1. Run the client branch's non-DB suite:
-   `python -m pytest -m "not db" -v`.
-2. Run `git diff --check` in the client progress worktree.
-3. Prove that the final CSS declarations affected by `e33d0e1` and `59f92a9`
-   match `main`, without asserting equivalence for unrelated CSS.
-4. Re-run the client-release guard against the prepared client commit/tree.
-5. Run `python scripts/build_context_pack.py` on `main` after the gate record
-   is written and again before closure.
+## Known limitation, stated plainly
 
-`docs/CLIENT_DELIVERY.md` requires the full suite before a push to the client
-remote. A push therefore also requires `python -m pytest -v` to pass in the
-client worktree, including its DB-marked tests.
+The **wall-clock symptom** could not be reproduced on this machine: it has
+enough RAM to hold all 1,682 MB in the host page cache, so even a restarted
+container and a full eviction sweep left the test at 5.37 ms. The *cause*
+was proven directly instead, by plan and buffer inspection, which is
+independent of any machine's cache — and the regression is written on that
+same basis so it cannot go quiet on a fast machine.
 
 ## Outcome
 
-CLIENT-SYNC-1 is complete. The existing client worktree at
-`../powerplant-dashboard-client-progress` committed the one approved
-modification, `assets/app.css` (71 insertions, 18 deletions), as:
+DB-ORDER-1 is **CLOSED**. The reviewed change was committed as a single
+commit on `main` covering the two implementation files and the four context
+records, and pushed to `origin/main` with local and remote SHAs verified to
+match. The untracked `debug.log` was neither staged nor committed.
 
-```text
-3d4897cdd903d6012fca94620caedc73e081f517
-fix(client): synchronize accepted Command Center progress
-```
+Verified at closure: `git diff --check` clean, `git diff --cached --check`
+clean, staged set exactly the six reviewed files, and the context pack CLEAN
+both before staging and after the commit.
 
-The push used the explicit refspec
-`cc-1-command-center-progress:cc-1-command-center-progress`. A subsequent
-`git ls-remote client refs/heads/cc-1-command-center-progress` returned the
-same full SHA, so local and remote are a verified match.
+### One bookkeeping item, deliberately left open
 
-Verification on 2026-09-03:
-
-- `python -m pytest -m "not db" -v` — **2,015 passed, 389 deselected**.
-- The first configured full-suite run — **2,403 passed, 1 failed** — reproduced
-  the already-recorded order-sensitive DB timing check:
-  `test_batched_latest_returns_all_eight_metrics` took 91 ms against its 80 ms
-  budget. It passed alone immediately afterwards.
-- A second full-suite run against the warm database — **2,404 passed** in
-  63.56 seconds.
-- Canonicalized patch-body comparison against the combined
-  `23d3743..59f92a9` `assets/app.css` diff — **exact match**, 140/140 lines.
-- `git diff --check` — clean.
-- `python scripts/check_client_release.py cc-1-command-center-progress` —
-  **clean after commit**, 263 tracked files and no internal material.
-- Client worktree after commit — clean.
-- Local client progress SHA —
-  `3d4897cdd903d6012fca94620caedc73e081f517`.
-- Remote client progress SHA —
-  `3d4897cdd903d6012fca94620caedc73e081f517` (**MATCH**).
-- `python scripts/build_context_pack.py` at gate close — **CLEAN**; the
-  immediate `--check` validation was also **CLEAN** and wrote nothing.
-
-No visual re-acceptance was repeated here. The patch is byte-equivalent to the
-two presentation changes already measured and accepted under CC-2/ADR-012;
-this gate curates that result without altering it.
-
-## Boundaries observed
-
-- Client `main` was not pushed or modified.
-- No merge, rebase, force push, branch deletion or tag creation occurred.
-- No internal engineering material or unrelated file entered the client
-  commit.
-- The authoritative repository's untracked `debug.log` was not staged,
-  edited, committed or pushed.
-
-## Commit/push permission
-
-GRANTED by the operator on 2026-09-03 for the client progress commit/push and
-the separate authoritative `main` context-close commit/push. The client
-authorization was exercised at `3d4897c`; the authoritative push is the final
-action of this close gate and must be remote-verified after the close commit.
+`ADR-014`'s `Implemented-by` reads `not yet recorded as a sha`, because the
+closure was specified as a single commit and an ADR cannot cite the commit
+that carries it. `scripts/build_context_pack.py:208` requires that field to
+either begin "not yet" or name a reachable commit, so a forward reference
+would have failed the pack. Backfill the sha in a follow-up context commit,
+the way FIX-1 did in `5901945` — the same two-step this repository already
+uses to record provenance.
 
 ## Next queued gate — do not start
 
-**DB-ORDER-1 — DB test-order/timing sensitivity.** The full-suite first pass
-again reproduced the already-recorded `test_batched_latest_returns_all_eight_metrics`
-timing failure, while the test passed alone and the immediate full-suite rerun
-passed all 2,404 tests. This is the next queued Power application concern from
-the prior authoritative gate. It is outside CLIENT-SYNC-1 and remains unstarted
-pending a separate gate and operator instruction.
+**ROLE-4 — credentialed personas and their surfaces.** Sub-gates, in order:
+
+- **ROLE-4A** — credentialed personas. This is the next gate.
+- **ROLE-4B** — Technician operational surface.
+- **ROLE-4C** — General/Viewer persona.
+- **ROLE-4D** — browser acceptance for all three roles.
+
+ROLE-4A carries a debt CC-1 acceptance recorded and never cleared: EVT-D5 was
+verified by substituting the authorization identity in the session store, not
+by a credentialed sign-in, and "a credentialed technician login has no demo
+credential" (`CC1_ACCEPTANCE.md`, "Deferred, explicitly", item 1).
+
+None of ROLE-4 was started during DB-ORDER-1. PCB remains paused at
+`PCB-9-CLOSE`.

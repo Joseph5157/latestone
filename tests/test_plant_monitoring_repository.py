@@ -195,6 +195,114 @@ class TestLatestReadings:
         assert_timing(t, BUDGET_BATCHED_LATEST)
 
 
+class TestBatchedLatestQueryShape:
+    """DB-ORDER-1: the batched latest read must not scale with history.
+
+    `TestLatestReadings` guards this query with a wall-clock budget, and that
+    budget is why it was intermittently red: `BUDGET_BATCHED_LATEST` is only
+    crossed when the pages this query needs are not resident, so the *same*
+    code passed or failed depending on what had run before it. Wall-clock is
+    the wrong instrument for a shape guarantee — it measures the machine's
+    cache, not the query.
+
+    Rows examined is the right instrument. It is a property of the plan, so it
+    is identical on a cold and a warm cache, and it is what actually grows as
+    the client's history grows. `latest_reading_times` states the contract
+    these budgets exist to enforce (repository module, "Query shape is a
+    contract, not an implementation detail"): a shape whose cost tracks
+    history rather than device count is the wrong shape regardless of how it
+    benchmarks today.
+    """
+
+    # Eight metrics, each resolved by bounded index seeks. The measured figure
+    # is 17 rows; 100 leaves room for a plan change that is still bounded and
+    # is two orders of magnitude below the 11,528 rows a range scan reads.
+    MAX_ROWS_EXAMINED = 100
+
+    @staticmethod
+    def _rows_examined(call) -> int:
+        """Rows `readings` yields while `call()` runs, from the real plan.
+
+        The statement is captured as the repository actually issues it rather
+        than restated here, so this cannot pass against a query shape the
+        repository no longer uses.
+        """
+        from sqlalchemy import event, text as sa_text
+        from sqlalchemy.engine import Engine
+
+        from db.engine import session_scope
+
+        captured: list[tuple[str, object]] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            if "readings" in statement.lower():
+                captured.append((statement, parameters))
+
+        event.listen(Engine, "before_cursor_execute", _capture)
+        try:
+            call()
+        finally:
+            event.remove(Engine, "before_cursor_execute", _capture)
+
+        assert len(captured) == 1, (
+            f"expected exactly one readings query, saw {len(captured)}"
+        )
+        statement, parameters = captured[0]
+
+        with session_scope() as session:
+            plan = session.connection().exec_driver_sql(
+                "EXPLAIN (ANALYZE, FORMAT JSON) " + statement, parameters
+            ).scalar()
+        if isinstance(plan, str):
+            import json as _json
+
+            plan = _json.loads(plan)
+
+        total = 0
+
+        def _walk(node) -> None:
+            nonlocal total
+            if node.get("Relation Name") == "readings":
+                total += int(node.get("Actual Rows", 0)) * int(
+                    node.get("Actual Loops", 1)
+                )
+            for key in ("Plans", "Plan"):
+                child = node.get(key)
+                if isinstance(child, dict):
+                    _walk(child)
+                elif isinstance(child, list):
+                    for c in child:
+                        _walk(c)
+
+        _walk(plan[0]["Plan"])
+        return total
+
+    def test_all_metrics_read_is_bounded_not_a_history_scan(self):
+        """The defect DB-ORDER-1 diagnosed: `DISTINCT ON (metric)` walks the
+        device's whole index range — 11,528 rows to return 8 — so its cost
+        grows with every reading the client ever logs."""
+        examined = self._rows_examined(
+            lambda: repo.get_latest_readings_for_device(RESERVED_DEVICE_ID)
+        )
+        assert examined <= self.MAX_ROWS_EXAMINED, (
+            f"batched latest read examined {examined} rows of `readings` to "
+            f"return 8; a bounded shape examines ~17. This query scales with "
+            f"history, which is the shape the repository contract rules out."
+        )
+
+    def test_metric_filtered_read_is_bounded_too(self):
+        """The filtered path must be bounded for the same reason; restricting
+        the metric list must not be what makes the query affordable."""
+        examined = self._rows_examined(
+            lambda: repo.get_latest_readings_for_device(
+                RESERVED_DEVICE_ID, ["voltage", "energy"]
+            )
+        )
+        assert examined <= self.MAX_ROWS_EXAMINED, (
+            f"metric-filtered latest read examined {examined} rows to return 2"
+        )
+
+
 class TestRangeQueries:
     def test_returns_only_readings_inside_range(self):
         latest = repo.get_latest_reading(RESERVED_DEVICE_ID, "temperature")
