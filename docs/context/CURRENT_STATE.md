@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-08-31T13:06:08Z
+Date: 2026-09-03T03:15:59Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `bc711e9` "fix(ctx): store the frozen Command Center pack byte-exact"
-- Working tree: 1 entries — see below
+- `main` = `ed1dc3a` "docs(context): close CTX-PACK-1 and record provenance"
+- Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2504 passed, 487 deselected in 20.62s
+- `python -m pytest -m "not db"` → 2504 passed, 487 deselected, 1 warning in 21.38s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 10 | 231 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 81 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 231 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 232 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 82 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 232 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -70,11 +70,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-INT-1 Command Center integration, with CTX-PACK-1 folded in — full detail in `docs/context/ACTIVE_GATE.md`.
+CLIENT-SYNC-1 — carry the accepted CC-2 presentation repair to the client Command Center progress branch — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+?? debug.log
 ```
 

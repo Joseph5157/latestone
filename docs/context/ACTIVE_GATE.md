@@ -1,127 +1,159 @@
 # Active Gate
 
-Status: Complete — INT-1 integrated, CTX-PACK-1 closed
-Date: 2026-08-31
-Gate: INT-1 Command Center integration, with CTX-PACK-1 folded in
-Branch: `main`, fast-forwarded to `5901945` and carrying `bc711e9` on top.
+Status: Complete — committed, pushed and remote-verified
+Date: 2026-09-03
+Gate: CLIENT-SYNC-1 — carry the accepted CC-2 presentation repair to the
+client Command Center progress branch
+Branches: `main` records the gate; `cc-1-command-center-progress` is the
+curated client delivery branch and matches
+`client/cc-1-command-center-progress` at `3d4897c`.
+Commit/push permission: GRANTED by the operator on 2026-09-03 and exercised
+only for the two explicitly authorized branch targets.
 
-Two gates are recorded together because the second existed only to unblock
-the first. FIX-1's record, which this replaces, is
-`docs/decisions/ADR-013-export-data-is-a-capability.md` plus the commits
-`723dd0b` and `5901945`.
+## Purpose
 
-## INT-1 — integrate the accepted Command Center history into `main`
+The client progress branch contains the accepted Command Center feature but
+still carries the rank-bar CSS from before CC-2. Three read-only collaborators
+can see that branch. Carry the two presentation-only repairs implemented by
+ADR-012 into that branch without merging either repository history or exposing
+internal engineering material.
 
-**Done, by fast-forward. No history rewritten, nothing squashed.**
+This gate follows the completed INT-1/CTX-PACK-1 gate. The operator requested
+continuation from the `PCB-8-CLOSE` handoff on 2026-09-03; no repository file
+uses that label, so this gate is grounded in the first queued successor named
+by the prior gate and in a fresh remote/branch audit.
 
-The premise needed correcting first. The seven commits described as
-"local-only on `main`" were local-only relative to **`origin/main`**, not
-relative to the feature branch — all seven were already ancestors of
-`cc-1-command-center-foundation`, which had been cut from `d34090f`:
+## Evidence at gate open
 
+- `git fetch client` completed with the remote branch still at `34d5d73`.
+- `main` and the client repository have intentionally separate histories; they
+  have no merge base. The client branch must be curated, not merged.
+- The client branch's relevant CSS is the exact pre-CC-2 form: the rank row is
+  `minmax(0, 10rem) 1fr auto`, the fill uses the light-only freshness token,
+  the full locations page restores a `1fr` bar, and the generic scrolling card
+  body has no overlay-scrollbar clearance.
+- `main` carries the accepted repair in `e33d0e1` and `59f92a9`, recorded by
+  ADR-012.
+- `python scripts/check_client_release.py
+  client/cc-1-command-center-progress` reports 263 files and no internal
+  material.
+
+## In scope
+
+Apply only the `assets/app.css` hunks from `e33d0e1` and `59f92a9` to the
+client progress branch, preserving their final combined behaviour:
+
+- cap the rank-bar track while allowing it to shrink in narrow panels;
+- keep name, bar and count adjacent instead of letting a track absorb surplus;
+- use the route-scoped Command Center colour token with the established
+  fallback;
+- remove the full-page override that puts the bar back on `1fr`;
+- reserve padding for an overlay scrollbar in the generic Command Center card
+  body.
+
+The final relevant CSS must be byte-for-byte equivalent to `main` for the
+selectors changed by the two implementation commits. No Python, schema, seed,
+test or dependency change is needed.
+
+## Explicitly out of scope
+
+- Merging or rebasing the unrelated `main` and client-repository histories.
+- Copying all of `assets/app.css`; the client branch has intentionally curated
+  baseline differences outside the Command Center repair.
+- Updating `client/main`, `client-release`, or any other client-visible branch.
+- Copying `docs/context/`, `docs/decisions/`, `command center/`, or any other
+  internal planning/engineering material into the client repository.
+- Pulling FIX-1 callback changes or any other queued follow-up into this gate.
+
+## Relevant files
+
+- `docs/context/ACTIVE_GATE.md`
+- `docs/context/CURRENT_STATE.md` (generated only)
+- `docs/decisions/ADR-012-rank-bars-are-capped-and-route-themed.md`
+- `docs/CLIENT_DELIVERY.md`
+- `scripts/check_client_release.py`
+- `assets/app.css` in the curated client progress worktree
+
+## Required verification
+
+Before this gate can close:
+
+1. Run the client branch's non-DB suite:
+   `python -m pytest -m "not db" -v`.
+2. Run `git diff --check` in the client progress worktree.
+3. Prove that the final CSS declarations affected by `e33d0e1` and `59f92a9`
+   match `main`, without asserting equivalence for unrelated CSS.
+4. Re-run the client-release guard against the prepared client commit/tree.
+5. Run `python scripts/build_context_pack.py` on `main` after the gate record
+   is written and again before closure.
+
+`docs/CLIENT_DELIVERY.md` requires the full suite before a push to the client
+remote. A push therefore also requires `python -m pytest -v` to pass in the
+client worktree, including its DB-marked tests.
+
+## Outcome
+
+CLIENT-SYNC-1 is complete. The existing client worktree at
+`../powerplant-dashboard-client-progress` committed the one approved
+modification, `assets/app.css` (71 insertions, 18 deletions), as:
+
+```text
+3d4897cdd903d6012fca94620caedc73e081f517
+fix(client): synchronize accepted Command Center progress
 ```
-git rev-list --left-right --count main...cc-1-command-center-foundation
-0    34
-git merge-base main cc-1-command-center-foundation
-d34090f   (= local main HEAD before integration)
-```
 
-So overlap analysis returned **NONE**, structurally rather than by
-inspection: shell, Fleet Overview, Command Center, CSS, context docs and the
-authorization/callback fixes could not conflict, because the branch already
-contained every one of those commits unmodified. The seven are one coherent
-tranche — the CTX-1 context architecture (`SOURCE_AUTHORITY`, the archived
-planning prompts, the ADR-005..007 backfill, `build_context_pack.py` itself,
-the `project-context` skill) plus the CC-1 execution-plan review that
-recorded ADR-008. Nothing unrelated or unexplained, so the stop condition
-never triggered.
+The push used the explicit refspec
+`cc-1-command-center-progress:cc-1-command-center-progress`. A subsequent
+`git ls-remote client refs/heads/cc-1-command-center-progress` returned the
+same full SHA, so local and remote are a verified match.
 
-| ref | before | after |
-|---|---|---|
-| `main` | `d34090f` | `5901945`, then `bc711e9` |
-| `origin/main` | `1d7c414` | unchanged until pushed |
-| `cc-1-command-center-foundation` | `5901945` | `5901945` (pushed, untouched) |
+Verification on 2026-09-03:
 
-FIX-1 provenance verified reachable from `main`: `723dd0b` and `5901945`.
-The seven retain their original shas.
+- `python -m pytest -m "not db" -v` — **2,015 passed, 389 deselected**.
+- The first configured full-suite run — **2,403 passed, 1 failed** — reproduced
+  the already-recorded order-sensitive DB timing check:
+  `test_batched_latest_returns_all_eight_metrics` took 91 ms against its 80 ms
+  budget. It passed alone immediately afterwards.
+- A second full-suite run against the warm database — **2,404 passed** in
+  63.56 seconds.
+- Canonicalized patch-body comparison against the combined
+  `23d3743..59f92a9` `assets/app.css` diff — **exact match**, 140/140 lines.
+- `git diff --check` — clean.
+- `python scripts/check_client_release.py cc-1-command-center-progress` —
+  **clean after commit**, 263 tracked files and no internal material.
+- Client worktree after commit — clean.
+- Local client progress SHA —
+  `3d4897cdd903d6012fca94620caedc73e081f517`.
+- Remote client progress SHA —
+  `3d4897cdd903d6012fca94620caedc73e081f517` (**MATCH**).
+- `python scripts/build_context_pack.py` at gate close — **CLEAN**; the
+  immediate `--check` validation was also **CLEAN** and wrote nothing.
 
-## CTX-PACK-1 — restore the frozen pack's byte identity
+No visual re-acceptance was repeated here. The patch is byte-equivalent to the
+two presentation changes already measured and accepted under CC-2/ADR-012;
+this gate curates that result without altering it.
 
-Implemented-by: `bc711e9`
+## Boundaries observed
 
-**INT-1 was blocked by this and nothing else.** The integration itself was
-sound and green — 2,504 non-DB and 487 DB-marked passed on the integrated
-`main` — but `build_context_pack.py` reported the frozen Command Center
-manifest failing on eight files, so the "pack green at gate close" rule
-could not be satisfied and `main` was not pushed.
-
-**Root cause: byte normalization, not content drift.** `.gitattributes`'
-`* text=auto eol=lf` normalized eight CRLF-authored files to LF when the
-pack was staged in `23d3743`, while `MANIFEST.txt` hashes the pack as
-delivered. It was invisible until INT-1's `git checkout` materialised those
-files from the index as LF — the working copy had simply never been
-rewritten. Every clone of `origin` already had the fault.
-
-Proved rather than assumed: for the eight mismatching files, reconstructing
-CRLF reproduced the manifest SHA-256 **exactly**; for the other fifteen the
-worktree, the blob and the manifest already agreed. The restore recomputes
-each candidate and refuses to write unless it already equals the frozen
-value, so the manifest was evidence throughout and never output. No hash was
-regenerated. LF-normalised content is identical to `HEAD` for all eight.
-
-Two failures were reproduced while fixing it, both of which would have
-shipped a repair that did nothing:
-
-- `command center/** -text` is **invalid** — the space splits the pattern and
-  git reports `center/** is not a valid attribute name`, leaving the rule
-  inert. The eight files then show as unmodified and a commit stores LF
-  again. The pattern must be quoted.
-- `-text` makes `git diff --check` flag every preserved CR as trailing
-  whitespace — 104KB of false positives on a check this repo runs at every
-  gate. `whitespace=-trailing-space` is scoped to the same paths.
-
-The rule is `"command center/**" -text whitespace=-trailing-space`, scoped to
-exactly the unit the manifest covers. `git check-attr` confirms
-`callbacks/user_admin.py` still resolves `text: auto`.
-
-## Verification
-
-- Context pack **CLEAN**.
-- All 23 manifest entries verify — in the worktree **and** in the staged
-  blobs a fresh clone receives, which is the check that was actually failing.
-- `git diff --check` clean.
-- Application code untouched by CTX-PACK-1: the commit contains
-  `.gitattributes` and eight pack files, nothing else.
-- The full suites were run on the integrated `main` before CTX-PACK-1 —
-  2,504 non-DB, 487 DB-marked — and were not re-run for a line-ending
-  storage change that touches no application code.
-
-## Known consequence, deliberately not chased
-
-`cc-1-command-center-foundation` is pushed and still at `5901945`, so it does
-**not** carry `bc711e9`: a checkout of that branch still reports the broken
-manifest. Left alone rather than force-advancing the feature branch to regain
-equality. If anything continues working from that branch, it should move to
-`main` or take the fix.
-
-## Queued follow-ups — outside both gates
-
-- **CLIENT-SYNC-1** — `client/cc-1-command-center-progress` still carries the
-  pre-CC-2 CSS, and the client repo now has three read-only collaborators.
-- **DB test-order sensitivity** — a green DB suite is currently
-  order-dependent; investigated during FIX-1B and recorded there.
-- **Device Administration duplicated column spec** — the page and the
-  callback each declare the column list.
-- **Discoverability of View** — the explicit link is gone; the device name
-  navigates.
-
-## Required tests
-
-`python -m pytest -m "not db" -v`, plus `-m db` for the authorization and
-report suites.
+- Client `main` was not pushed or modified.
+- No merge, rebase, force push, branch deletion or tag creation occurred.
+- No internal engineering material or unrelated file entered the client
+  commit.
+- The authoritative repository's untracked `debug.log` was not staged,
+  edited, committed or pushed.
 
 ## Commit/push permission
 
-GRANTED by the user on 2026-08-31 for both gates. `main` is pushed to
-`origin/main` as the final action of INT-1, and the remote is verified
-explicitly afterwards rather than inferred from the push succeeding.
+GRANTED by the operator on 2026-09-03 for the client progress commit/push and
+the separate authoritative `main` context-close commit/push. The client
+authorization was exercised at `3d4897c`; the authoritative push is the final
+action of this close gate and must be remote-verified after the close commit.
+
+## Next queued gate — do not start
+
+**DB-ORDER-1 — DB test-order/timing sensitivity.** The full-suite first pass
+again reproduced the already-recorded `test_batched_latest_returns_all_eight_metrics`
+timing failure, while the test passed alone and the immediate full-suite rerun
+passed all 2,404 tests. This is the next queued Power application concern from
+the prior authoritative gate. It is outside CLIENT-SYNC-1 and remains unstarted
+pending a separate gate and operator instruction.
