@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-03T05:32:14Z
+Date: 2026-09-03T06:11:37Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `3b33015` "fix(db): bound latest-reading query cost"
-- Working tree: 4 entries — see below
+- `main` = `524efdf` "docs(context): backfill DB-ORDER-1 provenance"
+- Working tree: 14 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2504 passed, 489 deselected in 19.78s
+- `python -m pytest -m "not db"` → 2563 passed, 496 deselected in 19.47s
 
 ## Branches
 
@@ -44,13 +44,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 234 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 84 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 234 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 235 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 85 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 235 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-14 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+15 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -68,17 +68,28 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-012-rank-bars-are-capped-and-route-themed.md | Approved | `e33d0e1` (bar cap, route-scoped tokens), `59f92a9` (shrink, scrollbar gutter) |
 | ADR-013-export-data-is-a-capability.md | Approved | `723dd0b` |
 | ADR-014-latest-reads-are-bounded-seeks.md | Approved | `3b33015` (`fix(db): bound latest-reading query cost`; full sha 3b330152c176a51af570f148008413c05c435d45 — the commit carries this ADR too, so the sha is recorded here afterwards, as FIX-1 did in `5901945`) |
+| ADR-015-credentials-name-logins-not-roles.md | Approved | not yet — ROLE-4A is held at human review, uncommitted |
 
 ## Active gate
 
-DB-ORDER-1 — diagnose and remove the DB test-order sensitivity — full detail in `docs/context/ACTIVE_GATE.md`.
+ROLE-4A — credentialed personas — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M .env.example
+ M config/settings.py
+ M docs/GETTING_STARTED.md
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
  M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md
+ M services/auth_service.py
+ M tests/test_auth_hardening.py
+ M tests/test_auth_identity.py
+?? db/seed_demo_personas.py
 ?? debug.log
+?? docs/decisions/ADR-015-credentials-name-logins-not-roles.md
+?? tests/test_credentialed_personas.py
+?? tests/test_seed_demo_personas.py
 ```
 

@@ -29,6 +29,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-012](../decisions/ADR-012-rank-bars-are-capped-and-route-themed.md) | The rank bar is a fixed 15rem track on route-scoped tokens; no track absorbs surplus width, and the encoding basis is unchanged | Approved | `e33d0e1`, `59f92a9` |
 | [ADR-013](../decisions/ADR-013-export-data-is-a-capability.md) | EXPORT_DATA is a device-less capability, not a device action; same roles, guard changed to `require_capability`, scope still enforced by the repository's `allowed_device_ids` | Approved | `723dd0b` |
 | [ADR-014](../decisions/ADR-014-latest-reads-are-bounded-seeks.md) | Every latest-reading read is a bounded index seek, at device grain too; `get_latest_readings_for_device` no longer scans the device's history, and the guard measures rows examined rather than wall-clock | Approved | `3b33015` |
+| [ADR-015](../decisions/ADR-015-credentials-name-logins-not-roles.md) | Credential configuration names logins and can never express a role; the `users` row decides user_id, name, role and status. No password column, no migration — the rule survives the eventual swap to the client's mechanism | Approved | not yet |
 
 ## Reading this table
 

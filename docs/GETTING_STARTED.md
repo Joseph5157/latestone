@@ -97,6 +97,35 @@ These are placeholder credentials for local use. To change them, edit
 `DEMO_USERNAME` / `DEMO_PASSWORD` in `.env` — there is no fallback, so if
 they are ever unset, login is refused entirely.
 
+### Signing in as the other roles
+
+`admin` is an Administrator. To sign in as a Technician or a General User, seed
+those identities and give them a password:
+
+```bash
+python -m db.seed_admin_demo       # demo.tech01..05   (technician)
+python -m db.seed_demo_personas    # demo.general01    (general)
+```
+
+then add logins for them in `.env`:
+
+```
+DEMO_CREDENTIALS={"demo.tech01": "tech1234", "demo.general01": "general1234"}
+```
+
+It is a JSON object so a password can contain any character — commas and
+colons included — and still have exactly one reading.
+
+**The password does not decide the role — the user row does.** `DEMO_CREDENTIALS`
+says who may sign in; `plant_monitoring.users` says who they are and what they
+may do. A credential naming a username that has no row is refused, so adding an
+entry can never invent a user or grant a permission.
+
+A malformed, non-string or repeated entry refuses *every* login rather than
+some, which is deliberate — see `.env.example`. If all logins suddenly fail,
+check the application log: it names the offending entry and why, without
+printing any secret or the configuration value itself.
+
 ## Everyday use
 
 Once installed, you don't repeat the full setup — just:

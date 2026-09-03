@@ -41,6 +41,16 @@ class _Creds:
     username: str
     password: str
 
+    #: ROLE-4A widened the real settings object from one pair to a map. This
+    #: double keeps its single-pair constructor — every test here is about the
+    #: one-credential case — and derives the map the service now reads, so the
+    #: assertions below still mean what they meant when they were written.
+    config_error = None
+
+    @property
+    def credentials(self) -> dict:
+        return {self.username: self.password} if self.is_configured else {}
+
     @property
     def is_configured(self) -> bool:
         return bool(self.username) and bool(self.password)

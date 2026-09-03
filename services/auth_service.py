@@ -7,13 +7,20 @@ only ever call `authenticate()` and the session helpers below.
 
 Two separable jobs live here, in this order:
 
-1. `verify_credentials()` proves a credential *pair*. That is all it has ever
-   done and all it does now.
-2. `authenticate()` answers who that pair **is**, by loading the persistent
-   `users` row (DB-2). Identity is never derived from what was typed: the
-   credential proves *a* login, the row decides the user_id, the name and the
-   role. Deriving the role from the typed username would make it a
+1. `verify_credentials()` proves a credential. That is all it has ever done and
+   all it does now — ROLE-4A widened the configuration from one pair to a map
+   of them, which changes how many people can sign in and nothing about what
+   any of them may do.
+2. `authenticate()` answers who that credential **is**, by loading the
+   persistent `users` row (DB-2). Identity is never derived from what was
+   typed: the credential proves *a* login, the row decides the user_id, the
+   name and the role. Deriving the role from the typed username would make it a
    client-supplied value.
+
+**Credential configuration names logins, never roles** (ROLE-4A). There is no
+field in it that could say "administrator", so adding a credential can never
+grant a permission — it can only let an existing `users` row be reached. A
+Technician credential yields a Technician session because the row says so.
 
 **This is not an authorization boundary.** The result is held in a
 browser-side `dcc.Store`, and the data callbacks do not independently verify a
@@ -68,29 +75,51 @@ class AuthenticatedUser:
 _IDENTITY_FIELDS = ("user_id", "username", "full_name", "role")
 
 
-def verify_credentials(username: str, password: str) -> bool:
-    """Check the configured credential pair. Fails closed when unconfigured.
+#: Compared against when no credential is configured for the typed username, so
+#: an unknown name and a wrong password cost the same work rather than the
+#: unknown name answering first — that difference is a username oracle. Its
+#: value carries no security weight: the result is discarded and the branch
+#: returns False regardless of what the comparison says.
+_ABSENT = "absent-credential-sentinel"
 
-    There is no fallback credential: if `DEMO_USERNAME`/`DEMO_PASSWORD` are not
-    set, every login is refused rather than silently accepting a well-known
-    default that is published in `.env.example`.
+
+def verify_credentials(username: str, password: str) -> bool:
+    """Check the typed pair against the configured credentials. Fails closed.
+
+    ROLE-4A: the configuration is a map, so Technician and General personas
+    reach this same path instead of Administrator being the only login. What it
+    still is NOT is an identity: this function answers "is this a valid
+    credential", never "who is this" and never "what may they do".
+    `authenticate()` below loads both from the `users` row.
+
+    There is no fallback credential. Unset means unset, and so does malformed —
+    an ambiguous credential configuration refuses every login rather than
+    letting some through (`parse_demo_credentials`).
     """
     if not username or not password:
         return False
 
-    if not demo_auth.is_configured:
-        logger.error(
-            "Login refused: DEMO_USERNAME/DEMO_PASSWORD are not configured. "
-            "Set them in .env (see .env.example)."
-        )
+    credentials = demo_auth.credentials
+    if not credentials:
+        error = demo_auth.config_error
+        if error:
+            logger.error("Login refused: credential configuration rejected. %s", error)
+        else:
+            logger.error(
+                "Login refused: DEMO_USERNAME/DEMO_PASSWORD are not configured. "
+                "Set them in .env (see .env.example)."
+            )
         return False
 
-    # Compared with compare_digest so the check does not leak length or a
-    # matching prefix through timing. Cheap here, and the habit matters more
-    # once this is swapped for something real.
-    return hmac.compare_digest(username, demo_auth.username) and hmac.compare_digest(
-        password, demo_auth.password
-    )
+    # compare_digest so the check leaks neither length nor a matching prefix
+    # through timing, and the `_ABSENT` branch so an unknown username does not
+    # answer faster than a wrong password — that difference is a username
+    # oracle. The habit matters more once this is swapped for something real.
+    expected = credentials.get(username)
+    if expected is None:
+        hmac.compare_digest(password, _ABSENT)
+        return False
+    return hmac.compare_digest(password, expected)
 
 
 def authenticate(username: str, password: str) -> AuthenticatedUser | None:

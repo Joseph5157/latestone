@@ -1,162 +1,167 @@
 # Active Gate
 
-Status: Complete — reviewed, accepted, committed and pushed
+Status: Accepted at human review — closing
 Date: 2026-09-03
-Gate: DB-ORDER-1 — diagnose and remove the DB test-order sensitivity
-Branch: `main`, baseline `c4896e9`
-Commit/push permission: GRANTED by the operator at DB-ORDER-1-CLOSE, after
-review, for exactly the six reviewed files onto `main`. The gate was
-implemented under an explicit "do not commit, do not push" and held for that
-review; the push is the final action of this closure.
+Gate: ROLE-4A — credentialed personas
+Branch: `main`, baseline `524efdf`
+Commit/push permission: GRANTED at ROLE-4A-CLOSE, after review, for the
+reviewed ROLE-4A file set onto `main`. The gate was implemented under an
+explicit "do not commit, do not push" and held for that review.
 
 ## Purpose
 
-`test_batched_latest_returns_all_eight_metrics` had been intermittently red
-across three separate gates, each time passing in isolation and failing only
-after some other work had run. It was recorded as order sensitivity and
-queued rather than repaired opportunistically inside FIX-1.
+Give Administrator, Technician and General a real login each, through the
+application's ordinary credential path, so every role resolves to its own
+persisted identity instead of one credential being the only way in.
 
-Find what actually varies, fix it at the layer that owns it, and make the
-result independent of execution order.
+## The limitation this closes
 
-## Evidence at gate open
+`verify_credentials` compared against a single configured pair
+(`services/auth_service.py:71` at baseline), and `authenticate()` then looks up
+**the typed username** — so exactly one username could ever reach the lookup.
+The database held five Technician rows and no General row, none with a
+credential. Administrator was the only persona anyone could sign in as.
 
-- `python scripts/build_context_pack.py --check` — CLEAN, wrote nothing.
-- `main` at `c4896e9`, tracked tree clean, untracked `debug.log` present.
-- DB suite in isolation: **487 passed** — the same count CC-1 recorded
-  (`CC1_ACCEPTANCE.md:17`), so no DB test had been added since.
-- Three prior records of the same failure, none of which agreed on a cause:
-  `docs/CODE_AUDIT.md:349-355` (cold connection), FIX-1's close record in
-  `5901945` (order-dependent after a targeted subset), and CLIENT-SYNC-1's
-  in `c4896e9` (warm vs cold database).
+That is why CC-1 acceptance verified the non-administrator side by substituting
+the authorization identity in the session store and recorded that "a
+credentialed technician login has no demo credential"
+(`CC1_ACCEPTANCE.md`, "Deferred, explicitly", item 1). ROLE-4B, 4C and 4D each
+need a real login for the role they are about.
 
-## What it turned out to be
+## Decision — ADR-015
 
-Not leaked test state. Nothing survives between tests; what varies is the
-**database's buffer cache**, and test order only correlates with it.
+**Credential configuration names logins; the `users` row names the role.**
 
-`readings` is 1,682 MB against 128 MB of `shared_buffers`. The query behind
-that test read **11,528 index rows and 463 buffers to return 8 values**, so
-whether those pages were resident decided its cost:
+`DEMO_CREDENTIALS` adds personas beside the existing
+`DEMO_USERNAME`/`DEMO_PASSWORD` administrator pair, as a JSON object of
+`"username": "password"`. There is no field in that configuration in which a
+role could be written, so adding a credential can only let an existing row be
+reached — never grant a permission.
 
-| cache state | buffers | execution |
-|---|---|---|
-| resident | `hit=463 read=0` | 2.6 ms |
-| evicted | `hit=3 read=460` | 31.9 ms |
+### Changed during closure, at the operator's direction
 
-Same code, same plan, same process — a 12× swing from cache residency alone.
+Review caught that the first encoding — comma-separated `name:secret` entries —
+could not say what a password was: `a:pw,b:c` reads equally as one credential
+with password `pw,b:c` or as two pairs, and the parser silently chose the
+second. Not an access risk (a phantom credential still has to name an active
+`users` row), but a silent one that handed the real user a shorter password
+than they set.
 
-The shape is also the one the repository's own contract rules out
-(`plant_monitoring_repository.py:559-568`), and the budget it kept crossing
-exists specifically to catch it (`test_plant_monitoring_repository.py:28-34`:
-"a query whose cost grows with history rather than device count must fail
-here rather than in production"). So the test was right and the production
-query was wrong — ownership category G, a genuine defect that ordering
-merely exposed.
+Replaced with a JSON object parsed by the standard library's `json` — no new
+dependency, and values are quoted, so `,` and `:` are ordinary characters.
+`json.loads` resolving a repeated key by silently keeping the last was closed
+in the same change: `object_pairs_hook` reads the pairs before they collapse,
+so a repeat is refused rather than guessed at. `DEMO_USERNAME`/`DEMO_PASSWORD`
+are untouched and still work with no JSON at all.
 
-Recorded as **ADR-014**.
+Per-user password hashes in the database were considered and deliberately not
+built. The client's Functional Spec does list `Password` as a user field, so
+that is the eventual production shape, but `docs/CODE_AUDIT.md:550-553` records
+that the real mechanism is undesigned pending the client (S-4/S-5), and a hash
+would authenticate into the same forgeable browser-side session. Reasoning in
+full in ADR-015.
+
+**Schema migration: NO.** **New dependency: none.**
 
 ## In scope
 
-- `repositories/plant_monitoring_repository.py` —
-  `get_latest_readings_for_device` resolves each metric by bounded index
-  seeks (recursive loose index scan for the metric domain, then one
-  `CROSS JOIN LATERAL (... ORDER BY reading_ts DESC LIMIT 1)` per metric).
-  17 rows and 86 buffers where it previously read 11,528 and 463.
-- `tests/test_plant_monitoring_repository.py` — `TestBatchedLatestQueryShape`,
-  which asserts rows examined from the plan of the statement the repository
-  actually issued, instead of a wall clock that measures the machine's cache.
+- `config/settings.py` — `parse_demo_credentials()`, `_credential_pairs()` and
+  the widened `DemoAuthSettings`. Invalid JSON, a non-object, an empty username,
+  a non-string or empty password, or a repeated username refuse the **whole**
+  map — every login, the administrator included.
+- `services/auth_service.py` — `verify_credentials()` checks the map;
+  `authenticate()` is unchanged, which is the point.
+- `db/seed_demo_personas.py` — the one missing identity, `demo.general01`.
+  Deliberately a separate seed: `seed_admin_demo.demo_usernames()` decides which
+  assignments that seed owns, and putting a non-technician in it would be an
+  assignment-semantics change made for a login reason.
+- `tests/test_credentialed_personas.py`, `tests/test_seed_demo_personas.py`.
+- `tests/test_auth_hardening.py`, `tests/test_auth_identity.py` — the `_Creds`
+  doubles gain the map the service now reads. Every existing assertion is
+  unchanged; 178 of them still pass.
+- `.env.example`, `docs/GETTING_STARTED.md`.
 
 ## Explicitly out of scope — and not touched
 
-- ROLE-4A..4D and any credential, role-policy or authorization change.
-- Technician action UI, General/Viewer seeding, browser verification.
-- Route policy, Command Center design, reporting, notifications.
-- Schema redesign — the fix needed none; the existing
-  `ix_readings_device_metric_ts` already supports the bounded shape.
-- The wall-clock tests in `TestLatestReadings`, deliberately left as they
-  are (see ADR-014, "The guard changes instrument").
+- **ROLE-4B** — Technician Manage / Programming / Forwarding / Deactivation UI.
+  Those actions are already authorized in backend policy and still have no
+  reachable Technician surface. Unchanged here.
+- **ROLE-4C** — the broader General/Viewer experience. Only the one identity
+  needed for a credentialed login was added.
+- **ROLE-4D** — the full browser role matrix. A minimal credential smoke was
+  run instead (below).
+- Authorization of any kind: no route policy, capability, action or scope rule
+  was edited. No second authorization system was introduced.
+- The `users` schema, and any migration.
 - The untracked `debug.log`.
 
 ## Relevant files
 
-- `repositories/plant_monitoring_repository.py`
-- `tests/test_plant_monitoring_repository.py`
-- `docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md`
-- `docs/context/DECISION_INDEX.md`
-- `docs/context/CURRENT_STATE.md` (generated only)
+- `services/auth_service.py`
+- `config/settings.py`
+- `db/seed_demo_personas.py`
+- `services/prototype_users.py` (read only — `seed_demo_user` still seeds the
+  administrator alone, which is what keeps configuration from minting users)
+- `docs/decisions/ADR-015-credentials-name-logins-not-roles.md`
 
 ## Verification
 
-- Regression seen failing first: **11,528 rows** to return 8, and **2,882**
-  to return 2. After the fix: 17 and 11.
-- Equivalence: all **120 devices** compared against the previous query —
-  **0 mismatches** — plus the metric-filtered path and the unknown-device,
-  unknown-metric and empty-list cases.
-- Focused: repository module **56 passed**; service/analytics/period/route/
-  register consumers **142 passed**.
-- Order independence: the affected module before and after the heavy
-  reading-sweep DB modules, on a cold cache — **121 passed** both directions.
-- DB suite in isolation, cold cache: **489 passed** (487 + the 2 new).
-- Full project suite: **2,993 passed** (2,991 + 2).
-- The wall-clock test's margin moved from 5.27 ms to **2.65 ms** against its
-  80 ms budget; the historical failures were 84.5 ms and 91 ms.
-- `git diff --check` — clean.
+Regression seen failing first, for the right reason: **7 failed, 21 passed** —
+`demo.tech01` and `demo.general01` "could not sign in" while the administrator
+could. After: 28 passed.
 
-## Known limitation, stated plainly
+- `tests/test_credentialed_personas.py` — 53 passed, including passwords
+  carrying `,` and `:` together (parsed *and* authenticated end to end), the
+  old grammar's exact ambiguous string, repeated JSON keys, and 14 malformed
+  configurations.
+- `tests/test_seed_demo_personas.py` — 13 passed (7 DB-marked); the end-to-end
+  one now uses a delimiter-bearing password.
+- Existing auth/login/session/user suites — **178 passed**, assertions unchanged.
+- Authorization non-regression (authorization, action guard, route scope, scope
+  repository, report export, auth identity/hardening) — **354 passed**.
+- Non-DB suite — **2,563 passed**. Full suite — **3,059 passed**.
+- Live smoke through the real `authenticate()` against the development
+  database, no monkeypatching and no session editing:
 
-The **wall-clock symptom** could not be reproduced on this machine: it has
-enough RAM to hold all 1,682 MB in the host page cache, so even a restarted
-container and a full eviction sweep left the test at 5.37 ms. The *cause*
-was proven directly instead, by plan and buffer inspection, which is
-independent of any machine's cache — and the regression is written on that
-same basis so it cannot go quiet on a fast machine.
+| login | role | user_id | password in session |
+|---|---|---|---|
+| `admin` | administrator | 103 | no |
+| `demo.tech01` | technician | 104 | no |
+| `demo.general01` | general | 115 | no |
 
-## Outcome
+  Run with passwords containing both delimiters (`te,ch:1234`,
+  `gen,eral:1234`). Wrong password, unknown username and another persona's
+  password all returned `None`. A malformed `DEMO_CREDENTIALS` refused every
+  login including the administrator, and the logged diagnostic contained no
+  secret.
 
-DB-ORDER-1 is **CLOSED**. The reviewed change was committed as a single
-commit on `main` covering the two implementation files and the four context
-records, and pushed to `origin/main` with local and remote SHAs verified to
-match. The untracked `debug.log` was neither staged nor committed.
+- Live authorization read off those three sessions: Administrator reaches every
+  route; **Technician and General are both denied `admin_devices`, `admin_users`
+  and `device_register`** — unchanged by being able to log in. Device scope:
+  administrator and general unrestricted, `demo.tech01` restricted to its 24
+  assigned RTLs.
+- Real `plant_monitoring.users` confirmed untouched by the test run; the DB
+  tests ran against `isolated_schema` and leaked none.
 
-Verified at closure: `git diff --check` clean, `git diff --cached --check`
-clean, staged set exactly the six reviewed files, and the context pack CLEAN
-both before staging and after the commit.
+## What this does not claim
 
-### Provenance
+S-4 and S-5 are untouched. The session is still browser-held, the data
+callbacks still do not verify it, and anyone who can set that store can still
+set `role` in it. Three real logins make the demo honest and ROLE-4B/4D
+testable; they do not make the session unforgeable.
 
-Recorded in two steps, which is what this repository's validator requires
-rather than a stylistic choice. An ADR cannot cite the commit that carries
-it, and `scripts/build_context_pack.py:208` accepts an `Implemented-by` only
-if it begins "not yet" or names a **reachable** commit — so a forward
-reference to the closure commit would have failed the pack. The closure
-commit therefore recorded the field truthfully as not-yet-a-sha, and
+## Operator action needed for a browser login
 
-```text
-3b330152c176a51af570f148008413c05c435d45
-fix(db): bound latest-reading query cost
+The identities exist in the development database, but a credential is local
+configuration and was deliberately not written into `.env`. To sign in as the
+other two personas, add one line with secrets of your own choosing:
+
 ```
-
-was written into `ADR-014` and `DECISION_INDEX.md` immediately afterwards, by
-`docs(context): backfill DB-ORDER-1 provenance`. FIX-1 used the same two-step
-in `5901945`.
-
-Nothing is outstanding. The technical decision was not touched by the
-backfill; only the provenance fields changed.
+DEMO_CREDENTIALS={"demo.tech01": "<secret>", "demo.general01": "<secret>"}
+```
 
 ## Next queued gate — do not start
 
-**ROLE-4 — credentialed personas and their surfaces.** Sub-gates, in order:
-
-- **ROLE-4A** — credentialed personas. This is the next gate.
-- **ROLE-4B** — Technician operational surface.
-- **ROLE-4C** — General/Viewer persona.
-- **ROLE-4D** — browser acceptance for all three roles.
-
-ROLE-4A carries a debt CC-1 acceptance recorded and never cleared: EVT-D5 was
-verified by substituting the authorization identity in the session store, not
-by a credentialed sign-in, and "a credentialed technician login has no demo
-credential" (`CC1_ACCEPTANCE.md`, "Deferred, explicitly", item 1).
-
-None of ROLE-4 was started during DB-ORDER-1. PCB remains paused at
+**ROLE-4B — Technician operational surface**, then ROLE-4C (General persona)
+and ROLE-4D (browser acceptance for all three roles). PCB remains paused at
 `PCB-9-CLOSE`.
