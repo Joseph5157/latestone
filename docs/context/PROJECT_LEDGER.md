@@ -115,7 +115,7 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | REPORT-2 (Installed RTLs) | — | COMPLETE | Data-backed generation from readings |
 | REPORT-3 (RTL Alarms 30 Days) | — | COMPLETE | Data-backed generation from persisted events |
 | REPORT-4 (CSV export pipeline) | — | COMPLETE | Development-default CSV export for REP-01/REP-02 |
-| UI-A11Y-POLISH-1 | — (see `git log -1` on `main`) | CLOSED / COMMITTED LOCALLY, NOT PUSHED | Narrow, targeted fix — not a general accessibility audit: accessible name added for one input (`device-admin-search`, via native `<label for>` + new `.visually-hidden` CSS utility, not `display:none`, confirmed non-empty in a Chromium accessibility-tree check) and shared `listing-error` styling added to two named error containers. Drawer/dialog accessibility and the rest of the Device Management toolbar were explicitly out of scope and not reviewed. 2696 non-db tests passing. See `docs/context/ACTIVE_GATE.md`. |
+| UI-A11Y-POLISH-1 | `5383a8f` | CLOSED / PUSHED / REMOTE-VERIFIED | Narrow, targeted fix — not a general accessibility audit: accessible name added for one input (`device-admin-search`, via native `<label for>` + new `.visually-hidden` CSS utility, not `display:none`, confirmed non-empty in a Chromium accessibility-tree check) and shared `listing-error` styling added to two named error containers. Drawer/dialog accessibility and the rest of the Device Management toolbar were explicitly out of scope and not reviewed. 2696 non-db tests passing. See `docs/context/ACTIVE_GATE.md`. |
 
 ## 6. Paused Work
 

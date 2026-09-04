@@ -1,16 +1,14 @@
 # Active Gate
 
-Status: **CLOSED / committed locally after this commit — not pushed**
+Status: **CLOSED / PUSHED / REMOTE-VERIFIED**
 Date: 2026-09-04
 Gate: UI-A11Y-POLISH-1 — accessible device search name + shared listing-error styling
 Branch: `main`, baseline `1571adf7a04747e4fea4711f4ae73b339cc68db8`
-Commit: this commit — see `git log -1 --oneline` on `main` (subject:
-"fix(ui): improve accessibility and error presentation"); the SHA is not
-self-referenced here because it depends on this file's own committed
-content.
-Commit/push permission: **Commit GRANTED, push NOT GRANTED.** Reviewed and
-verified per this file's Verification section; committed locally only.
-Pushing to the remote is a separate, later action.
+Commit: `5383a8fd6283954b2950fcfd3ae3670ee6a2393e` — subject "fix(ui): improve
+accessibility and error presentation". Pushed to `origin/main`; local HEAD,
+`origin/main`, and `git ls-remote` all verified to match this SHA.
+Commit/push permission: **GRANTED and exercised.** Reviewed, verified per
+this file's Verification section, committed, and pushed.
 
 ## Purpose
 
@@ -84,7 +82,6 @@ project-level decision.
 - Any backend, service, repository, or business-rule code.
 - Any callback wiring — `callbacks/device_admin.py` is unchanged.
 - `debug.log` — untracked, untouched throughout.
-- Pushing to the remote.
 - Any broader accessibility audit. This gate fixes the one reported input
   and the two reported error containers only — it is not a WCAG conformance
   pass over the page, the app, or even the rest of the Device Management
@@ -111,5 +108,5 @@ project-level decision.
 
 ## Next queued gate
 
-None queued. This gate is closed and committed locally; the remote push and
-whatever comes next are separate, later decisions.
+None queued. This gate is closed, committed, and pushed to `origin/main`.
+What comes next is a separate, later decision.
