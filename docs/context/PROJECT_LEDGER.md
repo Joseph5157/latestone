@@ -190,7 +190,7 @@ not the Eskom protocol; no physical device integration exists yet;
 recovery for a command stuck at `SENT` after a transport exception remains
 deferred; no real retry/worker/scheduler exists yet.
 
-## 6c. Gate Closed — Committed Locally, Not Yet Pushed
+## 6c. RTL-IF-3 — CLOSED / PUSHED / REMOTE-VERIFIED
 
 **RTL-IF-3** (simulated incoming device-event integration): adds
 `services/simulated_event_source.py`, a thin front end onto the existing
@@ -217,13 +217,22 @@ canonical validation, downstream consumers, architecture boundary, test
 quality; non-blocking note — no dedicated Command Center recent-events
 test, accepted because that consumer reads the same persisted
 `device_events` path already exercised by the Notification Center/RTL
-Alarms report tests). Commit SHA and push verification are recorded here
-once Steps 3-4 of RTL-IF-3-CLOSE complete; until then the checkpoint in
-Section 1 above still reflects the last previously pushed commit.
-**Caveats preserved**: the simulator is not the Eskom protocol; no
-physical MQTT/device integration exists yet; no new alarm-rule engine
-exists; no notification delivery integration exists; no monitoring
-semantics changed.
+Alarms report tests).
+
+Commit `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8` — "feat(integration): add
+simulated RTL event ingestion" — pushed to `origin/main`; local `HEAD` (at
+push time), `origin/main`, and `git ls-remote` all verified to match. See
+`docs/context/ACTIVE_GATE.md` and
+`docs/decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md`
+for the full record. This note describes that already-pushed commit only —
+not whatever commit this documentation edit itself becomes part of, which
+is a separate, later push (RTL-IF-3-CLOSE Step 6). The checkpoint in
+Section 1 above is updated by a future gate's own opening step, per this
+ledger's existing convention (Section 11) — not rewritten here as a side
+effect of closing this one. **Caveats preserved**: the simulator is not
+the Eskom protocol; no physical MQTT/device integration exists yet; no new
+alarm-rule engine exists; no notification delivery integration exists; no
+monitoring semantics changed.
 
 ## 7. Client Demo / Priority Overrides
 

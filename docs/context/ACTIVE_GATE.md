@@ -1,9 +1,18 @@
 # Active Gate
 
-Status: **CLOSED / COMMITTED LOCALLY / NOT YET PUSHED**
+Status: **CLOSED / PUSHED / REMOTE-VERIFIED**
 Date: 2026-09-04
 Gate: RTL-IF-3 — Simulated incoming device-event integration
 Branch: `main`, baseline `f70a15d057f3bb5cf49f661596b38d25adf4b8a2`
+Commit: `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8` — subject
+"feat(integration): add simulated RTL event ingestion". Pushed to
+`origin/main`; local `HEAD` (at the time of that push), `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA (see
+Verification below). This paragraph describes that already-completed,
+already-verified push of `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8` — it
+does not assert anything about whatever commit this documentation edit
+itself becomes part of, which is pushed separately, afterward, as its own
+step (RTL-IF-3-CLOSE Step 6).
 Commit/push permission: **GRANTED and exercised.** RTL-IF-3 was implemented
 against explicit "DO NOT COMMIT OR PUSH" instructions and left
 `READY FOR REVIEW / NOT COMMITTED`. It was then independently verified by
@@ -14,7 +23,12 @@ non-blocking note — no dedicated simulator test for Command Center recent
 events, since that consumer reads the same persisted `device_events` path
 already exercised by the Notification Center/RTL Alarms report tests), and
 this session's own RTL-IF-3-CLOSE task explicitly authorized the commit
-and push recorded below (Verification section).
+and push recorded above.
+
+**Caveats, preserved from implementation through this closure:** the
+simulator is not the Eskom protocol; no physical MQTT/device integration
+exists yet; no new alarm-rule engine exists; no notification delivery
+integration exists; no monitoring semantics changed.
 
 **Caveats, preserved from implementation through this closure:** the
 simulator is not the Eskom protocol; no physical MQTT/device integration
@@ -123,9 +137,10 @@ not merely asserted.
 - `git diff --check` — clean, no whitespace errors.
 - `git status --short` — matches the file list above plus untouched
   `debug.log`; no unexpected changes.
-- Push verification (RTL-IF-3-CLOSE Step 4): recorded here once `git push
-  origin main` and the local/origin/ls-remote SHA match are actually
-  performed — not claimed in advance of that step.
+- Push verification (RTL-IF-3-CLOSE Step 4): after `git push origin main`,
+  `git rev-parse HEAD`, `git rev-parse origin/main`, and
+  `git ls-remote origin refs/heads/main` all returned
+  `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8`.
 
 ## Codex RTL-IF-3V independent verification
 
@@ -161,8 +176,9 @@ the existing reclassification, which is what the real system does too.
 ## Next queued gate
 
 None queued. This gate is implemented, independently verified (Codex
-RTL-IF-3V), and committed locally as part of this same closure task. It is
-**not yet pushed** at the point this paragraph was written (Step 2 of
-RTL-IF-3-CLOSE, before the Step 3 commit exists) — the commit SHA and push
-verification are recorded in the Step 5 finalization pass over this file,
-never claimed here in advance of the push actually happening.
+RTL-IF-3V), committed as `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8`, and
+pushed to `origin/main` with the remote match confirmed above. What comes
+next is a separate, later decision — most plausibly a Command Center
+recent-events simulator test filling Codex's non-blocking note, or a
+future RTL-IF tranche that gives high-temperature/vibration events their
+client-confirmed domain rules, but neither is decided by this gate.
