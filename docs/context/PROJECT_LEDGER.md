@@ -3,7 +3,7 @@
 ## 1. Authoritative Checkpoint
 
 - **Branch:** `main`
-- **SHA:** `4c91b190589d754cd11419951873de6231a6f79c` — "docs(context): add client decision questions" (committed HEAD; AUTH-PROD-HARDEN-1 below is uncommitted on top of it)
+- **SHA:** `669fffb` — "fix(auth): harden production session configuration" (committed HEAD, not yet pushed)
 - **Last updated:** 2026-09-04
 - **Working tree expectation:** `debug.log` (untracked) only. AUTH-PROD-HARDEN-1 committed.
 - **Test baseline:** 2690 passed (non-db, includes 21 new AUTH-PROD-HARDEN-1 tests), 510 deselected; 3200 passed full suite
@@ -102,7 +102,7 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | ROLE-BROWSER-1 | `0c40478` | PASSED | General persona audit complete; ROLE-4B/4C provenance backfilled |
 | LOCAL-ENV-CLEAN-1 | — | COMPLETE | Docker PostgreSQL, Alembic sole DDL authority, 30/71/120 hierarchy |
 | ENERGY-SPARK-2 | `ead3a4e` | CLOSED/PUSHED | Energy bar rendering stabilized |
-| AUTH-PROD-HARDEN-1 | `667e3fc` | CLOSED/PUSHED | `APP_ENV` setting, `FLASK_SECRET_KEY` fail-closed in production, explicit cookie Secure/HttpOnly/SameSite, HTTPS boundary documented (not middleware); 21 new tests, 3200 total passing |
+| AUTH-PROD-HARDEN-1 | `669fffb` | CLOSED / COMMITTED LOCALLY / NOT YET PUSHED | `APP_ENV` setting, `FLASK_SECRET_KEY` fail-closed in production, explicit cookie Secure/HttpOnly/SameSite, HTTPS boundary documented (not middleware); 21 new tests, 3200 total passing |
 | CC-1 (Command Center) | `2c9a17d` | CLOSED/PUSHED | Fleet health, priority investigation, affected locations; 10 ADRs |
 | CC-2 (rank bars) | `24d010d` | CLOSED/PUSHED | ADR-012 implemented; bar cap, route-scoped tokens |
 | FIX-1 (callback hardening) | `5901945` | CLOSED/PUSHED | 8 callback defects found and fixed; regression coverage added |
