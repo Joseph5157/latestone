@@ -121,7 +121,7 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 
 None currently recorded. The project reached a natural pause at the Phase 9 Client Review Gate (`docs/RTL_CLIENT_REVIEW_GATE.md`) where frontend phases 0–9 are complete and further implementation is gated on client/backend/data-contract decisions.
 
-## 6a. Gate Closed — Committed Locally, Not Yet Pushed
+## 6a. RTL-IF-1 — CLOSED / PUSHED / REMOTE-VERIFIED
 
 **RTL-IF-1** (protocol-neutral command contract and persistence):
 `rtl_commands` table added (migration 008) — one command per accepted
@@ -134,12 +134,19 @@ request/command integrity, programming provenance, command contract,
 authorization, audit, reset/seed, tests, architecture boundary;
 `rtl_commands.device_id` duplication is a repository write-path invariant —
 `create_command()` resolves it from the referenced request row — not an
-additional cross-table database constraint). See
-`docs/context/ACTIVE_GATE.md` and
+additional cross-table database constraint).
+
+Commit `831ea2b3ea612921d9fb44813924aeea43922fb0` — "feat(integration): add
+protocol-neutral RTL command foundation" — pushed to `origin/main`; local
+`HEAD` (at push time), `origin/main`, and `git ls-remote` all verified to
+match. See `docs/context/ACTIVE_GATE.md` and
 `docs/decisions/ADR-017-rtl-commands-are-the-protocol-neutral-transport-seam.md`
-for the full record. Commit SHA and push verification are recorded here
-once Steps 3-4 of RTL-IF-1-CLOSE complete; until then the checkpoint in
-Section 1 above still reflects the last previously pushed commit.
+for the full record. This note describes that already-pushed commit only —
+not whatever commit this documentation edit itself becomes part of, which
+is a separate, later push (RTL-IF-1-CLOSE Step 6). The checkpoint in
+Section 1 above is updated by a future gate's own opening step, per this
+ledger's existing convention (Section 11) — not rewritten here as a side
+effect of closing this one.
 
 ## 7. Client Demo / Priority Overrides
 

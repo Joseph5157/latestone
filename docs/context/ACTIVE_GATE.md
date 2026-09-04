@@ -1,18 +1,26 @@
 # Active Gate
 
-Status: **CLOSED / COMMITTED LOCALLY / NOT YET PUSHED**
+Status: **CLOSED / PUSHED / REMOTE-VERIFIED**
 Date: 2026-09-04
 Gate: RTL-IF-1 — Protocol-neutral command contract and persistence
 Branch: `main`, baseline `662a605446bc7d78fc838704ce7340cb31800a6b`
-Commit/push permission: **GRANTED and exercised for this commit.** RTL-IF-1
-was implemented against explicit "DO NOT COMMIT OR PUSH" instructions and
-left `READY FOR REVIEW / NOT COMMITTED`. It was then independently verified
-by Codex (RTL-IF-1V — migration, transaction atomicity, request/command
+Commit: `831ea2b3ea612921d9fb44813924aeea43922fb0` — subject
+"feat(integration): add protocol-neutral RTL command foundation". Pushed to
+`origin/main`; local `HEAD` (at the time of that push), `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA (see
+Verification below). This paragraph describes that already-completed,
+already-verified push of `831ea2b3ea612921d9fb44813924aeea43922fb0` — it
+does not assert anything about whatever commit this documentation edit
+itself becomes part of, which is pushed separately, afterward, as its own
+step (RTL-IF-1-CLOSE Step 6).
+Commit/push permission: **GRANTED and exercised.** RTL-IF-1 was implemented
+against explicit "DO NOT COMMIT OR PUSH" instructions and left
+`READY FOR REVIEW / NOT COMMITTED`. It was then independently verified by
+Codex (RTL-IF-1V — migration, transaction atomicity, request/command
 integrity, device_id duplication invariant, programming provenance, command
 contract, authorization, audit, reset/seed, tests, architecture boundary —
 all PASS, no blockers), and this session's own RTL-IF-1-CLOSE task
-explicitly authorizes commit and push. Pushing happens as its own step —
-see the commit-SHA record below, updated after Step 4 verifies the remote.
+explicitly authorized the commit and push recorded above.
 
 ## Purpose
 
@@ -111,6 +119,10 @@ tranche.
 - `git diff --check` — clean, no whitespace errors.
 - `git status --short` — matches the file list above plus untouched
   `debug.log`; no unexpected changes.
+- Push verification (RTL-IF-1-CLOSE Step 4): after `git push origin main`,
+  `git rev-parse HEAD`, `git rev-parse origin/main`, and
+  `git ls-remote origin refs/heads/main` all returned
+  `831ea2b3ea612921d9fb44813924aeea43922fb0`.
 
 ## Codex RTL-IF-1V independent verification
 
@@ -136,8 +148,8 @@ inspected (`callbacks/device_manage.py`,
 ## Next queued gate
 
 None queued. This gate is implemented, independently verified (Codex
-RTL-IF-1V), and committed locally as part of this same closure task. It is
-**not yet pushed** at the point this paragraph was written (Step 2 of
-RTL-IF-1-CLOSE, before the Step 3 commit exists) — the commit SHA and push
-verification are recorded in the Step 5 finalization pass over this file,
-never claimed here in advance of the push actually happening.
+RTL-IF-1V), committed as `831ea2b3ea612921d9fb44813924aeea43922fb0`, and
+pushed to `origin/main` with the remote match confirmed above. What comes
+next is a separate, later decision — most plausibly a future RTL-IF
+tranche that gives `rtl_commands` an actual transport consumer, but that is
+not decided by this gate.
