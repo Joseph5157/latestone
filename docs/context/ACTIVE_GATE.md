@@ -1,9 +1,18 @@
 # Active Gate
 
-Status: **CLOSED / COMMITTED LOCALLY / NOT YET PUSHED**
+Status: **CLOSED / PUSHED / REMOTE-VERIFIED**
 Date: 2026-09-04
 Gate: RTL-IF-4 — Notification delivery abstraction
 Branch: `main`, baseline `e3f49b14e4ea122190f9081b15967ddae00657ea`
+Commit: `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` — subject
+"feat(integration): add notification delivery abstraction". Pushed to
+`origin/main`; local `HEAD` (at the time of that push), `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA (see
+Verification below). This paragraph describes that already-completed,
+already-verified push of `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` — it
+does not assert anything about whatever commit this documentation edit
+itself becomes part of, which is pushed separately, afterward, as its own
+step (RTL-IF-4-CLOSE Step 6).
 Commit/push permission: **GRANTED and exercised.** RTL-IF-4 was implemented
 against explicit "DO NOT COMMIT OR PUSH" instructions and left
 `READY FOR REVIEW / NOT COMMITTED`. It was then independently verified by
@@ -14,7 +23,7 @@ persistence/schema additions, test quality, architecture boundary all
 PASS; no blockers; one non-blocking note — provider-specific endpoint/body
 validation remains deferred until real provider formats and limits are
 known), and this session's own RTL-IF-4-CLOSE task explicitly authorized
-the commit and push recorded below (Verification section).
+the commit and push recorded above.
 
 **Caveats, preserved from implementation through this closure:** mock
 delivery only; no real SMS/email; no production recipient policy; the
@@ -122,9 +131,10 @@ this tranche. No new runtime dependencies were installed.
 - `git diff --check` — clean, no whitespace errors.
 - `git status --short` — matches the file list above plus untouched
   `debug.log`; no unexpected changes.
-- Push verification (RTL-IF-4-CLOSE Step 4): recorded here once `git push
-  origin main` and the local/origin/ls-remote SHA match are actually
-  performed — not claimed in advance of that step.
+- Push verification (RTL-IF-4-CLOSE Step 4): after `git push origin main`,
+  `git rev-parse HEAD`, `git rev-parse origin/main`, and
+  `git ls-remote origin refs/heads/main` all returned
+  `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d`.
 
 ## Codex RTL-IF-4V independent verification
 
@@ -174,8 +184,9 @@ files inspected.
 ## Next queued gate
 
 None queued. This gate is implemented, independently verified (Codex
-RTL-IF-4V), and committed locally as part of this same closure task. It is
-**not yet pushed** at the point this paragraph was written (Step 2 of
-RTL-IF-4-CLOSE, before the Step 3 commit exists) — the commit SHA and push
-verification are recorded in the Step 5 finalization pass over this file,
-never claimed here in advance of the push actually happening.
+RTL-IF-4V), committed as `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d`, and
+pushed to `origin/main` with the remote match confirmed above. What comes
+next is a separate, later decision — most plausibly whichever client
+decision resolves first among production recipient-routing policy, a real
+SMS/email provider selection, or the durable delivery lifecycle (§8), but
+none is decided by this gate.

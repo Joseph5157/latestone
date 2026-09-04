@@ -234,7 +234,7 @@ the Eskom protocol; no physical MQTT/device integration exists yet; no new
 alarm-rule engine exists; no notification delivery integration exists; no
 monitoring semantics changed.
 
-## 6d. Gate Closed — Committed Locally, Not Yet Pushed
+## 6d. RTL-IF-4 — CLOSED / PUSHED / REMOTE-VERIFIED
 
 **RTL-IF-4** (notification delivery abstraction): adds
 `services/notification_delivery.py` (provider-neutral `DeliveryRequest`/
@@ -261,12 +261,22 @@ mock delivery, recipient boundary, privacy/security, forwarding
 regression, event semantics, no persistence/schema additions, test
 quality, architecture boundary; non-blocking note — provider-specific
 endpoint/body validation deferred until real provider formats/limits are
-known). Commit SHA and push verification are recorded here once Steps 3-4
-of RTL-IF-4-CLOSE complete; until then the checkpoint in Section 1 above
-still reflects the last previously pushed commit. **Caveats preserved**:
-mock delivery only; no real SMS/email; no production recipient policy; the
-Notification Center remains independent; forwarding is not completed; the
-durable delivery lifecycle remains client-dependent.
+known).
+
+Commit `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` — "feat(integration): add
+notification delivery abstraction" — pushed to `origin/main`; local `HEAD`
+(at push time), `origin/main`, and `git ls-remote` all verified to match.
+See `docs/context/ACTIVE_GATE.md` and
+`docs/decisions/ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md`
+for the full record. This note describes that already-pushed commit only —
+not whatever commit this documentation edit itself becomes part of, which
+is a separate, later push (RTL-IF-4-CLOSE Step 6). The checkpoint in
+Section 1 above is updated by a future gate's own opening step, per this
+ledger's existing convention (Section 11) — not rewritten here as a side
+effect of closing this one. **Caveats preserved**: mock delivery only; no
+real SMS/email; no production recipient policy; the Notification Center
+remains independent; forwarding is not completed; the durable delivery
+lifecycle remains client-dependent.
 
 ## 7. Client Demo / Priority Overrides
 
