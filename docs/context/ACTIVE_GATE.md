@@ -1,9 +1,18 @@
 # Active Gate
 
-Status: **CLOSED / COMMITTED LOCALLY / NOT YET PUSHED**
+Status: **CLOSED / PUSHED / REMOTE-VERIFIED**
 Date: 2026-09-04
 Gate: RTL-IF-2 — SimulatorTransport + command lifecycle
 Branch: `main`, baseline `bb9085b07b1e40b84ef78f695944a4787a8079df`
+Commit: `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a` — subject
+"feat(integration): add simulated RTL command lifecycle". Pushed to
+`origin/main`; local `HEAD` (at the time of that push), `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA (see
+Verification below). This paragraph describes that already-completed,
+already-verified push of `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a` — it
+does not assert anything about whatever commit this documentation edit
+itself becomes part of, which is pushed separately, afterward, as its own
+step (RTL-IF-2-CLOSE Step 6).
 Commit/push permission: **GRANTED and exercised.** RTL-IF-2 was implemented
 against explicit "DO NOT COMMIT OR PUSH" instructions and left
 `READY FOR REVIEW / NOT COMMITTED`. It was then independently verified by
@@ -15,7 +24,14 @@ update prevents duplicate transport calls; transport exception ACCEPTABLE
 WITH DOCUMENTED RECOVERY REQUIREMENT — a transport exception leaves the
 command coherently SENT, recovery/retry intentionally deferred; no
 blockers), and this session's own RTL-IF-2-CLOSE task explicitly
-authorized the commit and push recorded below (Verification section).
+authorized the commit and push recorded above.
+
+**Caveats, preserved from implementation through this closure:**
+`SimulatorTransport` is not the Eskom protocol; no physical device
+integration exists yet; recovery for a command stuck at `SENT` after a
+transport exception remains deferred; no real retry/worker/scheduler
+exists yet; `ACKNOWLEDGED`/`SUCCEEDED` are `SimulatorTransport`'s own
+internal test-contract semantics, not proof of physical RTL programming.
 
 ## Purpose
 
@@ -142,9 +158,10 @@ ADR-018).
 - `git diff --check` — clean, no whitespace errors.
 - `git status --short` — matches the file list above plus untouched
   `debug.log`; no unexpected changes.
-- Push verification (RTL-IF-2-CLOSE Step 4): recorded here once `git push
-  origin main` and the local/origin/ls-remote SHA match are actually
-  performed — not claimed in advance of that step.
+- Push verification (RTL-IF-2-CLOSE Step 4): after `git push origin main`,
+  `git rev-parse HEAD`, `git rev-parse origin/main`, and
+  `git ls-remote origin refs/heads/main` all returned
+  `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a`.
 
 ## Codex RTL-IF-2V independent verification
 
@@ -192,8 +209,9 @@ enforced entirely by `config.commands.ALLOWED_TRANSITIONS` and
 ## Next queued gate
 
 None queued. This gate is implemented, independently verified (Codex
-RTL-IF-2V), and committed locally as part of this same closure task. It is
-**not yet pushed** at the point this paragraph was written (Step 2 of
-RTL-IF-2-CLOSE, before the Step 3 commit exists) — the commit SHA and push
-verification are recorded in the Step 5 finalization pass over this file,
-never claimed here in advance of the push actually happening.
+RTL-IF-2V), committed as `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a`, and
+pushed to `origin/main` with the remote match confirmed above. What comes
+next is a separate, later decision — most plausibly a future RTL-IF
+tranche that recovers a stuck `SENT` command, or a production adapter that
+implements `DeviceTransport` for a real transport, but neither is decided
+by this gate.

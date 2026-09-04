@@ -148,7 +148,7 @@ Section 1 above is updated by a future gate's own opening step, per this
 ledger's existing convention (Section 11) — not rewritten here as a side
 effect of closing this one.
 
-## 6b. Gate Closed — Committed Locally, Not Yet Pushed
+## 6b. RTL-IF-2 — CLOSED / PUSHED / REMOTE-VERIFIED
 
 **RTL-IF-2** (SimulatorTransport + command lifecycle): extends
 `rtl_commands` (migration 009) with `sent_at`/`acknowledged_at`/
@@ -173,12 +173,22 @@ Independently verified by Codex (RTL-IF-2V: PASS on diff scope, migration
 009, state machine, timestamp integrity, dispatch transaction, transport
 contract, programming provenance, authorization, audit, test quality,
 architecture boundary; concurrent dispatch CONCURRENCY SAFE; transport
-exception ACCEPTABLE WITH DOCUMENTED RECOVERY REQUIREMENT). See
-`docs/context/ACTIVE_GATE.md` and
+exception ACCEPTABLE WITH DOCUMENTED RECOVERY REQUIREMENT).
+
+Commit `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a` — "feat(integration): add
+simulated RTL command lifecycle" — pushed to `origin/main`; local `HEAD`
+(at push time), `origin/main`, and `git ls-remote` all verified to match.
+See `docs/context/ACTIVE_GATE.md` and
 `docs/decisions/ADR-018-simulator-transport-is-not-the-eskom-protocol.md`
-for the full record. Commit SHA and push verification are recorded here
-once Steps 3-4 of RTL-IF-2-CLOSE complete; until then the checkpoint in
-Section 1 above still reflects the last previously pushed commit.
+for the full record. This note describes that already-pushed commit only —
+not whatever commit this documentation edit itself becomes part of, which
+is a separate, later push (RTL-IF-2-CLOSE Step 6). The checkpoint in
+Section 1 above is updated by a future gate's own opening step, per this
+ledger's existing convention (Section 11) — not rewritten here as a side
+effect of closing this one. **Caveats preserved**: `SimulatorTransport` is
+not the Eskom protocol; no physical device integration exists yet;
+recovery for a command stuck at `SENT` after a transport exception remains
+deferred; no real retry/worker/scheduler exists yet.
 
 ## 7. Client Demo / Priority Overrides
 
