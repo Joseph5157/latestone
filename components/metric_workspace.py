@@ -23,7 +23,9 @@ from __future__ import annotations
 from dash import dcc, html
 import plotly.graph_objects as go
 
-from components.chart_presentation import TEMPLATE, grid_axis, hover_template, no_data_annotation
+from components.chart_presentation import (
+    TEMPLATE, bar_geometries, grid_axis, hover_template, no_data_annotation,
+)
 from components.freshness_badge import freshness_badge
 from components.metric_chart import BAR_COLOR, LINE_COLOR
 from config.metrics import Aggregation, MetricConfig, format_value, ordered_metrics
@@ -99,10 +101,12 @@ def cell_figure(view: MetricView, bars: list[ConsumptionBar]) -> go.Figure:
     if not view.series:
         fig.add_annotation(**no_data_annotation(EMPTY_PERIOD_TEXT, size=11))
     elif metric.aggregation is Aggregation.DELTA:
+        geometries = bar_geometries(bars)
         fig.add_trace(
             go.Bar(
-                x=[b.start for b in bars],
+                x=[g.x for g in geometries],
                 y=[b.result.value if b.result.is_known else None for b in bars],
+                width=[g.width_ms for g in geometries],
                 marker_color=BAR_COLOR,
                 hovertemplate=hover_template(metric),
             )

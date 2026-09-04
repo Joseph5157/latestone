@@ -11,6 +11,9 @@ dragmode) stays local to its own chart builder.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
+
 from config.metrics import MetricConfig
 
 TEMPLATE = "plotly_white"
@@ -38,6 +41,53 @@ def no_data_annotation(text: str, size: int = 14) -> dict:
     is a data-quality condition, not an alarm.
     """
     return dict(text=text, showarrow=False, font=dict(size=size, color=MUTED_TEXT_COLOR))
+
+
+class MalformedBarGeometry(ValueError):
+    """A bar's `end` does not strictly follow its `start`.
+
+    ENERGY-SPARK-2R. A zero-duration or reversed interval has no valid
+    Plotly width — silently clamping it to zero (or flipping it positive)
+    would render a bar that looks real but covers an interval that was
+    never actually measured. Fail fast instead: whatever produced the
+    malformed bin (`bin_consumption`, `quick_trend_bars`, or a test
+    fixture) has a bug worth surfacing, not papering over here.
+    """
+
+
+@dataclass(frozen=True)
+class BarGeometry:
+    """The Plotly-safe `(x, width)` pair for one bar."""
+
+    x: datetime
+    width_ms: float
+
+
+def bar_geometry(bar) -> BarGeometry:
+    """`x`/`width` for one `go.Bar` mark so it visually occupies exactly
+    `[bar.start, bar.end]`.
+
+    ENERGY-SPARK-2R. Plotly always centers a Bar mark on `x` and extends
+    `width` an equal distance in both directions — it does not treat `x` as
+    a left edge. Passing `x=bar.start` (ENERGY-SPARK-2's fix) is therefore
+    only correct when every bar shares one width: unequal-width neighbours
+    (e.g. a 5-minute bin next to a 55-minute one) each get shifted half
+    their own width to the right of where they should start, so the wide
+    bar's centred mark overlaps the next bar's. Centring `x` on the bar's
+    own midpoint removes the shift at any width, uniform or not.
+    """
+    if bar.end <= bar.start:
+        raise MalformedBarGeometry(
+            f"bar end {bar.end!r} does not strictly follow start {bar.start!r}"
+        )
+    span = bar.end - bar.start
+    return BarGeometry(x=bar.start + span / 2, width_ms=span.total_seconds() * 1000)
+
+
+def bar_geometries(bars) -> list[BarGeometry]:
+    """`bar_geometry` for each bar, in order — the one call site both chart
+    builders use so the midpoint math is never duplicated."""
+    return [bar_geometry(b) for b in bars]
 
 
 def hover_template(metric: MetricConfig) -> str:

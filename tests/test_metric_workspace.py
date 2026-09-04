@@ -11,9 +11,12 @@ import pathlib
 import re
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from components.metric_workspace import (
     EMPTY_PERIOD_TEXT,
     WORKSPACE_CHART_CONFIG,
+    cell_figure,
     direction_text,
     metric_cell,
     metric_workspace,
@@ -219,6 +222,77 @@ class TestEmptyAndTypes:
     def test_no_modebar_anywhere(self):
         """Eight more toolbars would compete with the primary chart."""
         assert WORKSPACE_CHART_CONFIG["displayModeBar"] is False
+
+
+# ---------------------------------------------------------------------------
+# ENERGY-SPARK-2 — the compact card's own Bar trace, at the exact scenario
+# that produced the original defect: the fixed-window seed had already aged
+# out of the "last 24h" query by the time of the request (its 30-day range
+# is anchored to when the seed script last ran, not to "now"), leaving only
+# a short run of a live-only feed — few enough readings to collapse to a
+# single bin. Rendered in the real Plotly.js 2.35.2 build Dash serves, this
+# produced a solid-block bar inside a ~1-millisecond-wide autorange, with an
+# overlapping sub-millisecond tick label — reproduced and measured directly
+# (pixel widths, axis range, tick text) before this fix, and confirmed clean
+# after it.
+# ---------------------------------------------------------------------------
+
+
+class TestEnergySparklineWidthGuard:
+    def _energy_view(self, series):
+        return MetricView(
+            metric=get_metric("energy"), current=series[-1].value if series else None,
+            minimum=None, maximum=None, average=None, period_change=None,
+            period_change_status=DeltaStatus.OK, series=series, last_updated=T0,
+            freshness=Freshness.FRESH, condition=MonitoringCondition.UNKNOWN,
+            has_data=bool(series), change=DeltaResult(1.0, DeltaStatus.OK),
+        )
+
+    def test_the_seed_aged_out_scenario_collapses_to_one_bin(self):
+        """Confirms the reconstruction actually reaches the degenerate
+        single-bar case this guard exists for — not a hypothetical."""
+        series = [
+            Reading(T0 + timedelta(seconds=10 * i), 8952.497 + 0.003 * i)
+            for i in range(79)
+        ]
+        assert len(quick_trend_bars(self._energy_view(series))) == 1
+
+    def test_a_single_bar_carries_an_explicit_width(self):
+        """ENERGY2-01/07 (compact card). Fails against the original HEAD,
+        where the cell's Bar trace never set `width`."""
+        series = [Reading(T0, 8952.497), Reading(T0 + timedelta(seconds=10), 8952.5)]
+        view = self._energy_view(series)
+        bars = quick_trend_bars(view)
+        assert len(bars) == 1
+        fig = cell_figure(view, bars)
+        assert fig.data[0].width is not None
+        assert list(fig.data[0].width) == [10 * 1000]
+
+    def test_a_normal_multi_bar_series_is_unaffected(self):
+        """ENERGY2-06. The deterministic-seed 24h/30-min case: same bar
+        count and values as before, width now populated per bar."""
+        series = [
+            Reading(T0 + timedelta(minutes=30 * i), 1000.0 + 1.6 * i) for i in range(48)
+        ]
+        view = self._energy_view(series)
+        bars = quick_trend_bars(view)
+        fig = cell_figure(view, bars)
+        assert len(fig.data[0].width) == len(bars)
+        assert all(w == pytest.approx(30 * 60 * 1000) for w in fig.data[0].width)
+
+    def test_a_normal_line_metric_carries_no_width(self):
+        """ENERGY2-08. The fix lives in the delta/bar path only."""
+        series = [Reading(T0, 8952.497), Reading(T0 + timedelta(seconds=10), 8952.5)]
+        view = MetricView(
+            metric=get_metric("temperature"), current=series[-1].value, minimum=None,
+            maximum=None, average=None, period_change=None,
+            period_change_status=DeltaStatus.OK, series=series, last_updated=T0,
+            freshness=Freshness.FRESH, condition=MonitoringCondition.UNKNOWN,
+            has_data=True, change=DeltaResult(1.0, DeltaStatus.OK),
+        )
+        fig = cell_figure(view, [])
+        assert fig.data[0].type == "scatter"
+        assert not hasattr(fig.data[0], "width")
 
 
 # ---------------------------------------------------------------------------

@@ -4,7 +4,9 @@ from __future__ import annotations
 from dash import dcc
 import plotly.graph_objects as go
 
-from components.chart_presentation import TEMPLATE, grid_axis, hover_template, no_data_annotation
+from components.chart_presentation import (
+    TEMPLATE, bar_geometries, grid_axis, hover_template, no_data_annotation,
+)
 from config.metrics import MetricConfig
 from services.monitoring_service import Reading
 
@@ -150,10 +152,12 @@ def build_delta_figure(
     if not bars:
         fig.add_annotation(**no_data_annotation("No data available for the selected period"))
     else:
+        geometries = bar_geometries(bars)
         fig.add_trace(
             go.Bar(
-                x=[b.start for b in bars],
+                x=[g.x for g in geometries],
                 y=[b.result.value if b.result.is_known else None for b in bars],
+                width=[g.width_ms for g in geometries],
                 marker_color=BAR_COLOR,
                 name=metric.label,
                 hovertemplate=hover_template(metric),
