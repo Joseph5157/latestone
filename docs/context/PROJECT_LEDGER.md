@@ -3,10 +3,10 @@
 ## 1. Authoritative Checkpoint
 
 - **Branch:** `main`
-- **SHA:** `ead3a4e7dcb740d548776f64d762d98860c9f3db` — "fix(charts): stabilize Energy bar rendering"
+- **SHA:** `4c91b190589d754cd11419951873de6231a6f79c` — "docs(context): add client decision questions" (committed HEAD; AUTH-PROD-HARDEN-1 below is uncommitted on top of it)
 - **Last updated:** 2026-09-04
-- **Working tree expectation:** only `debug.log` (untracked)
-- **Test baseline:** 2669 passed (non-db), 510 deselected
+- **Working tree expectation:** `debug.log` (untracked) only. AUTH-PROD-HARDEN-1 committed.
+- **Test baseline:** 2690 passed (non-db, includes 21 new AUTH-PROD-HARDEN-1 tests), 510 deselected; 3200 passed full suite
 - **Source of truth:** `docs/context/SOURCE_AUTHORITY.md` — code outranks prose
 
 ## 2. Executive Project Position
@@ -102,6 +102,7 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | ROLE-BROWSER-1 | `0c40478` | PASSED | General persona audit complete; ROLE-4B/4C provenance backfilled |
 | LOCAL-ENV-CLEAN-1 | — | COMPLETE | Docker PostgreSQL, Alembic sole DDL authority, 30/71/120 hierarchy |
 | ENERGY-SPARK-2 | `ead3a4e` | CLOSED/PUSHED | Energy bar rendering stabilized |
+| AUTH-PROD-HARDEN-1 | `667e3fc` | CLOSED/PUSHED | `APP_ENV` setting, `FLASK_SECRET_KEY` fail-closed in production, explicit cookie Secure/HttpOnly/SameSite, HTTPS boundary documented (not middleware); 21 new tests, 3200 total passing |
 | CC-1 (Command Center) | `2c9a17d` | CLOSED/PUSHED | Fleet health, priority investigation, affected locations; 10 ADRs |
 | CC-2 (rank bars) | `24d010d` | CLOSED/PUSHED | ADR-012 implemented; bar cap, route-scoped tokens |
 | FIX-1 (callback hardening) | `5901945` | CLOSED/PUSHED | 8 callback defects found and fixed; regression coverage added |
@@ -139,7 +140,7 @@ None currently recorded. The project reached a natural pause at the Phase 9 Clie
 | Notification delivery channel & recipient rules | BR008–BR012 delivery | 🟠 BLOCKED | Display-only by frozen decision |
 | Active-list monitoring semantics (ACT-03) | BR007, RTL-ACT-03 | 🟠 BLOCKED | Does web app need active-list semantics or is that RTL-Master-only? |
 | Browser support list | RTL-UX-02 | 🟠 BLOCKED | No compatibility testing performed |
-| Production cookie/deployment hardening | Security posture | ⬜ NON-BLOCKING | `SESSION_COOKIE_SECURE`, `SameSite`, HTTPS, production `FLASK_SECRET_KEY` |
+| Production cookie/deployment hardening | Security posture | 🟢 APP-SIDE DONE — Railway service vars not yet confirmed set | `SESSION_COOKIE_SECURE`/`SameSite`/`HttpOnly`/`FLASK_SECRET_KEY` fail-closed implemented (AUTH-PROD-HARDEN-1, committed); HTTPS enforcement is Railway's edge by design, not app code |
 
 ## 9. Verified — Do Not Rebuild
 
@@ -165,7 +166,7 @@ Work that can be implemented without unresolved client/external decisions:
 | # | Task | Status | Rationale |
 |---|---|---|---|
 | 1 | **CLIENT-CLARIFICATION-PACK-1** | ⚪ NOT STARTED | A concise document collecting all client decisions needed before blocked work can resume: C-05 (transport), C-06 (auth source), C-07 (taxonomy), C-08 (scheduler ownership), C-10 (report format), C-15 (thresholds/period), C-16 (vibration), ACT-03 (active-list semantics). This is the true critical path — unblocks most blocked items. |
-| 2 | Production cookie/deployment hardening | ⚪ NOT STARTED | Non-blocking follow-up from AUTH-HARDEN-1: `SESSION_COOKIE_SECURE`, explicit `SameSite`, HTTPS enforcement, production `FLASK_SECRET_KEY`. Can proceed with information we control. |
+| 2 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
 
 ### Blocked / Waiting for Client or Integration
 

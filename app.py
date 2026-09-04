@@ -24,8 +24,28 @@ server = app.server
 # uses to identify the logged-in user. Distinct from and more trustworthy than
 # `auth-store`, the plain-JSON dcc.Store the browser can edit freely — see
 # config.settings.FlaskSessionSettings for why an unset FLASK_SECRET_KEY is
-# safe rather than a hole.
+# safe rather than a hole, and why it stops being safe once APP_ENV=production
+# (AUTH-PROD-HARDEN-1).
 server.secret_key = flask_session.secret_key
+
+# AUTH-PROD-HARDEN-1: explicit session-cookie transport policy — see
+# config.settings.FlaskSessionSettings for what each flag means and why.
+#
+# HTTPS enforcement itself is deliberately NOT handled here. This process is
+# reached only through the deployment platform's own HTTPS edge (Railway:
+# `railway.json` runs `gunicorn app:server` bound to a private-network port
+# it assigns; there is no public listener this app owns to terminate TLS on
+# or redirect from). Nothing in this codebase reads an `X-Forwarded-*` header
+# to make a security decision, so there is no proxy chain here for the app to
+# interpret, and no bounded hop count to trust one against — adding
+# `ProxyFix`-style header trust without that would let a client spoof its own
+# scheme. If that deployment topology ever changes (a proxy this app itself
+# must trust), this is the boundary to revisit, not `SESSION_COOKIE_SECURE`.
+server.config.update(
+    SESSION_COOKIE_SECURE=flask_session.cookie_secure,
+    SESSION_COOKIE_HTTPONLY=flask_session.cookie_httponly,
+    SESSION_COOKIE_SAMESITE=flask_session.cookie_samesite,
+)
 
 # The login card is CSS/JS-rendered, so the browser doesn't discover the hero
 # background-image until Dash's client bundle has parsed and rendered

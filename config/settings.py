@@ -235,9 +235,72 @@ class DemoAuthSettings:
         return bool(self.credentials)
 
 
+#: The one environment/deployment-mode concept this app has (AUTH-PROD-HARDEN-1).
+#: FLASK_SECRET_KEY's fail-closed requirement and the session cookie's
+#: Secure flag both key off this single setting, rather than each growing its
+#: own separate notion of "are we in production" that could disagree with the
+#: other.
+_VALID_APP_ENVIRONMENTS = ("development", "production")
+
+
+def resolve_app_environment(raw: str) -> str:
+    """`raw` (the `APP_ENV` env var) as a validated environment name.
+
+    Blank or unset means `development` — an existing local `.env` that has
+    never heard of `APP_ENV` keeps behaving exactly as it did before this
+    setting existed. Anything other than the two recognised values raises
+    immediately rather than silently treating a typo (`"prod"`, `"Production "`)
+    as `development` and shipping an unhardened session.
+    """
+    value = (raw or "").strip().lower() or "development"
+    if value not in _VALID_APP_ENVIRONMENTS:
+        raise RuntimeError(
+            f"APP_ENV must be one of {_VALID_APP_ENVIRONMENTS!r}, got {value!r}."
+        )
+    return value
+
+
+APP_ENV: str = resolve_app_environment(os.getenv("APP_ENV", ""))
+IS_PRODUCTION: bool = APP_ENV == "production"
+
+
+def resolve_flask_secret_key(app_env: str, configured: str) -> str:
+    """The Flask session-signing key for `app_env`, or a fail-closed error.
+
+    Any non-production `app_env`: the configured key if one was set, else a
+    fresh random key generated once per process start (evaluated exactly
+    once, same as every other default in this file, so every request within
+    one running process shares it). That is not a weaker default, it is a
+    stronger one — no fixed value ships in `.env.example` for an attacker to
+    read — the tradeoff is that a server restart invalidates every open
+    session, which for local/demo Dash is the same "log in again" experience
+    a browser tab close already produces (`auth-store` is session storage).
+    Unchanged from AUTH-HARDEN-1's original behaviour.
+
+    `production`: the configured key, or a `RuntimeError` naming exactly what
+    is missing. A production deployment must NEVER fall back to a per-process
+    random key — that would silently invalidate every signed-in session on
+    every restart/redeploy (and would let two replicas of one deployment sign
+    with two different keys). Failing closed at startup surfaces the missing
+    configuration immediately, instead of as a wave of mysteriously
+    logged-out operators after the next deploy.
+    """
+    configured = (configured or "").strip()
+    if app_env == "production":
+        if not configured:
+            raise RuntimeError(
+                "FLASK_SECRET_KEY must be set when APP_ENV=production. "
+                "Production sessions must not sign with a per-process random "
+                "key — set FLASK_SECRET_KEY explicitly (see .env.example)."
+            )
+        return configured
+    return configured or secrets.token_hex(32)
+
+
 @dataclass(frozen=True)
 class FlaskSessionSettings:
-    """Signs the trusted server-side session cookie (AUTH-HARDEN-1).
+    """Signs the trusted server-side session cookie (AUTH-HARDEN-1) and
+    carries its transport-security policy (AUTH-PROD-HARDEN-1).
 
     This is NOT the `auth-store` `dcc.Store` — that is plain JSON the browser
     can edit freely and is never trusted for authorization after this gate.
@@ -245,18 +308,32 @@ class FlaskSessionSettings:
     remember which database user is logged in; the browser can see the cookie
     but cannot alter it without invalidating its signature.
 
-    `FLASK_SECRET_KEY` is optional for local/demo use: unset falls back to a
-    fresh random key generated once per process start (evaluated exactly once,
-    same as every other default in this file, so every request within one
-    running process shares it). That is not a weaker default, it is a
-    stronger one — no fixed value ships in `.env.example` for an attacker to
-    read — the tradeoff is that a server restart invalidates every open
-    session, which for local/demo Dash is the same "log in again" experience
-    a browser tab close already produces (`auth-store` is session storage).
-    A real deployment must set `FLASK_SECRET_KEY` explicitly so a restart
-    does not sign every operator out.
+    `secret_key` is resolved by `resolve_flask_secret_key()` — optional and
+    auto-generated for local/demo use, required and fail-closed once
+    `APP_ENV=production` (see that function's docstring).
     """
-    secret_key: str = os.getenv("FLASK_SECRET_KEY", "") or secrets.token_hex(32)
+    secret_key: str = resolve_flask_secret_key(APP_ENV, os.getenv("FLASK_SECRET_KEY", ""))
+
+    #: Sent only over HTTPS. `False` outside production so the cookie still
+    #: reaches the browser when the app is served over plain local HTTP — a
+    #: browser silently drops a `Secure` cookie set from an `http://` origin,
+    #: which looks exactly like a broken login rather than an error. `True`
+    #: in production, where this app is reached only through the deployment
+    #: platform's HTTPS edge (see `app.py`'s comment beside where this is
+    #: wired into `server.config`).
+    cookie_secure: bool = IS_PRODUCTION
+
+    #: Never readable from JavaScript, in every environment. There is no
+    #: legitimate client-side reason to read the session cookie — `auth-store`
+    #: is the presentation-only store scripts may touch — so this forecloses
+    #: one whole class of session theft via XSS.
+    cookie_httponly: bool = True
+
+    #: `"Lax"` in every environment. This is a single-origin Dash app with no
+    #: cross-site POST target the session cookie needs to accompany, so `Lax`
+    #: costs nothing here and blocks the cookie from riding along on a
+    #: cross-site request.
+    cookie_samesite: str = "Lax"
 
 
 @dataclass(frozen=True)
