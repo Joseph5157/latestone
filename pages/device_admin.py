@@ -51,6 +51,11 @@ def layout() -> html.Div:
             html.Div(
                 className="device-admin-toolbar",
                 children=[
+                    html.Label(
+                        "Search devices",
+                        htmlFor="device-admin-search",
+                        className="visually-hidden",
+                    ),
                     dcc.Input(
                         id="device-admin-search",
                         type="text",

@@ -47,7 +47,7 @@ def layout() -> html.Div:
                 id="command-center-locations-summary",
                 className="command-center__scope-indicator",
             ),
-            html.Div(id="command-center-locations-error"),
+            html.Div(id="command-center-locations-error", className="listing-error"),
             html.Div(
                 id="command-center-locations-list",
                 className="command-center__locations-full",

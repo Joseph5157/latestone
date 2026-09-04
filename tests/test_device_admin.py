@@ -12,7 +12,9 @@ Pins the contract that:
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from callbacks.device_admin import (
     DEVICE_ADMIN_COLUMNS,
@@ -223,6 +225,59 @@ class TestDeviceAdminPageLayout:
         from tests.dash_tree import find_by_id
         drawer = find_by_id(page, "device-manage-drawer")
         assert drawer is not None
+
+    def test_search_input_has_an_accessible_name(self):
+        """dcc.Input (Dash 2.17.1) accepts no aria-* kwargs at all, so the
+        accessible name has to come from a native <label for=...> instead —
+        visually-hidden (clipped off-screen, not display:none) so it stays
+        in the accessibility tree. id/placeholder/behavior untouched."""
+        from pages.device_admin import layout
+        from tests.dash_tree import find_by_id, walk
+
+        page = layout()
+        search = find_by_id(page, "device-admin-search")
+        assert search is not None
+        assert search.placeholder == "Search devices..."
+
+        label = next(
+            n for n in walk(page)
+            if getattr(n, "htmlFor", None) == "device-admin-search"
+        )
+        assert label.children == "Search devices"
+        assert label.className == "visually-hidden"
+
+    def test_search_label_association_is_the_only_source_of_its_name(self):
+        """Guards against the earlier defect: an id/placeholder change on
+        either side silently breaking the for/id link would leave the input
+        with no accessible name at all, and nothing else here would catch it."""
+        from pages.device_admin import layout
+        from tests.dash_tree import find_by_id, walk
+
+        page = layout()
+        search = find_by_id(page, "device-admin-search")
+        labels_for_search = [
+            n for n in walk(page)
+            if getattr(n, "htmlFor", None) == search.id
+        ]
+        assert len(labels_for_search) == 1
+
+    def test_visually_hidden_utility_stays_in_the_accessibility_tree(self):
+        """Guards the actual defect this replaced: `display: none` and
+        `visibility: hidden` both pull an element out of the accessibility
+        tree in some browser/AT combinations, which would silence the label
+        it exists to provide."""
+        css = (
+            Path(__file__).resolve().parents[1] / "assets" / "app.css"
+        ).read_text(encoding="utf-8")
+        stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        match = re.search(r"\.visually-hidden\s*\{([^}]*)\}", stripped)
+        assert match is not None, "no .visually-hidden rule in assets/app.css"
+        declarations = match.group(1)
+        assert "display: none" not in declarations
+        assert "display:none" not in declarations
+        assert "visibility: hidden" not in declarations
+        assert "visibility:hidden" not in declarations
+        assert "clip: rect(0, 0, 0, 0)" in declarations
 
 
 class TestNoSQLInPageModule:

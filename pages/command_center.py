@@ -107,7 +107,7 @@ def layout() -> html.Div:
                     ),
                 ],
             ),
-            html.Div(id="command-center-error"),
+            html.Div(id="command-center-error", className="listing-error"),
             html.Div(
                 id=SITUATION_SUMMARY_ID,
                 className="command-center__summary-row",
