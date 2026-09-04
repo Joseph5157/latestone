@@ -234,6 +234,40 @@ the Eskom protocol; no physical MQTT/device integration exists yet; no new
 alarm-rule engine exists; no notification delivery integration exists; no
 monitoring semantics changed.
 
+## 6d. Gate Closed — Committed Locally, Not Yet Pushed
+
+**RTL-IF-4** (notification delivery abstraction): adds
+`services/notification_delivery.py` (provider-neutral `DeliveryRequest`/
+`DeliveryResult`/`NotificationDelivery` contract) and
+`services/mock_notification_delivery.py` (deterministic
+`MockNotificationDelivery`) — no changes to `notification_service.py`,
+`event_semantics.py`, `message_forwarding_service.py`,
+`device_event_service.py`, or the repository layer; no schema migration.
+The existing in-app Notification Center is structurally uncoupled from
+delivery (proven via `ast`-based import inspection, not just absence of a
+diff). `DeliveryRequest.recipient_endpoint` is always caller-supplied — no
+recipient-resolution policy exists, since who receives what by which
+channel is still a client-undecided item (§8). No `notification_deliveries`
+table: delivery lifecycle/acknowledgement/escalation/retention/retry are
+all still open decisions. Message forwarding is unchanged and not
+"completed" by this tranche — enabling it still sends nothing (FWD-D9).
+See `docs/context/ACTIVE_GATE.md` and
+`docs/decisions/ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md`
+for the full record.
+
+Independently verified by Codex (RTL-IF-4V: PASS on diff scope, in-app
+notification separation, provider-neutral delivery contract, deterministic
+mock delivery, recipient boundary, privacy/security, forwarding
+regression, event semantics, no persistence/schema additions, test
+quality, architecture boundary; non-blocking note — provider-specific
+endpoint/body validation deferred until real provider formats/limits are
+known). Commit SHA and push verification are recorded here once Steps 3-4
+of RTL-IF-4-CLOSE complete; until then the checkpoint in Section 1 above
+still reflects the last previously pushed commit. **Caveats preserved**:
+mock delivery only; no real SMS/email; no production recipient policy; the
+Notification Center remains independent; forwarding is not completed; the
+durable delivery lifecycle remains client-dependent.
+
 ## 7. Client Demo / Priority Overrides
 
 - **Client delivery branches**: `client-release` and `client-demo-1` branches exist for curated client-facing snapshots (see `docs/CLIENT_DELIVERY.md`). Client sees login-only subset; full app stays on `main`.
