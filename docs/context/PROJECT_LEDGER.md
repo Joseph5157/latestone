@@ -190,6 +190,41 @@ not the Eskom protocol; no physical device integration exists yet;
 recovery for a command stuck at `SENT` after a transport exception remains
 deferred; no real retry/worker/scheduler exists yet.
 
+## 6c. Gate Closed — Committed Locally, Not Yet Pushed
+
+**RTL-IF-3** (simulated incoming device-event integration): adds
+`services/simulated_event_source.py`, a thin front end onto the existing
+`device_event_service.ingest_event()` boundary — no second event pipeline,
+no schema migration, no changes to
+`repositories/plant_monitoring_repository.py`, `event_semantics.py`,
+`notification_service.py`, or `report_service.py`. `SUPPORTED_EVENT_TYPES`
+(`startup`, `check_in`, `battery_low`, `power_down`, `sensor_error`) is
+exactly `config/events.py`'s already-meaningful vocabulary — a
+simulator-only allowlist layered on top of `ingest_event()`'s own open
+vocabulary (INGEST-D7), never a change to it. Simulated startup exercises
+the existing `rtl_active_state` activation projection and its audit row
+unchanged; simulated battery-low events reach the Notification Center and
+RTL Alarms report through their existing, unmodified consumer code. No
+voltage-threshold evaluation, no high-temperature/vibration rules, no
+browser wiring (confirmed structurally, not merely asserted). See
+`docs/context/ACTIVE_GATE.md` and
+`docs/decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md`
+for the full record.
+
+Independently verified by Codex (RTL-IF-3V: PASS on diff scope, canonical
+ingestion, simulator allowlist, startup activation, unknown UID behavior,
+canonical validation, downstream consumers, architecture boundary, test
+quality; non-blocking note — no dedicated Command Center recent-events
+test, accepted because that consumer reads the same persisted
+`device_events` path already exercised by the Notification Center/RTL
+Alarms report tests). Commit SHA and push verification are recorded here
+once Steps 3-4 of RTL-IF-3-CLOSE complete; until then the checkpoint in
+Section 1 above still reflects the last previously pushed commit.
+**Caveats preserved**: the simulator is not the Eskom protocol; no
+physical MQTT/device integration exists yet; no new alarm-rule engine
+exists; no notification delivery integration exists; no monitoring
+semantics changed.
+
 ## 7. Client Demo / Priority Overrides
 
 - **Client delivery branches**: `client-release` and `client-demo-1` branches exist for curated client-facing snapshots (see `docs/CLIENT_DELIVERY.md`). Client sees login-only subset; full app stays on `main`.

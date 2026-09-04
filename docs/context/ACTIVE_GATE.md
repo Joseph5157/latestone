@@ -1,154 +1,119 @@
 # Active Gate
 
-Status: **CLOSED / PUSHED / REMOTE-VERIFIED**
+Status: **CLOSED / COMMITTED LOCALLY / NOT YET PUSHED**
 Date: 2026-09-04
-Gate: RTL-IF-2 — SimulatorTransport + command lifecycle
-Branch: `main`, baseline `bb9085b07b1e40b84ef78f695944a4787a8079df`
-Commit: `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a` — subject
-"feat(integration): add simulated RTL command lifecycle". Pushed to
-`origin/main`; local `HEAD` (at the time of that push), `origin/main`, and
-`git ls-remote origin refs/heads/main` all verified to match this SHA (see
-Verification below). This paragraph describes that already-completed,
-already-verified push of `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a` — it
-does not assert anything about whatever commit this documentation edit
-itself becomes part of, which is pushed separately, afterward, as its own
-step (RTL-IF-2-CLOSE Step 6).
-Commit/push permission: **GRANTED and exercised.** RTL-IF-2 was implemented
+Gate: RTL-IF-3 — Simulated incoming device-event integration
+Branch: `main`, baseline `f70a15d057f3bb5cf49f661596b38d25adf4b8a2`
+Commit/push permission: **GRANTED and exercised.** RTL-IF-3 was implemented
 against explicit "DO NOT COMMIT OR PUSH" instructions and left
 `READY FOR REVIEW / NOT COMMITTED`. It was then independently verified by
-Codex (RTL-IF-2V — diff scope, migration 009, state machine, timestamp
-integrity, dispatch transaction, transport contract, programming
-provenance, authorization, audit, test quality, architecture boundary all
-PASS; concurrent dispatch CONCURRENCY SAFE — the conditional QUEUED→SENT
-update prevents duplicate transport calls; transport exception ACCEPTABLE
-WITH DOCUMENTED RECOVERY REQUIREMENT — a transport exception leaves the
-command coherently SENT, recovery/retry intentionally deferred; no
-blockers), and this session's own RTL-IF-2-CLOSE task explicitly
-authorized the commit and push recorded above.
+Codex (RTL-IF-3V — diff scope, canonical ingestion, simulator allowlist,
+startup activation, unknown UID behavior, canonical validation, downstream
+consumers, architecture boundary, test quality all PASS; no blockers; one
+non-blocking note — no dedicated simulator test for Command Center recent
+events, since that consumer reads the same persisted `device_events` path
+already exercised by the Notification Center/RTL Alarms report tests), and
+this session's own RTL-IF-3-CLOSE task explicitly authorized the commit
+and push recorded below (Verification section).
 
-**Caveats, preserved from implementation through this closure:**
-`SimulatorTransport` is not the Eskom protocol; no physical device
-integration exists yet; recovery for a command stuck at `SENT` after a
-transport exception remains deferred; no real retry/worker/scheduler
-exists yet; `ACKNOWLEDGED`/`SUCCEEDED` are `SimulatorTransport`'s own
-internal test-contract semantics, not proof of physical RTL programming.
+**Caveats, preserved from implementation through this closure:** the
+simulator is not the Eskom protocol; no physical MQTT/device integration
+exists yet; no new alarm-rule engine exists (battery/power events are
+emitted as already-classified types, never derived from a raw voltage
+threshold); no notification delivery integration exists; no monitoring
+semantics changed.
 
 ## Purpose
 
-Add the first deterministic device-command execution path on top of
-RTL-IF-1's `rtl_commands`, with no real external integration:
+Add a deterministic incoming-device-event simulator that feeds the
+**existing** canonical event-ingestion boundary — no second event store,
+no second alarm pipeline:
 
 ```
-authorized PROGRAM RTL
+simulated device event
         v
-programming request
+NormalizedEvent                     (services/device_event_service.py, unchanged)
         v
-rtl_commands = QUEUED           (RTL-IF-1)
+device_event_service.ingest_event() (canonical boundary, INGEST-1I — unchanged)
         v
-dispatch_command()              (explicit caller only — this gate)
+existing persistence/projections    (device_events, rtl_active_state)
         v
-SimulatorTransport               (this gate — a test contract, not Eskom)
-        v
-SENT -> ACKNOWLEDGED -> SUCCEEDED
-     \-> FAILED
-     \-> TIMED_OUT
+existing notification/event/report consumers  (unchanged)
 ```
 
-See `docs/decisions/ADR-018-simulator-transport-is-not-the-eskom-protocol.md`
+See `docs/decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md`
 for the full decision record.
 
 ## What changed
 
-- **`alembic/versions/009_rtl_command_lifecycle.py`** — adds
-  `sent_at`/`acknowledged_at`/`completed_at`/`failure_code`(`VARCHAR(30)`)/
-  `failure_detail`(`VARCHAR(255)`, bounded — never a raw exception or stack
-  trace) to `rtl_commands`, all nullable. Four CHECK constraints hold
-  regardless of state vocabulary: a timestamp requires its predecessor
-  timestamp (`sent_at`->`created_at`, `acknowledged_at`/`completed_at`->
-  `sent_at`), and `failure_code` requires `completed_at`. `state`/
-  `command_type` still carry **no** CHECK (ADR-017's decision, unchanged) —
-  the six-state vocabulary lives in `config/commands.py`, enforced by the
-  service layer, not the database.
-- **`config/commands.py`** — adds `STATE_SENT`/`STATE_ACKNOWLEDGED`/
-  `STATE_SUCCEEDED`/`STATE_FAILED`/`STATE_TIMED_OUT`, `TERMINAL_STATES`,
-  `ALLOWED_TRANSITIONS` (the single source of truth for legal moves — every
-  terminal state's entry is empty, which is the entire mechanism
-  preventing backward/further movement), and `FAILURE_CODE_SIMULATED_FAILURE`/
-  `FAILURE_CODE_SIMULATED_TIMEOUT`. `ACKNOWLEDGED -> FAILED` was
-  considered and deliberately **not** added — nothing in this tranche's
-  completion model reaches it.
-- **`repositories/plant_monitoring_repository.py`** — `CommandRecord`
-  extended with the five new fields; `get_command(command_id)`,
-  `get_programming_request(request_id)`, and `update_command_state()` (one
-  conditional `UPDATE ... WHERE state = :expected_state` — the DB-level
-  half of race-safety; the SET clause's timestamp column name is validated
-  against a fixed allowlist before interpolation, never caller input).
-- **`services/rtl_command_service.py`** — extended with `mark_sent`,
-  `mark_acknowledged`, `mark_succeeded`, `mark_failed`, `mark_timed_out`,
-  and `CommandTransitionError`. **The only code path allowed to write
-  `rtl_commands.state`** — every call validates against
-  `config.commands.ALLOWED_TRANSITIONS` before touching the database, then
-  performs one conditional UPDATE (one transaction).
-- **`services/device_transport.py`** (new) — `DeviceTransport` protocol,
-  `TransportOutcome`. Receives a `CommandRecord` + its referenced
-  `ProgrammingRequestRecord`; never a DB session, never Flask/session
-  identity, no authorization role (authorization already happened before
-  the command existed).
-- **`services/simulator_transport.py`** (new) — `SimulatorTransport`, a
-  deterministic, in-process `DeviceTransport`: SUCCESS/FAILURE/TIMEOUT
-  fixed at construction, returned synchronously on every `send()`. No
-  network, sleep, thread, background loop, MQTT, SMS, or filesystem
-  coordination. Explicitly documented as an internal test contract, not
-  the Eskom protocol. `db/live_simulator.py` (the measurement generator)
-  is untouched and unrelated.
-- **`services/rtl_command_dispatch_service.py`** (new) — `dispatch_command(command_id, transport)`:
-  confirms the command is QUEUED (refuses — `CommandNotDispatchableError`
-  — for any other state, including terminal ones, rather than silently
-  re-dispatching), resolves the referenced request, marks SENT, invokes
-  the transport, maps the outcome to the correct transition(s). **Called
-  explicitly only** — by tests today, by a future worker that does not
-  exist yet. Never wired to a callback; the existing Program RTL action in
-  `callbacks/device_manage.py` still stops at `command = QUEUED`.
-- **`docs/decisions/ADR-018-...md`** (new) — the decision record.
-- **`docs/context/DECISION_INDEX.md`** — ADR-018 row added.
-- Tests: `tests/test_migration_rtl_command_lifecycle.py` (new, 11 tests —
-  CHECK constraints + an upgrade/downgrade/upgrade round trip),
-  `tests/test_rtl_command_service_lifecycle.py` (new, 12 tests — transition
-  legality, timestamps, terminal-state integrity, provenance, audit count),
-  `tests/test_rtl_command_dispatch.py` (new, 15 tests — full dispatch
-  outcomes, re-dispatch refusal, no-network-call proof, transport-exception
-  resilience). No existing test file was modified — RTL-IF-1's
-  `tests/test_rtl_commands.py`/`tests/test_rtl_programming.py` and the
-  authorization suites (`tests/test_action_guard_db.py`,
-  `tests/test_technician_operations.py`) pass unmodified.
+- **`services/simulated_event_source.py`** (new) — the only new module.
+  `emit()` builds one `NormalizedEvent` for a supported `event_type` and
+  submits it through `device_event_service.ingest_event()` unchanged — no
+  bypass of validation, identity resolution, persistence, projection, or
+  audit. `SUPPORTED_EVENT_TYPES` (`startup`, `check_in`, `battery_low`,
+  `power_down`, `sensor_error`) is the exact set of `config/events.py`
+  constants already given meaning by `services/event_semantics.py` —
+  nothing invented, `high_temperature`/`vibration_event` excluded because
+  no domain rule exists for them yet. `emit_startup`/`emit_check_in`/
+  `emit_battery_low`/`emit_power_down`/`emit_sensor_error` are thin
+  convenience wrappers. `EVENT_TYPE_INVALID_UID` is deliberately not a
+  supported emit type — it is `ingest_event()`'s own reclassification of
+  an unresolvable UID, exercised by simulating a startup/check-in with an
+  unregistered `reported_uid`, never emitted directly.
+- **`docs/decisions/ADR-019-...md`** (new) — the decision record: why the
+  simulator is a thin front end rather than a new pipeline, why its
+  allowlist is narrower than `ingest_event()`'s own open vocabulary
+  (INGEST-D7, unchanged), and why this stays a separate module from
+  `services/simulator_transport.py` (RTL-IF-2) rather than merging the two
+  — opposite data-flow direction, opposite failure model.
+- **`docs/context/DECISION_INDEX.md`** — ADR-019 row added.
+- Tests: `tests/test_simulated_event_source.py` (new, 16 tests) — valid
+  event persistence, correct device/event identity, startup activation
+  through the existing projection (with audit), ACT-D3 repeat-startup
+  idempotency, check-in with no invented activation, unregistered-UID
+  quarantine (no device silently created), simulator-level allowlist
+  refusal (proven distinct from the canonical service's own unrestricted
+  acceptance of the same type), canonical validation rejecting malformed
+  input (naive timestamp, non-string device_id, no attribution at all),
+  Notification Center + RTL Alarms report consuming a simulated event
+  unchanged, and a structural check that no `callbacks/`/`pages/`/
+  `components/` file imports any simulator module.
+
+**Nothing in `repositories/plant_monitoring_repository.py`,
+`services/device_event_service.py`, `services/event_semantics.py`,
+`services/notification_service.py`, or `services/report_service.py` was
+modified.** This tranche is additive-only: one new module, one new test
+file, one new ADR, and the two context documents.
 
 ## Explicitly NOT implemented (out of scope, per the task)
 
-MQTT, RabbitMQ, Paho/Pika, worker, scheduler, retry, command_attempts,
-automatic dispatch, browser lifecycle UI, SMS/email, notification
-delivery, startup/check-in event simulation, alarm event simulation,
-desired/reported state, 18:30 forwarding, active-state monitoring changes.
-No `CANCELLED` state, no retry states. No new runtime dependencies were
-installed. `db/live_simulator.py` was not modified. No new audit event was
-added for any lifecycle transition — `RTL_PROGRAM_REQUESTED` still records
-the operator's action exactly once; a durable transport-transition
-history/audit trail is explicitly deferred to a later tranche (see
-ADR-018).
+MQTT, RabbitMQ, a raw Eskom protocol parser, worker, scheduler, retries,
+SMS/email, notification delivery adapters, recipient-routing redesign,
+18:30 forwarding, desired/reported device state, monitoring changes based
+on `rtl_active_state`, high-temperature rules, vibration rules, UI
+redesign. No schema migration — `device_events`/`rtl_active_state` are
+reused exactly as they were. No voltage-threshold evaluation exists
+anywhere in this tranche: `emit_battery_low`/`emit_power_down` emit the
+already-classified event type directly; they do not convert a raw voltage
+into an alarm decision (ADR-001 unchanged). No new runtime dependencies
+were installed. No browser-facing wiring — confirmed by a structural test,
+not merely asserted.
 
 ## Verification
 
-- Focused: `tests/test_migration_rtl_command_lifecycle.py` — 11 passed.
-  `tests/test_rtl_command_service_lifecycle.py` — 12 passed.
-  `tests/test_rtl_command_dispatch.py` — 15 passed.
-- Regression: `tests/test_rtl_commands.py` + `tests/test_rtl_programming.py`
-  + `tests/test_migration_rtl_commands.py` + `tests/test_migration_foundation.py`
-  + `tests/test_action_guard_db.py` + `tests/test_technician_operations.py`
-  — all passed, run together in one invocation.
+- Focused: `tests/test_simulated_event_source.py` — 16 passed.
+- Regression: `tests/test_device_event_ingestion_db.py` +
+  `tests/test_event_consumption_db.py` + `tests/test_rtl_alarms_report_db.py`
+  + `tests/test_notification_service.py` +
+  `tests/test_rtl_command_service_lifecycle.py` +
+  `tests/test_rtl_command_dispatch.py` +
+  `tests/test_migration_rtl_command_lifecycle.py` — all passed, run
+  together in one invocation, unmodified.
 - `python -m pytest -m db -q` — all passed, exit 0, no failures (Windows
   Git Bash swallows this pytest install's final summary line; exit code 0
   plus an unbroken dot sequence with no `F`/`E` markers across every
   progress chunk is the evidence available this session — same caveat
-  recorded at RTL-IF-1's close).
+  recorded at RTL-IF-1 and RTL-IF-2's close).
 - `python -m pytest -m "not db" -q` — all passed, exit 0, same evidence
   shape as above.
 - `python -m pytest -q` (full suite) — all passed, exit 0, same evidence
@@ -158,60 +123,46 @@ ADR-018).
 - `git diff --check` — clean, no whitespace errors.
 - `git status --short` — matches the file list above plus untouched
   `debug.log`; no unexpected changes.
-- Push verification (RTL-IF-2-CLOSE Step 4): after `git push origin main`,
-  `git rev-parse HEAD`, `git rev-parse origin/main`, and
-  `git ls-remote origin refs/heads/main` all returned
-  `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a`.
+- Push verification (RTL-IF-3-CLOSE Step 4): recorded here once `git push
+  origin main` and the local/origin/ls-remote SHA match are actually
+  performed — not claimed in advance of that step.
 
-## Codex RTL-IF-2V independent verification
+## Codex RTL-IF-3V independent verification
 
-Result: **VERIFIED**, no blockers — diff scope PASS; migration 009 PASS;
-state machine PASS; timestamp integrity PASS; dispatch transaction PASS;
-transport contract PASS; programming provenance PASS; authorization PASS;
-audit PASS; test quality PASS; architecture boundary PASS.
+Result: **VERIFIED**, no blockers — diff scope PASS; canonical ingestion
+PASS; simulator allowlist PASS; startup activation PASS; unknown UID
+behavior PASS; canonical validation PASS; downstream consumers PASS;
+architecture boundary PASS; test quality PASS.
 
-Concurrent dispatch: **CONCURRENCY SAFE** — the conditional
-`QUEUED -> SENT` database update (`repositories.plant_monitoring_repository.
-update_command_state`'s `WHERE state = :expected_state`) prevents two
-concurrent `dispatch_command()` calls on the same command from both
-reaching `transport.send()`; the loser's UPDATE affects zero rows and
-raises `CommandTransitionError`/`CommandNotDispatchableError` instead of
-double-dispatching.
+Non-blocking note: no dedicated simulator test exercises Command Center
+recent-events specifically. Accepted as non-blocking because that consumer
+reads the same `repo.list_recent_device_events`/persisted `device_events`
+path already exercised end-to-end by
+`tests/test_simulated_event_source.py`'s Notification Center and RTL
+Alarms report assertions — the read path is shared, not reimplemented per
+consumer, so those two are representative rather than partial coverage.
 
-Transport exception: **ACCEPTABLE WITH DOCUMENTED RECOVERY REQUIREMENT** —
-a transport exception leaves the command coherently `SENT` (verified by
-`tests/test_rtl_command_dispatch.py::test_l_transport_exception_leaves_command_at_sent_not_corrupted`).
-Recovery/retry from a stuck `SENT` command is intentionally deferred — no
-retry, worker, or scheduler exists in this tranche (or any RTL-IF tranche
-so far) to resume it automatically; a future tranche owns that.
-
-This gate does not overstate what was built: **no physical RTL is
-programmed by anything in this tranche.** `ACKNOWLEDGED`/`SUCCEEDED` are
-`SimulatorTransport`'s own internal test-contract semantics — evidence
-that the configured, deterministic simulator ran to completion, not
-evidence of real device communication. No MQTT, no Eskom protocol, no SMS,
-no real transport of any kind exists yet.
+This gate does not overstate what was built: the simulator is not the
+Eskom protocol, no physical MQTT/device integration exists, no new
+alarm-rule engine exists, no notification delivery integration exists, and
+no monitoring semantics changed.
 
 ## Known ambiguity
 
-None encountered. No authority conflict between `AGENTS.md`,
-`SOURCE_AUTHORITY.md`, `PROJECT_LEDGER.md`, ADR-017, or the RTL-IF-1 source
-files inspected. One judgment call, not a conflict: whether to add a
-database CHECK enumerating the six lifecycle state strings now that the
-full vocabulary is known for this tranche. Decided **no** — ADR-017's own
-reasoning (a future transport tranche will need to extend the vocabulary
-without a migration) applies just as much to RTL-IF-2 as it did when
-written, and the task's own framing ("Do not add CANCELLED or retry states
-yet") signals this list is still not necessarily final. Legality is
-enforced entirely by `config.commands.ALLOWED_TRANSITIONS` and
-`rtl_command_service`, documented in ADR-018.
+None encountered. One judgment call, not a conflict: whether
+`EVENT_TYPE_INVALID_UID` belongs in `SUPPORTED_EVENT_TYPES`. Decided
+**no** — a device never declares itself invalid; the type is the ingestion
+service's own output for an unresolved UID (`_resolve_identity`'s zero-
+match branch), and a simulator "emitting" it directly would misrepresent
+where that classification actually comes from. Coverage for it instead
+goes through simulating a startup with an unregistered UID and observing
+the existing reclassification, which is what the real system does too.
 
 ## Next queued gate
 
 None queued. This gate is implemented, independently verified (Codex
-RTL-IF-2V), committed as `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a`, and
-pushed to `origin/main` with the remote match confirmed above. What comes
-next is a separate, later decision — most plausibly a future RTL-IF
-tranche that recovers a stuck `SENT` command, or a production adapter that
-implements `DeviceTransport` for a real transport, but neither is decided
-by this gate.
+RTL-IF-3V), and committed locally as part of this same closure task. It is
+**not yet pushed** at the point this paragraph was written (Step 2 of
+RTL-IF-3-CLOSE, before the Step 3 commit exists) — the commit SHA and push
+verification are recorded in the Step 5 finalization pass over this file,
+never claimed here in advance of the push actually happening.
