@@ -102,7 +102,7 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | ROLE-BROWSER-1 | `0c40478` | PASSED | General persona audit complete; ROLE-4B/4C provenance backfilled |
 | LOCAL-ENV-CLEAN-1 | — | COMPLETE | Docker PostgreSQL, Alembic sole DDL authority, 30/71/120 hierarchy |
 | ENERGY-SPARK-2 | `ead3a4e` | CLOSED/PUSHED | Energy bar rendering stabilized |
-| AUTH-PROD-HARDEN-1 | `669fffb` | CLOSED / COMMITTED LOCALLY / NOT YET PUSHED | `APP_ENV` setting, `FLASK_SECRET_KEY` fail-closed in production, explicit cookie Secure/HttpOnly/SameSite, HTTPS boundary documented (not middleware); 21 new tests, 3200 total passing |
+| AUTH-PROD-HARDEN-1 | `669fffb` | CLOSED / PUSHED / REMOTE-VERIFIED | `APP_ENV` setting, `FLASK_SECRET_KEY` fail-closed in production, explicit cookie Secure/HttpOnly/SameSite, HTTPS boundary documented (not middleware); 21 new tests, 3200 total passing; remote-verified at `d9f7838` |
 | CC-1 (Command Center) | `2c9a17d` | CLOSED/PUSHED | Fleet health, priority investigation, affected locations; 10 ADRs |
 | CC-2 (rank bars) | `24d010d` | CLOSED/PUSHED | ADR-012 implemented; bar cap, route-scoped tokens |
 | FIX-1 (callback hardening) | `5901945` | CLOSED/PUSHED | 8 callback defects found and fixed; regression coverage added |
