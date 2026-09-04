@@ -2407,6 +2407,108 @@ def list_recent_programming_requests(
 
 
 # ---------------------------------------------------------------------------
+# RTL commands (RTL-IF-1): the protocol-neutral persistence boundary between
+# an authorized programming request and a future device transport. One
+# command per programming request, enforced by uq_rtl_commands_request_id;
+# command_type/state carry no CHECK constraint so a future transport slice
+# can introduce new values without a schema migration (migration 008).
+# ---------------------------------------------------------------------------
+
+_COMMAND_COLUMNS = (
+    "command_id, request_id, device_id, command_type, state, "
+    "created_at, updated_at"
+)
+
+
+@dataclass(frozen=True)
+class CommandRecord:
+    """One persisted rtl_commands row.
+
+    ``device_id`` is resolved from the referenced request at insert time
+    (below), never taken as caller input — the command cannot name a
+    device other than the one its request already named.
+    """
+
+    command_id: int
+    request_id: int
+    device_id: str
+    command_type: str
+    state: str
+    created_at: datetime
+    updated_at: datetime
+
+
+def _to_command(row) -> CommandRecord:
+    return CommandRecord(*row)
+
+
+def create_command(
+    *,
+    request_id: int,
+    command_type: str,
+    state: str,
+    session=None,
+) -> CommandRecord:
+    """Insert one command row referencing an existing programming request.
+
+    ``device_id`` is resolved from ``rtl_programming_requests`` in the same
+    INSERT (the same pattern ``create_programming_request`` uses to resolve
+    ``transformer_id`` from ``devices``), so the command cannot drift from
+    the request it names. An unknown ``request_id`` inserts nothing and
+    raises ValueError rather than a bare FK IntegrityError; a repeated call
+    for a ``request_id`` that already has a command fails on
+    ``uq_rtl_commands_request_id`` instead of silently creating a second one.
+    """
+    def _run(s):
+        row = s.execute(
+            text(
+                f"""
+                INSERT INTO {_SCHEMA}.rtl_commands
+                    (request_id, device_id, command_type, state)
+                SELECT r.request_id, r.device_id, :command_type, :state
+                FROM {_SCHEMA}.rtl_programming_requests r
+                WHERE r.request_id = :request_id
+                RETURNING {_COMMAND_COLUMNS}
+                """
+            ),
+            {
+                "request_id": request_id,
+                "command_type": command_type,
+                "state": state,
+            },
+        ).first()
+        if row is None:
+            raise ValueError(f"Unknown request_id: {request_id!r}")
+        return _to_command(row)
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+def get_command_for_request(request_id: int) -> CommandRecord | None:
+    """The single command referencing ``request_id``, or None.
+
+    Read-back path for tests and future transport work: resolves
+    "programming request -> corresponding command" straight from
+    PostgreSQL via uq_rtl_commands_request_id.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                SELECT {_COMMAND_COLUMNS}
+                FROM {_SCHEMA}.rtl_commands
+                WHERE request_id = :request_id
+                """
+            ),
+            {"request_id": request_id},
+        ).first()
+    return _to_command(row) if row else None
+
+
+# ---------------------------------------------------------------------------
 # Device events (DB-1: INGEST-1). Normalized append-only event history
 # (INGEST-D3): every accepted call inserts a new row — there is no dedup,
 # because the schema offers no legitimate idempotency key (INGEST-D10).

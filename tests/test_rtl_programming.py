@@ -88,12 +88,18 @@ TRANSFORMER_ID = "prog-p1-t1"
 
 
 def _wipe() -> None:
-    """Reset everything this module touches, FK-safe order."""
+    """Reset everything this module touches, FK-safe order.
+
+    ``rtl_commands`` before ``rtl_programming_requests`` (RTL-IF-1):
+    ``record_request`` now inserts one command per request in the same
+    transaction, and ``rtl_commands.request_id`` FK-references
+    ``rtl_programming_requests``.
+    """
     with session_scope() as session:
         for table in (
-            "audit_log", "rtl_programming_requests", "message_forwarding",
-            "user_device_assignments", "readings", "devices",
-            "transformers", "plants", "users",
+            "audit_log", "rtl_commands", "rtl_programming_requests",
+            "message_forwarding", "user_device_assignments", "readings",
+            "devices", "transformers", "plants", "users",
         ):
             session.execute(text(f"DELETE FROM {repo._SCHEMA}.{table}"))
 

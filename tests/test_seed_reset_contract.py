@@ -33,7 +33,8 @@ FRESH_SOURCE = pathlib.Path(fresh.__file__).read_text(encoding="utf-8")
 KNOWN_TABLES = {
     "plants", "transformers", "devices", "readings",
     "device_events", "user_device_assignments", "rtl_active_state",
-    "rtl_programming_requests", "audit_log", "message_forwarding", "users",
+    "rtl_programming_requests", "rtl_commands", "audit_log",
+    "message_forwarding", "users",
 }
 
 
@@ -50,7 +51,7 @@ class TestResetReplacesMeasurementsOnly:
     @pytest.mark.parametrize(
         "table",
         ["device_events", "user_device_assignments", "rtl_active_state",
-         "rtl_programming_requests", "audit_log", "users"],
+         "rtl_programming_requests", "rtl_commands", "audit_log", "users"],
     )
     def test_operational_history_is_preserved(self, table):
         """A reseed of synthetic telemetry is not a reason to forget that an
@@ -111,7 +112,8 @@ class TestPurgeIsSeparateAndExplicit:
 
     def test_purge_names_what_cannot_be_rebuilt(self):
         for table in ("device_events", "user_device_assignments",
-                      "rtl_active_state", "rtl_programming_requests"):
+                      "rtl_active_state", "rtl_programming_requests",
+                      "rtl_commands"):
             assert table in seed.PURGE_DESTROYS_IRRECOVERABLY
 
     def test_children_are_deleted_before_their_parents(self):
@@ -122,6 +124,8 @@ class TestPurgeIsSeparateAndExplicit:
             ("rtl_active_state", "devices"),
             ("user_device_assignments", "devices"),
             ("rtl_programming_requests", "devices"),
+            ("rtl_commands", "devices"),
+            ("rtl_commands", "rtl_programming_requests"),
             ("device_events", "transformers"),
             ("rtl_programming_requests", "transformers"),
             ("devices", "transformers"),

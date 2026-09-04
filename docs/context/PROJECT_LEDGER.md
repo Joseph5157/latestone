@@ -121,6 +121,26 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 
 None currently recorded. The project reached a natural pause at the Phase 9 Client Review Gate (`docs/RTL_CLIENT_REVIEW_GATE.md`) where frontend phases 0–9 are complete and further implementation is gated on client/backend/data-contract decisions.
 
+## 6a. Gate Closed — Committed Locally, Not Yet Pushed
+
+**RTL-IF-1** (protocol-neutral command contract and persistence):
+`rtl_commands` table added (migration 008) — one command per accepted
+programming request, created atomically alongside the request and its
+audit row, initial state `QUEUED`. `rtl_programming_requests` remains the
+immutable operator-intent record, untouched by this gate. No MQTT/Eskom
+protocol, no ACK/retry/simulator — no transport exists yet. Independently
+verified by Codex (RTL-IF-1V: PASS on migration, transaction atomicity,
+request/command integrity, programming provenance, command contract,
+authorization, audit, reset/seed, tests, architecture boundary;
+`rtl_commands.device_id` duplication is a repository write-path invariant —
+`create_command()` resolves it from the referenced request row — not an
+additional cross-table database constraint). See
+`docs/context/ACTIVE_GATE.md` and
+`docs/decisions/ADR-017-rtl-commands-are-the-protocol-neutral-transport-seam.md`
+for the full record. Commit SHA and push verification are recorded here
+once Steps 3-4 of RTL-IF-1-CLOSE complete; until then the checkpoint in
+Section 1 above still reflects the last previously pushed commit.
+
 ## 7. Client Demo / Priority Overrides
 
 - **Client delivery branches**: `client-release` and `client-demo-1` branches exist for curated client-facing snapshots (see `docs/CLIENT_DELIVERY.md`). Client sees login-only subset; full app stays on `main`.

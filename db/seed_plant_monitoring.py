@@ -72,6 +72,7 @@ RESET_PRESERVES = (
     "user_device_assignments",
     "rtl_active_state",
     "rtl_programming_requests",
+    "rtl_commands",
     "audit_log",
     "message_forwarding",
     "users",
@@ -87,6 +88,7 @@ PURGE_ORDER = (
     "device_events",
     "rtl_active_state",
     "user_device_assignments",
+    "rtl_commands",
     "rtl_programming_requests",
     "devices",
     "transformers",
@@ -100,6 +102,7 @@ PURGE_DESTROYS_IRRECOVERABLY = (
     "user_device_assignments",
     "rtl_active_state",
     "rtl_programming_requests",
+    "rtl_commands",
 )
 
 

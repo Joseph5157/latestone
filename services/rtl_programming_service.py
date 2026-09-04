@@ -1,9 +1,10 @@
 """RTL programming requests — the persistence boundary crossed by OPS-PROG-1.
 
-Layering contract (AUD-1 pattern, FWD-D5):
+Layering contract (AUD-1 pattern, FWD-D5), extended by RTL-IF-1:
 
     callback → rtl_programming_service → session_scope()
                 ├── repo.create_programming_request(session=s)
+                ├── repo.create_command(session=s)
                 └── audit_service.record(s, ...)
               single COMMIT / ROLLBACK BOTH
 
@@ -11,11 +12,18 @@ What is REAL after OPS-PROG-1: the persisted programming-request row, its
 authorization (upstream, at the action guard), its audit trail, and
 reload/read-back from PostgreSQL.
 
+RTL-IF-1 adds one ``rtl_commands`` row per accepted request, in the same
+transaction: the protocol-neutral seam a future transport will consume.
+This does NOT change what the request row means — see PROG-D6/D7 below,
+both still true.
+
 What is deliberately NOT here (PROG-D6): any command transport, retry,
 scheduler or status progression. Every row this service creates stays
 ``pending`` with NULL completion columns until a future device-integration
-slice owns the lifecycle. Recording a request is NOT evidence that a
-physical RTL was programmed — the UI copy must say so (PROG-D7).
+slice owns the lifecycle. The command row it now also creates stays
+``QUEUED`` for the same reason (RTL-IF-1; see ADR-017). Recording a request
+is NOT evidence that a physical RTL was programmed — the UI copy must say
+so (PROG-D7).
 
 Frozen semantics:
 
@@ -38,6 +46,7 @@ from __future__ import annotations
 import logging
 
 from config import audit as audit_cfg
+from config import commands as command_cfg
 from db.engine import session_scope
 from repositories import plant_monitoring_repository as repo
 from repositories.plant_monitoring_repository import ProgrammingRequestRecord
@@ -103,6 +112,16 @@ def record_request(
                 master_msisdn=msisdn,
                 requested_by=actor_user_id,
                 request_method=REQUEST_METHOD_DASHBOARD,
+                session=session,
+            )
+
+            # Same transaction as the request insert (RTL-IF-1): a failed
+            # command insert rolls the request row back with it too. No
+            # separate audit event for this — see ADR-017.
+            repo.create_command(
+                request_id=record.request_id,
+                command_type=command_cfg.COMMAND_TYPE_PROGRAM_RTL,
+                state=command_cfg.STATE_QUEUED,
                 session=session,
             )
 

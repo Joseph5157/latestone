@@ -101,16 +101,17 @@ def _column_names(schema: str, table: str) -> set[str]:
     return set(rows)
 
 
-# 001_baseline (4 tables) plus DB-1 (7 additive tables): users,
-# user_device_assignments, rtl_programming_requests, message_forwarding,
-# rtl_active_state, device_events, audit_log. Updated here as each migration
+# 001_baseline (4 tables) plus DB-1 (7 additive tables) plus RTL-IF-1's
+# rtl_commands (008): users, user_device_assignments,
+# rtl_programming_requests, message_forwarding, rtl_active_state,
+# device_events, audit_log, rtl_commands. Updated here as each migration
 # extends "head" — this constant describes what `alembic upgrade head`
 # produces today, not just the original baseline.
 EXPECTED_UPGRADE_TABLES = {
     "plants", "transformers", "devices", "readings",
     "users", "user_device_assignments", "rtl_programming_requests",
     "message_forwarding", "rtl_active_state", "device_events", "audit_log",
-    "alembic_version",
+    "rtl_commands", "alembic_version",
 }
 
 

@@ -136,3 +136,14 @@ restore → prove restored, with no rebuild of anything.
 - `_reset_data`'s "FK-safe order" comment goes away with the code. A comment
   asserting an ordering is safe rots the moment a table is added; the
   ordering now lives in one place with a test that walks the live schema.
+
+## Addendum (RTL-IF-1, 2026-09-04)
+
+`rtl_commands` (migration 008, ADR-017) joins `RESET_PRESERVES`,
+`PURGE_ORDER` (before its two parents, `devices` and
+`rtl_programming_requests`) and `PURGE_DESTROYS_IRRECOVERABLY` in
+`db/seed_plant_monitoring.py`. This decision (D1-D4) is unchanged; this is
+the classification D2 requires of every new table, exercised by
+`tests/test_seed_reset_contract.py::TestPurgeOrderAgainstTheLiveSchema`,
+which walks the live FK graph and would have failed here had the table been
+left unclassified.
