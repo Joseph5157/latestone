@@ -148,6 +148,38 @@ Section 1 above is updated by a future gate's own opening step, per this
 ledger's existing convention (Section 11) — not rewritten here as a side
 effect of closing this one.
 
+## 6b. Gate Closed — Committed Locally, Not Yet Pushed
+
+**RTL-IF-2** (SimulatorTransport + command lifecycle): extends
+`rtl_commands` (migration 009) with `sent_at`/`acknowledged_at`/
+`completed_at`/`failure_code`/`failure_detail`, and adds the six-state
+lifecycle (`QUEUED→SENT→ACKNOWLEDGED→SUCCEEDED`, or `SENT→FAILED`/
+`TIMED_OUT`) enforced by `services/rtl_command_service.py` against
+`config/commands.py`'s `ALLOWED_TRANSITIONS` map — the database has no
+CHECK on the state vocabulary itself, only on timestamp/failure-field
+ordering. Adds a deterministic `SimulatorTransport`
+(`services/simulator_transport.py`) and an explicit-caller-only dispatcher
+(`services/rtl_command_dispatch_service.py::dispatch_command`); the
+conditional `QUEUED→SENT` database update prevents duplicate dispatch under
+concurrency, and a transport exception leaves the command coherently
+`SENT` — recovery/retry from that state is intentionally deferred, no
+worker or scheduler exists yet. No automatic dispatch, no MQTT/SMS/Eskom
+protocol, no real device integration of any kind: `ACKNOWLEDGED`/
+`SUCCEEDED` are `SimulatorTransport`'s own internal test-contract
+semantics, not proof of physical RTL programming. The existing Program RTL
+UI action still stops at `command = QUEUED`.
+
+Independently verified by Codex (RTL-IF-2V: PASS on diff scope, migration
+009, state machine, timestamp integrity, dispatch transaction, transport
+contract, programming provenance, authorization, audit, test quality,
+architecture boundary; concurrent dispatch CONCURRENCY SAFE; transport
+exception ACCEPTABLE WITH DOCUMENTED RECOVERY REQUIREMENT). See
+`docs/context/ACTIVE_GATE.md` and
+`docs/decisions/ADR-018-simulator-transport-is-not-the-eskom-protocol.md`
+for the full record. Commit SHA and push verification are recorded here
+once Steps 3-4 of RTL-IF-2-CLOSE complete; until then the checkpoint in
+Section 1 above still reflects the last previously pushed commit.
+
 ## 7. Client Demo / Priority Overrides
 
 - **Client delivery branches**: `client-release` and `client-demo-1` branches exist for curated client-facing snapshots (see `docs/CLIENT_DELIVERY.md`). Client sees login-only subset; full app stays on `main`.

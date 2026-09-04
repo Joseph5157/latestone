@@ -2406,18 +2406,53 @@ def list_recent_programming_requests(
     return [_to_programming_request(row) for row in rows]
 
 
+def get_programming_request(request_id: int) -> ProgrammingRequestRecord | None:
+    """One programming request by primary key, or None.
+
+    RTL-IF-2's dispatcher resolves a command's referenced request through
+    this — the request stays the operator-intent record a transport reads,
+    never something the dispatcher re-derives or duplicates.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                SELECT {_PROGRAMMING_REQUEST_COLUMNS}
+                FROM {_SCHEMA}.rtl_programming_requests
+                WHERE request_id = :request_id
+                """
+            ),
+            {"request_id": request_id},
+        ).first()
+    return _to_programming_request(row) if row else None
+
+
 # ---------------------------------------------------------------------------
 # RTL commands (RTL-IF-1): the protocol-neutral persistence boundary between
 # an authorized programming request and a future device transport. One
 # command per programming request, enforced by uq_rtl_commands_request_id;
 # command_type/state carry no CHECK constraint so a future transport slice
 # can introduce new values without a schema migration (migration 008).
+#
+# RTL-IF-2 (migration 009) adds execution-lifecycle columns: sent_at,
+# acknowledged_at, completed_at, failure_code, failure_detail. Legal state
+# values and transitions live in config/commands.py and are enforced by
+# services/rtl_command_service.py — never here. This module only knows how
+# to read a command and how to perform one conditional state UPDATE.
 # ---------------------------------------------------------------------------
 
 _COMMAND_COLUMNS = (
     "command_id, request_id, device_id, command_type, state, "
-    "created_at, updated_at"
+    "created_at, updated_at, sent_at, acknowledged_at, completed_at, "
+    "failure_code, failure_detail"
 )
+
+#: The only columns update_command_state() may set a DB-clock timestamp on.
+#: Interpolated into an UPDATE's SET clause below — validated against this
+#: fixed set first, so it is never derived from caller input and this is
+#: not an injection surface (same pattern as update_device_metadata()'s
+#: set_clause).
+_TRANSITION_TIMESTAMP_COLUMNS = frozenset({"sent_at", "acknowledged_at", "completed_at"})
 
 
 @dataclass(frozen=True)
@@ -2427,6 +2462,11 @@ class CommandRecord:
     ``device_id`` is resolved from the referenced request at insert time
     (below), never taken as caller input — the command cannot name a
     device other than the one its request already named.
+
+    ``sent_at``/``acknowledged_at``/``completed_at`` are None until
+    ``update_command_state()`` sets the one matching column for that
+    transition (RTL-IF-2); ``failure_code``/``failure_detail`` are None
+    unless the command reached FAILED or TIMED_OUT.
     """
 
     command_id: int
@@ -2436,6 +2476,11 @@ class CommandRecord:
     state: str
     created_at: datetime
     updated_at: datetime
+    sent_at: datetime | None
+    acknowledged_at: datetime | None
+    completed_at: datetime | None
+    failure_code: str | None
+    failure_detail: str | None
 
 
 def _to_command(row) -> CommandRecord:
@@ -2506,6 +2551,94 @@ def get_command_for_request(request_id: int) -> CommandRecord | None:
             {"request_id": request_id},
         ).first()
     return _to_command(row) if row else None
+
+
+def get_command(command_id: int) -> CommandRecord | None:
+    """One command by primary key, or None.
+
+    RTL-IF-2's dispatcher and rtl_command_service use this to load the
+    current command before validating a transition against
+    config.commands.ALLOWED_TRANSITIONS.
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                f"""
+                SELECT {_COMMAND_COLUMNS}
+                FROM {_SCHEMA}.rtl_commands
+                WHERE command_id = :command_id
+                """
+            ),
+            {"command_id": command_id},
+        ).first()
+    return _to_command(row) if row else None
+
+
+def update_command_state(
+    command_id: int,
+    *,
+    expected_state: str,
+    to_state: str,
+    timestamp_column: str,
+    failure_code: str | None = None,
+    failure_detail: str | None = None,
+    session=None,
+) -> CommandRecord:
+    """Atomically move a command from ``expected_state`` to ``to_state``.
+
+    RTL-IF-2. The ``WHERE ... AND state = :expected_state`` clause is the
+    whole safety story: it makes this a single conditional UPDATE rather
+    than a read-then-write with a race window, so a concurrent transition
+    (or a caller trying to move an already-terminal or already-moved
+    command) affects zero rows and raises, instead of silently clobbering
+    another transition or corrupting the row into two states at once.
+    Legality of ``expected_state -> to_state`` itself is
+    services/rtl_command_service.py's job (config.commands.ALLOWED_TRANSITIONS)
+    — this function only enforces that the row was actually in
+    ``expected_state`` at UPDATE time.
+
+    ``timestamp_column`` must be one of _TRANSITION_TIMESTAMP_COLUMNS —
+    checked before use, never taken as raw caller input, so interpolating
+    it into the SET clause is not an injection surface (same pattern as
+    update_device_metadata()'s set_clause).
+    """
+    if timestamp_column not in _TRANSITION_TIMESTAMP_COLUMNS:
+        raise ValueError(f"Unknown lifecycle timestamp column: {timestamp_column!r}")
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"""
+                UPDATE {_SCHEMA}.rtl_commands
+                SET state = :to_state,
+                    {timestamp_column} = now(),
+                    updated_at = now(),
+                    failure_code = :failure_code,
+                    failure_detail = :failure_detail
+                WHERE command_id = :command_id AND state = :expected_state
+                RETURNING {_COMMAND_COLUMNS}
+                """
+            ),
+            {
+                "command_id": command_id,
+                "expected_state": expected_state,
+                "to_state": to_state,
+                "failure_code": failure_code,
+                "failure_detail": failure_detail,
+            },
+        ).first()
+        if row is None:
+            raise ValueError(
+                f"Command {command_id} is not currently in state "
+                f"{expected_state!r} (unknown command, concurrent "
+                f"transition, or an illegal move)."
+            )
+        return _to_command(row)
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
 
 
 # ---------------------------------------------------------------------------
