@@ -3,10 +3,11 @@
 ## 1. Authoritative Checkpoint
 
 - **Branch:** `main`
-- **SHA:** `669fffb` — "fix(auth): harden production session configuration" (committed HEAD, not yet pushed)
-- **Last updated:** 2026-09-04
-- **Working tree expectation:** `debug.log` (untracked) only. AUTH-PROD-HARDEN-1 committed.
-- **Test baseline:** 2690 passed (non-db, includes 21 new AUTH-PROD-HARDEN-1 tests), 510 deselected; 3200 passed full suite
+- **SHA:** `e115624abf29702db2f67ddd6bbc787b44b1ca47` — "docs(context): finalize RTL-IF-4 closure" (pushed to `origin/main`, remote-verified — see §6a–6d)
+- **Last updated:** 2026-09-05 (POWER-MASTER-PLAN-1 checkpoint correction — this row was still pointing at the pre-RTL-IF-1 commit `669fffb`; RTL-IF-1 through RTL-IF-4 were closed and pushed after that entry was written and are already documented in §6a–6d below, but this header row was never advanced. Fixing a stale pointer, not asserting a new fact.)
+- **Working tree expectation:** `debug.log` (untracked) only, plus `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` (untracked, pending adoption per POWER-MASTER-PLAN-1).
+- **Test baseline (at RTL-IF-4 close):** 2690 passed (non-db), 510 deselected; 3200 passed full suite — unchanged by RTL-IF-1..4, which added focused test files without modifying this baseline's pre-existing tests (see ACTIVE_GATE.md verification log for RTL-IF-4).
+- **Roadmap:** `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` is the adopted high-level roadmap (validated by POWER-MASTER-PLAN-1); this ledger remains the executive/detailed status record it is built from.
 - **Source of truth:** `docs/context/SOURCE_AUTHORITY.md` — code outranks prose
 
 ## 2. Executive Project Position
@@ -323,7 +324,7 @@ Work that can be implemented without unresolved client/external decisions:
 
 | # | Task | Status | Rationale |
 |---|---|---|---|
-| 1 | **CLIENT-CLARIFICATION-PACK-1** | ⚪ NOT STARTED | A concise document collecting all client decisions needed before blocked work can resume: C-05 (transport), C-06 (auth source), C-07 (taxonomy), C-08 (scheduler ownership), C-10 (report format), C-15 (thresholds/period), C-16 (vibration), ACT-03 (active-list semantics). This is the true critical path — unblocks most blocked items. |
+| 1 | **CLIENT-CLARIFICATION-PACK-1** | 🟢 DRAFTED, NOT CONFIRMED SENT | `docs/context/CLIENT_CLARIFICATION_PACK.md` and `docs/context/CLIENT_QUESTIONS.md` exist and are committed (2026-09-04), collecting all client decisions needed before blocked work can resume: C-05, C-06, C-07, C-08, C-10, C-15, C-16, C-09/ACT-03. This row was stale (said NOT STARTED after the pack was already written); nothing in the repository records whether the pack was actually sent to or answered by the client — that confirmation is a human/PM action, not something this repository can verify. This remains the true critical path — unblocks most blocked items. |
 | 2 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
 
 ### Blocked / Waiting for Client or Integration

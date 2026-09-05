@@ -66,8 +66,10 @@ Once these decisions are confirmed, we can proceed with the corresponding backen
 
 ## Suggested Meeting Priority
 
-1. **C-05 — Communication method** — Unblocks the largest set of device integration work.
-2. **C-08 — Auto-disable ownership** — Unblocks scheduler infrastructure and forwarding delivery.
+Ordered per `REQ-3I_Clarification_Register.md` §5 engineering-gate ranking, the repository's authoritative clarification register — matching the numbered list above.
+
+1. **C-08 — Auto-disable ownership** — Unblocks scheduler infrastructure and forwarding delivery.
+2. **C-05 — Communication method** — Unblocks the largest set of device integration work.
 3. **C-15 — Max Temperature report period** — Unblocks one complete report feature independently.
 4. **C-04 — Report format** — Zero code changes if CSV is confirmed; immediate production sign-off path.
 5. **C-07 — Hierarchy mapping** — Unblocks truthful report column population.

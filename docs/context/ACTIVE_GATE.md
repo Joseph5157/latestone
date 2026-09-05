@@ -1,8 +1,40 @@
 # Active Gate
 
-Status: **CLOSED / PUSHED / REMOTE-VERIFIED**
-Date: 2026-09-04
-Gate: RTL-IF-4 — Notification delivery abstraction
+Status: **CLOSED / MASTER PLAN ADOPTED**
+Date: 2026-09-05
+Gate: POWER-MASTER-PLAN-1 — Adopt the Power RTL master build plan
+
+Documentation-only gate. Validated `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md`
+against the repository (AGENTS.md, ADR-017–020, `PROJECT_LEDGER.md`,
+`REQ-1B_Implementation_Gap_Matrix.md`, `REQ-3I_Clarification_Register.md`,
+`docs/RTL_FUNCTIONAL_SPEC_EXTRACT.md`), corrected two inaccuracies found in
+the plan (Client Clarification Pack priority ordering had C-05 ahead of
+C-08 — reversed of `REQ-3I` §5's authoritative ranking; BR015 was
+overstated as PARTIAL rather than `REQ-1B`'s NOT IMPLEMENTED), corrected a
+stale checkpoint SHA and a stale "NOT STARTED" clarification-pack status in
+`PROJECT_LEDGER.md`, and resolved a pre-existing internal ordering
+inconsistency in `docs/context/CLIENT_QUESTIONS.md`. No application code
+touched. The master plan is now the adopted roadmap; this repository's
+mature application/integration foundation is unchanged by this gate.
+
+**Next implementation gate: NONE — awaiting client clarification.** This is
+not an assertion that the project overall is blocked: the application layer
+and the RTL-IF-1..4 integration foundation are mature and complete for what
+does not require a client answer. It means the *next* gate specifically is
+client/interface-dependent, not developer backlog. See
+`docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` §18–20 and
+`REQ-3I_Clarification_Register.md` §5.
+
+**Leading client blockers (both required before any further RTL-IF/production
+tranche can begin without inventing business rules):**
+
+- **C-08** — Is the daily 18:30 message-forwarding auto-disable (BR016) an
+  application responsibility or an RTL-Master-side responsibility?
+- **C-05** — What transport/producer/channel contract (MQTT, SMS, API, or
+  other) carries communication between the application, the RTL Master, and
+  RTL devices?
+
+## RTL-IF-4 — Notification delivery abstraction (prior gate, CLOSED / PUSHED / REMOTE-VERIFIED)
 Branch: `main`, baseline `e3f49b14e4ea122190f9081b15967ddae00657ea`
 Commit: `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` — subject
 "feat(integration): add notification delivery abstraction". Pushed to
