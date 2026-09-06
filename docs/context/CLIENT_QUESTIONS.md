@@ -64,6 +64,48 @@ Once these decisions are confirmed, we can proceed with the corresponding backen
 
 ---
 
+## Development Baselines Set — 2026-09-06 (Pending Client Confirmation)
+
+**These are internal decisions made by the development team/user so
+implementation can proceed. They are NOT confirmed Eskom/client answers
+unless repository evidence proves otherwise.** Formal client confirmation
+remains pending for all items marked "baseline" below.
+
+1. **C-08 — Auto-disable ownership: DEVELOPMENT BASELINE SET, pending
+   client confirmation.** The RTL Application will own BR016. Default
+   cutoff 18:30 Africa/Johannesburg. An Administrator may set a temporary,
+   same-day-only override with a mandatory reason; it expires automatically
+   and the default 18:30 cutoff resumes the next day without action. Every
+   override change and every automatic disable must be audited. See
+   `REQ-3I_Clarification_Register.md` C-08 and
+   `docs/context/ACTIVE_GATE.md` (gate `C08-AUTO-DISABLE-1`, now queued
+   against this baseline).
+2. **C-05 — Communication method: NOT ANSWERED.** Confirmed to remain
+   Eskom-controlled/external. Still the sole leading engineering gate — see
+   `REQ-3I_Clarification_Register.md` §5.
+3. **C-15 — Max Temperature report period: DEVELOPMENT BASELINE SET,
+   pending client confirmation.** Rolling 30 days by default, plus a custom
+   date range. The period used must be shown on the report and its export.
+4. **C-04 — Production report format: DEVELOPMENT BASELINE SET (format
+   only), pending client confirmation.** PDF + CSV. Native XLSX is not
+   required at this time. Retention/history for reports remains open.
+5. **C-07 — Hierarchy field mapping: HOLD.** Still genuinely pending client
+   clarification; no mapping supplied yet — not a development baseline.
+
+Also reconfirmed as Eskom-controlled/external (unanswered, not part of this
+round): **C-06** (production identity/role-source ownership, Entra ID) and
+the **Azure / private-APN infrastructure family**.
+
+Two further clarifications outside this document's original top-5, recorded
+in `REQ-3I_Clarification_Register.md` C-01 and C-02, also got development
+baselines set (shape only, pending client confirmation): high-temperature
+thresholds (C-01) and the vibration metric (C-02) must both be
+administrator-configurable frameworks with audited changes, never
+permanently hardcoded — the actual Eskom threshold values and full
+vibration sensor contract remain unconfirmed.
+
+---
+
 ## Suggested Meeting Priority
 
 Ordered per `REQ-3I_Clarification_Register.md` §5 engineering-gate ranking, the repository's authoritative clarification register — matching the numbered list above.

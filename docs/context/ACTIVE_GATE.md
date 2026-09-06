@@ -1,8 +1,155 @@
 # Active Gate
 
-Status: **CLOSED / MASTER PLAN ADOPTED**
+Status: **CLOSED / DEVELOPMENT BASELINES RECORDED**
+Date: 2026-09-06
+Gate: C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08,
+C-15) pending client confirmation, and queue the next implementation gate
+
+Documentation-only gate. **The values recorded below for C-08, C-15, C-04,
+C-01, and C-02 are development baselines approved by the development
+team/user so implementation can proceed — they are NOT confirmed
+Eskom/client answers unless repository evidence proves otherwise.** C-07
+remains genuinely on hold pending the client (unchanged, not a baseline).
+C-05, C-06, and the Azure/private-APN/Entra ID family remain
+Eskom-controlled/external, reconfirmed as still unanswered. Recorded in
+`REQ-3I_Clarification_Register.md` (each item's own entry, an added §4 rule
+distinguishing a development baseline from a client answer, and an updated
+§5 ranking), `docs/context/CLIENT_QUESTIONS.md` ("Development Baselines
+Set" section), and `docs/context/PROJECT_LEDGER.md` (§1, §3, §8, §9, §10).
+While reconciling `PROJECT_LEDGER.md` against `REQ-3I`'s numbering (this
+repository's authoritative clarification register, per
+`docs/context/SOURCE_AUTHORITY.md` and the POWER-MASTER-PLAN-1 precedent),
+three pre-existing ID mislabels were found and corrected there: the
+high-temperature threshold was cited as `C-15` (that ID actually names the
+separate Max Temperature reporting period; the threshold is `C-01`); report
+format was cited as `C-10` (that ID actually names the separate notification
+acknowledgement/retention question; format is `C-04`); and the vibration
+open-question count was stated as 16 where direct inspection of
+`docs/VIBRATION_METRIC_CONTRACT_TBD.md` shows 14. See
+`docs/context/PROJECT_LEDGER.md` §8's note for the full correction record.
+No application code touched.
+
+## Development baselines set (2026-09-06, pending client confirmation)
+
+- **C-08 — DEVELOPMENT BASELINE SET.** The RTL Application (this
+  repository) will own BR016's daily auto-disable — not the RTL Master.
+  Default cutoff: 18:30 Africa/Johannesburg. An Administrator may set a
+  temporary, same-day-only override of the cutoff with a mandatory reason;
+  the override expires automatically at end of day and the default 18:30
+  cutoff resumes automatically the next day. Every override change and
+  every automatic disable action must be audited. This is an internal
+  decision so implementation can proceed, not a confirmed client answer.
+  **Still open, not decided by this round and not to be invented:** which
+  users/RTLs the disable applies to, and whether an override is fleet-wide
+  or per-user/per-RTL.
+- **C-15 — DEVELOPMENT BASELINE SET.** Maximum Temperature report period:
+  rolling 30 days by default, plus a custom date range. The period used
+  must be shown on the report and its export.
+- **C-04 — DEVELOPMENT BASELINE SET (format only).** Production report
+  format is PDF + CSV. Native XLSX is not required. Retention/history
+  remains open.
+- **C-01 — DEVELOPMENT BASELINE SET (framework only).** Warning/critical
+  temperature thresholds must be administrator-configurable, never
+  permanently hardcoded, with all changes audited. Actual Eskom threshold
+  values remain unconfirmed.
+- **C-02 — DEVELOPMENT BASELINE SET (framework only).** Vibration must be a
+  configurable framework, not hardcoded. Production sensor semantics/values
+  remain unconfirmed (14 open questions in
+  `docs/VIBRATION_METRIC_CONTRACT_TBD.md`).
+- **C-07 — HOLD.** Explicitly pending client hierarchy clarification; no
+  mapping supplied. This one is genuinely waiting on the client, not a
+  development baseline.
+- **C-05, C-06, and the Azure / private-APN / Entra ID family — reconfirmed
+  as Eskom-controlled/external.** Not answered this round; not expected to
+  become application-side work.
+
+All five baselines above are pending formal client confirmation. Treat them
+as the working assumption for implementation, not as settled requirements —
+if the client's eventual answer differs, the baseline and everything built
+against it must be revisited.
+
+## Next implementation gate: C08-AUTO-DISABLE-1 — QUEUED, NOT STARTED
+
+Documentation only at this point — no scheduler, override, or audit code has
+been written yet. This section exists so a future implementation session has
+the exact confirmed baseline without re-deriving it.
+
+### Scope (from the C-08 development baseline above)
+
+1. A daily scheduled job, owned by this application, that disables message
+   forwarding (the existing `message_forwarding` per-user preference,
+   `services/message_forwarding_service.py`) at a configurable cutoff time,
+   default **18:30 Africa/Johannesburg**.
+2. An Administrator-only capability to set a **temporary, same-day-only**
+   override of that cutoff time, with a **mandatory reason** captured.
+3. The override **expires automatically** at the end of the day it was set
+   for; the default 18:30 cutoff resumes automatically the next day with no
+   administrator action required.
+4. **Every** override change and **every** automatic-disable action must
+   write an audit row (pattern: `services/audit_service.py`, as used by
+   forwarding/programming/deactivation/ingestion).
+
+### Explicitly not answered — do not invent
+
+- Which users/RTLs are affected: all users with forwarding currently
+  enabled, or scoped by technician/RTL assignment?
+- Whether an override applies fleet-wide or is scoped per-user/per-RTL.
+- Whether the disable also needs to *notify* affected users (BR016 itself
+  only asks for the disable, not a notification about it).
+
+### Why this does not depend on C-05
+
+The auto-disable action only needs to flip the existing, already-persisted
+`message_forwarding.enabled` flag to `false` in this application's own
+database — it requires no message transport, MQTT, or SMS gateway. It is the
+first candidate application-engineering tranche unblocked since
+`REQ-3I_Clarification_Register.md` was established. **Actual outbound
+message delivery** (what "message forwarding" sends once enabled) remains
+blocked on C-05, unchanged.
+
+### Scheduler architecture decision (2026-09-06)
+
+No background-worker/scheduler infrastructure exists anywhere in this
+codebase yet (`REQ-1B_Implementation_Gap_Matrix.md` §15;
+`PROJECT_LEDGER.md` §8/§10). This is an internal architecture decision and
+does not require Eskom infrastructure access or client input — recorded now
+so implementation does not have to re-derive it:
+
+1. **An idempotent application service** implements "disable forwarding
+   when due" — e.g. `apply_auto_disable(now)` in
+   `services/message_forwarding_service.py` or a sibling module. Calling it
+   twice for the same cutoff must not double-audit or error; it checks
+   current state before acting, the same pattern already used by
+   `services/audit_service.py`'s mutation+audit callers.
+2. **A separately invokable scheduled command/process** calls that service
+   — a standalone entry point (e.g. a small script or CLI command), not
+   logic embedded inside a request/callback handler.
+3. **No timer/background scheduler embedded in each Dash/Gunicorn worker.**
+   A per-worker timer would fire once per worker process under multiple
+   Gunicorn workers, causing duplicate/racing auto-disable attempts. The
+   idempotent service in (1) protects against this if it ever happens
+   anyway, but the design should not rely on that as the only safeguard.
+4. **The actual production scheduling mechanism remains
+   deployment-configurable** — cron, a Railway scheduled job, APScheduler
+   run from a single designated process, or similar. Whoever opens this
+   gate for implementation must choose and justify one appropriate to this
+   stack (Python/Dash/Flask, single process, Railway deployment — AGENTS.md
+   §Stack), per AGENTS.md's dependency-justification rule ("Before adding a
+   dependency, explain why the existing stack cannot reasonably solve the
+   requirement"). This decision record does not pick that mechanism itself.
+
+### Sole remaining leading blocker for other RTL-IF/production tranches
+
+- **C-05** — transport/producer/channel contract. Confirmed 2026-09-06 as
+  Eskom-controlled/external; still unanswered. Remains the sole leading gate
+  for physical programming execution, forwarding delivery, and all
+  producer-dependent work. See `REQ-3I_Clarification_Register.md` §5.
+
+---
+
+## POWER-MASTER-PLAN-1 — CLOSED / MASTER PLAN ADOPTED (prior gate)
+
 Date: 2026-09-05
-Gate: POWER-MASTER-PLAN-1 — Adopt the Power RTL master build plan
 
 Documentation-only gate. Validated `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md`
 against the repository (AGENTS.md, ADR-017–020, `PROJECT_LEDGER.md`,
@@ -17,22 +164,10 @@ inconsistency in `docs/context/CLIENT_QUESTIONS.md`. No application code
 touched. The master plan is now the adopted roadmap; this repository's
 mature application/integration foundation is unchanged by this gate.
 
-**Next implementation gate: NONE — awaiting client clarification.** This is
-not an assertion that the project overall is blocked: the application layer
-and the RTL-IF-1..4 integration foundation are mature and complete for what
-does not require a client answer. It means the *next* gate specifically is
-client/interface-dependent, not developer backlog. See
-`docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` §18–20 and
-`REQ-3I_Clarification_Register.md` §5.
-
-**Leading client blockers (both required before any further RTL-IF/production
-tranche can begin without inventing business rules):**
-
-- **C-08** — Is the daily 18:30 message-forwarding auto-disable (BR016) an
-  application responsibility or an RTL-Master-side responsibility?
-- **C-05** — What transport/producer/channel contract (MQTT, SMS, API, or
-  other) carries communication between the application, the RTL Master, and
-  RTL devices?
+At the time this gate closed, the next implementation gate was NONE —
+awaiting client clarification, with C-08 and C-05 as the two leading
+blockers. **That has since changed**: see the C08-BASELINE-1 section above,
+which is now current.
 
 ## RTL-IF-4 — Notification delivery abstraction (prior gate, CLOSED / PUSHED / REMOTE-VERIFIED)
 Branch: `main`, baseline `e3f49b14e4ea122190f9081b15967ddae00657ea`

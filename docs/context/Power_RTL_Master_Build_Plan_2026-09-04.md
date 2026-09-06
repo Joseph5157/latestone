@@ -17,6 +17,21 @@ This plan is controlled by the following client documents:
 
 When there is a conflict between our implementation ideas and the client documents, the client documents control unless the client formally approves a change.
 
+**Amendment (2026-09-06):** Development baselines set (pending client
+confirmation) for C-08, C-15, C-04 (format), C-01 (framework), and C-02
+(framework) — internal decisions made by the development team/user so
+implementation can proceed, **not confirmed Eskom/client answers unless
+repository evidence proves otherwise**. C-07 remains genuinely on hold
+pending the client (unchanged, not a baseline). C-05, C-06, and the
+Azure/private-APN/Entra ID family were reconfirmed as
+Eskom-controlled/external. Full detail:
+`REQ-3I_Clarification_Register.md`, `docs/context/CLIENT_QUESTIONS.md`, and
+`docs/context/ACTIVE_GATE.md` (gate `C08-AUTO-DISABLE-1` now queued against
+these baselines). This plan's own body below is left as originally frozen
+at 04 September 2026 and
+is not rewritten — treat the sections referenced above as authoritative
+where they postdate this document.
+
 ## Traceability rule
 
 Every future implementation tranche must state:

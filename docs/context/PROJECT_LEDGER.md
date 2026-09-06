@@ -9,6 +9,18 @@
 - **Test baseline (at RTL-IF-4 close):** 2690 passed (non-db), 510 deselected; 3200 passed full suite — unchanged by RTL-IF-1..4, which added focused test files without modifying this baseline's pre-existing tests (see ACTIVE_GATE.md verification log for RTL-IF-4).
 - **Roadmap:** `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` is the adopted high-level roadmap (validated by POWER-MASTER-PLAN-1); this ledger remains the executive/detailed status record it is built from.
 - **Source of truth:** `docs/context/SOURCE_AUTHORITY.md` — code outranks prose
+- **Amendment (2026-09-06):** Development baselines recorded for C-08,
+  C-15, C-04 (format), C-01 (framework), C-02 (framework) — internal
+  decisions made by the development team/user so implementation can
+  proceed, **not confirmed Eskom/client answers unless repository evidence
+  proves otherwise**; formal client confirmation remains pending for all
+  five (full detail in `REQ-3I_Clarification_Register.md` and
+  `docs/context/CLIENT_QUESTIONS.md`). C-07 remains genuinely on hold
+  pending the client. C-05/C-06/Azure/private-APN/Entra reconfirmed as
+  Eskom-controlled/external. Next implementation gate updated to
+  `C08-AUTO-DISABLE-1` in `docs/context/ACTIVE_GATE.md`. Documentation
+  only — this row does not change the checkpoint SHA above, which still
+  reflects the last actual commit.
 
 ## 2. Executive Project Position
 
@@ -35,18 +47,18 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | **Authentication** | BR001: System must authenticate users | 🟢 IMPLEMENTED | Demo credential auth with server-trusted session (`auth_service.py`); Flask signed cookie; `current_identity()` reloads from DB every call; fails closed | Microsoft Entra ID / real SSO (RTL-SEC-01) — external integration | 🟠 BLOCKED — C-06 (production role-source ownership) |
 | **RTL Programming** | BR005/RTL-PROG-01–10: Program RTL | 🟠 BLOCKED — EXTERNAL | Application request persistence exists: atomic insert + audit (`rtl_programming_service.py`, OPS-PROG-1); authorization enforced; Master MSISDN captured; confirmation honest ("request recorded ≠ programmed") | Physical command transport to RTL device (C-05); RTL Master MSISDN source; device-side programming confirmation | 🟠 BLOCKED — C-05 (transport/device protocol) |
 | **Message forwarding** | BR003/BR004/RTL-FWD-01–07 | 🟠 BLOCKED — EXTERNAL | Per-user forwarding preference persisted with atomic mutation + audit (`message_forwarding_service.py`, OPS-FWD-1); drawer prefilled from DB; feedback truthful | SMS/message transport (C-05 family); 18:30 auto-disable scheduler (C-08); recipient eligibility rules (FWD-D1 vs FWD-03); actual message delivery | 🟠 BLOCKED — C-05 (transport) + C-08 (scheduler ownership) |
-| **18:30 auto-disable** | BR016: Auto-disable forwarding at 18:30 daily | 🟠 BLOCKED — EXTERNAL | None implemented | No scheduler/background worker; app vs RTL Master ownership unconfirmed (C-08); needs job infrastructure | 🟠 BLOCKED — C-08 (ownership decision) |
+| **18:30 auto-disable** | BR016: Auto-disable forwarding at 18:30 daily | 🟡 PARTIAL — ownership baseline set, not yet built | None implemented | Ownership/timezone/override/audit baseline set 2026-09-06, pending client confirmation (C-08: app-owned, not RTL Master; default 18:30 Africa/Johannesburg; admin same-day cutoff override with mandatory reason, auto-expiring, normal 18:30 resumes next day; overrides and automatic disables both audited); no scheduler/background-worker infrastructure exists yet | 🟢 READY — gate `C08-AUTO-DISABLE-1` queued in `docs/context/ACTIVE_GATE.md` |
 | **RTL active lifecycle** | BR010/BR012/RTL-ACT-01–06 | 🟡 PARTIAL | Startup event ingestion persists + activates `rtl_active_state` (INGEST-1, ACT-D1–D7); deactivation persists with audit (OPS-DEACT-1); active-list state separate from admin status (RTL-ACT-05) | Physical RTL device producer; Master-side list is its own system; monitoring semantics for active-list (ACT-03 client question) | 🟠 BLOCKED — ACT-03 (active-list semantics) |
-| **Notifications/alarms** | BR008–BR012/RTL-EVT-01–09 | 🟡 PARTIAL | Notification Center derives BR008 >24h from readings; persisted device events (battery_low, power_down, sensor_error, startup, check-in, invalid_uid) render via shared `event_semantics.py` layer; categories scoped per device scope | Real device event producers (MQTT/C-05); delivery to users (SMS/email); notification history/acknowledgement; high-temperature threshold (C-15); vibration contract (C-16) | 🟠 BLOCKED — C-05 + C-15 + C-16 |
-| **RTL Alarms report** | RTL-REP-01: RTL Alarms (30 Days) | 🟡 PARTIAL | Data-backed from persisted `device_events` via `rtl_alarms_30d_rows()` (REPORT-3); scope-filtered; zero rows is legitimate empty report; CSV export working | Production delivery format (C-10); OU/Zone/Sector/CNC/Feeder taxonomy mapping (C-07) | 🟠 BLOCKED — C-10 + C-07 |
-| **Installed RTL report** | RTL-REP-02: Installed RTLs | 🟡 PARTIAL | Data-backed from readings via `installed_rtls_rows()` (REPORT-2); OU/Zone/Sector/CNC/Feeder stay None per R2-D2; CSV export working | Production delivery format (C-10); taxonomy mapping (C-07) | 🟠 BLOCKED — C-10 + C-07 |
-| **Max Temperature report** | RTL-REP-03: Maximum Temperature | 🟠 BLOCKED — EXTERNAL | Report definition confirmed in `config/reports.py`; UI renders "prototype only" panel | Reporting period not defined by spec (C-15); data population; export | 🟠 BLOCKED — C-15 (reporting period) |
-| **Export/delivery** | RTL-PUR-05 | 🟡 PARTIAL | CSV export pipeline exists for Installed RTLs and RTL Alarms (`report_export.py`); authorization enforced (`require_capability(EXPORT_DATA)`); honest format label ("CSV is development default") | Production format confirmation (C-10: CSV vs PDF); file delivery mechanism | 🟠 BLOCKED — C-10 (format confirmation) |
+| **Notifications/alarms** | BR008–BR012/RTL-EVT-01–09 | 🟡 PARTIAL | Notification Center derives BR008 >24h from readings; persisted device events (battery_low, power_down, sensor_error, startup, check-in, invalid_uid) render via shared `event_semantics.py` layer; categories scoped per device scope | Real device event producers (MQTT/C-05); delivery to users (SMS/email); notification history/acknowledgement; high-temperature threshold (C-01 — corrected 2026-09-06, was mislabeled C-15 in this row; see note below §8); vibration contract (C-16/C-02) | 🟠 BLOCKED — C-05 + C-01 + C-16 |
+| **RTL Alarms report** | RTL-REP-01: RTL Alarms (30 Days) | 🟡 PARTIAL | Data-backed from persisted `device_events` via `rtl_alarms_30d_rows()` (REPORT-3); scope-filtered; zero rows is legitimate empty report; CSV export working | Production delivery format (C-04: development baseline set 2026-09-06, pending client confirmation — PDF + CSV, no XLSX; PDF export not yet built); OU/Zone/Sector/CNC/Feeder taxonomy mapping (C-07: HOLD, reconfirmed 2026-09-06) | 🟠 BLOCKED — C-07 (taxonomy) |
+| **Installed RTL report** | RTL-REP-02: Installed RTLs | 🟡 PARTIAL | Data-backed from readings via `installed_rtls_rows()` (REPORT-2); OU/Zone/Sector/CNC/Feeder stay None per R2-D2; CSV export working | Production delivery format (C-04: development baseline set 2026-09-06, pending client confirmation — PDF + CSV, no XLSX; PDF export not yet built); taxonomy mapping (C-07: HOLD, reconfirmed 2026-09-06) | 🟠 BLOCKED — C-07 (taxonomy) |
+| **Max Temperature report** | RTL-REP-03: Maximum Temperature | 🟡 PARTIAL — period baseline set, not yet built | Report definition confirmed in `config/reports.py`; UI renders "prototype only" panel | Reporting period baseline set 2026-09-06, pending client confirmation (C-15: rolling 30 days by default, plus custom date range; period must be shown on report/export); data population; export still to build | 🟢 READY — implementation gate not yet opened (separate from `C08-AUTO-DISABLE-1`) |
+| **Export/delivery** | RTL-PUR-05 | 🟡 PARTIAL | CSV export pipeline exists for Installed RTLs and RTL Alarms (`report_export.py`); authorization enforced (`require_capability(EXPORT_DATA)`); honest format label ("CSV is development default") | Production format baseline set 2026-09-06, pending client confirmation (C-04: PDF + CSV, no native XLSX); PDF export path and file delivery mechanism not yet built | 🟢 READY — baseline set, build not started |
 | **Entra ID** | RTL-SEC-01 | 🟠 BLOCKED — EXTERNAL | Zero implementation; login test bans SSO branding; prototype auth via env-var comparison with no credential column | Full Entra ID integration; production credential source | 🟠 BLOCKED — external integration dependency |
 | **MQTT / RTL device comm** | RTL-INT-07/08 | 🟠 BLOCKED — EXTERNAL | No implementation; `device_events.source` provides forward-compatible hook; `rtl_programming_requests` has persistence hooks | MQTT broker integration; device command protocol; producer adapters | 🟠 BLOCKED — external integration dependency |
 | **SMS gateway** | RTL-INT-06 | 🟠 BLOCKED — EXTERNAL | Zero implementation | SMS gateway configuration; delivery pipeline | 🟠 BLOCKED — external integration dependency |
-| **High-temperature threshold** | RTL-EVT-07, RTL-PUR-03 | 🟠 BLOCKED — EXTERNAL | Structurally absent from event semantics per REQ-1A; `MonitoringCondition` permanently UNKNOWN; no threshold logic exists anywhere | Client must supply threshold value (C-15) | 🟠 BLOCKED — C-15 (client must not be invented) |
-| **Vibration metric** | RTL-PUR-08, RTL-EVT-08 | 🟠 BLOCKED — EXTERNAL | Structurally absent from event semantics; `docs/VIBRATION_METRIC_CONTRACT_TBD.md` has 16 open questions | Client must supply full metric contract (C-16) | 🟠 BLOCKED — C-16 (16 open questions) |
+| **High-temperature threshold** | RTL-EVT-07, RTL-PUR-03 | 🟡 PARTIAL — framework baseline set, values unconfirmed | Structurally absent from event semantics per REQ-1A; `MonitoringCondition` permanently UNKNOWN; no threshold logic exists anywhere | Framework baseline set 2026-09-06, pending client confirmation (C-01: administrator-configurable warning/critical thresholds, never permanently hardcoded, all changes audited); actual Eskom threshold values still unconfirmed | 🟠 BLOCKED — C-01 (values only; corrected 2026-09-06 — this row previously cited C-15 in error, which is the separate Maximum Temperature reporting period, not the threshold itself) |
+| **Vibration metric** | RTL-PUR-08, RTL-EVT-08 | 🟡 PARTIAL — framework baseline set, values unconfirmed | Structurally absent from event semantics; `docs/VIBRATION_METRIC_CONTRACT_TBD.md` has 14 open questions (corrected 2026-09-06 — this row previously said 16; verified by direct count) | Framework baseline set 2026-09-06, pending client confirmation (C-02: configurable vibration framework, not hardcoded); production sensor semantics/values still unconfirmed — all 14 TBD-doc questions remain open | 🟠 BLOCKED — C-02 (values/contract only) |
 | **Taxonomy mapping** | OU/Zone/Sector/CNC/Feeder | 🟠 BLOCKED — EXTERNAL | Report column headers exist in `config/reports.py`; all values are None per R2-D2; no mapping between client taxonomy and dev plant model | Client must supply mapping (C-07) | 🟠 BLOCKED — C-07 |
 
 ## 4. Feature Layer Breakdown
@@ -92,7 +104,7 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | Authorization | 🟢 IMPLEMENTED | Scope-filtered per user; admin-only for unregistered UIDs |
 | Backend/service | 🟡 PARTIAL | `event_semantics.py` single-sources meaning; `notification_service.py` composes BR008 + persisted events; `report_service.py` populates RTL Alarms report |
 | Database | 🟢 IMPLEMENTED | `device_events` table; `alembic/versions/006` |
-| Integration | 🟠 BLOCKED — EXTERNAL | No event producers (C-05); no delivery channel; high-temperature/vibration thresholds client-gated (C-15, C-16) |
+| Integration | 🟠 BLOCKED — EXTERNAL | No event producers (C-05); no delivery channel; high-temperature/vibration thresholds client-gated (C-01, C-02 — corrected 2026-09-06; framework baselines set pending client confirmation, values unconfirmed) |
 | Acceptance | 🟡 PARTIAL | Consumption pipeline complete; production events absent |
 
 ## 5. Completed Milestones
@@ -285,19 +297,52 @@ lifecycle remains client-dependent.
 - **Client Review Gate (Phase 9)**: The frontend phase cycle explicitly paused at `docs/RTL_CLIENT_REVIEW_GATE.md` with the instruction: "Do not start new implementation until those decisions are provided."
 - No evidence of unplanned demo/UI interruptions to active requirement work found in repository context.
 
+## 7a. Client Delivery Operating Workflow (2026-09-06)
+
+- Accepted development is synchronized to the client GitHub repo
+  (`powerplant-dashboard-client`) at suitable weekly milestones.
+- The user accesses the client's own laptop by Remote Desktop, pulls the
+  accepted client update, and demonstrates that week's development there.
+- Unclear Eskom requirements are asked directly to the client, who may
+  escalate to their own superiors and return with the answer.
+- Non-blocked development continues on `main` in the meantime — this
+  workflow does not pause other work while a question is outstanding.
+- The existing `client-release` leakage safeguards are preserved unchanged:
+  the never-curate list, the curation-by-hand model, and
+  `scripts/check_client_release.py` still govern every push, per
+  `docs/CLIENT_DELIVERY.md`.
+
 ## 8. External Dependencies / Client Input Required
+
+**Numbering correction (2026-09-06):** several rows below previously cited
+the wrong `REQ-3I_Clarification_Register.md` ID — report format was labelled
+`C-10` (that ID actually names the separate notification acknowledgement/
+retention question) and the vibration contract was labelled `C-16` (that ID
+actually names unrelated remaining FS "TBC" items). Corrected here to `C-04`
+and `C-02` respectively, matching REQ-3I, this ledger's own cited source of
+truth (§1). The high-temperature threshold row was also split out from the
+Max Temperature reporting-period row — REQ-3I treats them as separate items,
+`C-01` and `C-15`.
+
+**Provenance note (2026-09-06):** the "baseline set" statuses below (C-08,
+C-15, C-04, C-01, C-02) are internal decisions made by the development
+team/user so implementation can proceed. **They are not confirmed
+Eskom/client answers unless repository evidence proves otherwise**, and
+formal client confirmation is still pending for each. C-07 is the opposite
+case — genuinely on hold pending the client, not a development decision.
 
 | Dependency | Blocks | Status | Reference |
 |---|---|---|---|
-| C-05: MQTT / RTL device transport protocol | Physical programming, event producers, active-list contact, message forwarding delivery | 🟠 BLOCKED | No protocol defined; `device_events.source` is forward-compatible hook |
-| C-06: Production role-source ownership (Entra ID vs DB) | Production authentication | 🟠 BLOCKED | Zero Entra ID implementation; prototype auth only |
-| C-07: Asset hierarchy taxonomy mapping (OU/Zone/Sector/CNC/Feeder) | Report columns; Installed RTLs and RTL Alarms reports | 🟠 BLOCKED | Mapping between client taxonomy and dev plant model undefined |
-| C-08: 18:30 scheduler ownership (app vs RTL Master) | BR016 auto-disable forwarding | 🟠 BLOCKED | No background worker infrastructure; ownership unconfirmed |
-| C-10: Report delivery format (CSV vs PDF) | Production report export | 🟠 BLOCKED | Pipeline ready; format is client decision |
-| C-15: High-temperature alarm threshold + Max Temperature reporting period | RTL-EVT-07, RTL-PUR-03, RTL-REP-03 | 🟠 BLOCKED | Structurally absent from event semantics; must not be invented |
-| C-16: Vibration metric contract (16 questions) | RTL-PUR-08, RTL-EVT-08 | 🟠 BLOCKED | Structurally absent; 16 open questions in `docs/VIBRATION_METRIC_CONTRACT_TBD.md` |
-| Notification delivery channel & recipient rules | BR008–BR012 delivery | 🟠 BLOCKED | Display-only by frozen decision |
-| Active-list monitoring semantics (ACT-03) | BR007, RTL-ACT-03 | 🟠 BLOCKED | Does web app need active-list semantics or is that RTL-Master-only? |
+| C-05: MQTT / RTL device transport protocol | Physical programming, event producers, active-list contact, message forwarding delivery | 🟠 BLOCKED — sole remaining leading gate | No protocol defined; `device_events.source` is forward-compatible hook; reconfirmed 2026-09-06 as Eskom-controlled/external |
+| C-06: Production role-source ownership (Entra ID vs DB) | Production authentication | 🟠 BLOCKED | Zero Entra ID implementation; prototype auth only; reconfirmed 2026-09-06 as Eskom-controlled/external, alongside Azure/private-APN infrastructure |
+| C-07: Asset hierarchy taxonomy mapping (OU/Zone/Sector/CNC/Feeder) | Report columns; Installed RTLs and RTL Alarms reports | 🟠 HOLD | Mapping between client taxonomy and dev plant model undefined; explicitly placed on HOLD by the client 2026-09-06, pending hierarchy clarification |
+| C-08: 18:30 scheduler ownership (app vs RTL Master) | BR016 auto-disable forwarding | 🟢 DEVELOPMENT BASELINE SET 2026-09-06, pending client confirmation | App-owned, not RTL Master; default 18:30 Africa/Johannesburg; admin same-day override with mandatory reason, auto-expiring; overrides and automatic disables both audited. Internal decision, not a client answer. Unblocks gate `C08-AUTO-DISABLE-1` for engineering purposes. No background-worker infrastructure exists yet |
+| C-01: High-temperature alarm threshold | RTL-EVT-07, RTL-PUR-03 | 🟡 PARTIAL — framework baseline set 2026-09-06, pending client confirmation | Administrator-configurable warning/critical thresholds, never hardcoded, changes audited; internal decision, not a client answer; actual Eskom values still unconfirmed |
+| C-02: Vibration metric contract + anomaly thresholds | RTL-PUR-08, RTL-EVT-08 | 🟡 PARTIAL — framework baseline set 2026-09-06, pending client confirmation | Must be a configurable framework, not hardcoded; internal decision, not a client answer; production sensor semantics/values still unconfirmed — all 14 questions in `docs/VIBRATION_METRIC_CONTRACT_TBD.md` remain open |
+| C-04: Report delivery format (CSV vs PDF vs XLSX) + retention/history | Production report export | 🟢 DEVELOPMENT BASELINE SET 2026-09-06 (format), pending client confirmation | PDF + CSV required; native XLSX not required. Internal decision, not a client answer. Retention/history for reports still open |
+| C-15: Maximum Temperature reporting period | RTL-REP-03 | 🟢 DEVELOPMENT BASELINE SET 2026-09-06, pending client confirmation | Rolling 30 days by default, plus custom date range; period must be shown on report/export. Internal decision, not a client answer. REP-03 implementation not yet started |
+| Notification delivery channel & recipient rules (C-10: acknowledgement/closure/escalation/retention) | BR008–BR012 delivery | 🟠 BLOCKED | Display-only by frozen decision; not part of this round's baselines |
+| Active-list monitoring semantics (ACT-03/C-09) | BR007, RTL-ACT-03 | 🟠 BLOCKED | Does web app need active-list semantics or is that RTL-Master-only? Not part of this round's baselines |
 | Browser support list | RTL-UX-02 | 🟠 BLOCKED | No compatibility testing performed |
 | Production cookie/deployment hardening | Security posture | 🟢 APP-SIDE DONE — Railway service vars not yet confirmed set | `SESSION_COOKIE_SECURE`/`SameSite`/`HttpOnly`/`FLASK_SECRET_KEY` fail-closed implemented (AUTH-PROD-HARDEN-1, committed); HTTPS enforcement is Railway's edge by design, not app code |
 
@@ -316,6 +361,23 @@ These foundations are mature, tested, and should be reused by future agents:
 - **Report export pipeline**: Format-neutral document model → CSV formatter — `services/report_export.py`; new formats are new formatters, nothing more
 - **Test suite**: 2669 pure-logic tests; 153 test files; coverage across hierarchy, metrics, services, auth, routing, components, seed integrity
 
+**Do not confuse these two similarly-named simulators — they are unrelated:**
+
+- **`db/live_simulator.py`** — the telemetry/chart simulator. Appends
+  synthetic `readings` rows on a timer so the dashboard's freshness badge,
+  KPIs, and charts visibly move during local development (README §8). Has
+  nothing to do with RTL commands, events, or integration; it only writes
+  to the `readings` table.
+- **`services/simulator_transport.py`** (`SimulatorTransport`) — the RTL
+  command transport simulator (RTL-IF-2, ADR-018). A deterministic
+  `DeviceTransport` implementation used by `rtl_command_dispatch_service` to
+  exercise the `rtl_commands` state machine without a real MQTT/Eskom
+  connection. Has nothing to do with `readings` or the chart/telemetry
+  layer.
+
+They must remain separate modules serving separate concerns; do not merge
+them or let one import the other.
+
 ## 10. Resume Queue
 
 ### Ready Now
@@ -324,28 +386,28 @@ Work that can be implemented without unresolved client/external decisions:
 
 | # | Task | Status | Rationale |
 |---|---|---|---|
-| 1 | **CLIENT-CLARIFICATION-PACK-1** | 🟢 DRAFTED, NOT CONFIRMED SENT | `docs/context/CLIENT_CLARIFICATION_PACK.md` and `docs/context/CLIENT_QUESTIONS.md` exist and are committed (2026-09-04), collecting all client decisions needed before blocked work can resume: C-05, C-06, C-07, C-08, C-10, C-15, C-16, C-09/ACT-03. This row was stale (said NOT STARTED after the pack was already written); nothing in the repository records whether the pack was actually sent to or answered by the client — that confirmation is a human/PM action, not something this repository can verify. This remains the true critical path — unblocks most blocked items. |
-| 2 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
+| 1 | **CLIENT-CLARIFICATION-PACK-1** | 🟡 DEVELOPMENT BASELINES SET FOR PART (2026-09-06); STILL NOT CLIENT-CONFIRMED | `docs/context/CLIENT_CLARIFICATION_PACK.md` and `docs/context/CLIENT_QUESTIONS.md` exist and are committed (2026-09-04), collecting all client decisions needed before blocked work can resume: C-05, C-06, C-07, C-08, C-04, C-15, C-02, C-01, C-09/ACT-03. Internal development baselines now set for C-08 (full), C-15 (full), C-04 (format only), C-01 and C-02 (framework shape only) — these are development-team/user decisions so implementation can proceed, **not confirmed Eskom/client answers**. Genuinely unanswered by the client: C-05, C-06, C-07 (HOLD), C-09/ACT-03. See `REQ-3I_Clarification_Register.md` and `docs/context/CLIENT_QUESTIONS.md`. |
+| 2 | **C08-AUTO-DISABLE-1** | 🟢 GATE QUEUED (documentation only — not yet implemented) | Unblocked by the C-08 development baseline above: app-owned, default 18:30 Africa/Johannesburg, admin same-day override with mandatory reason (auto-expiring), full audit. Only flips the existing `message_forwarding` preference off on a schedule — no transport dependency, so it does not wait on C-05. This is a working baseline for engineering purposes, not a client-confirmed requirement. Scheduler architecture decision recorded 2026-09-06 (internal, no client input needed): an idempotent application service does the disable, invoked by a separately-runnable scheduled command/process, never a timer embedded in a Dash/Gunicorn worker; the actual production scheduling mechanism (cron/Railway job/APScheduler) stays deployment-configurable. See `docs/context/ACTIVE_GATE.md`. |
+| 3 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
 
 ### Blocked / Waiting for Client or Integration
 
 | # | Task | Blocked By | Dependency |
 |---|---|---|---|
 | 1 | Physical RTL programming delivery | 🟠 | C-05 (MQTT/transport protocol) |
-| 2 | Message forwarding delivery | 🟠 | C-05 (transport) + C-08 (18:30 scheduler ownership) |
-| 3 | 18:30 auto-disable forwarding | 🟠 | C-08 (ownership decision: app vs RTL Master) |
-| 4 | RTL active-list monitoring semantics | 🟠 | ACT-03 (client question: app or Master-side?) |
-| 5 | Alarm pipeline — event producers | 🟠 | C-05 (MQTT/device communication) |
-| 6 | Notification delivery (SMS/email) | 🟠 | C-05 (transport) + delivery channel/recipient rules |
-| 7 | High-temperature threshold | 🟠 | C-15 (client must supply; must not be invented) |
-| 8 | Vibration metric activation | 🟠 | C-16 (16 open questions in TBD doc) |
-| 9 | Maximum Temperature report | 🟠 | C-15 (reporting period undefined by spec) |
-| 10 | Report production format (CSV vs PDF) | 🟠 | C-10 (format confirmation) |
-| 11 | OU/Zone/Sector/CNC/Feeder taxonomy | 🟠 | C-07 (client mapping) |
-| 12 | Production authentication (Entra ID) | 🟠 | C-06 (role-source ownership) |
-| 13 | MQTT / RTL device communication | 🟠 | External integration dependency |
-| 14 | SMS gateway | 🟠 | External integration dependency |
-| 15 | Browser support validation | 🟠 | RTL-UX-02 (client support list) |
+| 2 | Message forwarding delivery (actual send) | 🟠 | C-05 (transport) — 18:30 auto-disable itself is unblocked; see Ready Now #2 |
+| 3 | RTL active-list monitoring semantics | 🟠 | ACT-03/C-09 (client question: app or Master-side?) |
+| 4 | Alarm pipeline — event producers | 🟠 | C-05 (MQTT/device communication) |
+| 5 | Notification delivery (SMS/email) | 🟠 | C-05 (transport) + C-10 (delivery channel/recipient rules) |
+| 6 | High-temperature threshold — values | 🟠 | C-01 (framework baseline set 2026-09-06, pending client confirmation; actual values still client must supply, must not be invented) |
+| 7 | Vibration metric activation — values | 🟠 | C-02 (framework baseline set 2026-09-06, pending client confirmation; 14 open questions in TBD doc still unconfirmed) |
+| 8 | Maximum Temperature report — implementation | 🟢 unblocked for engineering, not yet started | C-15 baseline set 2026-09-06, pending client confirmation (rolling 30 days + custom range); this is now a build task against that baseline, not a client blocker |
+| 9 | Report production PDF export | 🟢 unblocked for engineering, not yet started | C-04 baseline set 2026-09-06, pending client confirmation (PDF + CSV, no XLSX); this is now a build task against that baseline, not a client blocker |
+| 10 | OU/Zone/Sector/CNC/Feeder taxonomy | 🟠 HOLD | C-07 (client mapping; explicitly on hold 2026-09-06) |
+| 11 | Production authentication (Entra ID) | 🟠 | C-06 (role-source ownership; reconfirmed 2026-09-06 as Eskom-controlled/external) |
+| 12 | MQTT / RTL device communication | 🟠 | External integration dependency (C-05 family; Azure/private-APN infrastructure) |
+| 13 | SMS gateway | 🟠 | External integration dependency |
+| 14 | Browser support validation | 🟠 | RTL-UX-02 (client support list) |
 
 ## 11. Rules for Updating This Ledger
 
