@@ -34,11 +34,22 @@ def _validate_identifier(value: str, name: str) -> str:
     return value
 
 
+#: The one truthy vocabulary this file recognises. Named once so a setting
+#: that must ALSO reason about "was this explicitly asked for?" (see
+#: resolve_programming_simulator_enabled) cannot disagree with `_get_bool`
+#: about what "on" means.
+_TRUTHY_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def _is_truthy(raw: str | None) -> bool:
+    return (raw or "").strip().lower() in _TRUTHY_VALUES
+
+
 def _get_bool(name: str, default: bool) -> bool:
     val = os.getenv(name)
     if val is None:
         return default
-    return val.strip().lower() in {"1", "true", "yes", "on"}
+    return _is_truthy(val)
 
 
 def _get_int(name: str, default: int) -> int:
@@ -336,6 +347,61 @@ class FlaskSessionSettings:
     cookie_samesite: str = "Lax"
 
 
+def resolve_programming_simulator_enabled(app_env: str, raw: str) -> bool:
+    """Whether the development-only RTL programming simulator is enabled.
+
+    RTL-PROG-SIM-1. `SimulatorTransport` (ADR-018) is a deterministic test
+    contract, NOT the Eskom protocol — a simulated `SUCCEEDED` says nothing
+    about a physical RTL. So it must never be reachable from a real
+    deployment, and reaching it must take a deliberate act:
+
+    - **Default off.** Unset, blank, or any non-truthy value is `False`.
+      An environment that has never heard of this setting cannot simulate.
+    - **Explicitly on for local/demo use** (`app_env` other than
+      `production`): a truthy value enables it.
+    - **Fail closed in production.** A truthy value together with
+      `APP_ENV=production` raises here, at configuration resolution — which
+      is import time, so the process refuses to start. It deliberately does
+      NOT silently downgrade to `False`: an operator who asked a production
+      deployment to run a simulator has a mistaken belief about what that
+      deployment is doing, and quietly ignoring the request would leave the
+      belief intact. Same fail-closed shape as
+      `resolve_flask_secret_key`, and for the same reason.
+
+    Because the only truthy path returns from a branch that has already
+    excluded production, no production process can hold `True` here — which
+    is what makes `services/rtl_programming_simulation_service.py` the only
+    module that ever constructs a `SimulatorTransport`, and makes that
+    construction unreachable in production.
+    """
+    if not _is_truthy(raw):
+        return False
+    if app_env == "production":
+        raise RuntimeError(
+            "RTL_PROGRAMMING_SIMULATOR_ENABLED must not be enabled when "
+            "APP_ENV=production. The RTL programming simulator is a "
+            "development/demo-only path: it reports simulated command "
+            "outcomes that are not evidence any physical RTL was "
+            "programmed, and no real MQTT/SMS/Eskom communication occurs. "
+            "Unset it, or set APP_ENV=development."
+        )
+    return True
+
+
+@dataclass(frozen=True)
+class ProgrammingSimulatorSettings:
+    """RTL-PROG-SIM-1's single on/off boundary.
+
+    Read through `services.rtl_programming_simulation_service.
+    is_simulation_enabled()` rather than directly, so the "and not
+    production" re-check travels with every consumer.
+    """
+
+    enabled: bool = resolve_programming_simulator_enabled(
+        APP_ENV, os.getenv("RTL_PROGRAMMING_SIMULATOR_ENABLED", "")
+    )
+
+
 @dataclass(frozen=True)
 class DashSettings:
     debug: bool = _get_bool("DASH_DEBUG", DEFAULT_DASH_DEBUG)
@@ -390,3 +456,4 @@ demo_auth = DemoAuthSettings()
 flask_session = FlaskSessionSettings()
 dash_settings = DashSettings()
 live_sim = LiveSimSettings()
+programming_simulator = ProgrammingSimulatorSettings()

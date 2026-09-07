@@ -673,7 +673,13 @@ None encountered beyond the 14→15 documentation-count correction above.
 No new authority conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the
 C-02 baseline, or the source files inspected.
 
-## RTL-PROG-EXEC-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
+## RTL-PROG-EXEC-1 — CLOSED / PUSHED / REMOTE-VERIFIED
+
+Branch: `main`, baseline `859dbe28dd62584545d2c096dfc3017492682b61` (the
+VIB-CONFIG-1 commit). Commit: `0787b90a3f658b2bf347f1ae58b659b181d33c52`
+— subject "feat(programming): reconcile command execution status". Pushed
+to `origin/main`; local `HEAD`, `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA.
 
 Date: 2026-09-07. Connects the two RTL-programming/command foundations
 that already existed but did not yet talk to each other —
@@ -794,6 +800,9 @@ auto-instantiates `SimulatorTransport` into any production code path.
   --check` — CLEAN.
 - Real dev Postgres remains at migration `007` — untouched; this gate has
   no schema change to apply.
+- Push verification: after `git push origin main`, `git rev-parse HEAD`,
+  `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main`
+  all returned `0787b90a3f658b2bf347f1ae58b659b181d33c52`.
 
 ### Known ambiguity
 
@@ -808,26 +817,206 @@ localized and reversible (a dict mapping plus one shared transaction, not
 a new external boundary), which argues against a new ADR, but a future
 session may judge otherwise once RTL-PROG-SIM-1 exists alongside it.
 
-## Next implementation gate: RTL-PROG-SIM-1 — QUEUED, NOT STARTED
+## RTL-PROG-SIM-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
 
-Set 2026-09-07, once RTL-PROG-EXEC-1's implementation was verified above.
-Not started. Scope: deliberately wire the existing, deterministic
-`SimulatorTransport` (RTL-IF-2, ADR-018) into a development/demo-only
-programming execution path, using the execution/orchestration seam
-RTL-PROG-EXEC-1 just added (`services/rtl_programming_execution_service.
-execute_request`), so a local/demo operator can watch a recorded
-programming request actually progress through `queued → sent →
-successful/failed` end-to-end without a real device — while preserving a
-**hard boundary from production transport**: `SimulatorTransport` must
-stay exactly what ADR-018 says it is, never upgraded into a stand-in for a
-real device connection, and this gate must not make it reachable from any
-code path a real deployment would exercise by default. Whoever opens this
-gate must decide, and record, exactly where that boundary lives (a
-dev-only route/script? an explicit admin action gated by an environment
-flag? something else?) and what makes it impossible to reach in
-production by accident — neither is assumed here. C-05 (the real
-MQTT/Eskom protocol) remains Eskom-controlled/external and unanswered;
-this gate does not move that forward and must not be mistaken for it.
+Date: 2026-09-07. The demo flow now runs end to end locally: **Program
+RTL → request queued → explicitly simulate → sent → successful/failed**,
+with the screen stating plainly that the last part is simulated and no
+physical RTL was contacted. Built on RTL-PROG-EXEC-1's
+`execute_request()` seam and the existing deterministic
+`SimulatorTransport` (RTL-IF-2, ADR-018) — **no production transport was
+chosen, and none was invented.** C-05 (the real MQTT/Eskom protocol)
+remains Eskom-controlled/external and unanswered; this gate does not move
+that forward and must not be mistaken for it. **No migration was
+required** — this gate persists nothing new.
+
+### The environment boundary (the point of this gate)
+
+- `RTL_PROGRAMMING_SIMULATOR_ENABLED`, parsed **only** in
+  `config/settings.py` (`resolve_programming_simulator_enabled`,
+  `ProgrammingSimulatorSettings`) — environment parsing stays centralized
+  there, as it is for every other setting in this application.
+- **Defaults OFF.** Unset, blank, or any non-truthy value resolves to
+  `False`. An environment that has never heard of this setting cannot
+  simulate.
+- **Explicit enablement in `APP_ENV=production` FAILS CLOSED at startup**
+  with a `RuntimeError` raised during configuration resolution (import
+  time), so the process refuses to start. It deliberately does NOT
+  silently downgrade to `False`: an operator who asked a production
+  deployment to run a simulator holds a mistaken belief about what that
+  deployment is doing, and quietly ignoring the request would leave the
+  belief intact. Same fail-closed shape as `resolve_flask_secret_key`
+  (AUTH-PROD-HARDEN-1), for the same reason.
+- **Production with the flag unset/false starts normally**, with no
+  simulator controls in the layout and no simulation callback registered.
+  Both behaviours were verified by actually importing the app under each
+  environment, not merely asserted.
+- Because the only truthy path returns from a branch that has already
+  excluded production, no production process can hold `True` — which is
+  what makes the simulator structurally unreachable there.
+
+### What was built
+
+- `services/rtl_programming_simulation_service.py` (new) — **the only
+  application service that constructs a `SimulatorTransport`**, and only
+  after `require_simulation_enabled()` passes (the setting AND a
+  re-checked `not IS_PRODUCTION`, defence in depth). It then **delegates
+  to `rtl_programming_execution_service.execute_request(...)`; no
+  lifecycle logic is duplicated** — a test asserts `mark_sent`/
+  `mark_acknowledged`/`mark_succeeded`/`mark_failed`/`mark_timed_out`/
+  `update_command_state`/`update_programming_request_status`/
+  `dispatch_command` appear nowhere in this module. Supported outcomes are
+  **Success / Failure / Timeout only**, exactly `SimulatorTransport`'s own
+  deterministic vocabulary — **simulation semantics, not Eskom protocol
+  semantics** — and every operator-facing label starts with "Simulated".
+- `callbacks/rtl_programming_simulation.py` (new) — `register()` is a
+  **no-op unless simulation is enabled**, so in production and in any
+  environment that has not opted in the callback does not exist at all.
+  One explicit press performs exactly one attempt: no retry, no polling,
+  no worker, no scheduler, no automatic execution.
+- `components/device_manage_drawer.py` — a "Simulate execution
+  (development only)" section inside the existing Program RTL panel,
+  rendered **only** when enabled, carrying the required notice
+  *"Development simulation — no physical RTL, MQTT, SMS or Eskom
+  communication occurs"* plus "not evidence that any physical RTL was
+  programmed". Provides the outcome selector, an explicit **Simulate
+  execution** button, and a resulting request-status display. When
+  disabled these controls do not exist at all — there is nothing hidden
+  or disabled for a browser to re-enable. Also adds
+  `PROGRAM_RTL_LAST_REQUEST_ID`, a store present in every environment so
+  `confirm_program_rtl` has one output shape regardless of the flag.
+- `callbacks/device_manage.py` — `confirm_program_rtl` gained one Output:
+  it publishes the id of the request it just recorded. **Recording still
+  executes nothing** — no dispatch, no transport, no simulator; the
+  request is left `queued` exactly as RTL-PROG-EXEC-1 leaves it, and
+  simulation requires a separate, deliberate operator click afterwards.
+- `app.py` — `rtl_programming_simulation.register(app)` called
+  unconditionally; the module itself owns the enablement decision, so
+  there is one place it is made.
+- `.env.example` — documents the setting, its OFF default, and the
+  production fail-closed behaviour.
+
+### Authorization and tamper protection
+
+- **Existing `PROGRAM_RTL` action authorization is reused**, not
+  re-invented: Administrator any RTL; Technician assigned RTL only;
+  General User denied. `require_action` runs inside the callback, so
+  hiding the control is not the protection — a fabricated click against a
+  control that was never rendered is still refused.
+- **Authorization runs BEFORE the request lookup.** An unauthorized
+  caller never reaches `get_programming_request`, so it learns nothing at
+  all — verified by asserting the lookup list stays empty on every denied
+  path.
+- **Browser-owned request ids are validated and must belong to the
+  already-authorized device.** The store is untrusted: the id must be a
+  real `int` (`bool` excluded explicitly, since it is an `int` subclass)
+  and `request.device_id` must equal the device just authorized. A DB
+  test injects another device's REAL request id and proves that device's
+  command stays `QUEUED`.
+- **Unknown and mismatched ids use identical refusal behaviour**, so this
+  control cannot be used as a request-existence oracle; a test asserts
+  the two rendered refusals are equal, and that neither echoes the other
+  device's id. AUTH-HARDEN-1/AUTH-PROD-HARDEN-1 behaviour is untouched.
+
+### What this does NOT claim
+
+**A simulated `successful` is not evidence that a physical RTL was
+programmed.** No MQTT, SMS, HTTP or Eskom payload/ACK contract was
+implemented or invented; no retry, scheduler or worker was added; the
+`DeviceTransport` interface is unchanged; and normal programming
+execution still never instantiates a simulator — `SimulatorTransport` is
+structurally absent from `rtl_programming_execution_service.py`,
+`rtl_programming_service.py` and `callbacks/device_manage.py`, proven by
+`ast`-based import inspection rather than by absence of a diff.
+
+### Verification
+
+- Focused: `tests/test_rtl_programming_simulation.py` (new, **63
+  passed**) — default-off; explicit development enablement; production
+  enable attempt fails closed; controls hidden when disabled and present
+  when enabled; no callback registered when disabled; Administrator and
+  assigned-Technician simulation allowed; unassigned Technician, General
+  User and no-session denied before execution AND before any request
+  lookup; tampered/mismatched/non-integer/missing ids refused;
+  unknown-vs-mismatched refusal equivalence; Success → `successful`;
+  Failure → `failed` with `SIMULATED_FAILURE`; Timeout → `failed` with
+  `SIMULATED_TIMEOUT`; repeated execution refused by the existing
+  lifecycle without overwriting the recorded outcome; recording a request
+  executes nothing; and the structural import proofs above.
+- RTL regression: `tests/test_rtl_programming_execution.py` +
+  `tests/test_rtl_programming.py` + `tests/test_rtl_commands.py` +
+  `tests/test_rtl_command_service_lifecycle.py` +
+  `tests/test_rtl_command_dispatch.py` +
+  `tests/test_simulated_event_source.py` — **117 passed**.
+- Auth/settings/wiring regression: `tests/test_action_guard_callbacks.py`
+  (its `TestProgramRtl._call` helper updated for the new third Output) +
+  `tests/test_auth_harden_repair.py` + `tests/test_authorization.py` +
+  `tests/test_action_guard.py` + `tests/test_action_guard_db.py` +
+  `tests/test_technician_operations.py` + `tests/test_audit_wiring.py` +
+  `tests/test_equipment_selector.py` +
+  `tests/test_prod_session_hardening.py` +
+  `tests/test_live_sim_settings.py` — **340 passed**.
+- Callback/layout wiring was checked in BOTH modes: with the simulator
+  enabled the callback registers and no callback references an id no
+  layout renders; with it disabled neither half exists.
+- Full suite: `python -m pytest -q` — all passed, exit 0.
+- `python -m alembic heads` — `012_vibration_contract_answers` remains
+  the sole head (this gate adds no migration).
+- `git diff --check` — clean. `python scripts/build_context_pack.py
+  --check` — CLEAN.
+- Real dev Postgres remains at migration `007_audit_log` — untouched and
+  deliberately not upgraded by this gate.
+
+### Known ambiguity
+
+None encountered. No new authority conflict between `AGENTS.md`,
+`SOURCE_AUTHORITY.md`, ADR-018, or the source files inspected. The
+open question flagged at RTL-PROG-EXEC-1's close — whether the
+reconciliation/orchestration design should become its own ADR — now has a
+second tranche standing on it (this gate's environment boundary) and
+remains deliberately unresolved rather than decided unilaterally here.
+
+## Next implementation gate: LOCAL-DB-CATCHUP-1 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once RTL-PROG-SIM-1's implementation was verified above.
+Not started. Scope: deliberately and **non-destructively** upgrade the
+real development database from migration `007_audit_log` to the current
+head `012_vibration_contract_answers`, then browser-smoke the operational
+and configuration flows added since `007`. Five migrations have
+accumulated behind the real dev DB (008 `rtl_commands`, 009 command
+lifecycle, 010 forwarding auto-disable override, 011 temperature
+threshold config, 012 vibration contract answers) because every gate
+since deliberately left it alone — the suite exercises them through the
+`isolated_schema` fixture only, never the real `plant_monitoring` schema.
+This gate is that catch-up, done as its own careful step.
+
+It **must**:
+
+- **Take no reset or reseed action.** Not `--reset`, not `--purge`, not a
+  re-run of `db/seed_plant_monitoring.py` or `db/seed_admin_demo.py`.
+  This is `alembic upgrade` only.
+- **Verify the environment and database target BEFORE migrating** —
+  confirm which host/port/database/schema `alembic` is actually pointing
+  at (the local `plant_monitoring_postgres` container, port 5436), and
+  confirm it is not a client or production target. Check first, migrate
+  second.
+- **Preserve existing dev data.** Existing plants/transformers/devices/
+  readings/users/assignments/audit history must survive; record row
+  counts before and after and compare them.
+- **Verify the 007 → 012 upgrade** — `alembic current` before and after,
+  the five expected migrations applied in order, `alembic heads` still a
+  single head, and the new tables actually present in the real schema.
+- **Browser-smoke the newly reachable flows**: C08 auto-disable override
+  UI, temperature threshold UI, vibration contract UI, and the simulated
+  programming flow (which requires setting
+  `RTL_PROGRAMMING_SIMULATOR_ENABLED` locally — see RTL-PROG-SIM-1 above
+  — and must be turned back off afterwards).
+- **Keep `debug.log` excluded** from any commit, as every gate has.
+
+This is an environment/verification gate, not a feature gate: it should
+add no application code unless the smoke test finds a real defect, in
+which case that defect is the finding and fixing it is a separate
+decision.
 
 ---
 

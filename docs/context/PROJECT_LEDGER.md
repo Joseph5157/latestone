@@ -3,8 +3,8 @@
 ## 1. Authoritative Checkpoint
 
 - **Branch:** `main`
-- **SHA:** `859dbe28dd62584545d2c096dfc3017492682b61` — "feat(config): add vibration contract management" (pushed to `origin/main`; local `HEAD`, `origin/main`, and `git ls-remote` all verified to match — see the VIB-CONFIG-1 section of `docs/context/ACTIVE_GATE.md`)
-- **Last updated:** 2026-09-07 (advanced from `c83cf94` past VIB-CONFIG-1 to this commit's push)
+- **SHA:** `0787b90a3f658b2bf347f1ae58b659b181d33c52` — "feat(programming): reconcile command execution status" (pushed to `origin/main`; local `HEAD`, `origin/main`, and `git ls-remote` all verified to match — see the RTL-PROG-EXEC-1 section of `docs/context/ACTIVE_GATE.md`)
+- **Last updated:** 2026-09-07 (advanced from `859dbe2` past RTL-PROG-EXEC-1 to this commit's push)
 - **Working tree expectation:** `debug.log` (untracked) only, plus `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` (untracked, pending adoption per POWER-MASTER-PLAN-1).
 - **Test baseline (at RTL-IF-4 close):** 2690 passed (non-db), 510 deselected; 3200 passed full suite — unchanged by RTL-IF-1..4, which added focused test files without modifying this baseline's pre-existing tests (see ACTIVE_GATE.md verification log for RTL-IF-4).
 - **Roadmap:** `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` is the adopted high-level roadmap (validated by POWER-MASTER-PLAN-1); this ledger remains the executive/detailed status record it is built from.
@@ -124,9 +124,43 @@
   disclaimer is unchanged. 83 focused tests + full auth/audit/migration-
   foundation/callback regression + full suite all passed; Alembic head
   remains `012_vibration_contract_answers`; real dev DB remains
-  intentionally untouched at migration `007`. **Pending commit** — this
+  intentionally untouched at migration `007`, then **committed and
+  pushed** as `0787b90a3f658b2bf347f1ae58b659b181d33c52` (see checkpoint
+  above). Full detail in `docs/context/ACTIVE_GATE.md`.
+- **Amendment (2026-09-07g):** `RTL-PROG-SIM-1` implemented and verified:
+  the local/demo flow **Program RTL → request queued → explicitly
+  simulate → sent → successful/failed** now runs end to end, on
+  RTL-PROG-EXEC-1's `execute_request()` seam plus the existing
+  deterministic `SimulatorTransport` (ADR-018). **No migration required.**
+  `RTL_PROGRAMMING_SIMULATOR_ENABLED` is parsed only in
+  `config/settings.py` and **defaults OFF**; explicit enablement together
+  with `APP_ENV=production` **fails closed at startup with a
+  `RuntimeError`** rather than silently enabling or silently downgrading,
+  while production with the flag unset/false starts normally with no
+  simulator controls and no simulation callback registered (both verified
+  by importing the app under each environment).
+  `services/rtl_programming_simulation_service.py` is **the only
+  application service that constructs a `SimulatorTransport`**, and only
+  after checking enablement and non-production; it **delegates execution
+  to `rtl_programming_execution_service.execute_request` and duplicates no
+  lifecycle logic**. Supported outcomes are **Success / Failure / Timeout
+  only — simulation semantics, not Eskom protocol semantics**. Simulation
+  requires an explicit operator click AFTER a request has been
+  recorded/queued; recording never auto-executes. The UI appears only when
+  explicitly enabled and states that no physical RTL/MQTT/SMS/Eskom
+  communication occurs. Existing `PROGRAM_RTL` authorization is reused
+  (Administrator any RTL; Technician assigned only; General denied), runs
+  **before** the request lookup, and browser-owned request ids must belong
+  to the already-authorized device — with unknown and mismatched ids
+  sharing one refusal so the control is not an existence oracle. **A
+  simulated success is not evidence that a physical RTL was programmed**;
+  no MQTT/SMS/HTTP/Eskom payload, retry, scheduler or production transport
+  was introduced. 63 focused + 117 RTL regression + 340 auth/settings/
+  wiring regression tests and the full suite all passed; Alembic head
+  remains `012_vibration_contract_answers`; real dev DB remains
+  intentionally at migration `007_audit_log`. **Pending commit** — this
   row does not yet change the checkpoint SHA above. Next queued gate:
-  `RTL-PROG-SIM-1`. Full detail in `docs/context/ACTIVE_GATE.md`.
+  `LOCAL-DB-CATCHUP-1`. Full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## 2. Executive Project Position
 
@@ -151,7 +185,7 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | **Administrator assignment** | RTL-ROLE-ADM-02: Assign RTLs to technicians | ✅ COMPLETE | Full persisted flow: assign drawer → `prototype_assignments.assign_technician` → `user_device_assignments` with FOR UPDATE close-and-insert; admin-only guard `MANAGE_ASSIGNMENT`; DB-tested (`test_action_guard_db.py`) | Production technician data source — separate integration concern | None — app-side assignment complete |
 | **Audit write path** | RTL-AUD-01–07 | ✅ COMPLETE | `audit_log` table; write path wired for ALL persisted mutations (registration, assignments, users, forwarding, programming, active-list transitions) with atomic audit; system-originated NULL-actor path for activation (ACT-D5, INGEST-D6); verified by `test_audit_wiring.py` | Audit viewer/read UI — no client requirement identified | None — write path complete |
 | **Authentication** | BR001: System must authenticate users | 🟢 IMPLEMENTED | Demo credential auth with server-trusted session (`auth_service.py`); Flask signed cookie; `current_identity()` reloads from DB every call; fails closed | Microsoft Entra ID / real SSO (RTL-SEC-01) — external integration | 🟠 BLOCKED — C-06 (production role-source ownership) |
-| **RTL Programming** | BR005/RTL-PROG-01–10: Program RTL | 🟠 BLOCKED — EXTERNAL (physical delivery only) | Application request persistence exists: atomic insert + audit (`rtl_programming_service.py`, OPS-PROG-1); authorization enforced; Master MSISDN captured; confirmation honest ("request recorded ≠ programmed"). The request's `rtl_commands` row (RTL-IF-1) and its lifecycle (RTL-IF-2, ADR-018) are now CONNECTED (`RTL-PROG-EXEC-1`, implemented/verified, pending commit): every command transition reconciles a truthful status back onto the request in one transaction, and a new protocol-neutral `execute_request()` seam can run a request's command through any injected `DeviceTransport`. Still no transport is wired in by default — `RTL-PROG-SIM-1` (queued) will deliberately connect `SimulatorTransport` for local/demo use only, with a hard boundary from production | Physical command transport to RTL device (C-05); RTL Master MSISDN source; device-side programming confirmation | 🟠 BLOCKED — C-05 (transport/device protocol) only; request→dispatch→lifecycle wiring complete |
+| **RTL Programming** | BR005/RTL-PROG-01–10: Program RTL | 🟠 BLOCKED — EXTERNAL (physical delivery only) | Application request persistence exists: atomic insert + audit (`rtl_programming_service.py`, OPS-PROG-1); authorization enforced; Master MSISDN captured; confirmation honest ("request recorded ≠ programmed"). The request's `rtl_commands` row (RTL-IF-1) and its lifecycle (RTL-IF-2, ADR-018) are CONNECTED (`RTL-PROG-EXEC-1`, `0787b90`): every command transition reconciles a truthful status back onto the request in one transaction, and a protocol-neutral `execute_request()` seam runs a request's command through any injected `DeviceTransport`. `RTL-PROG-SIM-1` (implemented/verified, pending commit) adds a development/demo-only simulated execution path on that seam — default OFF, fail-closed in production, clearly labelled as simulation — so the local demo runs Program RTL → queued → explicitly simulate → sent → successful/failed. No production transport is wired in any environment | Physical command transport to RTL device (C-05); RTL Master MSISDN source; device-side programming confirmation | 🟠 BLOCKED — C-05 (transport/device protocol) only; request→dispatch→lifecycle wiring complete, and a simulated demo path exists for local use |
 | **Message forwarding** | BR003/BR004/RTL-FWD-01–07 | 🟠 BLOCKED — EXTERNAL (delivery only) | Per-user forwarding preference persisted with atomic mutation + audit (`message_forwarding_service.py`, OPS-FWD-1); drawer prefilled from DB; feedback truthful; 18:30 auto-disable scheduler now implemented and committed (C08-AUTO-DISABLE-1, `d10c566`) | SMS/message transport (C-05 family); recipient eligibility rules (FWD-D1 vs FWD-03); actual message delivery | 🟠 BLOCKED — C-05 (transport) only; scheduler ownership no longer blocking |
 | **18:30 auto-disable** | BR016: Auto-disable forwarding at 18:30 daily | 🟢 CLOSED / PUSHED / REMOTE-VERIFIED (`d10c566`) | `services/forwarding_auto_disable_service.py`: idempotent bulk-disable of all currently-enabled forwarding users at cutoff (default 18:30 Africa/Johannesburg, `config/forwarding_schedule.py`); Administrator-only same-day override with mandatory reason, auto-expiring next day (`components/auto_disable_override_panel.py`); every real transition audited, identical re-set/empty clear is a no-op; standalone entry point `scripts/run_forwarding_auto_disable.py`, not embedded in Dash/Gunicorn; migration 010. 38 focused + 100 regression tests passed, full suite passed | Real dev DB still at migration 007 — deliberate, a later separate `alembic upgrade head` step; which users/RTLs are affected and fleet-wide-vs-scoped override remain open, per C-08 baseline | None — implementation complete; see `docs/context/ACTIVE_GATE.md` |
 | **RTL active lifecycle** | BR010/BR012/RTL-ACT-01–06 | 🟡 PARTIAL | Startup event ingestion persists + activates `rtl_active_state` (INGEST-1, ACT-D1–D7); deactivation persists with audit (OPS-DEACT-1); active-list state separate from admin status (RTL-ACT-05) | Physical RTL device producer; Master-side list is its own system; monitoring semantics for active-list (ACT-03 client question) | 🟠 BLOCKED — ACT-03 (active-list semantics) |
@@ -484,6 +518,18 @@ These foundations are mature, tested, and should be reused by future agents:
 They must remain separate modules serving separate concerns; do not merge
 them or let one import the other.
 
+**Who may construct a `SimulatorTransport` (RTL-PROG-SIM-1):** exactly one
+application module — `services/rtl_programming_simulation_service.py` — and
+only after it has verified that `RTL_PROGRAMMING_SIMULATOR_ENABLED` is
+explicitly on AND the environment is not production. Tests are the only
+other legitimate constructor. `rtl_programming_execution_service.py`,
+`rtl_programming_service.py` and `callbacks/device_manage.py` must never
+import or construct one — this is enforced by `ast`-based import
+inspection in `tests/test_rtl_programming_simulation.py`, not merely by
+convention. A future production adapter implements `DeviceTransport` on
+its own terms; it does not extend, wrap, or get injected in place of this
+class.
+
 ## 10. Resume Queue
 
 ### Ready Now
@@ -498,15 +544,16 @@ Work that can be implemented without unresolved client/external decisions:
 | 4 | **REPORT-EXPORT-1** | 🟢 CLOSED / PUSHED / REMOTE-VERIFIED (`7969324`, 2026-09-07) | All three reports export as CSV and PDF (C-04 baseline: PDF + CSV, no native XLSX — development baseline, pending client confirmation). Installed RTLs'/RTL Alarms' CSV bytes and filenames unchanged. Maximum Temperature's CSV keeps the exact column-contract header as row 1, no preamble, no fake Period column; its resolved period is identified in its filename and the export status panel instead, using the SAME period-resolution path as its preview (R4-D7). PDF (fpdf2, normal compression) shows title/scope/period/generated/headers with paginated, repeated-header rows, for all three reports. Authorization runs before any row fetch, for every report and format. See `docs/context/ACTIVE_GATE.md`. |
 | 5 | **THRESH-CONFIG-1** | 🟢 CLOSED / PUSHED / REMOTE-VERIFIED (`c83cf94`, 2026-09-07) | One global Administrator-managed warning/critical temperature threshold pair (C-01 framework baseline), unconfigured-by-absence, no invented Eskom values. Exact `Decimal` semantics matching `NUMERIC(12,3)` (a correctness fix applied before this closure — validating on raw `float` could let two distinct values collapse to the same stored value); excess precision rejected, never rounded; `warning < critical` enforced by both the service and a new migration-011 database CHECK. Identical canonical re-save / already-unconfigured clear are no-ops; real transitions audited. Admin-only. No `high_temperature` activation, no reading-to-alarm evaluation. See `docs/context/ACTIVE_GATE.md`. |
 | 6 | **VIB-CONFIG-1** | 🟢 CLOSED / PUSHED / REMOTE-VERIFIED (`859dbe2`, 2026-09-07) | An audited, Administrator-editable place to record answers to vibration's 15-question sensor contract (C-02 framework baseline; TBD doc question count corrected 14→15 by direct count this session). Genuine multi-row key-value persistence (`vibration_contract_answers`, migration 012): one row per answered question, absence = unanswered, no invented defaults. Questions defined in `config/vibration_contract.py`, transcribed verbatim. Identical re-save / clearing an unanswered item are no-ops; real transitions audited and rolled back on audit failure. Admin-only. Vibration remains completely inactive in the metric registry, selectors, charts/KPIs, readings queries, freshness/`MonitoringCondition`, event semantics, and alarm generation — zero diff to any of those files; no unit/axis/threshold/aggregation/cadence/range/storage/API contract invented. See `docs/context/ACTIVE_GATE.md`. |
-| 7 | **RTL-PROG-EXEC-1** | 🟡 IMPLEMENTED, VERIFIED, PENDING COMMIT (2026-09-07) | Connected `rtl_programming_service.py` (OPS-PROG-1: persists the request + one `rtl_commands` row, RTL-IF-1) to the existing command lifecycle (RTL-IF-2, ADR-018) — the command row no longer stays `QUEUED` forever with no reconciliation. No migration: the request's existing status/completed_at/error_message columns already supported the lifecycle. Every command transition projects a truthful request status (`QUEUED→queued`, `SENT`/`ACKNOWLEDGED→sent`, `SUCCEEDED→successful`, `FAILED`/`TIMED_OUT→failed`) in the SAME transaction as its own conditional UPDATE — no command/request split-brain; `error_message` is safe/normalized, never a raw exception. New `services/rtl_programming_execution_service.execute_request(request_id, transport)` is the protocol-neutral orchestration seam — no `SimulatorTransport` import/construction, no callback wiring, no retry/worker. Existing transition legality/concurrency protection unchanged. 83 focused tests + full regression + full suite passed; no migration; real dev DB untouched at 007. See `docs/context/ACTIVE_GATE.md`. |
-| 8 | **RTL-PROG-SIM-1** | 🟢 UNBLOCKED FOR ENGINEERING, NOT YET STARTED | Deliberately wire the existing, deterministic `SimulatorTransport` (RTL-IF-2, ADR-018) into a development/demo-only programming execution path via the new `execute_request()` seam (RTL-PROG-EXEC-1), so a local/demo operator can watch a request progress `queued → sent → successful/failed` end-to-end without a real device. Must preserve a hard boundary from production transport: `SimulatorTransport` stays exactly what ADR-018 says it is, and this gate must not make it reachable from any code path a real deployment exercises by default. Whoever opens this gate must decide, and record, exactly where that boundary lives and what makes it impossible to reach in production by accident. Does not move C-05 forward. See `docs/context/ACTIVE_GATE.md`. |
-| 9 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
+| 7 | **RTL-PROG-EXEC-1** | 🟢 CLOSED / PUSHED / REMOTE-VERIFIED (`0787b90`, 2026-09-07) | Connected `rtl_programming_service.py` (OPS-PROG-1: persists the request + one `rtl_commands` row, RTL-IF-1) to the existing command lifecycle (RTL-IF-2, ADR-018) — the command row no longer stays `QUEUED` forever with no reconciliation. No migration: the request's existing status/completed_at/error_message columns already supported the lifecycle. Every command transition projects a truthful request status (`QUEUED→queued`, `SENT`/`ACKNOWLEDGED→sent`, `SUCCEEDED→successful`, `FAILED`/`TIMED_OUT→failed`) in the SAME transaction as its own conditional UPDATE — no command/request split-brain; `error_message` is safe/normalized, never a raw exception. New `services/rtl_programming_execution_service.execute_request(request_id, transport)` is the protocol-neutral orchestration seam — no `SimulatorTransport` import/construction, no callback wiring, no retry/worker. Existing transition legality/concurrency protection unchanged. 83 focused tests + full regression + full suite passed; no migration; real dev DB untouched at 007. See `docs/context/ACTIVE_GATE.md`. |
+| 8 | **RTL-PROG-SIM-1** | 🟡 IMPLEMENTED, VERIFIED, PENDING COMMIT (2026-09-07) | A development/demo-only simulated programming execution path on RTL-PROG-EXEC-1's `execute_request()` seam, using the existing deterministic `SimulatorTransport` (ADR-018). No migration. `RTL_PROGRAMMING_SIMULATOR_ENABLED` is centralized in `config/settings.py`, defaults OFF, and **fails closed with a `RuntimeError` at startup** if enabled under `APP_ENV=production`; production without it starts normally with no controls and no callback registered. `services/rtl_programming_simulation_service.py` is the only application service that constructs a `SimulatorTransport`, and delegates execution rather than duplicating lifecycle logic. Outcomes are Success/Failure/Timeout — simulation semantics, not Eskom protocol semantics. Simulation needs an explicit click after a request is recorded; recording never auto-executes. Existing `PROGRAM_RTL` authorization is reused and runs before the request lookup; browser-owned request ids must belong to the authorized device, with unknown and mismatched ids sharing one refusal (no existence oracle). A simulated success is not evidence a physical RTL was programmed. 63 focused + 117 RTL + 340 auth/settings regression tests and the full suite passed. See `docs/context/ACTIVE_GATE.md`. |
+| 9 | **LOCAL-DB-CATCHUP-1** | 🟢 UNBLOCKED FOR ENGINEERING, NOT YET STARTED | Deliberately and non-destructively upgrade the real development database from `007_audit_log` to the current head `012_vibration_contract_answers` (five migrations have accumulated behind it because every gate since deliberately left it alone — the suite exercises them via `isolated_schema` only), then browser-smoke the flows added since. Must: take NO reset/reseed action (`alembic upgrade` only); verify the environment/database target BEFORE migrating (the local `plant_monitoring_postgres` container, port 5436 — never a client or production target); preserve existing dev data (row counts before/after); verify the 007→012 upgrade and a still-single Alembic head; smoke the C08 auto-disable UI, temperature threshold UI, vibration contract UI and the simulated programming flow (which needs `RTL_PROGRAMMING_SIMULATOR_ENABLED` set locally, then turned back off); and keep `debug.log` excluded. An environment/verification gate, not a feature gate. See `docs/context/ACTIVE_GATE.md`. |
+| 10 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
 
 ### Blocked / Waiting for Client or Integration
 
 | # | Task | Blocked By | Dependency |
 |---|---|---|---|
-| 1 | Physical RTL programming delivery | 🟠 | C-05 (MQTT/transport protocol). The request/dispatch/lifecycle reconciliation (`RTL-PROG-EXEC-1`) is implemented and verified, pending commit; deliberately exercising it end-to-end against the simulator (not the real transport) is `RTL-PROG-SIM-1`, unblocked for engineering — see Ready Now |
+| 1 | Physical RTL programming delivery | 🟠 | C-05 (MQTT/transport protocol). The request/dispatch/lifecycle reconciliation (`RTL-PROG-EXEC-1`) is CLOSED / PUSHED (`0787b90`), and `RTL-PROG-SIM-1` (pending commit) exercises it end-to-end against the SIMULATOR only — development/demo, default OFF, fail-closed in production. Neither is physical delivery, and neither moves C-05 forward — see Ready Now |
 | 2 | Message forwarding delivery (actual send) | 🟠 | C-05 (transport) — 18:30 auto-disable itself is unblocked; see Ready Now #2 |
 | 3 | RTL active-list monitoring semantics | 🟠 | ACT-03/C-09 (client question: app or Master-side?) |
 | 4 | Alarm pipeline — event producers | 🟠 | C-05 (MQTT/device communication) |

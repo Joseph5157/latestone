@@ -43,6 +43,7 @@ from components.device_manage_drawer import (
     PROGRAM_RTL_MSISDN_ERROR_ID,
     PROGRAM_RTL_CONFIRM_BTN,
     PROGRAM_RTL_RESULT_ID,
+    PROGRAM_RTL_LAST_REQUEST_ID,
     MSG_FWD_TOGGLE_ID,
     MSG_FWD_CONFIRM_BTN,
     MSG_FWD_RESULT_ID,
@@ -310,6 +311,7 @@ def register(app) -> None:
     @app.callback(
         Output(PROGRAM_RTL_RESULT_ID, "children"),
         Output(PROGRAM_RTL_MSISDN_ERROR_ID, "children"),
+        Output(PROGRAM_RTL_LAST_REQUEST_ID, "data"),
         Input(PROGRAM_RTL_CONFIRM_BTN, "n_clicks"),
         State(MANAGE_DEVICE_ID, "data"),
         State(PROGRAM_RTL_UID_ID, "value"),
@@ -329,9 +331,15 @@ def register(app) -> None:
         Validation presentation only: the service remains the sole authority
         for the MSISDN rules; this callback maps its safe ProgrammingError
         text into the inline field slot and invents no policy of its own.
+
+        Publishes the recorded request id to `PROGRAM_RTL_LAST_REQUEST_ID`
+        so a follow-up action in this drawer knows which request is on
+        screen. Recording still EXECUTES nothing: no dispatch, no transport,
+        no simulator — the request is left `queued` exactly as
+        RTL-PROG-EXEC-1 leaves it.
         """
         if not n_clicks:
-            return no_update, no_update
+            return no_update, no_update, no_update
 
         user = current_identity()
 
@@ -340,7 +348,7 @@ def register(app) -> None:
         try:
             require_action(user, PROGRAM_RTL, device_id=device_id)
         except AuthorizationError:
-            return action_refused_notice(), no_update
+            return action_refused_notice(), no_update, None
 
         try:
             record = rtl_programming_service.record_request(
@@ -353,7 +361,7 @@ def register(app) -> None:
                 "Programming request not recorded for device %s: %s",
                 device_id, exc,
             )
-            return "", str(exc)
+            return "", str(exc), None
 
         logger.info(
             "Programming request %s recorded for device %s",
@@ -372,7 +380,7 @@ def register(app) -> None:
                     "the physical RTL is not confirmed programmed."
                 ),
             ],
-        ), ""
+        ), "", record.request_id
 
     # --- Message Forwarding confirm ---
     @app.callback(

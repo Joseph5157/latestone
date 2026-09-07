@@ -101,9 +101,19 @@ class _ProgrammingSpy:
 
 class TestProgramRtl:
     def _call(self, monkeypatch, session):
+        """Returns `(result_panel, msisdn_error)`.
+
+        RTL-PROG-SIM-1 gave this callback a third Output — the id of the
+        request it just recorded, published to a store for the drawer's
+        dev-only simulation controls. It is dropped here so every
+        assertion below stays about the two outputs they were written for.
+        """
         handler = _handlers(device_manage)["confirm_program_rtl"]
         with as_session(monkeypatch, session):
-            return handler(1, DEVICE_ID, "uid-1", "t1", "0700000000", session)
+            result, msisdn_error, _request_id = handler(
+                1, DEVICE_ID, "uid-1", "t1", "0700000000", session
+            )
+        return result, msisdn_error
 
     def test_administrator_reaches_the_service_with_session_identity(
         self, monkeypatch

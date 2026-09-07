@@ -9,7 +9,7 @@ from __future__ import annotations
 import dash
 from dash import dcc, html
 
-from callbacks import auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, user_admin, report_center, notifications, command_center, forwarding_schedule, temperature_threshold, vibration_contract
+from callbacks import auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, user_admin, report_center, notifications, command_center, forwarding_schedule, temperature_threshold, vibration_contract, rtl_programming_simulation
 from components.app_shell import app_shell
 from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
@@ -121,6 +121,10 @@ command_center.register(app)
 forwarding_schedule.register(app)
 temperature_threshold.register(app)
 vibration_contract.register(app)
+# RTL-PROG-SIM-1: registers NOTHING unless the development simulator is
+# explicitly enabled for a non-production environment — the module itself
+# owns that decision, so there is one place it is made.
+rtl_programming_simulation.register(app)
 
 if __name__ == "__main__":
     from config.settings import dash_settings

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T10:01:19Z
+Date: 2026-09-07T12:16:36Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `859dbe2` "feat(config): add vibration contract management"
-- Working tree: 13 entries — see below
+- `main` = `0787b90` "feat(programming): reconcile command execution status"
+- Working tree: 12 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2859 passed, 678 deselected in 24.10s
+- `python -m pytest -m "not db"` → 2914 passed, 686 deselected in 23.84s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 266 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 116 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 266 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 267 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 117 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 267 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -82,18 +82,17 @@ C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) p
 ## Working tree
 
 ```
-M callbacks/device_manage.py
- M config/commands.py
+M .env.example
+ M app.py
+ M callbacks/device_manage.py
+ M components/device_manage_drawer.py
+ M config/settings.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
- M repositories/plant_monitoring_repository.py
- M services/rtl_command_service.py
- M services/rtl_programming_service.py
- M tests/test_rtl_command_dispatch.py
- M tests/test_rtl_command_service_lifecycle.py
- M tests/test_rtl_programming.py
+ M tests/test_action_guard_callbacks.py
+?? callbacks/rtl_programming_simulation.py
 ?? debug.log
-?? services/rtl_programming_execution_service.py
-?? tests/test_rtl_programming_execution.py
+?? services/rtl_programming_simulation_service.py
+?? tests/test_rtl_programming_simulation.py
 ```
 
