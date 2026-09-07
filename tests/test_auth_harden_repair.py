@@ -467,6 +467,15 @@ class TestTransformerDetailScope:
 
 
 class TestReportScopeLabels:
+    # generate_report's generic scope-desc/"Prototype Only" fallback now
+    # runs only for a report key outside all three specially-handled real
+    # reports ("installed_rtls", "rtl_alarms_30d", "max_temperature" as of
+    # REPORT-MAXTEMP-1). This deliberately unknown key reaches that
+    # fallback and exercises _scope_label the same way any of those three
+    # used to before each became data-backed — get_report() returns None
+    # for it, so no report service/repository call happens at all.
+    _UNHANDLED_REPORT_KEY = "not-a-real-report-rt09"
+
     def _preview_handler(self):
         return _handlers(report_center)["generate_report"]
 
@@ -475,15 +484,15 @@ class TestReportScopeLabels:
 
     def _preview_label(self, **kwargs):
         """generate_report's scope-desc path only runs for a report key
-        outside the two specially-handled ones ("installed_rtls",
-        "rtl_alarms_30d") — "max_temperature" reaches it."""
+        outside the three specially-handled ones — an unrecognized key
+        reaches it."""
         n_clicks, plant_id, transformer_id, device_id, asset_scope = (
             1, kwargs.get("plant_id", ""), kwargs.get("transformer_id", ""),
             kwargs.get("device_id", ""), kwargs.get("asset_scope", "plant"),
         )
         _style, result = self._preview_handler()(
-            n_clicks, "max_temperature", asset_scope, plant_id, transformer_id,
-            device_id, None, None, None, None,
+            n_clicks, self._UNHANDLED_REPORT_KEY, asset_scope, plant_id,
+            transformer_id, device_id, None, None, None, None,
         )
         return str(result)
 
@@ -625,7 +634,7 @@ class TestReportScopeLabels:
         monkeypatch.setattr(report_center, "installed_rtls_rows", lambda **k: [])
         with trusted_session(monkeypatch, user_id=1, role="administrator"):
             _style, result = self._preview_handler()(
-                1, "max_temperature", "plant", PLANT_B, "", "", None, None, None, None,
+                1, self._UNHANDLED_REPORT_KEY, "plant", PLANT_B, "", "", None, None, None, None,
             )
         assert PLANT_B_NAME in str(result)
 
@@ -636,7 +645,7 @@ class TestReportScopeLabels:
         monkeypatch.setattr(report_center, "installed_rtls_rows", lambda **k: [])
         with trusted_session(monkeypatch, user_id=7, role="general"):
             _style, result = self._preview_handler()(
-                1, "max_temperature", "plant", PLANT_B, "", "", None, None, None, None,
+                1, self._UNHANDLED_REPORT_KEY, "plant", PLANT_B, "", "", None, None, None, None,
             )
         assert PLANT_B_NAME in str(result), (
             "General must retain unrestricted read access to report labels"

@@ -122,10 +122,14 @@ class TestReportCenterLayout:
         lay = layout()
         assert "breadcrumb" in str(lay).lower() or "Report Center" in str(lay)
 
-    def test_layout_has_prototype_notice(self):
+    def test_layout_has_export_honesty_notice(self):
+        """All three reports are now data-backed (REPORT-MAXTEMP-1 was the
+        last); the page's honesty notice is about export format/delivery,
+        not a blanket "prototype" claim that no longer describes reality."""
         lay = layout()
         text = str(lay)
-        assert "Prototype" in text or "prototype" in text
+        assert "development export format" in text
+        assert "delivered elsewhere" in text
 
     def test_layout_has_generate_section(self):
         lay = layout()
@@ -273,6 +277,15 @@ class TestBuildDefinitionStatus:
     def test_status_for_installed_rtls_is_data_backed(self):
         status = _build_definition_status("installed_rtls")
         assert "current application database" in str(status)
+
+    def test_status_for_max_temperature_is_data_backed(self):
+        """REPORT-MAXTEMP-1: no longer 'production data mapping
+        incomplete' — the honesty notice states the real source and the
+        C-15 default period."""
+        status = _build_definition_status("max_temperature")
+        text = str(status)
+        assert "persisted temperature readings" in text
+        assert "rolling 30 days" in text
 
     def test_status_for_unknown_returns_empty(self):
         status = _build_definition_status("nonexistent")

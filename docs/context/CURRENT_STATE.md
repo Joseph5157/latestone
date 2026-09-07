@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T04:52:17Z
+Date: 2026-09-07T05:31:42Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `1af19ee` "docs(context): record resolved development baselines"
-- Working tree: 20 entries — see below
+- `main` = `d10c566` "feat(forwarding): add scheduled auto-disable (C08-AUTO-DISABLE-1)"
+- Working tree: 12 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2730 passed, 600 deselected in 22.29s
+- `python -m pytest -m "not db"` → 2746 passed, 615 deselected in 22.67s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 261 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 111 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 261 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 262 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 112 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 262 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -82,25 +82,17 @@ C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) p
 ## Working tree
 
 ```
-M app.py
- M config/audit.py
+M callbacks/report_center.py
+ M config/reports.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
- M pages/plants_overview.py
+ M pages/report_center.py
  M repositories/plant_monitoring_repository.py
- M requirements.txt
- M services/authorization.py
- M tests/test_device_event_service.py
- M tests/test_equipment_selector.py
- M tests/test_migration_foundation.py
-?? alembic/versions/010_forwarding_auto_disable.py
-?? callbacks/forwarding_schedule.py
-?? components/auto_disable_override_panel.py
-?? config/forwarding_schedule.py
+ M services/report_service.py
+ M tests/test_auth_harden_repair.py
+ M tests/test_report_center.py
 ?? debug.log
-?? scripts/run_forwarding_auto_disable.py
-?? services/forwarding_auto_disable_service.py
-?? tests/test_forwarding_auto_disable.py
-?? tests/test_migration_forwarding_auto_disable.py
+?? tests/test_report_max_temperature.py
+?? tests/test_report_max_temperature_db.py
 ```
 

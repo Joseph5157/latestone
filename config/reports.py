@@ -84,7 +84,9 @@ REPORTS: tuple[ReportDefinition, ...] = (
         date_range_fixed=None,
         description=(
             "Peak temperature recorded per transformer. "
-            "Reporting period is not defined by the Functional Specification."
+            "Reporting period defaults to a rolling 30 days, with a custom "
+            "date range also available (development baseline C-15, "
+            "pending client confirmation)."
         ),
     ),
 )

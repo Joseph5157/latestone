@@ -992,6 +992,148 @@ def rtl_alarms_30d_report_rows(
     ]
 
 
+@dataclass(frozen=True)
+class MaxTemperatureRecord:
+    """One transformer's peak-temperature row for the Maximum Temperature
+    report (REPORT-MAXTEMP-1).
+
+    ``device_id``/``installed_at`` describe the SPECIFIC device whose
+    reading produced ``max_temperature`` — see
+    ``max_temperature_report_rows`` for why that is the only defensible
+    "Date Installed" source. All three of ``device_id``,
+    ``max_temperature``, ``max_reading_at`` and ``installed_at`` are None
+    together whenever the transformer has no in-window, in-scope
+    temperature reading (a legitimate empty row, not an error).
+    """
+
+    plant_id: str
+    transformer_id: str
+    transformer_code: str
+    device_id: str | None
+    max_temperature: float | None
+    max_reading_at: datetime | None
+    installed_at: datetime | None
+
+
+def _to_max_temperature(row) -> MaxTemperatureRecord:
+    return MaxTemperatureRecord(
+        plant_id=row[0],
+        transformer_id=row[1],
+        transformer_code=row[2],
+        device_id=row[3],
+        max_temperature=float(row[4]) if row[4] is not None else None,
+        max_reading_at=row[5],
+        installed_at=row[6],
+    )
+
+
+def max_temperature_report_rows(
+    *,
+    temperature_metric: str,
+    since: datetime,
+    until: datetime,
+    plant_id: str | None = None,
+    transformer_id: str | None = None,
+    device_id: str | None = None,
+    allowed_device_ids: frozenset[str] | None,
+) -> list[MaxTemperatureRecord]:
+    """One row per transformer: its single highest temperature reading in
+    the closed window ``[since, until]`` (REPORT-MAXTEMP-1 / C-15).
+
+    RMT-D1 (tie-break): when more than one reading shares the maximum
+    value, the winner is deterministic — earliest ``reading_ts`` first (the
+    first time the peak was reached), then ``device_id``, then the
+    ``readings.id`` identity column as a final, unconditional tiebreak.
+    Same inputs always name the same winning reading; nothing is left to
+    whatever order the planner happens to visit rows in.
+
+    RMT-D2 (Date Installed): there is no transformer-level installation
+    date anywhere in this schema — only ``devices.installed_at``, itself
+    optional metadata set at device registration (DB-1, migration 002).
+    Synthesizing a transformer-level date (earliest of its devices', say)
+    would report a date about a device that is not the one this row's
+    reading came from. Instead this reports ``installed_at`` of the exact
+    device that produced ``max_temperature`` — the one device the row is
+    actually about — and leaves it None when that device has none, rather
+    than inventing one.
+
+    Two independent scope gates, both matching the convention already used
+    by ``count_hierarchy_by_plant``: an outer EXISTS keeps a transformer out
+    entirely when the caller has zero visible devices anywhere on it (no
+    Technician sees a transformer they hold no assignment on, even as a
+    bare code with null data — same as ``list_transformers``); the LATERAL
+    itself additionally restricts which of that transformer's OWN devices
+    may supply the winning reading, so a transformer with a mix of in- and
+    out-of-scope devices never lets an out-of-scope device's reading win.
+
+    Transformers with no in-scope device, or no temperature reading in the
+    window, are never dropped by the window/metric filter itself — they
+    surface as a real row with every reading field None (R2-D4/R3-D8's
+    "legitimate empty" convention), never an exception. Only the scope
+    EXISTS gate above removes a row outright, and only for reasons of
+    visibility, never data absence.
+    """
+    params: dict = {
+        "temp_metric": temperature_metric,
+        "since": since,
+        "until": until,
+    }
+
+    asset_sql = ""
+    if transformer_id is not None:
+        asset_sql += " AND t.transformer_id = :transformer_id"
+        params["transformer_id"] = transformer_id
+    if plant_id is not None:
+        asset_sql += " AND t.plant_id = :plant_id"
+        params["plant_id"] = plant_id
+
+    device_sql = ""
+    if device_id is not None:
+        device_sql = " AND r.device_id = :device_id"
+        params["device_id"] = device_id
+
+    lateral_scope_sql, scope_params = _scope_clause("r", allowed_device_ids)
+    params.update(scope_params)
+
+    exists_scope_sql, _ = _scope_clause("d2", allowed_device_ids)
+    transformer_visibility_sql = ""
+    if exists_scope_sql:
+        transformer_visibility_sql = (
+            f" AND EXISTS (SELECT 1 FROM {_SCHEMA}.devices d2 "
+            f"WHERE d2.transformer_id = t.transformer_id{exists_scope_sql})"
+        )
+
+    statement = _scoped(
+        text(
+            f"""
+            SELECT t.plant_id, t.transformer_id, t.transformer_code,
+                   top.device_id, top.value, top.reading_ts, d.installed_at
+            FROM {_SCHEMA}.transformers t
+            LEFT JOIN LATERAL (
+                SELECT r.device_id, r.value, r.reading_ts
+                FROM {_SCHEMA}.readings r
+                JOIN {_SCHEMA}.devices dd ON dd.device_id = r.device_id
+                WHERE dd.transformer_id = t.transformer_id
+                  AND r.metric = :temp_metric
+                  AND r.reading_ts >= :since AND r.reading_ts <= :until
+                  {device_sql}{lateral_scope_sql}
+                ORDER BY r.value DESC, r.reading_ts ASC, r.device_id ASC, r.id ASC
+                LIMIT 1
+            ) top ON TRUE
+            LEFT JOIN {_SCHEMA}.devices d ON d.device_id = top.device_id
+            WHERE TRUE{asset_sql}{transformer_visibility_sql}
+            ORDER BY t.transformer_code
+            """
+        ),
+        allowed_device_ids,
+    )
+
+    with session_scope() as session:
+        rows = session.execute(statement, params).all()
+
+    return [_to_max_temperature(r) for r in rows]
+
+
 # ---------------------------------------------------------------------------
 # Reading queries
 # ---------------------------------------------------------------------------

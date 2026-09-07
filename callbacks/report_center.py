@@ -30,11 +30,21 @@ from services.report_export import (
 )
 from services.report_service import (
     InstalledRtlsRow,
+    MaxTemperatureRow,
     RtlAlarms30dRow,
     ReportError,
     installed_rtls_rows,
+    max_temperature_rows,
+    resolve_max_temperature_period,
     rtl_alarms_30d_rows,
 )
+
+# Reused rather than re-derived: this is the same "calendar date ->
+# closed-day query bound" parsing the device dashboard's custom range
+# already fixed a real bug in (see callbacks/device.py's docstring).
+# Maximum Temperature's custom range must resolve the same way or its
+# displayed period would silently disagree with what was actually queried.
+from callbacks.device import _parse_picker_date
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +236,29 @@ def _build_definition_status(report_key: str) -> html.Div:
                     "definition). OU, Zone, Sector, CNC and Feeder are "
                     "unavailable until the client asset-hierarchy mapping is "
                     "confirmed; they are shown as placeholders."
+                ),
+            ],
+        )
+
+    if report.key == "max_temperature":
+        # REPORT-MAXTEMP-1: per-transformer peak temperature, sourced from
+        # persisted readings. Same honesty convention as REPORT-2/REPORT-3.
+        return html.Div(
+            className="status-panel status-panel--inactive",
+            children=[
+                html.P(html.Strong(
+                    "Maximum Temperature data is sourced from persisted "
+                    "temperature readings, one row per transformer. "
+                )),
+                html.P(
+                    "Default period is a rolling 30 days; a custom date "
+                    "range is also available (development baseline C-15, "
+                    "pending client confirmation). OU, Zone, Sector, CNC "
+                    "and Feeder Name are unavailable until the client "
+                    "asset-hierarchy mapping is confirmed; they are shown "
+                    "as placeholders. Date Installed reflects the specific "
+                    "device that recorded the maximum and is blank when "
+                    "that device has no installation date on record."
                 ),
             ],
         )
@@ -426,6 +459,122 @@ def _build_rtl_alarms_report(
     )
 
 
+def _format_report_date(value: datetime | None) -> str:
+    """Date-only ("%Y-%m-%d") rendering, UTC-normalized like
+    ``_format_alarm_at`` — but a date, not a date+time, matching the
+    "Date Installed"/"Date of Maximum Temperature" column names literally.
+    """
+    if value is None:
+        return "—"
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc)
+    return value.strftime("%Y-%m-%d")
+
+
+def _format_report_period(start: datetime, end: datetime) -> str:
+    """The resolved [start, end] window, always UTC, always both bounds —
+    the one place this is rendered, so the preview header and any future
+    export describe the exact window that was actually queried."""
+    return f"{_format_report_date(start)} to {_format_report_date(end)} UTC"
+
+
+def _build_max_temperature_table(rows: list[MaxTemperatureRow]) -> html.Div:
+    """Render Maximum Temperature as the real data table (REPORT-MAXTEMP-1).
+
+    Presentation-only mapping: None taxonomy fields become "—" (R2-D2);
+    ``date_installed``/``max_temperature_at`` are dates only, per the column
+    contract's literal names; ``max_temperature`` is None exactly when the
+    transformer had no in-window, in-scope reading (a legitimate empty row).
+    """
+    decimals = get_metric("temperature").precision
+    data = [
+        {
+            "ou": row.ou or "—",
+            "zone": row.zone or "—",
+            "sector": row.sector or "—",
+            "cnc": row.cnc or "—",
+            "feeder_name": row.feeder_name or "—",
+            "transformer": row.transformer,
+            "date_installed": _format_report_date(row.date_installed),
+            "max_temperature_at": _format_report_date(row.max_temperature_at),
+            "max_temperature": (
+                f"{row.max_temperature:.{decimals}f}"
+                if row.max_temperature is not None else "—"
+            ),
+        }
+        for row in rows
+    ]
+    columns = [
+        {"name": name, "id": cid}
+        for cid, name in [
+            ("ou", "OU"),
+            ("zone", "Zone"),
+            ("sector", "Sector"),
+            ("cnc", "CNC"),
+            ("feeder_name", "Feeder Name"),
+            ("transformer", "Transformer"),
+            ("date_installed", "Date Installed"),
+            ("max_temperature_at", "Date of Maximum Temperature"),
+            ("max_temperature", "Maximum Temperature (°C)"),
+        ]
+    ]
+    return entity_table(
+        "max-temperature-report-table", columns, data, responsive=True
+    )
+
+
+def _resolve_max_temperature_window(
+    period: str | None, custom_start, custom_end
+) -> tuple[datetime, datetime]:
+    """Shared by the preview and (eventually) export: same parsing, same
+    default, so the two paths can never disagree about what window a given
+    form state means (R4-D7's principle, applied one level up)."""
+    since = until = None
+    if period == "custom":
+        since = _parse_picker_date(custom_start)
+        until = _parse_picker_date(custom_end, is_end=True)
+    return resolve_max_temperature_period(since, until)
+
+
+def _build_max_temperature_report(
+    asset_scope: str, plant_id, transformer_id, device_id, device_scope: DeviceScope,
+    period: str | None, custom_start, custom_end,
+) -> html.Div:
+    """Gather → service → format. A zero-row result is a legitimate empty
+    report, not an error, matching R3-D8's convention."""
+    since, until = _resolve_max_temperature_window(period, custom_start, custom_end)
+    try:
+        rows = max_temperature_rows(
+            plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
+            transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
+            device_id=device_id if asset_scope == "device" else None,
+            device_scope=device_scope,
+            since=since,
+            until=until,
+        )
+    except ReportError:
+        return html.Div(
+            className="status-panel status-panel--inactive",
+            children=[
+                html.H4("Report unavailable"),
+                html.P(
+                    "The Maximum Temperature report could not be loaded. "
+                    "Please try again."
+                ),
+            ],
+        )
+
+    return html.Div(
+        children=[
+            html.H4(f"Maximum Temperature — {len(rows)} transformer(s)"),
+            html.P(
+                html.Strong("Period used: "), _format_report_period(since, until),
+            ),
+            _build_max_temperature_table(rows),
+        ],
+    )
+
+
 def register(app) -> None:
     """Register report center callbacks on the Dash app."""
 
@@ -499,19 +648,36 @@ def register(app) -> None:
                 {"display": "none"}, no_update, no_update,
                 {"display": "none"}, no_update,
             )
-        else:
-            # Maximum Temperature — period not defined by spec
+        elif report.key == "max_temperature":
+            # Maximum Temperature (REPORT-MAXTEMP-1 / C-15) — rolling
+            # 30-day default, plus a custom range. Only these two options:
+            # 24h/7d belong to other reports' periods, not this one's
+            # confirmed baseline.
+            period_options = [
+                {"label": " 30d (default)", "value": "30d"},
+                {"label": " Custom", "value": "custom"},
+            ]
             notice_style = {"display": "block", "marginTop": "4px"}
             notice = html.Em(
-                "The Functional Specification does not define a reporting period for this report.",
+                "Default period is a rolling 30 days (development baseline "
+                "C-15, pending client confirmation). Choose Custom for a "
+                "specific date range.",
                 className="report-form__note",
             )
             return (
                 {"display": "block"}, preview,
                 {"display": "block"}, status,
                 False,
-                {"display": "none"}, no_update, no_update,
+                {"display": "block"}, "30d", period_options,
                 notice_style, notice,
+            )
+        else:
+            return (
+                {"display": "block"}, preview,
+                {"display": "block"}, status,
+                False,
+                {"display": "none"}, no_update, no_update,
+                {"display": "none"}, no_update,
             )
 
     # ---- Asset scope cascade ----
@@ -658,6 +824,17 @@ def register(app) -> None:
             result = _build_rtl_alarms_report(
                 asset_scope, plant_id, transformer_id, device_id,
                 current_device_scope(),
+            )
+            return {"display": "block"}, result
+
+        # REPORT-MAXTEMP-1: the third data-backed report — real per-
+        # transformer rows, no file generation yet (PDF/CSV is a separate
+        # gate, REPORT-EXPORT-1).
+        if report and report.key == "max_temperature":
+            result = _build_max_temperature_report(
+                asset_scope, plant_id, transformer_id, device_id,
+                current_device_scope(),
+                period, custom_start, custom_end,
             )
             return {"display": "block"}, result
 

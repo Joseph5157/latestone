@@ -68,13 +68,17 @@ as the working assumption for implementation, not as settled requirements —
 if the client's eventual answer differs, the baseline and everything built
 against it must be revisited.
 
-## C08-AUTO-DISABLE-1 — IMPLEMENTED / VERIFIED THIS SESSION / NOT COMMITTED
+## C08-AUTO-DISABLE-1 — CLOSED / PUSHED / REMOTE-VERIFIED
 
-Date: 2026-09-07. Scheduler, override, and audit code now exist in the
-working tree, matching the scope and architecture decision below. This
-section originally existed as the pre-implementation baseline (retained
-below); this note records what was actually built and independently
-re-verified in this session, ahead of a commit decision.
+Branch: `main`, baseline `d10c566ef5e400d9163fdba2413580f3ca4517d9`.
+Commit: `d10c566ef5e400d9163fdba2413580f3ca4517d9` — subject "feat(forwarding):
+add scheduled auto-disable (C08-AUTO-DISABLE-1)". Pushed to `origin/main`;
+local `HEAD`, `origin/main`, and `git ls-remote origin refs/heads/main` all
+verified to match this SHA. Scheduler, override, and audit code now exist
+on `main`, matching the scope and architecture decision below. This section
+originally existed as the pre-implementation baseline (retained below);
+what follows records what was actually built and independently re-verified
+before commit.
 
 ### What was built
 
@@ -145,10 +149,14 @@ re-verified in this session, ahead of a commit decision.
   reports **`007_audit_log`** — three migrations behind code (`010`). This
   is expected, not a defect in this gate: the test suite exercises migration
   010 only via the `isolated_schema` fixture (AGENTS.md testing rules), never
-  against the real `plant_monitoring` schema. Before demonstrating the new
-  override panel locally against real dev data, run `alembic upgrade head`
-  — non-destructively, and only after this gate's code is committed, not as
-  part of the code change itself.
+  against the real `plant_monitoring` schema. **Still true after this gate's
+  push**: the real dev DB was deliberately left at `007` — commit and push
+  do not run migrations against it. Before demonstrating the override panel
+  locally against real dev data, run `alembic upgrade head` non-destructively,
+  as its own deliberate step, environment checked first.
+- Push verification: after `git push origin main`, `git rev-parse HEAD`,
+  `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main`
+  all returned `d10c566ef5e400d9163fdba2413580f3ca4517d9`.
 
 ### Known ambiguity / open items carried forward
 
@@ -161,7 +169,7 @@ re-verified in this session, ahead of a commit decision.
   was written up as `ADR-020`. Whether this decision should likewise become
   its own ADR, or stay as gate-file prose, was not decided in this session
   and is flagged rather than resolved unilaterally.
-- **Commit/push permission: GRANTED 2026-09-07.** Two decisions made by the
+- **Commit/push permission: GRANTED and exercised 2026-09-07.** Two decisions made by the
   user closing this gate: (1) no ADR needed — the scheduler choice is
   localized and reversible, unlike an RTL-IF-scale architectural boundary,
   and is already recorded here and in `PROJECT_LEDGER.md`; ADRs stay
@@ -252,16 +260,96 @@ so implementation does not have to re-derive it:
   for physical programming execution, forwarding delivery, and all
   producer-dependent work. See `REQ-3I_Clarification_Register.md` §5.
 
-## Next implementation gate: REPORT-MAXTEMP-1 — QUEUED, NOT STARTED
+## REPORT-MAXTEMP-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
 
-Set 2026-09-07, once C08-AUTO-DISABLE-1's implementation was verified above.
-Not started — no report-population or export code exists for this yet.
-Unblocked for engineering purposes by the C-15 development baseline
-(`## Development baselines set` above): rolling 30 days by default plus a
-custom date range, with the period shown on the report and its export.
-`docs/context/PROJECT_LEDGER.md` §3's "Max Temperature report" row and §10
-Resume Queue item 8 already describe this as engineering-ready; this is the
-pointer that makes it the active gate once C08-AUTO-DISABLE-1 is committed.
+Date: 2026-09-07. Maximum Temperature is now a real, data-backed report
+(replacing its Prototype Only result), built against the C-15 development
+baseline. Follows the same service → repository → callback pattern as
+Installed RTLs (REPORT-2) and RTL Alarms 30 Days (REPORT-3).
+
+### What was built
+
+- `repositories/plant_monitoring_repository.py` —
+  `max_temperature_report_rows`: one row per transformer, its single
+  highest temperature reading across all its devices within `[since,
+  until]`. Deterministic tie-break when a maximum is shared: earliest
+  `reading_ts`, then `device_id`, then the `readings.id` surrogate key —
+  never left to query-plan order. Two independent scope gates: an outer
+  EXISTS hides a transformer entirely when the caller has no visible
+  device on it at all (matches `list_transformers`'s convention — no bare
+  transformer code leaks to an unassigned Technician); the LATERAL itself
+  additionally restricts which of that transformer's OWN devices may
+  supply the winning reading, so a transformer with a scope-mixed device
+  set can never have an out-of-scope device's reading win. "Date
+  Installed" is `devices.installed_at` of the SPECIFIC device that
+  produced the winning reading — no transformer-level installation date
+  exists anywhere in this schema, so nothing is synthesized; blank when
+  that device has none on record.
+- `services/report_service.py` — `MaxTemperatureRow`,
+  `resolve_max_temperature_period` (rolling 30-day default ending at an
+  injectable reference time, mirroring `ALARM_REPORT_WINDOW`'s shape, or
+  the caller's explicit custom `[since, until]` verbatim), and
+  `max_temperature_rows`. One shared resolver used by the preview path so
+  the period displayed to the user can never diverge from the period
+  actually queried.
+- `callbacks/report_center.py` / `pages/report_center.py` — real table
+  render (`_build_max_temperature_table`), a `Period used:` line above
+  the table (`_format_report_period`) — presentation only, the column
+  contract in `config/reports.py` is unchanged — and a real "Date Range"
+  control exposing exactly two options for this report: `30d (default)`
+  and `Custom`. No `24h`/`7d` — those belong to other reports' periods,
+  not this baseline. Stale "prototype" wording in the page banner and
+  honesty notice corrected to describe the real data source.
+- No CSV/PDF export was added for this report — deliberately deferred to
+  `REPORT-EXPORT-1`, a separate gate. `EXPORTABLE_REPORTS` is unchanged.
+- OU/Zone/Sector/CNC/Feeder Name stay `None` in the domain row, same R2-D2
+  convention as the other two reports — C-07 remains HOLD, not invented.
+
+### Verification
+
+- Focused: `tests/test_report_max_temperature.py` (15) +
+  `tests/test_report_max_temperature_db.py` (15) — **30 passed**.
+- Report-center regression, run together in one invocation:
+  `tests/test_report_center.py` + `tests/test_report_installed_rtls.py` +
+  `tests/test_rtl_alarms_report.py` + `tests/test_rtl_alarms_report_db.py`
+  + `tests/test_report_export.py` + `tests/test_report_export_db.py` +
+  `tests/test_report_export_authorization.py` — all passed (one pre-
+  existing test file needed a fix, see Known ambiguity below, not a defect
+  in this gate's own code).
+- Full suite: `python -m pytest -q` — all passed, exit 0.
+- `git diff --check` — clean. `python scripts/build_context_pack.py
+  --check` — CLEAN.
+- Real dev Postgres remains at migration `007` — untouched; this gate adds
+  no migration at all (no schema change was needed).
+
+### Known ambiguity
+
+- `tests/test_auth_harden_repair.py::TestReportScopeLabels` used
+  `"max_temperature"` as a placeholder report key specifically because it
+  used to fall through to `generate_report`'s generic scope-label
+  fallback (back when Max Temperature was prototype-only). Now that it is
+  a real, specially-handled report, that key would have hit the new
+  branch and made an unmocked DB call. Fixed by pointing those 6 tests at
+  a genuinely unhandled report key (`_UNHANDLED_REPORT_KEY`) — the same
+  no-leak security property is still covered, now independent of which
+  report types happen to be implemented. Not a defect introduced by this
+  gate's own report code; a coupling in a prior gate's test that this
+  gate's change exposed.
+- No new authority conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, or
+  the C-15 baseline recorded above and the source files inspected.
+
+## Next implementation gate: REPORT-EXPORT-1 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once REPORT-MAXTEMP-1's implementation was verified above.
+Not started — no CSV/PDF export code exists for Maximum Temperature yet.
+Scope: give Maximum Temperature the same development-default CSV export
+Installed RTLs and RTL Alarms already have (`services/report_export.py`,
+`EXPORTABLE_REPORTS`), rebuilding rows through the SAME
+`max_temperature_rows`/`resolve_max_temperature_period` functions the
+preview uses (R4-D7's principle), and deciding whether/how the resolved
+period is represented in the exported document. The client-approved
+production report format (PDF vs CSV vs XLSX) remains the C-04 baseline —
+CSV only, development default — unchanged by this gate.
 
 ---
 

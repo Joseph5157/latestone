@@ -3,8 +3,10 @@
 Frontend shell for report generation, CSV export (development default),
 and history. Report types are confirmed by the RTL Functional
 Specification (§11). The client-approved production report format and
-delivery channel remain unresolved (REQ-1A §16); Installed RTLs and RTL
-Alarms (30 Days) are data-backed, Maximum Temperature stays prototype.
+delivery channel remain unresolved (REQ-1A §16); Installed RTLs, RTL
+Alarms (30 Days), and Maximum Temperature (REPORT-MAXTEMP-1) are all
+data-backed. Maximum Temperature has no CSV export yet — that is
+REPORT-EXPORT-1, a separate gate.
 """
 from __future__ import annotations
 
@@ -28,9 +30,10 @@ def layout() -> html.Div:
                 "Generate and view monitoring reports.",
                 className="page__subtitle",
             ),
-            # Honesty notice — replaces the former blanket prototype banner:
-            # two reports are data-backed and downloadable as development-
-            # default CSV; the client-approved production format is pending.
+            # Honesty notice — all three reports are data-backed; only
+            # export coverage differs (Installed RTLs and RTL Alarms have
+            # development-default CSV, Maximum Temperature does not yet —
+            # REPORT-EXPORT-1 is a separate gate).
             html.Div(
                 className="status-panel status-panel--inactive",
                 children=[
@@ -39,8 +42,8 @@ def layout() -> html.Div:
                         "CSV is the current development export format; "
                         "the client-approved production format is still "
                         "pending. No files are emailed or delivered "
-                        "elsewhere. Maximum Temperature remains a "
-                        "prototype until its reporting period is confirmed."
+                        "elsewhere. Maximum Temperature does not have a "
+                        "download yet — its export is a separate gate."
                     ),
                 ],
             ),
