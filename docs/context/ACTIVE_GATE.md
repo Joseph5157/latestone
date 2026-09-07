@@ -570,7 +570,13 @@ None encountered beyond the correction above. No new authority conflict
 between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the C-01 baseline, or the
 source files inspected.
 
-## VIB-CONFIG-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
+## VIB-CONFIG-1 — CLOSED / PUSHED / REMOTE-VERIFIED
+
+Branch: `main`, baseline `c83cf94b25cbd3ceec0e079938c355e221fe03b2` (the
+THRESH-CONFIG-1 commit). Commit: `859dbe28dd62584545d2c096dfc3017492682b61`
+— subject "feat(config): add vibration contract management". Pushed to
+`origin/main`; local `HEAD`, `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA.
 
 Date: 2026-09-07. The C-02 framework — an audited, Administrator-editable
 place to record answers to vibration's real sensor contract — is now
@@ -657,6 +663,9 @@ application.**
   --check` — CLEAN.
 - Real dev Postgres remains at migration `007` — untouched; deliberately
   not upgraded as part of this gate.
+- Push verification: after `git push origin main`, `git rev-parse HEAD`,
+  `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main`
+  all returned `859dbe28dd62584545d2c096dfc3017492682b61`.
 
 ### Known ambiguity
 
@@ -664,30 +673,161 @@ None encountered beyond the 14→15 documentation-count correction above.
 No new authority conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the
 C-02 baseline, or the source files inspected.
 
-## Next implementation gate: RTL-PROG-EXEC-1 — QUEUED, NOT STARTED
+## RTL-PROG-EXEC-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
 
-Set 2026-09-07, once VIB-CONFIG-1's implementation was verified above.
-Not started. Scope: connect the two RTL-programming/command foundations
-that already exist but do not yet talk to each other —
-`rtl_programming_service.py` (OPS-PROG-1: persists an operator's
+Date: 2026-09-07. Connects the two RTL-programming/command foundations
+that already existed but did not yet talk to each other —
+`rtl_programming_service.py` (OPS-PROG-1/RTL-IF-1: persists an operator's
 programming REQUEST, atomically inserting one `rtl_commands` row per
-accepted request — RTL-IF-1) and `rtl_command_dispatch_service.py` +
-`SimulatorTransport` (RTL-IF-2, ADR-018: exercises that same
-`rtl_commands` row's `sent_at`/`acknowledged_at`/`completed_at`/
-`failure_code` lifecycle). Today the command row RTL-IF-1 creates stays
-`QUEUED` forever — nothing ever calls `dispatch_command` on it, and no
-lifecycle status is reconciled back onto the programming request or
-shown in the UI (`rtl_programming_service.py`'s own PROG-D6/D7 record
-this as deliberately deferred, not forgotten). This gate is that
-connection: executable request → dispatch → lifecycle status →
-reconciled back, entirely against the EXISTING deterministic
-`SimulatorTransport`. **Do not invent the production transport contract**
-— C-05 (the real MQTT/Eskom protocol) remains Eskom-controlled/external
-and unanswered; `SimulatorTransport` stays exactly what ADR-018 already
-says it is, never upgraded into a stand-in for a real device connection.
-Whoever opens this gate must decide what TRIGGERS dispatch (on request
-creation? a poller? an explicit admin action?) and exactly what "status
-reconciliation" surfaces to the operator — neither is assumed here.
+accepted request) and `rtl_command_dispatch_service.py` + the existing
+command lifecycle (RTL-IF-2, ADR-018). The command row no longer stays
+`QUEUED` forever with no reconciliation: every command transition now also
+projects a truthful status onto the programming request that created it,
+in the same database transaction. **No production transport contract was
+invented** — C-05 (the real MQTT/Eskom protocol) remains
+Eskom-controlled/external and unanswered; nothing here selects, wires, or
+auto-instantiates `SimulatorTransport` into any production code path.
+
+### What was built
+
+- **No migration.** `rtl_programming_requests`' existing `status`/
+  `completed_at`/`error_message` columns and CHECK-constrained vocabulary
+  (`pending`/`queued`/`sent`/`successful`/`failed`, migration 005) already
+  supported the required lifecycle exactly — nothing needed to be added to
+  the schema.
+- `config/commands.py` — `REQUEST_STATUS_FOR_COMMAND_STATE`, the seam
+  mapping every `rtl_commands.state` onto its `rtl_programming_requests.
+  status` projection: `QUEUED → queued`; `SENT`/`ACKNOWLEDGED → sent`
+  (both mean "handed to transport, not yet resolved" from the request's
+  point of view); `SUCCEEDED → successful`; `FAILED`/`TIMED_OUT → failed`
+  (the request's four-state completion model has no separate timeout
+  status, and none was invented). `pending` is deliberately absent from
+  the map — it is the row's insert-time default only, never an
+  observable rest state once a request has been accepted.
+- `repositories/plant_monitoring_repository.py` — `ProgrammingRequestRecord`
+  now carries `completed_at`/`error_message` (previously always NULL by
+  construction; now genuinely written). New
+  `update_programming_request_status()`: pure persistence, one
+  conditional-free UPDATE, `completed_at` written from the DB clock only
+  when the caller says the projection is terminal, `error_message` written
+  exactly as given.
+- `services/rtl_command_service.py` — every lifecycle transition
+  (`mark_sent`/`mark_acknowledged`/`mark_succeeded`/`mark_failed`/
+  `mark_timed_out`) now performs the command's own conditional UPDATE
+  **and** the request's status projection inside one shared
+  `session_scope()` — a failure on either write rolls back both, so the
+  command and its request can never disagree about where a transition
+  landed (no split-brain). `error_message` is derived only from the
+  command's own already-normalized, bounded fields (`failure_code`
+  optionally combined with `failure_detail`) — never a raw exception or
+  provider stack trace; a successful or in-flight projection carries no
+  error message by construction, not by a separate branch that could
+  drift out of sync.
+- `services/rtl_programming_service.py` — `record_request()` now projects
+  the brand-new request from `pending` to `queued` the moment its QUEUED
+  command is created, in the SAME transaction as that command insert and
+  the existing `RTL_PROGRAM_REQUESTED` audit write (PROG-D6, revised: this
+  is the "future device-integration slice" its own docstring anticipated).
+  A failed projection rolls the whole request back with it, same as a
+  failed command insert always did.
+- `services/rtl_programming_execution_service.py` (new) —
+  `execute_request(request_id, transport)`: the protocol-neutral
+  orchestration seam the gate asked for. Resolves the request's one
+  existing command and hands it to the existing
+  `rtl_command_dispatch_service.dispatch_command`, wrapping its
+  `CommandNotDispatchableError` into this module's own
+  `ProgrammingExecutionError`. Does not import, name, or construct
+  `SimulatorTransport` — picking a transport is entirely the caller's
+  decision — and is not called from any callback, page, or scheduler.
+  Adds no retry, no polling, no background worker.
+- `callbacks/device_manage.py` — one-word honesty fix: the Program RTL
+  confirmation copy said "is saved and pending"; since a request is now
+  observably `queued` (never `pending`) by the time `record_request()`
+  returns, the copy now says "is saved and queued". The rest of the
+  disclaimer ("No command has yet been sent…the physical RTL is not
+  confirmed programmed") is unchanged and still true — nothing here
+  wires execution into this callback.
+- Existing command-lifecycle legality (`config.commands.
+  ALLOWED_TRANSITIONS`) and concurrency protection
+  (`update_command_state`'s `WHERE state = :expected_state` conditional
+  UPDATE) are unchanged and remain the sole authority for what transition
+  is legal — this gate only adds what happens, transactionally, once a
+  transition is accepted.
+- Tests: `tests/test_rtl_programming_execution.py` (new, 18 tests) —
+  request creation ends `queued`; SENT/ACKNOWLEDGED both project to
+  `sent`; success path (`successful`, `completed_at` set, no error);
+  failure and timeout paths (`failed`, safe normalized `error_message`,
+  never a raw exception); `completed_at` set only on terminal
+  projections; an illegal transition never touches the request; a
+  concurrent/stale conditional UPDATE loses at the DB layer before any
+  projection runs; a failed request-projection write rolls back the
+  command transition (and vice versa at request-creation time); a
+  refused re-dispatch leaves the request projection untouched; the new
+  execution service's success/failure/unknown-request/already-dispatched
+  behavior; and a structural (`ast`-based) proof that the execution
+  service never imports `SimulatorTransport`. `tests/test_rtl_programming.py`,
+  `tests/test_rtl_command_service_lifecycle.py`,
+  `tests/test_rtl_command_dispatch.py` — updated: three assertions that
+  previously pinned "the request stays `pending`" or "the request row is
+  byte-for-byte unchanged by the command's lifecycle" now assert the
+  opposite for status/completed_at/error_message specifically (the
+  deliberate change this gate makes) while still asserting every
+  provenance column (`device_id`, `master_msisdn`, `requested_by`,
+  `transformer_id`, `requested_at`, `request_method`) is untouched.
+
+### Verification
+
+- Focused: `tests/test_rtl_programming_execution.py` (18) +
+  `tests/test_rtl_programming.py` (29) + `tests/test_rtl_commands.py` (9) +
+  `tests/test_rtl_command_service_lifecycle.py` (12) +
+  `tests/test_rtl_command_dispatch.py` (15) — **83 passed**.
+- Regression: `tests/test_authorization.py` + `tests/test_action_guard.py`
+  + `tests/test_action_guard_db.py` + `tests/test_action_guard_callbacks.py`
+  + `tests/test_technician_operations.py` + `tests/test_audit_wiring.py` +
+  `tests/test_equipment_selector.py` + `tests/test_migration_foundation.py`
+  + `tests/test_auth_harden_repair.py` (exercises the Program RTL
+  confirmation callback and its "queued" copy) — all passed.
+- Full suite: `python -m pytest -q` — all passed, exit 0.
+- `python -m alembic heads` — `012_vibration_contract_answers` remains the
+  sole head (this gate adds no migration).
+- `git diff --check` — clean. `python scripts/build_context_pack.py
+  --check` — CLEAN.
+- Real dev Postgres remains at migration `007` — untouched; this gate has
+  no schema change to apply.
+
+### Known ambiguity
+
+None encountered. No new authority conflict between `AGENTS.md`,
+`SOURCE_AUTHORITY.md`, ADR-017, ADR-018, or the source files inspected.
+Whether this reconciliation design (the projection mapping, the
+one-transaction pairing, the new orchestration-service boundary) should
+be written up as its own ADR was considered and not decided unilaterally
+this session — flagged rather than resolved, the same open item C08-AUTO-
+DISABLE-1's scheduler decision left behind (see that section above): it is
+localized and reversible (a dict mapping plus one shared transaction, not
+a new external boundary), which argues against a new ADR, but a future
+session may judge otherwise once RTL-PROG-SIM-1 exists alongside it.
+
+## Next implementation gate: RTL-PROG-SIM-1 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once RTL-PROG-EXEC-1's implementation was verified above.
+Not started. Scope: deliberately wire the existing, deterministic
+`SimulatorTransport` (RTL-IF-2, ADR-018) into a development/demo-only
+programming execution path, using the execution/orchestration seam
+RTL-PROG-EXEC-1 just added (`services/rtl_programming_execution_service.
+execute_request`), so a local/demo operator can watch a recorded
+programming request actually progress through `queued → sent →
+successful/failed` end-to-end without a real device — while preserving a
+**hard boundary from production transport**: `SimulatorTransport` must
+stay exactly what ADR-018 says it is, never upgraded into a stand-in for a
+real device connection, and this gate must not make it reachable from any
+code path a real deployment would exercise by default. Whoever opens this
+gate must decide, and record, exactly where that boundary lives (a
+dev-only route/script? an explicit admin action gated by an environment
+flag? something else?) and what makes it impossible to reach in
+production by accident — neither is assumed here. C-05 (the real
+MQTT/Eskom protocol) remains Eskom-controlled/external and unanswered;
+this gate does not move that forward and must not be mistaken for it.
 
 ---
 

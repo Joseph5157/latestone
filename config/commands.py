@@ -54,3 +54,36 @@ ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 #: (or extension of) this vocabulary, not a reuse of an Eskom wire code.
 FAILURE_CODE_SIMULATED_FAILURE = "SIMULATED_FAILURE"
 FAILURE_CODE_SIMULATED_TIMEOUT = "SIMULATED_TIMEOUT"
+
+#: `rtl_programming_requests.status` vocabulary (migration 005's CHECK
+#: constraint: 'pending', 'queued', 'sent', 'successful', 'failed').
+#: RTL-PROG-EXEC-1 is the first tranche that writes any of these besides
+#: 'pending' — see REQUEST_STATUS_FOR_COMMAND_STATE below, the seam this
+#: gate adds between the two lifecycles. Named here, alongside the command
+#: vocabulary rather than in a separate module, because the projection is
+#: inherently a pairing of both.
+REQUEST_STATUS_PENDING = "pending"
+REQUEST_STATUS_QUEUED = "queued"
+REQUEST_STATUS_SENT = "sent"
+REQUEST_STATUS_SUCCESSFUL = "successful"
+REQUEST_STATUS_FAILED = "failed"
+
+#: Every `rtl_commands.state` this module defines maps to exactly one
+#: `rtl_programming_requests.status` (RTL-PROG-EXEC-1). SENT and
+#: ACKNOWLEDGED both project to "sent" — from the operator's point of view
+#: both mean "handed to transport, not yet resolved"; ACKNOWLEDGED's own
+#: meaning (ADR-018: "the configured send() call reported success and the
+#: dispatcher advanced one step") is not something the request lifecycle
+#: distinguishes. FAILED and TIMED_OUT both project to "failed" — the
+#: request's four-state completion model (migration 005) has no separate
+#: timeout status, and inventing one would be a schema change this gate
+#: does not make. "pending" is deliberately absent from this map: it is
+#: the request's insert-time default, never a projection target.
+REQUEST_STATUS_FOR_COMMAND_STATE: dict[str, str] = {
+    STATE_QUEUED: REQUEST_STATUS_QUEUED,
+    STATE_SENT: REQUEST_STATUS_SENT,
+    STATE_ACKNOWLEDGED: REQUEST_STATUS_SENT,
+    STATE_SUCCEEDED: REQUEST_STATUS_SUCCESSFUL,
+    STATE_FAILED: REQUEST_STATUS_FAILED,
+    STATE_TIMED_OUT: REQUEST_STATUS_FAILED,
+}

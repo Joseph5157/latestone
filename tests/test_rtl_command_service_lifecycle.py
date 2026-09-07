@@ -174,32 +174,60 @@ class TestLifecycleTransitions:
         with pytest.raises(cmd.CommandTransitionError):
             cmd.mark_sent(999999)
 
-    def test_programming_request_row_is_unchanged_by_lifecycle_transitions(self):
-        """I. Provenance: the request row is untouched by the command's
-        entire lifecycle."""
+    def test_programming_request_provenance_unchanged_but_status_projects(self):
+        """I (revised by RTL-PROG-EXEC-1): provenance columns — everything
+        that identifies WHO asked for WHAT — are still untouched by the
+        command's entire lifecycle. ``status``/``completed_at``/
+        ``error_message`` are the deliberate exception: RTL-PROG-EXEC-1
+        makes the request's status a truthful projection of its command,
+        so those three are EXPECTED to change, in lockstep with each
+        transition."""
+        provenance_columns = (
+            "request_id, device_id, transformer_id, requested_by, "
+            "master_msisdn, requested_at, request_method"
+        )
         with session_scope() as session:
             before = dict(
                 session.execute(
                     text(
-                        f"SELECT request_id, device_id, transformer_id, "
-                        f"requested_by, master_msisdn, requested_at, "
-                        f"request_method, status FROM "
+                        f"SELECT {provenance_columns} FROM "
                         f"{repo._SCHEMA}.rtl_programming_requests"
                     )
                 ).mappings().one()
             )
 
+        def _status_row():
+            with session_scope() as session:
+                return dict(
+                    session.execute(
+                        text(
+                            f"SELECT status, completed_at, error_message "
+                            f"FROM {repo._SCHEMA}.rtl_programming_requests"
+                        )
+                    ).mappings().one()
+                )
+
+        assert _status_row()["status"] == command_cfg.REQUEST_STATUS_QUEUED
+
         cmd.mark_sent(self.command_id)
+        assert _status_row()["status"] == command_cfg.REQUEST_STATUS_SENT
+
         cmd.mark_acknowledged(self.command_id)
+        sent_state = _status_row()
+        assert sent_state["status"] == command_cfg.REQUEST_STATUS_SENT
+        assert sent_state["completed_at"] is None
+
         cmd.mark_succeeded(self.command_id)
+        done_state = _status_row()
+        assert done_state["status"] == command_cfg.REQUEST_STATUS_SUCCESSFUL
+        assert done_state["completed_at"] is not None
+        assert done_state["error_message"] is None
 
         with session_scope() as session:
             after = dict(
                 session.execute(
                     text(
-                        f"SELECT request_id, device_id, transformer_id, "
-                        f"requested_by, master_msisdn, requested_at, "
-                        f"request_method, status FROM "
+                        f"SELECT {provenance_columns} FROM "
                         f"{repo._SCHEMA}.rtl_programming_requests"
                     )
                 ).mappings().one()

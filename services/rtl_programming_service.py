@@ -14,16 +14,24 @@ reload/read-back from PostgreSQL.
 
 RTL-IF-1 adds one ``rtl_commands`` row per accepted request, in the same
 transaction: the protocol-neutral seam a future transport will consume.
-This does NOT change what the request row means — see PROG-D6/D7 below,
-both still true.
+This does NOT change what the request row means — see PROG-D7 below, still
+true.
 
-What is deliberately NOT here (PROG-D6): any command transport, retry,
-scheduler or status progression. Every row this service creates stays
-``pending`` with NULL completion columns until a future device-integration
-slice owns the lifecycle. The command row it now also creates stays
-``QUEUED`` for the same reason (RTL-IF-1; see ADR-017). Recording a request
-is NOT evidence that a physical RTL was programmed — the UI copy must say
-so (PROG-D7).
+PROG-D6 (superseded by RTL-PROG-EXEC-1): originally, every row this
+service created stayed ``pending`` with NULL completion columns forever,
+because no device-integration slice existed to own the lifecycle. That
+slice now exists (`services/rtl_command_service.py`,
+`services/rtl_command_dispatch_service.py`) and RTL-PROG-EXEC-1 wires this
+call to it: the moment the command row above is created, the request is
+projected from ``pending`` to ``queued`` in this same transaction
+(``config.commands.REQUEST_STATUS_FOR_COMMAND_STATE``) — ``pending`` is
+now the row's insert-time default only, never its observable rest state
+once ``record_request`` has returned successfully. Every later command
+transition projects further (`services/rtl_command_service.py`'s
+``_transition``); this function still starts nothing beyond that first
+QUEUED command — no transport, no retry, no scheduler, no automatic
+dispatch. Recording a request is NOT evidence that a physical RTL was
+programmed — the UI copy must say so (PROG-D7).
 
 Frozen semantics:
 
@@ -122,6 +130,18 @@ def record_request(
                 request_id=record.request_id,
                 command_type=command_cfg.COMMAND_TYPE_PROGRAM_RTL,
                 state=command_cfg.STATE_QUEUED,
+                session=session,
+            )
+
+            # RTL-PROG-EXEC-1: the request is now genuinely queued for
+            # dispatch, not merely "pending" (the insert-time default) —
+            # project it, in this same transaction, so a failed projection
+            # rolls the whole request back with it too.
+            record = repo.update_programming_request_status(
+                record.request_id,
+                status=command_cfg.REQUEST_STATUS_FOR_COMMAND_STATE[
+                    command_cfg.STATE_QUEUED
+                ],
                 session=session,
             )
 

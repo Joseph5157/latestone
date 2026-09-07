@@ -163,28 +163,44 @@ class TestDispatchOutcomes:
         )
         assert result.state == command_cfg.STATE_SUCCEEDED
 
-    def test_i_programming_request_provenance_unchanged_after_dispatch(self):
-        """I. The request row is byte-for-byte unchanged by a full
-        successful dispatch."""
+    def test_i_programming_request_provenance_unchanged_status_projects_after_dispatch(self):
+        """I (revised by RTL-PROG-EXEC-1): identity/provenance fields are
+        byte-for-byte unchanged by a full successful dispatch; status,
+        completed_at and error_message are the deliberate exception — a
+        dispatch's whole point, as of this gate, is to make them truthful."""
         record = prog.record_request(
             device_id=DEVICE_ID, master_msisdn="0700000000",
             actor_user_id=self.admin,
         )
         command_id = cmd.get_command_for_request(record.request_id).command_id
 
+        provenance_columns = (
+            "request_id, device_id, transformer_id, requested_by, "
+            "master_msisdn, requested_at, request_method"
+        )
         with session_scope() as session:
             before = dict(
                 session.execute(
                     text(
-                        f"SELECT request_id, device_id, transformer_id, "
-                        f"requested_by, master_msisdn, requested_at, "
-                        f"request_method, status, completed_at, error_message "
+                        f"SELECT {provenance_columns} "
                         f"FROM {repo._SCHEMA}.rtl_programming_requests "
                         f"WHERE request_id = :rid"
                     ),
                     {"rid": record.request_id},
                 ).mappings().one()
             )
+            before_status = dict(
+                session.execute(
+                    text(
+                        f"SELECT status, completed_at, error_message "
+                        f"FROM {repo._SCHEMA}.rtl_programming_requests "
+                        f"WHERE request_id = :rid"
+                    ),
+                    {"rid": record.request_id},
+                ).mappings().one()
+            )
+        assert before_status["status"] == command_cfg.REQUEST_STATUS_QUEUED
+        assert before_status["completed_at"] is None
 
         dispatch.dispatch_command(command_id, SimulatorTransport(OUTCOME_SUCCESS))
 
@@ -192,9 +208,17 @@ class TestDispatchOutcomes:
             after = dict(
                 session.execute(
                     text(
-                        f"SELECT request_id, device_id, transformer_id, "
-                        f"requested_by, master_msisdn, requested_at, "
-                        f"request_method, status, completed_at, error_message "
+                        f"SELECT {provenance_columns} "
+                        f"FROM {repo._SCHEMA}.rtl_programming_requests "
+                        f"WHERE request_id = :rid"
+                    ),
+                    {"rid": record.request_id},
+                ).mappings().one()
+            )
+            after_status = dict(
+                session.execute(
+                    text(
+                        f"SELECT status, completed_at, error_message "
                         f"FROM {repo._SCHEMA}.rtl_programming_requests "
                         f"WHERE request_id = :rid"
                     ),
@@ -202,6 +226,9 @@ class TestDispatchOutcomes:
                 ).mappings().one()
             )
         assert after == before
+        assert after_status["status"] == command_cfg.REQUEST_STATUS_SUCCESSFUL
+        assert after_status["completed_at"] is not None
+        assert after_status["error_message"] is None
 
     def test_l_transport_exception_leaves_command_at_sent_not_corrupted(self):
         """L. A transport bug (raises instead of returning an outcome)

@@ -367,7 +367,7 @@ def register(app) -> None:
                 html.Strong("Programming request recorded. "),
                 html.Span(
                     f"Request {record.request_id} for UID "
-                    f"{uid or record.device_id} is saved and pending. "
+                    f"{uid or record.device_id} is saved and queued. "
                     "No command has yet been sent to the RTL Master, and "
                     "the physical RTL is not confirmed programmed."
                 ),

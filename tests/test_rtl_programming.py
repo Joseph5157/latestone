@@ -204,12 +204,15 @@ class TestProgrammingRequestPersistence:
         record = self._record(msisdn="   0700000000\t")
         assert record.master_msisdn == "0700000000"
 
-    def test_row_stays_pending_with_null_completion_columns(self):
-        """PROG-D6: this slice creates requests only."""
+    def test_row_projects_to_queued_with_null_completion_columns(self):
+        """PROG-D6 (superseded by RTL-PROG-EXEC-1): the request is
+        projected to 'queued' the moment its command is created, in the
+        same transaction — 'pending' is the insert-time default only, not
+        an observable rest state once record_request() has returned."""
         self._record()
 
         row = _request_rows()[0]
-        assert row["status"] == "pending"
+        assert row["status"] == "queued"
         assert row["completed_at"] is None
         assert row["error_message"] is None
 
@@ -265,7 +268,9 @@ class TestProgrammingRequestHistorySemantics:
         rows = _request_rows()
         assert len(rows) == 2
         assert first.request_id != second.request_id
-        assert all(r["status"] == "pending" for r in rows)
+        # RTL-PROG-EXEC-1: each accepted request is projected to 'queued'
+        # in the same transaction as its command's creation.
+        assert all(r["status"] == "queued" for r in rows)
         assert len(_audit_rows()) == 2
 
     def test_multiple_pending_requests_for_same_device_are_allowed(self):
@@ -284,8 +289,9 @@ class TestProgrammingRequestHistorySemantics:
             actor_user_id=other_admin,
         )
 
+        # RTL-PROG-EXEC-1: both project to 'queued' independently.
         statuses = [r["status"] for r in _request_rows()]
-        assert statuses == ["pending", "pending"]
+        assert statuses == ["queued", "queued"]
 
     def test_read_back_survives_process_memory_from_postgresql(self):
         """Confirmation state comes from PostgreSQL via a fresh session,

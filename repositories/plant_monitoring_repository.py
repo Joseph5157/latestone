@@ -3037,7 +3037,7 @@ def update_device_metadata(
 
 _PROGRAMMING_REQUEST_COLUMNS = (
     "request_id, device_id, transformer_id, requested_by, master_msisdn, "
-    "requested_at, request_method, status"
+    "requested_at, request_method, status, completed_at, error_message"
 )
 
 
@@ -3047,8 +3047,12 @@ class ProgrammingRequestRecord:
 
     ``transformer_id`` is a point-in-time snapshot taken from the device's
     current transformer at insert time (migration 005), not a live join.
-    ``completed_at``/``error_message`` are deliberately not carried: this
-    slice never writes them, so they are always NULL by construction.
+    ``status``/``completed_at``/``error_message`` start at their insert-time
+    defaults (``'pending'``, NULL, NULL) and, as of RTL-PROG-EXEC-1, are
+    projected forward by ``update_programming_request_status`` as the
+    request's corresponding ``rtl_commands`` row moves through its own
+    lifecycle (``config.commands.REQUEST_STATUS_FOR_COMMAND_STATE``) — this
+    module never decides that mapping, only persists what it is told.
     """
 
     request_id: int
@@ -3059,6 +3063,8 @@ class ProgrammingRequestRecord:
     requested_at: datetime
     request_method: str
     status: str
+    completed_at: datetime | None
+    error_message: str | None
 
 
 def _to_programming_request(row) -> ProgrammingRequestRecord:
@@ -3164,6 +3170,64 @@ def get_programming_request(request_id: int) -> ProgrammingRequestRecord | None:
             {"request_id": request_id},
         ).first()
     return _to_programming_request(row) if row else None
+
+
+def update_programming_request_status(
+    request_id: int,
+    *,
+    status: str,
+    set_completed_at: bool = False,
+    error_message: str | None = None,
+    session=None,
+) -> ProgrammingRequestRecord:
+    """Project a command-lifecycle transition onto its programming request
+    (RTL-PROG-EXEC-1).
+
+    Pure persistence: the caller (``services/rtl_command_service.py``,
+    ``services/rtl_programming_service.py``) owns which status/error
+    message a given command state maps to
+    (``config.commands.REQUEST_STATUS_FOR_COMMAND_STATE``) — this function
+    only writes what it is told. ``completed_at`` is written from the DB
+    clock, never host Python time, matching every other timestamp in this
+    module, and only when ``set_completed_at`` is True (a terminal
+    projection); otherwise the column is left exactly as it was. A terminal
+    projection always happens strictly after the row's own insert, so this
+    can never violate migration 005's
+    ``completed_at >= requested_at`` CHECK.
+
+    An unknown ``request_id`` updates nothing and raises ValueError, the
+    same convention ``create_command``/``update_command_state`` use, rather
+    than surfacing as a silent no-op.
+    """
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"""
+                UPDATE {_SCHEMA}.rtl_programming_requests
+                SET status = :status,
+                    completed_at = CASE WHEN :set_completed_at THEN now()
+                                         ELSE completed_at END,
+                    error_message = :error_message
+                WHERE request_id = :request_id
+                RETURNING {_PROGRAMMING_REQUEST_COLUMNS}
+                """
+            ),
+            {
+                "request_id": request_id,
+                "status": status,
+                "set_completed_at": set_completed_at,
+                "error_message": error_message,
+            },
+        ).first()
+        if row is None:
+            raise ValueError(f"Unknown request_id: {request_id!r}")
+        return _to_programming_request(row)
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
 
 
 # ---------------------------------------------------------------------------
