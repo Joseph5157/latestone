@@ -7,3 +7,9 @@ python-dotenv==1.0.1
 pandas==2.2.3
 gunicorn==23.0.0
 dash-ag-grid==35.2.0
+# stdlib zoneinfo (config/forwarding_schedule.py, C08-AUTO-DISABLE-1) needs an
+# IANA tz database. Linux/Railway containers ship one at the OS level;
+# Windows does not, and this dev environment only had one because pandas
+# happens to pull tzdata in as its own optional dependency — an incidental,
+# unguaranteed source for a correctness-critical feature. Pinned explicitly.
+tzdata==2026.3

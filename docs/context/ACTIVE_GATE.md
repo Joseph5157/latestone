@@ -68,7 +68,114 @@ as the working assumption for implementation, not as settled requirements —
 if the client's eventual answer differs, the baseline and everything built
 against it must be revisited.
 
-## Next implementation gate: C08-AUTO-DISABLE-1 — QUEUED, NOT STARTED
+## C08-AUTO-DISABLE-1 — IMPLEMENTED / VERIFIED THIS SESSION / NOT COMMITTED
+
+Date: 2026-09-07. Scheduler, override, and audit code now exist in the
+working tree, matching the scope and architecture decision below. This
+section originally existed as the pre-implementation baseline (retained
+below); this note records what was actually built and independently
+re-verified in this session, ahead of a commit decision.
+
+### What was built
+
+- `alembic/versions/010_forwarding_auto_disable.py` — migration adding the
+  singleton `forwarding_auto_disable_override` table (mandatory reason,
+  actor, day scope).
+- `services/forwarding_auto_disable_service.py` — `apply_auto_disable(now)`:
+  idempotent bulk-disable of every currently-enabled `message_forwarding`
+  user when the effective cutoff (default or active override) is reached;
+  a real state transition is audited, a repeat call for the same day is a
+  silent no-op. Override set/change/clear also lives here: a mandatory
+  reason is enforced, an identical re-set is a no-op, a real change (cutoff
+  time or reason) is audited, and clearing an unset override is a no-op.
+  Audit writes follow the existing `services/audit_service.py`
+  mutation+audit-in-one-transaction pattern; a failed audit rolls back the
+  override write or the bulk disable in the same transaction.
+- `scripts/run_forwarding_auto_disable.py` — the standalone, externally
+  invoked entry point (`python -m scripts.run_forwarding_auto_disable`),
+  matching decision point 2 below: not embedded in any Dash/Gunicorn worker.
+  The actual production trigger (cron, Railway scheduled job, etc.) is left
+  deployment-configurable, per decision point 4 — this gate does not pick
+  one.
+- `config/forwarding_schedule.py` — `Africa/Johannesburg` via stdlib
+  `zoneinfo`; default cutoff `time(18, 30)`.
+- `components/auto_disable_override_panel.py` + `callbacks/forwarding_schedule.py`
+  — minimal Administrator-only panel to set/clear the same-day override with
+  a mandatory reason field, wired into `pages/plants_overview.py` /
+  `app.py`.
+- `repositories/plant_monitoring_repository.py` — override/bulk-disable
+  persistence (largest diff of the tranche, 212 lines).
+- `config/audit.py` — new audit action types for override set/change/clear
+  and automatic disable.
+- `services/authorization.py` — capability gate for the override panel
+  (Administrator-only, matching the C-08 baseline).
+- `requirements.txt` — `tzdata==2026.3` pinned explicitly and commented: the
+  stdlib `zoneinfo` call needs an IANA tz database, which Windows dev
+  machines don't ship natively (this environment only had one incidentally,
+  via pandas' own optional dependency); Linux/Railway containers carry one
+  at the OS level regardless. No scheduler library was added — the stdlib
+  `zoneinfo` plus a plain standalone script were sufficient, per AGENTS.md's
+  dependency-justification rule.
+- Tests: `tests/test_forwarding_auto_disable.py` (32) +
+  `tests/test_migration_forwarding_auto_disable.py` (6) — new, 38 total.
+  `tests/test_device_event_service.py`, `tests/test_equipment_selector.py`,
+  `tests/test_migration_foundation.py` — modified for this tranche.
+
+### Verification (re-run and confirmed this session, not taken on faith)
+
+- Focused: `tests/test_forwarding_auto_disable.py` +
+  `tests/test_migration_forwarding_auto_disable.py` — **38 passed**, exit 0.
+- Forwarding/audit-adjacent regression, run together in one invocation:
+  `tests/test_audit_wiring.py` + `tests/test_message_forwarding.py` +
+  `tests/test_migration_audit_log.py` + `tests/test_device_event_service.py`
+  + `tests/test_equipment_selector.py` + `tests/test_migration_foundation.py`
+  — **100 passed**, exit 0. (A prior informal count of "74" for this
+  regression set could not be reproduced from any subset of the modified/
+  related test files and is superseded by this verified figure.)
+- Full suite: `python -m pytest -q` — **all passed, exit 0**, no failures.
+- `python -m alembic heads` — `010_forwarding_auto_disable` is the sole
+  head.
+- `git diff --check` — clean.
+- `git status --short` — matches the expected modified/new file set above,
+  plus untracked `debug.log` (excluded from any commit).
+- Real dev Postgres (`plant_monitoring_postgres`, port 5436) was down at the
+  start of this verification pass (Docker Desktop was not running) and was
+  started fresh to run the above — none of it was already "left running"
+  from a prior session. `python -m alembic current` on that real dev DB
+  reports **`007_audit_log`** — three migrations behind code (`010`). This
+  is expected, not a defect in this gate: the test suite exercises migration
+  010 only via the `isolated_schema` fixture (AGENTS.md testing rules), never
+  against the real `plant_monitoring` schema. Before demonstrating the new
+  override panel locally against real dev data, run `alembic upgrade head`
+  — non-destructively, and only after this gate's code is committed, not as
+  part of the code change itself.
+
+### Known ambiguity / open items carried forward
+
+- The three "explicitly not answered" items below (user/RTL scope, override
+  fleet-wide-vs-scoped, notification-on-disable) remain open and were not
+  invented by this implementation.
+- The "Scheduler architecture decision" below was recorded as an internal
+  decision in this gate file at gate-open (2026-09-06), not in ADR form.
+  RTL-IF-4's equivalent architecture decision (delivery-boundary separation)
+  was written up as `ADR-020`. Whether this decision should likewise become
+  its own ADR, or stay as gate-file prose, was not decided in this session
+  and is flagged rather than resolved unilaterally.
+- **Commit/push permission: GRANTED 2026-09-07.** Two decisions made by the
+  user closing this gate: (1) no ADR needed — the scheduler choice is
+  localized and reversible, unlike an RTL-IF-scale architectural boundary,
+  and is already recorded here and in `PROJECT_LEDGER.md`; ADRs stay
+  reserved for boundaries at that scale. (2) No independent Codex
+  second-party review needed for this gate — this session's own re-run of
+  focused/regression/full-suite tests, migration-head check, and pack/diff
+  validation was accepted as sufficient; Codex review is reserved for
+  high-risk security/integration changes or when results conflict. The
+  earlier "74 passed" regression estimate is superseded by the verified
+  **100 passed** figure above, which is authoritative.
+
+---
+
+## C08-AUTO-DISABLE-1 — original pre-implementation baseline (2026-09-06)
 
 Documentation only at this point — no scheduler, override, or audit code has
 been written yet. This section exists so a future implementation session has
@@ -144,6 +251,17 @@ so implementation does not have to re-derive it:
   Eskom-controlled/external; still unanswered. Remains the sole leading gate
   for physical programming execution, forwarding delivery, and all
   producer-dependent work. See `REQ-3I_Clarification_Register.md` §5.
+
+## Next implementation gate: REPORT-MAXTEMP-1 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once C08-AUTO-DISABLE-1's implementation was verified above.
+Not started — no report-population or export code exists for this yet.
+Unblocked for engineering purposes by the C-15 development baseline
+(`## Development baselines set` above): rolling 30 days by default plus a
+custom date range, with the period shown on the report and its export.
+`docs/context/PROJECT_LEDGER.md` §3's "Max Temperature report" row and §10
+Resume Queue item 8 already describe this as engineering-ready; this is the
+pointer that makes it the active gate once C08-AUTO-DISABLE-1 is committed.
 
 ---
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time
 
 from sqlalchemy import String, bindparam, text
 
@@ -1498,6 +1498,216 @@ def set_message_forwarding(
             current=_to_forwarding_record(row),
             changed=True,
         )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+def list_enabled_forwarding_user_ids(*, session=None) -> list[int]:
+    """Every user_id currently forwarding-enabled (C08-AUTO-DISABLE-1).
+
+    Plain read, no locking: the caller (``forwarding_auto_disable_service.
+    apply_auto_disable``) re-locks each row individually via
+    ``set_message_forwarding``'s own ``FOR UPDATE`` when it actually disables
+    one, so a race with a user re-enabling between this read and that write
+    is resolved there, not here.
+    """
+
+    def _run(s):
+        rows = s.execute(
+            text(
+                f"SELECT user_id FROM {_SCHEMA}.message_forwarding "
+                f"WHERE enabled = TRUE"
+            )
+        ).all()
+        return [row[0] for row in rows]
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+# ---------------------------------------------------------------------------
+# Forwarding auto-disable override (C08-AUTO-DISABLE-1: backs
+# services/forwarding_auto_disable_service.py). Singleton row, id=1 always —
+# ONE global override, never per-user or per-RTL (development baseline).
+# ---------------------------------------------------------------------------
+
+_AUTO_DISABLE_OVERRIDE_ID = 1
+
+
+@dataclass(frozen=True)
+class AutoDisableOverrideRecord:
+    """The one active (or most recently set) override row, if any."""
+
+    override_date: date
+    cutoff_time: time
+    reason: str
+    set_by_user_id: int
+    set_at: datetime
+
+
+def _to_override_record(row) -> AutoDisableOverrideRecord:
+    return AutoDisableOverrideRecord(
+        override_date=row[0],
+        cutoff_time=row[1],
+        reason=row[2],
+        set_by_user_id=row[3],
+        set_at=row[4],
+    )
+
+
+def get_auto_disable_override(*, session=None) -> AutoDisableOverrideRecord | None:
+    """The current override row, or None when no override has ever been set
+    (or the last one was explicitly cleared). Does NOT filter by date — the
+    caller decides whether ``override_date`` still applies to "today"."""
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"SELECT override_date, cutoff_time, reason, set_by_user_id, set_at "
+                f"FROM {_SCHEMA}.forwarding_auto_disable_override "
+                f"WHERE id = :id"
+            ),
+            {"id": _AUTO_DISABLE_OVERRIDE_ID},
+        ).first()
+        return _to_override_record(row) if row else None
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+@dataclass(frozen=True)
+class OverrideChange:
+    """Result of an override write, mirroring ``ForwardingChange``'s
+    changed-flag shape (FWD-D3) for the same reason: a caller composing
+    mutation + audit needs to know whether anything actually happened
+    without re-deriving it from before/after equality itself.
+
+    ``current`` is never None here (unlike ``ForwardingChange``): setting an
+    override always results in a row, even when the write is a same-state
+    no-op — there is no "absence means the target state" case the way an
+    absent forwarding row means disabled.
+    """
+
+    previous: AutoDisableOverrideRecord | None
+    current: AutoDisableOverrideRecord
+    changed: bool
+
+
+def set_auto_disable_override(
+    *,
+    override_date: date,
+    cutoff_time: time,
+    reason: str,
+    set_by_user_id: int,
+    session=None,
+) -> OverrideChange:
+    """Upsert the single override row and classify the outcome.
+
+    Same-state re-application (identical ``override_date``, ``cutoff_time``
+    and ``reason`` as the current row) is a genuine no-op — mirrors
+    ``set_message_forwarding``'s FWD-D3 rule: neither ``set_by_user_id`` nor
+    ``set_at`` are touched, and the caller must not audit it. Changing the
+    date, cutoff, or reason is always a real transition, regardless of who
+    made it.
+    """
+
+    def _run(s):
+        before_row = s.execute(
+            text(
+                f"SELECT override_date, cutoff_time, reason, set_by_user_id, set_at "
+                f"FROM {_SCHEMA}.forwarding_auto_disable_override "
+                f"WHERE id = :id FOR UPDATE"
+            ),
+            {"id": _AUTO_DISABLE_OVERRIDE_ID},
+        ).first()
+        previous = _to_override_record(before_row) if before_row is not None else None
+
+        if previous is not None and (
+            previous.override_date == override_date
+            and previous.cutoff_time == cutoff_time
+            and previous.reason == reason
+        ):
+            return OverrideChange(previous=previous, current=previous, changed=False)
+
+        if before_row is None:
+            row = s.execute(
+                text(
+                    f"""
+                    INSERT INTO {_SCHEMA}.forwarding_auto_disable_override
+                        (id, override_date, cutoff_time, reason, set_by_user_id, set_at)
+                    VALUES (:id, :override_date, :cutoff_time, :reason, :set_by_user_id, now())
+                    RETURNING override_date, cutoff_time, reason, set_by_user_id, set_at
+                    """
+                ),
+                {
+                    "id": _AUTO_DISABLE_OVERRIDE_ID,
+                    "override_date": override_date,
+                    "cutoff_time": cutoff_time,
+                    "reason": reason,
+                    "set_by_user_id": set_by_user_id,
+                },
+            ).first()
+        else:
+            row = s.execute(
+                text(
+                    f"""
+                    UPDATE {_SCHEMA}.forwarding_auto_disable_override
+                    SET override_date = :override_date, cutoff_time = :cutoff_time,
+                        reason = :reason, set_by_user_id = :set_by_user_id, set_at = now()
+                    WHERE id = :id
+                    RETURNING override_date, cutoff_time, reason, set_by_user_id, set_at
+                    """
+                ),
+                {
+                    "id": _AUTO_DISABLE_OVERRIDE_ID,
+                    "override_date": override_date,
+                    "cutoff_time": cutoff_time,
+                    "reason": reason,
+                    "set_by_user_id": set_by_user_id,
+                },
+            ).first()
+
+        return OverrideChange(
+            previous=previous, current=_to_override_record(row), changed=True
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+def clear_auto_disable_override(
+    *, session=None
+) -> AutoDisableOverrideRecord | None:
+    """Delete the override row, returning what was deleted (None if nothing
+    was set — a genuine no-op, matching FWD-D2's absence-based idiom)."""
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"SELECT override_date, cutoff_time, reason, set_by_user_id, set_at "
+                f"FROM {_SCHEMA}.forwarding_auto_disable_override "
+                f"WHERE id = :id FOR UPDATE"
+            ),
+            {"id": _AUTO_DISABLE_OVERRIDE_ID},
+        ).first()
+        if row is None:
+            return None
+        s.execute(
+            text(
+                f"DELETE FROM {_SCHEMA}.forwarding_auto_disable_override WHERE id = :id"
+            ),
+            {"id": _AUTO_DISABLE_OVERRIDE_ID},
+        )
+        return _to_override_record(row)
 
     if session is not None:
         return _run(session)

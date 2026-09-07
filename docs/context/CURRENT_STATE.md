@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-04T05:35:23Z
+Date: 2026-09-07T04:52:17Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `4c91b19` "docs(context): add client decision questions"
-- Working tree: 7 entries — see below
+- `main` = `1af19ee` "docs(context): record resolved development baselines"
+- Working tree: 20 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2690 passed, 510 deselected in 23.59s
+- `python -m pytest -m "not db"` → 2730 passed, 600 deselected in 22.29s
 
 ## Branches
 
@@ -44,13 +44,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 246 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 96 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 246 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 261 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 111 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 261 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-16 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+20 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -70,20 +70,37 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-014-latest-reads-are-bounded-seeks.md | Approved | `3b33015` (`fix(db): bound latest-reading query cost`; full sha 3b330152c176a51af570f148008413c05c435d45 — the commit carries this ADR too, so the sha is recorded here afterwards, as FIX-1 did in `5901945`) |
 | ADR-015-credentials-name-logins-not-roles.md | Approved | `f0862d0` (`feat(auth): add credentialed demo personas`; full sha f0862d085680ca0d4b0f774d6b44f5d224810b75 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014 did) |
 | ADR-016-operational-actions-are-shared-administration-is-not.md | Approved | `08e44af` (`feat(roles): expose technician device operations`; full sha 08e44af75c344533ccca50ce3d72de27c45e1243 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014 and ADR-015 were) |
+| ADR-017-rtl-commands-are-the-protocol-neutral-transport-seam.md | Approved | not yet |
+| ADR-018-simulator-transport-is-not-the-eskom-protocol.md | Approved | not yet |
+| ADR-019-simulated-event-source-reuses-canonical-ingestion.md | Approved | not yet |
+| ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md | Approved | not yet |
 
 ## Active gate
 
-AUTH-PROD-HARDEN-1 — production session/cookie hardening — full detail in `docs/context/ACTIVE_GATE.md`.
+C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) pending client confirmation, and queue the next implementation gate — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M .env.example
- M app.py
- M config/settings.py
+M app.py
+ M config/audit.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
+ M pages/plants_overview.py
+ M repositories/plant_monitoring_repository.py
+ M requirements.txt
+ M services/authorization.py
+ M tests/test_device_event_service.py
+ M tests/test_equipment_selector.py
+ M tests/test_migration_foundation.py
+?? alembic/versions/010_forwarding_auto_disable.py
+?? callbacks/forwarding_schedule.py
+?? components/auto_disable_override_panel.py
+?? config/forwarding_schedule.py
 ?? debug.log
-?? tests/test_prod_session_hardening.py
+?? scripts/run_forwarding_auto_disable.py
+?? services/forwarding_auto_disable_service.py
+?? tests/test_forwarding_auto_disable.py
+?? tests/test_migration_forwarding_auto_disable.py
 ```
 

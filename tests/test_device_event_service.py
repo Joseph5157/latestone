@@ -132,9 +132,13 @@ class TestNormalizedEventValidation:
 
 
 class TestSystemOriginatedAudit:
-    def test_allowlist_initially_contains_only_rtl_activated(self):
+    def test_allowlist_contains_exactly_the_implemented_system_features(self):
+        # RTL_ACTIVATED (INGEST-1) and, since C08-AUTO-DISABLE-1,
+        # MESSAGE_FORWARDING_DISABLED (the 18:30 auto-disable job) — see
+        # config/audit.py's own comment: grow this set only when a system-
+        # originated feature is actually implemented, never speculatively.
         assert audit_cfg.SYSTEM_OPERATIONS == frozenset(
-            {audit_cfg.RTL_ACTIVATED}
+            {audit_cfg.RTL_ACTIVATED, audit_cfg.MESSAGE_FORWARDING_DISABLED}
         )
 
     def test_rtl_activated_operation_fits_column_limit(self):

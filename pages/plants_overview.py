@@ -105,5 +105,10 @@ def layout() -> html.Div:
             # the fleet inventory by design: an operator opens this page for
             # state, exceptions and plants — never for administration.
             html.Div(id="admin-summary", className="fleet-administration"),
+            # C08-AUTO-DISABLE-1: independent of the block above — its own
+            # callback (callbacks/forwarding_schedule.py), its own capability
+            # check, no shared query. See that module's docstring for why it
+            # is deliberately not folded into administration_section.
+            html.Div(id="auto-disable-override-panel", className="fleet-administration"),
         ],
     )

@@ -149,6 +149,10 @@ PROGRAM_RTL = "program_rtl"
 TOGGLE_MESSAGE_FORWARDING = "toggle_message_forwarding"
 DEACTIVATE_RTL = "deactivate_rtl"
 MANAGE_ASSIGNMENT = "manage_assignment"
+# C08-AUTO-DISABLE-1: setting/clearing the global same-day auto-disable
+# cutoff override. Device-less like MANAGE_ASSIGNMENT and REGISTER_DEVICE —
+# there is exactly one global override, never a per-device one to scope.
+MANAGE_AUTO_DISABLE_OVERRIDE = "manage_auto_disable_override"
 
 #: capability -> roles. Role-only: no device is involved, so there is no
 #: assignment condition to apply and no database read to make one.
@@ -169,6 +173,7 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     # device dimension it was declared in did nothing. The SAME role set
     # carries over — this is a change of dimension, not of permission.
     EXPORT_DATA: _EVERY_ROLE,
+    MANAGE_AUTO_DISABLE_OVERRIDE: _ADMIN_ONLY,
 }
 
 _NO_ROLE: frozenset[str] = frozenset()

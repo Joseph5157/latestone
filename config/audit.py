@@ -16,9 +16,10 @@ identifiers (assignment_id) travel inside old_values/new_values instead.
 
 The forwarding entity deliberately has no device dimension (FWD-D1): the
 state belongs to the acting user; the device drawer only authorizes the
-action. MESSAGE_FORWARDING_* rows are always written with the human actor
-from the session — the NULL-user_id path stays reserved for the future
-18:30 system job, which will reuse MESSAGE_FORWARDING_DISABLED.
+action. A human-initiated MESSAGE_FORWARDING_* row always carries the
+actor's user_id; the NULL-user_id path is used by the 18:30 auto-disable job
+(C08-AUTO-DISABLE-1), which reuses MESSAGE_FORWARDING_DISABLED with
+``system_originated=True`` rather than a second constant.
 """
 from __future__ import annotations
 
@@ -44,15 +45,31 @@ RTL_DEACTIVATED = "RTL_DEACTIVATED"
 #: written system-originated — a startup event has no human actor (ACT-D5).
 RTL_ACTIVATED = "RTL_ACTIVATED"
 
+#: C08-AUTO-DISABLE-1: an Administrator setting or clearing the temporary
+#: same-day cutoff override. Always human-originated (the actor is whoever
+#: clicked the control), against the single global entity — there is
+#: deliberately no per-user/per-RTL dimension (development baseline: one
+#: global override only).
+AUTO_DISABLE_OVERRIDE_SET = "AUTO_DISABLE_OVERRIDE_SET"
+AUTO_DISABLE_OVERRIDE_CLEARED = "AUTO_DISABLE_OVERRIDE_CLEARED"
+
 #: The complete allowlist of operations that may be audited with a NULL
 #: actor via ``audit_service.record(..., system_originated=True)``.
 #: Deliberately minimal (ACT-D5): each entry must correspond to an actually
-#: implemented system-originated feature. Add future operations (e.g. the
-#: 18:30 forwarding disable reusing MESSAGE_FORWARDING_DISABLED) only when
-#: those features are implemented, never speculatively.
-SYSTEM_OPERATIONS = frozenset({RTL_ACTIVATED})
+#: implemented system-originated feature. MESSAGE_FORWARDING_DISABLED is
+#: reused here (C08-AUTO-DISABLE-1) exactly as this module's earlier comment
+#: anticipated — the scheduled auto-disable writes the same operation a
+#: human manual disable does, distinguished only by ``actor_user_id`` being
+#: NULL, never by a second constant.
+SYSTEM_OPERATIONS = frozenset({RTL_ACTIVATED, MESSAGE_FORWARDING_DISABLED})
 
 ENTITY_DEVICE = "device"
 ENTITY_ASSIGNMENT = "device_assignment"
 ENTITY_USER = "user"
 ENTITY_MESSAGE_FORWARDING = "message_forwarding"
+
+#: C08-AUTO-DISABLE-1's override is a single global row (no per-user/per-RTL
+#: entity to name), so its audit entity_id is always the fixed string below,
+#: never a database id.
+ENTITY_AUTO_DISABLE_SCHEDULE = "forwarding_auto_disable"
+AUTO_DISABLE_SCHEDULE_ENTITY_ID = "global"

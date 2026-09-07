@@ -9,7 +9,7 @@ from __future__ import annotations
 import dash
 from dash import dcc, html
 
-from callbacks import auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, user_admin, report_center, notifications, command_center
+from callbacks import auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, user_admin, report_center, notifications, command_center, forwarding_schedule
 from components.app_shell import app_shell
 from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
@@ -118,6 +118,7 @@ user_admin.register(app)
 report_center.register(app)
 notifications.register(app)
 command_center.register(app)
+forwarding_schedule.register(app)
 
 if __name__ == "__main__":
     from config.settings import dash_settings
