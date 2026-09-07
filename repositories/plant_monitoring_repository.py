@@ -2058,6 +2058,192 @@ def clear_temperature_threshold_config(
         return _run(s)
 
 
+@dataclass(frozen=True)
+class VibrationContractAnswerRecord:
+    """One answered vibration contract question (VIB-CONFIG-1 / C-02,
+    framework only). Absence of a row for a given ``question_key`` means
+    that question is unanswered — never a row with placeholder text."""
+
+    question_key: str
+    answer_text: str
+    updated_by_user_id: int
+    updated_at: datetime
+
+
+def _to_vibration_answer(row) -> VibrationContractAnswerRecord:
+    return VibrationContractAnswerRecord(
+        question_key=row[0],
+        answer_text=row[1],
+        updated_by_user_id=row[2],
+        updated_at=row[3],
+    )
+
+
+def get_vibration_contract_answer(
+    question_key: str, *, session=None
+) -> VibrationContractAnswerRecord | None:
+    """One question's current answer, or None when unanswered."""
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"SELECT question_key, answer_text, updated_by_user_id, updated_at "
+                f"FROM {_SCHEMA}.vibration_contract_answers "
+                f"WHERE question_key = :question_key"
+            ),
+            {"question_key": question_key},
+        ).first()
+        return _to_vibration_answer(row) if row else None
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+def list_vibration_contract_answers(
+    *, session=None
+) -> list[VibrationContractAnswerRecord]:
+    """Every ANSWERED question, ordered by key. Unanswered questions have
+    no row at all and so are simply absent from this list — the caller
+    (services.vibration_contract_service) is what knows the full set of
+    15 keys to reconcile this against."""
+
+    def _run(s):
+        rows = s.execute(
+            text(
+                f"SELECT question_key, answer_text, updated_by_user_id, updated_at "
+                f"FROM {_SCHEMA}.vibration_contract_answers "
+                f"ORDER BY question_key"
+            )
+        ).all()
+        return [_to_vibration_answer(r) for r in rows]
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+@dataclass(frozen=True)
+class VibrationAnswerChange:
+    """Result of an answer write, mirroring ``OverrideChange``'s/
+    ``ThresholdConfigChange``'s changed-flag shape for the same reason."""
+
+    previous: VibrationContractAnswerRecord | None
+    current: VibrationContractAnswerRecord
+    changed: bool
+
+
+def set_vibration_contract_answer(
+    *,
+    question_key: str,
+    answer_text: str,
+    updated_by_user_id: int,
+    session=None,
+) -> VibrationAnswerChange:
+    """Upsert one question's answer and classify the outcome.
+
+    Same-state re-application (identical ``answer_text`` as the current
+    row for this key) is a genuine no-op — mirrors
+    ``set_temperature_threshold_config``'s rule: neither
+    ``updated_by_user_id`` nor ``updated_at`` are touched, and the caller
+    must not audit it. Whether ``question_key`` is one of the 15 known
+    questions is the SERVICE layer's job, not this one's (see migration
+    012's docstring) — this function persists whatever key it is given.
+    """
+
+    def _run(s):
+        before_row = s.execute(
+            text(
+                f"SELECT question_key, answer_text, updated_by_user_id, updated_at "
+                f"FROM {_SCHEMA}.vibration_contract_answers "
+                f"WHERE question_key = :question_key FOR UPDATE"
+            ),
+            {"question_key": question_key},
+        ).first()
+        previous = _to_vibration_answer(before_row) if before_row is not None else None
+
+        if previous is not None and previous.answer_text == answer_text:
+            return VibrationAnswerChange(previous=previous, current=previous, changed=False)
+
+        if before_row is None:
+            row = s.execute(
+                text(
+                    f"""
+                    INSERT INTO {_SCHEMA}.vibration_contract_answers
+                        (question_key, answer_text, updated_by_user_id, updated_at)
+                    VALUES (:question_key, :answer_text, :updated_by_user_id, now())
+                    RETURNING question_key, answer_text, updated_by_user_id, updated_at
+                    """
+                ),
+                {
+                    "question_key": question_key,
+                    "answer_text": answer_text,
+                    "updated_by_user_id": updated_by_user_id,
+                },
+            ).first()
+        else:
+            row = s.execute(
+                text(
+                    f"""
+                    UPDATE {_SCHEMA}.vibration_contract_answers
+                    SET answer_text = :answer_text,
+                        updated_by_user_id = :updated_by_user_id,
+                        updated_at = now()
+                    WHERE question_key = :question_key
+                    RETURNING question_key, answer_text, updated_by_user_id, updated_at
+                    """
+                ),
+                {
+                    "question_key": question_key,
+                    "answer_text": answer_text,
+                    "updated_by_user_id": updated_by_user_id,
+                },
+            ).first()
+
+        return VibrationAnswerChange(
+            previous=previous, current=_to_vibration_answer(row), changed=True
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+def clear_vibration_contract_answer(
+    question_key: str, *, session=None
+) -> VibrationContractAnswerRecord | None:
+    """Delete one question's answer row, returning what was deleted (None
+    if it was already unanswered — a genuine no-op)."""
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"SELECT question_key, answer_text, updated_by_user_id, updated_at "
+                f"FROM {_SCHEMA}.vibration_contract_answers "
+                f"WHERE question_key = :question_key FOR UPDATE"
+            ),
+            {"question_key": question_key},
+        ).first()
+        if row is None:
+            return None
+        s.execute(
+            text(
+                f"DELETE FROM {_SCHEMA}.vibration_contract_answers "
+                f"WHERE question_key = :question_key"
+            ),
+            {"question_key": question_key},
+        )
+        return _to_vibration_answer(row)
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
 # ---------------------------------------------------------------------------
 # Technician/device assignment queries (DB-3: backs
 # services/prototype_assignments.py)

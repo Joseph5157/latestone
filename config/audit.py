@@ -61,6 +61,15 @@ AUTO_DISABLE_OVERRIDE_CLEARED = "AUTO_DISABLE_OVERRIDE_CLEARED"
 TEMPERATURE_THRESHOLD_SET = "TEMPERATURE_THRESHOLD_SET"
 TEMPERATURE_THRESHOLD_CLEARED = "TEMPERATURE_THRESHOLD_CLEARED"
 
+#: VIB-CONFIG-1 (C-02, framework only): an Administrator recording,
+#: changing, or clearing the answer to ONE vibration contract question.
+#: Always human-originated. Unlike C08's override or THRESH-CONFIG-1's
+#: threshold (each a single global fact), there are up to 15 independent
+#: answers — the entity_id is the specific question_key, not a fixed
+#: "global" string, so each question's own audit history stays contiguous.
+VIBRATION_CONTRACT_ANSWER_SET = "VIBRATION_CONTRACT_ANSWER_SET"
+VIBRATION_CONTRACT_ANSWER_CLEARED = "VIBRATION_CONTRACT_ANSWER_CLEARED"
+
 #: The complete allowlist of operations that may be audited with a NULL
 #: actor via ``audit_service.record(..., system_originated=True)``.
 #: Deliberately minimal (ACT-D5): each entry must correspond to an actually
@@ -86,3 +95,10 @@ AUTO_DISABLE_SCHEDULE_ENTITY_ID = "global"
 #: global row, no per-device/per-user entity to name.
 ENTITY_TEMPERATURE_THRESHOLD = "temperature_threshold"
 TEMPERATURE_THRESHOLD_ENTITY_ID = "global"
+
+#: VIB-CONFIG-1: entity_id is the vibration contract's own question_key
+#: (e.g. "unit", "axes") — a stable identity per question, per this
+#: module's own "Entity IDs are stable database identities" convention
+#: (see the module docstring), NOT a fixed "global" string like the two
+#: single-fact entities above.
+ENTITY_VIBRATION_CONTRACT = "vibration_contract"

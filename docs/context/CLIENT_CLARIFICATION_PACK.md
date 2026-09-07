@@ -150,7 +150,7 @@ These are client-owned business rules that the application must not invent.
 
 ### Vibration Metric Contract (C-02 / RTL-EVT-08)
 
-**Decision needed:** Full metric contract — 14 questions in `docs/VIBRATION_METRIC_CONTRACT_TBD.md` covering key, unit, precision, aggregation type, axes, cadence, storage, API access, thresholds, and data model.
+**Decision needed:** Full metric contract — 15 questions in `docs/VIBRATION_METRIC_CONTRACT_TBD.md` covering key, unit, precision, aggregation type, axes, cadence, storage, API access, thresholds, and data model.
 
 **Why it matters:** Vibration is structurally absent from event semantics. UI is registry-generic and ready (`config/metrics.py`), but the implementation rule forbids activating vibration without a real contract.
 
@@ -251,7 +251,7 @@ Ranked by highest development-unblocking value:
 | 5 | OU/Zone/Sector/CNC/Feeder taxonomy mapping | C-07 | Truthful report columns |
 | 6 | High-temperature alarm threshold | C-01 | Temperature alarm events; MonitoringCondition |
 | 7 | Active-list monitoring semantics | C-09 | BR007/ACT-03 closure |
-| 8 | Vibration metric contract (14 questions) | C-02 | Vibration activation |
+| 8 | Vibration metric contract (15 questions) | C-02 | Vibration activation |
 | 9 | Production identity source (Entra ID vs DB) | C-06 | Production authentication |
 | 10 | Notification lifecycle rules | C-10 | Notification history/acknowledgement |
 

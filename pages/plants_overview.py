@@ -114,5 +114,9 @@ def layout() -> html.Div:
             # its own callback (callbacks/temperature_threshold.py), its own
             # capability check, no shared query.
             html.Div(id="temperature-threshold-panel", className="fleet-administration"),
+            # VIB-CONFIG-1: same independent shape as the two panels above —
+            # its own callback (callbacks/vibration_contract.py), its own
+            # capability check, no shared query.
+            html.Div(id="vibration-contract-panel", className="fleet-administration"),
         ],
     )

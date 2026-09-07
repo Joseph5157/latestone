@@ -29,6 +29,7 @@ from services.authorization import (
     GENERAL,
     MANAGE_ASSIGNMENT,
     MANAGE_TEMPERATURE_THRESHOLD,
+    MANAGE_VIBRATION_CONTRACT,
     PROGRAM_RTL,
     REGISTER_DEVICE,
     ROUTE_POLICY,
@@ -319,6 +320,13 @@ class TestCapabilityPolicy:
         assert may_perform_capability(ADMINISTRATOR, MANAGE_TEMPERATURE_THRESHOLD) is True
         assert may_perform_capability(TECHNICIAN, MANAGE_TEMPERATURE_THRESHOLD) is False
         assert may_perform_capability(GENERAL, MANAGE_TEMPERATURE_THRESHOLD) is False
+
+    def test_vibration_contract_capability_is_administrator_only(self):
+        """VIB-CONFIG-1 (C-02): same device-less, admin-only shape as
+        MANAGE_TEMPERATURE_THRESHOLD."""
+        assert may_perform_capability(ADMINISTRATOR, MANAGE_VIBRATION_CONTRACT) is True
+        assert may_perform_capability(TECHNICIAN, MANAGE_VIBRATION_CONTRACT) is False
+        assert may_perform_capability(GENERAL, MANAGE_VIBRATION_CONTRACT) is False
 
     def test_export_is_open_to_every_confirmed_role(self):
         """Migrated intact from the action matrix by ADR-013.

@@ -80,9 +80,9 @@ Each entry: requirement/reference IDs, what implementation is blocked, existing 
 ### C-02 — Vibration metric contract + anomaly thresholds
 * **References:** RTL-PUR-08, RTL-EVT-08
 * **Blocks:** Any vibration metric activation, storage model, event mapping, UI exposure.
-* **Evidence:** `docs/VIBRATION_METRIC_CONTRACT_TBD.md` enumerates all 14 required contract answers; UI is registry-generic and ready (`config/metrics.py` pattern); implementation rule forbids activating vibration without a real contract.
+* **Evidence:** `docs/VIBRATION_METRIC_CONTRACT_TBD.md` enumerates all 15 required contract answers (corrected 2026-09-07 by direct count — a prior 2026-09-06 correction had already fixed an earlier "16" to "14", which was itself a miscount); UI is registry-generic and ready (`config/metrics.py` pattern); implementation rule forbids activating vibration without a real contract.
 * **Development baseline (2026-09-06, pending client confirmation):** Vibration must be built as a configurable framework, not hardcoded. This is an internal development-team/user decision so design can proceed; it is not a confirmed Eskom/client answer. Production sensor semantics and values remain unconfirmed.
-* **Missing answer:** All 14 contract questions (key, unit, aggregation type, axes, cadence, storage, etc.) remain open, and formal client confirmation of the configurable-framework baseline itself.
+* **Missing answer:** All 15 contract questions (key, unit, aggregation type, axes, cadence, storage, etc.) remain open, and formal client confirmation of the configurable-framework baseline itself.
 * **Priority:** Important but deferrable.
 * **Internally closable:** No — a development baseline only (framework shape), not a client answer.
 

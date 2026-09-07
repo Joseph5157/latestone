@@ -158,6 +158,11 @@ MANAGE_AUTO_DISABLE_OVERRIDE = "manage_auto_disable_override"
 # reason as MANAGE_AUTO_DISABLE_OVERRIDE — there is exactly one global
 # configuration, never a per-device one.
 MANAGE_TEMPERATURE_THRESHOLD = "manage_temperature_threshold"
+# VIB-CONFIG-1 (C-02, framework only): recording/editing/clearing a
+# vibration contract question's answer. Device-less for the same reason
+# as MANAGE_TEMPERATURE_THRESHOLD — this is contract METADATA, not a
+# per-device reading.
+MANAGE_VIBRATION_CONTRACT = "manage_vibration_contract"
 
 #: capability -> roles. Role-only: no device is involved, so there is no
 #: assignment condition to apply and no database read to make one.
@@ -180,6 +185,7 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     EXPORT_DATA: _EVERY_ROLE,
     MANAGE_AUTO_DISABLE_OVERRIDE: _ADMIN_ONLY,
     MANAGE_TEMPERATURE_THRESHOLD: _ADMIN_ONLY,
+    MANAGE_VIBRATION_CONTRACT: _ADMIN_ONLY,
 }
 
 _NO_ROLE: frozenset[str] = frozenset()

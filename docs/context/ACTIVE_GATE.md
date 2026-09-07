@@ -29,6 +29,13 @@ open-question count was stated as 16 where direct inspection of
 `docs/context/PROJECT_LEDGER.md` §8's note for the full correction record.
 No application code touched.
 
+**Second correction (2026-09-07, VIB-CONFIG-1 open):** the "14" above was
+itself a miscount, not a change to the file — `docs/VIBRATION_METRIC_CONTRACT_TBD.md`'s
+"Unknown / Required from Client/Backend" table has always had 15 rows
+(the file has one commit in its entire history, `553d142`). Every tracked
+reference to "14 [open] questions" for vibration is corrected to 15 as
+part of this gate.
+
 ## Development baselines set (2026-09-06, pending client confirmation)
 
 - **C-08 — DEVELOPMENT BASELINE SET.** The RTL Application (this
@@ -54,8 +61,9 @@ No application code touched.
   values remain unconfirmed.
 - **C-02 — DEVELOPMENT BASELINE SET (framework only).** Vibration must be a
   configurable framework, not hardcoded. Production sensor semantics/values
-  remain unconfirmed (14 open questions in
-  `docs/VIBRATION_METRIC_CONTRACT_TBD.md`).
+  remain unconfirmed (15 open questions in
+  `docs/VIBRATION_METRIC_CONTRACT_TBD.md` — corrected 2026-09-07, direct
+  count; previously miscounted as 14).
 - **C-07 — HOLD.** Explicitly pending client hierarchy clarification; no
   mapping supplied. This one is genuinely waiting on the client, not a
   development baseline.
@@ -452,7 +460,13 @@ None encountered beyond the two corrections above. No new authority
 conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the C-04 baseline,
 or the source files inspected.
 
-## THRESH-CONFIG-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
+## THRESH-CONFIG-1 — CLOSED / PUSHED / REMOTE-VERIFIED
+
+Branch: `main`, baseline `7969324f377a5fee52b74617e4f7a17c5678f4b5` (the
+REPORT-EXPORT-1 commit). Commit: `c83cf94b25cbd3ceec0e079938c355e221fe03b2`
+— subject "feat(config): add temperature threshold management". Pushed to
+`origin/main`; local `HEAD`, `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA.
 
 Date: 2026-09-07. The C-01 framework — one global, Administrator-managed
 temperature warning/critical threshold pair — is now real, against the
@@ -530,6 +544,9 @@ gate.
   --check` — CLEAN.
 - Real dev Postgres remains at migration `007` — untouched; deliberately
   not upgraded as part of this gate.
+- Push verification: after `git push origin main`, `git rev-parse HEAD`,
+  `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main`
+  all returned `c83cf94b25cbd3ceec0e079938c355e221fe03b2`.
 
 ### Correction applied during this gate (requested by the user after the
 ### first implementation pass, before this closure)
@@ -553,21 +570,124 @@ None encountered beyond the correction above. No new authority conflict
 between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the C-01 baseline, or the
 source files inspected.
 
-## Next implementation gate: VIB-CONFIG-1 — QUEUED, NOT STARTED
+## VIB-CONFIG-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
 
-Set 2026-09-07, once THRESH-CONFIG-1's implementation was verified above.
-Not started — no vibration configuration code exists yet. Scope: the C-02
-development baseline's other half of the same "configurable framework,
-not hardcoded" shape THRESH-CONFIG-1 just built for temperature — but for
-vibration. **Do not invent vibration units, thresholds, axes,
-aggregation, or cadence, and do not invent sensor contract values**:
-production sensor semantics remain unconfirmed, with 14 open questions
-recorded in `docs/VIBRATION_METRIC_CONTRACT_TBD.md`. Whoever opens this
-gate for implementation must read that TBD document first and scope the
-framework to what it actually resolves, not to a guessed shape mirrored
-from temperature's two-value (warning/critical) case — vibration's real
-shape (axes? single value? per-device vs. global?) is one of the 14 open
-questions, not a given.
+Date: 2026-09-07. The C-02 framework — an audited, Administrator-editable
+place to record answers to vibration's real sensor contract — is now
+real. **`docs/VIBRATION_METRIC_CONTRACT_TBD.md`'s "Unknown / Required
+from Client/Backend" table has 15 rows by direct count, not 14** — the
+file has exactly one commit in its entire history (`553d142`), so it
+never changed; the "14" figure tracked context repeated (including this
+gate's own original queued-pointer text, below) was itself a miscount
+from an earlier 2026-09-06 correction of a genuine "16". Every tracked
+reference found this session — this file, `PROJECT_LEDGER.md`,
+`docs/context/CLIENT_CLARIFICATION_PACK.md`,
+`REQ-3I_Clarification_Register.md` — is corrected to 15, with the
+miscount noted rather than erased. **This gate captures the contract
+questions' answers as they become known; it does not answer any of them
+itself, and vibration remains fully inactive everywhere else in the
+application.**
+
+### What was built
+
+- `config/vibration_contract.py` — the 15 questions transcribed verbatim
+  from the TBD document (key, question text, why-it-matters), as a plain
+  tuple + lookup. Names the SLOTS only; invents no unit, axis model,
+  threshold, aggregation, cadence, or sensor range for any of them.
+- `alembic/versions/012_vibration_contract_answers.py` — a genuine
+  multi-row key-value table, `vibration_contract_answers`
+  (`question_key` PK, `answer_text` NOT NULL, `updated_by_user_id` FK
+  users, `updated_at`) — deliberately NOT the singleton shape migrations
+  010/011 use, since up to 15 independent facts exist here, any subset
+  unanswered at a time. A row exists only for an ANSWERED question;
+  absence is "unanswered", independently per key. No CHECK constrains
+  `question_key` to the 15 known values (mirrors `config/audit.py`'s own
+  precedent — the `audit_log.operation` column has no CHECK either): the
+  valid key set lives in the Python registry above, so a 16th question
+  needs no migration, only a new registry entry.
+- `services/vibration_contract_service.py` — `set_answer`/`clear_answer`/
+  `get_answer`/`get_all_answers`. Validates `question_key` against the
+  registry; rejects blank answers outright (Clear is the explicit action
+  for removing one, never an automatic side-effect of saving blank text).
+  Identical re-save of a key's answer is a silent no-op; changing it is
+  always a real, audited transition; clearing an already-unanswered key
+  is a no-op. Answers are free-text contract CAPTURE only — this module
+  never interprets what an answer means, and nothing reads it back for
+  any runtime purpose.
+- `services/authorization.py` — new capability
+  `MANAGE_VIBRATION_CONTRACT`, Administrator-only.
+- `callbacks/vibration_contract.py` / `components/vibration_contract_panel.py`
+  — a minimal admin panel (same independent-slot pattern as C08's/
+  THRESH-CONFIG-1's panels): a summary line per question ("Unanswered" or
+  the recorded text, for all 15, in the TBD document's own order) plus a
+  question-select + textarea + Set/Clear form.
+- `config/audit.py` — `VIBRATION_CONTRACT_ANSWER_SET` (covers both
+  initial answer and any later change) / `VIBRATION_CONTRACT_ANSWER_CLEARED`,
+  entity `vibration_contract`, entity_id = the specific `question_key`
+  (not a fixed "global" string like C08's/THRESH's single-fact
+  entities, since each question is independently addressable). Every
+  real transition audited with old/new `answer_text` and the actor;
+  mutation + audit share one `session_scope()`, and a failed audit write
+  rolls back the same transaction (verified for both set and clear).
+- **Vibration remains completely inactive**: zero diff and zero mentions
+  in `config/metrics.py`, `services/monitoring_service.py`
+  (`MonitoringCondition`), `config/reports.py`, or any metric-selector/
+  chart/KPI component. `services/event_semantics.py` has zero diff — its
+  pre-existing dormant note ("High-temperature and vibration_event
+  deliberately have NO entry") is untouched. No vibration reading query,
+  alarm, or threshold-evaluation logic was added anywhere.
+
+### Verification
+
+- Focused: `tests/test_migration_vibration_contract_answers.py` (8) +
+  `tests/test_vibration_contract.py` (24) +
+  `tests/test_vibration_contract_callback.py` (13) +
+  `tests/test_vibration_contract_panel.py` (9) — **54 passed**, plus one
+  capability-policy test added to `tests/test_authorization.py`.
+- Regression: `tests/test_action_guard.py` + `tests/test_action_guard_db.py`
+  + `tests/test_technician_operations.py` + `tests/test_audit_wiring.py`
+  + `tests/test_equipment_selector.py` (new panel IDs added to its
+  layout-wiring-guard fixture) + `tests/test_migration_foundation.py`
+  (`EXPECTED_UPGRADE_TABLES` updated for the new table) +
+  `tests/test_temperature_threshold.py` — all passed.
+- Full suite: `python -m pytest -q` — all passed, exit 0.
+- `python -m alembic heads` — `012_vibration_contract_answers` is the
+  sole head.
+- `git diff --check` — clean. `python scripts/build_context_pack.py
+  --check` — CLEAN.
+- Real dev Postgres remains at migration `007` — untouched; deliberately
+  not upgraded as part of this gate.
+
+### Known ambiguity
+
+None encountered beyond the 14→15 documentation-count correction above.
+No new authority conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the
+C-02 baseline, or the source files inspected.
+
+## Next implementation gate: RTL-PROG-EXEC-1 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once VIB-CONFIG-1's implementation was verified above.
+Not started. Scope: connect the two RTL-programming/command foundations
+that already exist but do not yet talk to each other —
+`rtl_programming_service.py` (OPS-PROG-1: persists an operator's
+programming REQUEST, atomically inserting one `rtl_commands` row per
+accepted request — RTL-IF-1) and `rtl_command_dispatch_service.py` +
+`SimulatorTransport` (RTL-IF-2, ADR-018: exercises that same
+`rtl_commands` row's `sent_at`/`acknowledged_at`/`completed_at`/
+`failure_code` lifecycle). Today the command row RTL-IF-1 creates stays
+`QUEUED` forever — nothing ever calls `dispatch_command` on it, and no
+lifecycle status is reconciled back onto the programming request or
+shown in the UI (`rtl_programming_service.py`'s own PROG-D6/D7 record
+this as deliberately deferred, not forgotten). This gate is that
+connection: executable request → dispatch → lifecycle status →
+reconciled back, entirely against the EXISTING deterministic
+`SimulatorTransport`. **Do not invent the production transport contract**
+— C-05 (the real MQTT/Eskom protocol) remains Eskom-controlled/external
+and unanswered; `SimulatorTransport` stays exactly what ADR-018 already
+says it is, never upgraded into a stand-in for a real device connection.
+Whoever opens this gate must decide what TRIGGERS dispatch (on request
+creation? a poller? an explicit admin action?) and exactly what "status
+reconciliation" surfaces to the operator — neither is assumed here.
 
 ---
 

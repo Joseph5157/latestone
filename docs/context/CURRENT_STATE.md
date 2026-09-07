@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T07:33:50Z
+Date: 2026-09-07T09:23:12Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `7969324` "feat(reports): add PDF and maximum-temperature export"
-- Working tree: 19 entries — see below
+- `main` = `c83cf94` "feat(config): add temperature threshold management"
+- Working tree: 22 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2824 passed, 640 deselected in 23.45s
+- `python -m pytest -m "not db"` → 2859 passed, 660 deselected in 25.08s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 264 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 114 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 264 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 265 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 115 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 265 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -82,9 +82,11 @@ C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) p
 ## Working tree
 
 ```
-M app.py
+M REQ-3I_Clarification_Register.md
+ M app.py
  M config/audit.py
  M docs/context/ACTIVE_GATE.md
+ M docs/context/CLIENT_CLARIFICATION_PACK.md
  M docs/context/PROJECT_LEDGER.md
  M pages/plants_overview.py
  M repositories/plant_monitoring_repository.py
@@ -92,14 +94,15 @@ M app.py
  M tests/test_authorization.py
  M tests/test_equipment_selector.py
  M tests/test_migration_foundation.py
-?? alembic/versions/011_temperature_threshold_config.py
-?? callbacks/temperature_threshold.py
-?? components/temperature_threshold_panel.py
+?? alembic/versions/012_vibration_contract_answers.py
+?? callbacks/vibration_contract.py
+?? components/vibration_contract_panel.py
+?? config/vibration_contract.py
 ?? debug.log
-?? services/temperature_threshold_service.py
-?? tests/test_migration_temperature_threshold_config.py
-?? tests/test_temperature_threshold.py
-?? tests/test_temperature_threshold_callback.py
-?? tests/test_temperature_threshold_panel.py
+?? services/vibration_contract_service.py
+?? tests/test_migration_vibration_contract_answers.py
+?? tests/test_vibration_contract.py
+?? tests/test_vibration_contract_callback.py
+?? tests/test_vibration_contract_panel.py
 ```
 
