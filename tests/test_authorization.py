@@ -28,6 +28,7 @@ from services.authorization import (
     EXPORT_DATA,
     GENERAL,
     MANAGE_ASSIGNMENT,
+    MANAGE_TEMPERATURE_THRESHOLD,
     PROGRAM_RTL,
     REGISTER_DEVICE,
     ROUTE_POLICY,
@@ -311,6 +312,13 @@ class TestCapabilityPolicy:
         assert may_perform_capability(ADMINISTRATOR, VIEW_ADMINISTRATION_OVERVIEW) is True
         assert may_perform_capability(TECHNICIAN, VIEW_ADMINISTRATION_OVERVIEW) is False
         assert may_perform_capability(GENERAL, VIEW_ADMINISTRATION_OVERVIEW) is False
+
+    def test_temperature_threshold_capability_is_administrator_only(self):
+        """THRESH-CONFIG-1 (C-01): same device-less, admin-only shape as
+        MANAGE_AUTO_DISABLE_OVERRIDE."""
+        assert may_perform_capability(ADMINISTRATOR, MANAGE_TEMPERATURE_THRESHOLD) is True
+        assert may_perform_capability(TECHNICIAN, MANAGE_TEMPERATURE_THRESHOLD) is False
+        assert may_perform_capability(GENERAL, MANAGE_TEMPERATURE_THRESHOLD) is False
 
     def test_export_is_open_to_every_confirmed_role(self):
         """Migrated intact from the action matrix by ADR-013.

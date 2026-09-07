@@ -153,6 +153,11 @@ MANAGE_ASSIGNMENT = "manage_assignment"
 # cutoff override. Device-less like MANAGE_ASSIGNMENT and REGISTER_DEVICE —
 # there is exactly one global override, never a per-device one to scope.
 MANAGE_AUTO_DISABLE_OVERRIDE = "manage_auto_disable_override"
+# THRESH-CONFIG-1 (C-01, framework only): setting/clearing the single
+# global warning/critical temperature threshold. Device-less for the same
+# reason as MANAGE_AUTO_DISABLE_OVERRIDE — there is exactly one global
+# configuration, never a per-device one.
+MANAGE_TEMPERATURE_THRESHOLD = "manage_temperature_threshold"
 
 #: capability -> roles. Role-only: no device is involved, so there is no
 #: assignment condition to apply and no database read to make one.
@@ -174,6 +179,7 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     # carries over — this is a change of dimension, not of permission.
     EXPORT_DATA: _EVERY_ROLE,
     MANAGE_AUTO_DISABLE_OVERRIDE: _ADMIN_ONLY,
+    MANAGE_TEMPERATURE_THRESHOLD: _ADMIN_ONLY,
 }
 
 _NO_ROLE: frozenset[str] = frozenset()

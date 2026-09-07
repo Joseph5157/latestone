@@ -347,7 +347,13 @@ Installed RTLs (REPORT-2) and RTL Alarms 30 Days (REPORT-3).
 - No new authority conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, or
   the C-15 baseline recorded above and the source files inspected.
 
-## REPORT-EXPORT-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
+## REPORT-EXPORT-1 — CLOSED / PUSHED / REMOTE-VERIFIED
+
+Branch: `main`, baseline `95bdfa59487b0c171e9d7c07f96a6fa32d0bd81d` (the
+REPORT-MAXTEMP-1 commit). Commit: `7969324f377a5fee52b74617e4f7a17c5678f4b5`
+— subject "feat(reports): add PDF and maximum-temperature export". Pushed
+to `origin/main`; local `HEAD`, `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA.
 
 Date: 2026-09-07. All three real reports (Installed RTLs, RTL Alarms 30
 Days, Maximum Temperature) now export as both CSV and PDF, per the C-04
@@ -419,6 +425,9 @@ actually built and verified.
   --check` — CLEAN.
 - Real dev Postgres remains at migration `007` — untouched; this gate adds
   no migration (no schema change was needed).
+- Push verification: after `git push origin main`, `git rev-parse HEAD`,
+  `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main`
+  all returned `7969324f377a5fee52b74617e4f7a17c5678f4b5`.
 
 ### Corrections applied during this gate (both requested by the user
 ### after the first implementation pass, before this closure)
@@ -443,20 +452,122 @@ None encountered beyond the two corrections above. No new authority
 conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the C-04 baseline,
 or the source files inspected.
 
-## Next implementation gate: THRESH-CONFIG-1 — QUEUED, NOT STARTED
+## THRESH-CONFIG-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
 
-Set 2026-09-07, once REPORT-EXPORT-1's implementation was verified above.
-Not started — no threshold configuration code exists yet. Scope: give the
-Administrator a configurable warning/critical temperature threshold,
-against the C-01 development baseline (`## Development baselines set`
-above): administrator-configurable, never permanently hardcoded, with
-every change audited (pattern: `services/audit_service.py`, as used by
-forwarding/programming/deactivation/ingestion/C08's override). **Actual
-Eskom threshold values remain unconfirmed — this gate builds the
-framework, not production numbers.** `MonitoringCondition` stays
-permanently `UNKNOWN` until this framework exists (AGENTS.md §Data rules);
-whether/how a configured threshold changes that is this gate's own
-decision to make, not assumed here.
+Date: 2026-09-07. The C-01 framework — one global, Administrator-managed
+temperature warning/critical threshold pair — is now real, against the
+C-01 development baseline (`## Development baselines set` above):
+administrator-configurable, never permanently hardcoded, every real
+change audited. **Actual Eskom threshold values remain unconfirmed — this
+gate builds the framework only, not production numbers.**
+`MonitoringCondition` stays permanently `UNKNOWN` (AGENTS.md §Data rules):
+nothing here reads the configuration back to evaluate a reading against
+it, `high_temperature` event semantics remain inactive, and no
+reading-to-alarm evaluation exists — all explicitly out of scope for this
+gate.
+
+### What was built
+
+- `alembic/versions/011_temperature_threshold_config.py` — singleton
+  table `temperature_threshold_config` (`id = 1`, CHECK-enforced — same
+  shape as `forwarding_auto_disable_override`, migration 010).
+  `warning_temperature_c`/`critical_temperature_c` `NUMERIC(12,3)` NOT
+  NULL; unconfigured is ROW ABSENCE, never a row with placeholder or
+  NULL-column values — no default is inserted, no Eskom value invented.
+  A second CHECK, `warning_temperature_c < critical_temperature_c`,
+  protects that relational invariant at the database level for any
+  future caller or direct write, not only the service.
+- `services/temperature_threshold_service.py` — `set_/clear_threshold_config`,
+  `get_current_threshold_config`, `parse_temperature`. Every value is
+  canonicalized to an exact `decimal.Decimal` at NUMERIC(12,3)'s scale
+  (`_canonicalize`, `STORAGE_EXPONENT = Decimal("0.001")`) before any
+  comparison, no-op check, or write — a value with more than 3 decimal
+  places is REJECTED outright, never silently rounded. `warning_c <
+  critical_c` is evaluated on that canonical form, so it can never
+  disagree with what NUMERIC(12,3) actually stores. No arbitrary
+  min/max range is enforced anywhere — C-01 gives none to encode, and one
+  was not invented.
+- `services/authorization.py` — new capability
+  `MANAGE_TEMPERATURE_THRESHOLD`, Administrator-only.
+- `callbacks/temperature_threshold.py` / `components/temperature_threshold_panel.py`
+  — a minimal admin panel (same independent-slot pattern as C08's
+  override panel), showing "Not configured." until both values are set.
+  The °C unit comes from `get_metric("temperature")`
+  (`config/metrics.py`) so the unit string is never duplicated, but
+  displayed VALUES are the exact canonical `Decimal`, formatted
+  fixed-point — deliberately NOT `MetricConfig.precision` (1 decimal
+  place, a chart/table display concern for readings), which would have
+  silently hidden real configured precision (e.g. a stored 60.250 would
+  have shown as "60.3").
+- `config/audit.py` — `TEMPERATURE_THRESHOLD_SET` (covers both initial
+  set and any later change) / `TEMPERATURE_THRESHOLD_CLEARED`, against a
+  fixed global entity (`temperature_threshold`/`global`), human-actor
+  only (no scheduler exists for this feature). Identical canonical
+  re-save is a silent no-op (no write, no audit); clearing an already-
+  unconfigured state is a no-op; every real transition is audited with
+  old/new snapshots (stored as `str()` of the Decimal — `json.dumps` has
+  no native Decimal support, and `str()` preserves exactness a `float()`
+  cast would not) and the actor. Mutation + audit share one
+  `session_scope()`; a failed audit write rolls back the same
+  transaction (verified for both set and clear).
+
+### Verification
+
+- Focused: `tests/test_migration_temperature_threshold_config.py` (12) +
+  `tests/test_temperature_threshold.py` (44) +
+  `tests/test_temperature_threshold_callback.py` (12) +
+  `tests/test_temperature_threshold_panel.py` (7) — **75 passed**.
+- Regression: `tests/test_authorization.py` + `tests/test_action_guard.py`
+  + `tests/test_action_guard_db.py` + `tests/test_technician_operations.py`
+  + `tests/test_audit_wiring.py` + `tests/test_equipment_selector.py` (new
+  panel IDs added to its layout-wiring-guard fixture) +
+  `tests/test_migration_foundation.py` (`EXPECTED_UPGRADE_TABLES` updated
+  for the new table) — all passed.
+- Full suite: `python -m pytest -q` — all passed, exit 0.
+- `python -m alembic heads` — `011_temperature_threshold_config` is the
+  sole head.
+- `git diff --check` — clean. `python scripts/build_context_pack.py
+  --check` — CLEAN.
+- Real dev Postgres remains at migration `007` — untouched; deliberately
+  not upgraded as part of this gate.
+
+### Correction applied during this gate (requested by the user after the
+### first implementation pass, before this closure)
+
+The first pass validated `warning_c < critical_c` on raw Python `float`
+values, then persisted to `NUMERIC(12,3)`. That is unsound: two distinct
+floats can satisfy the comparison in binary64 and still collapse to the
+SAME three-decimal value once stored (the reported example: 20.0004 and
+20.0005), silently breaking the invariant the service believed it
+guaranteed. Fixed by canonicalizing to `Decimal` at storage scale before
+any comparison (see "What was built" above) and by adding the database
+CHECK as a second, independent layer of protection. The repository layer
+(`TemperatureThresholdConfigRecord`, `set_/get_temperature_threshold_config`)
+was changed from `float` to `Decimal` throughout for the same reason — the
+driver already returns exact `Decimal` for `NUMERIC` columns; the removed
+`float()` cast was discarding that exactness on every read.
+
+### Known ambiguity
+
+None encountered beyond the correction above. No new authority conflict
+between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the C-01 baseline, or the
+source files inspected.
+
+## Next implementation gate: VIB-CONFIG-1 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once THRESH-CONFIG-1's implementation was verified above.
+Not started — no vibration configuration code exists yet. Scope: the C-02
+development baseline's other half of the same "configurable framework,
+not hardcoded" shape THRESH-CONFIG-1 just built for temperature — but for
+vibration. **Do not invent vibration units, thresholds, axes,
+aggregation, or cadence, and do not invent sensor contract values**:
+production sensor semantics remain unconfirmed, with 14 open questions
+recorded in `docs/VIBRATION_METRIC_CONTRACT_TBD.md`. Whoever opens this
+gate for implementation must read that TBD document first and scope the
+framework to what it actually resolves, not to a guessed shape mirrored
+from temperature's two-value (warning/critical) case — vibration's real
+shape (axes? single value? per-device vs. global?) is one of the 14 open
+questions, not a given.
 
 ---
 

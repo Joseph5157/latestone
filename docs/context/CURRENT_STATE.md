@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T06:24:01Z
+Date: 2026-09-07T07:33:50Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `95bdfa5` "feat(reports): implement maximum temperature report (REPORT-MAXTEMP-1)"
-- Working tree: 11 entries — see below
+- `main` = `7969324` "feat(reports): add PDF and maximum-temperature export"
+- Working tree: 19 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2773 passed, 615 deselected in 23.62s
+- `python -m pytest -m "not db"` → 2824 passed, 640 deselected in 23.45s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 263 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 113 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 263 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 264 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 114 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 264 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -82,16 +82,24 @@ C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) p
 ## Working tree
 
 ```
-M callbacks/report_center.py
+M app.py
+ M config/audit.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
- M pages/report_center.py
- M requirements.txt
- M services/report_export.py
- M tests/test_auth_harden_repair.py
- M tests/test_report_center.py
- M tests/test_report_export.py
- M tests/test_report_export_authorization.py
+ M pages/plants_overview.py
+ M repositories/plant_monitoring_repository.py
+ M services/authorization.py
+ M tests/test_authorization.py
+ M tests/test_equipment_selector.py
+ M tests/test_migration_foundation.py
+?? alembic/versions/011_temperature_threshold_config.py
+?? callbacks/temperature_threshold.py
+?? components/temperature_threshold_panel.py
 ?? debug.log
+?? services/temperature_threshold_service.py
+?? tests/test_migration_temperature_threshold_config.py
+?? tests/test_temperature_threshold.py
+?? tests/test_temperature_threshold_callback.py
+?? tests/test_temperature_threshold_panel.py
 ```
 

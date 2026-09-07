@@ -53,6 +53,14 @@ RTL_ACTIVATED = "RTL_ACTIVATED"
 AUTO_DISABLE_OVERRIDE_SET = "AUTO_DISABLE_OVERRIDE_SET"
 AUTO_DISABLE_OVERRIDE_CLEARED = "AUTO_DISABLE_OVERRIDE_CLEARED"
 
+#: THRESH-CONFIG-1 (C-01, framework only): an Administrator setting,
+#: changing, or clearing the single global warning/critical temperature
+#: threshold configuration. Always human-originated — there is no
+#: system-originated path for this feature at all (no scheduler, no
+#: automatic threshold evaluation exists yet; see AGENTS.md §Data rules).
+TEMPERATURE_THRESHOLD_SET = "TEMPERATURE_THRESHOLD_SET"
+TEMPERATURE_THRESHOLD_CLEARED = "TEMPERATURE_THRESHOLD_CLEARED"
+
 #: The complete allowlist of operations that may be audited with a NULL
 #: actor via ``audit_service.record(..., system_originated=True)``.
 #: Deliberately minimal (ACT-D5): each entry must correspond to an actually
@@ -73,3 +81,8 @@ ENTITY_MESSAGE_FORWARDING = "message_forwarding"
 #: never a database id.
 ENTITY_AUTO_DISABLE_SCHEDULE = "forwarding_auto_disable"
 AUTO_DISABLE_SCHEDULE_ENTITY_ID = "global"
+
+#: THRESH-CONFIG-1: same shape as the auto-disable override above — one
+#: global row, no per-device/per-user entity to name.
+ENTITY_TEMPERATURE_THRESHOLD = "temperature_threshold"
+TEMPERATURE_THRESHOLD_ENTITY_ID = "global"

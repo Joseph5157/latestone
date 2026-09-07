@@ -111,7 +111,8 @@ EXPECTED_UPGRADE_TABLES = {
     "plants", "transformers", "devices", "readings",
     "users", "user_device_assignments", "rtl_programming_requests",
     "message_forwarding", "rtl_active_state", "device_events", "audit_log",
-    "rtl_commands", "forwarding_auto_disable_override", "alembic_version",
+    "rtl_commands", "forwarding_auto_disable_override",
+    "temperature_threshold_config", "alembic_version",
 }
 
 
@@ -122,8 +123,8 @@ class TestFreshDatabaseUpgrade:
         result = _run_alembic("upgrade", "head")
         assert result.returncode == 0, result.stderr
         # alembic_version is expected: it lives inside the configured schema
-        # (version_table_schema), alongside the thirteen application tables
-        # (C08-AUTO-DISABLE-1 added forwarding_auto_disable_override).
+        # (version_table_schema), alongside the fourteen application tables
+        # (THRESH-CONFIG-1 added temperature_threshold_config).
         assert _table_names(TEST_SCHEMA) == EXPECTED_UPGRADE_TABLES
 
     def test_upgrade_creates_expected_baseline_columns(self):

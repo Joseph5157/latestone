@@ -14,6 +14,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time
+from decimal import Decimal
 
 from sqlalchemy import String, bindparam, text
 
@@ -1850,6 +1851,206 @@ def clear_auto_disable_override(
             {"id": _AUTO_DISABLE_OVERRIDE_ID},
         )
         return _to_override_record(row)
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+_TEMPERATURE_THRESHOLD_CONFIG_ID = 1
+
+
+@dataclass(frozen=True)
+class TemperatureThresholdConfigRecord:
+    """The one global temperature threshold configuration row, if any
+    (THRESH-CONFIG-1 / C-01, framework only).
+
+    ``warning_c``/``critical_c`` are ``Decimal`` — the driver's own exact
+    representation of the NUMERIC(12,3) column, never cast to ``float``.
+    A binary64 float cannot reliably preserve or compare a 3-decimal-place
+    value; casting here would let this layer's own same-state no-op check
+    (below) disagree with what is actually stored.
+    """
+
+    warning_c: Decimal
+    critical_c: Decimal
+    configured_by_user_id: int
+    configured_at: datetime
+
+
+def _to_threshold_config(row) -> TemperatureThresholdConfigRecord:
+    return TemperatureThresholdConfigRecord(
+        warning_c=row[0],
+        critical_c=row[1],
+        configured_by_user_id=row[2],
+        configured_at=row[3],
+    )
+
+
+def get_temperature_threshold_config(
+    *, session=None
+) -> TemperatureThresholdConfigRecord | None:
+    """The current threshold configuration, or None when never configured
+    (or the last one was explicitly cleared) — absence IS "unconfigured",
+    the same idiom `get_auto_disable_override` uses."""
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"SELECT warning_temperature_c, critical_temperature_c, "
+                f"configured_by_user_id, configured_at "
+                f"FROM {_SCHEMA}.temperature_threshold_config "
+                f"WHERE id = :id"
+            ),
+            {"id": _TEMPERATURE_THRESHOLD_CONFIG_ID},
+        ).first()
+        return _to_threshold_config(row) if row else None
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+@dataclass(frozen=True)
+class ThresholdConfigChange:
+    """Result of a threshold-config write, mirroring ``OverrideChange``'s
+    changed-flag shape for the same reason: the caller composing
+    mutation + audit needs to know whether anything actually happened
+    without re-deriving it from before/after equality itself.
+
+    ``current`` is never None here (unlike ``ForwardingChange``): setting a
+    configuration always results in a row, even when the write is a
+    same-state no-op.
+    """
+
+    previous: TemperatureThresholdConfigRecord | None
+    current: TemperatureThresholdConfigRecord
+    changed: bool
+
+
+def set_temperature_threshold_config(
+    *,
+    warning_c: Decimal,
+    critical_c: Decimal,
+    configured_by_user_id: int,
+    session=None,
+) -> ThresholdConfigChange:
+    """Upsert the single threshold-config row and classify the outcome.
+
+    ``warning_c``/``critical_c`` MUST already be the exact ``Decimal``
+    that will be stored (the service layer canonicalizes to NUMERIC(12,3)'s
+    scale before calling this) — this function compares and persists
+    whatever it is given, in that representation, and performs no
+    validation of its own beyond the database's own CHECK constraints
+    (singleton, ``warning_temperature_c < critical_temperature_c``).
+
+    Same-state re-application (identical ``warning_c``/``critical_c`` as the
+    current row) is a genuine no-op — mirrors
+    ``set_auto_disable_override``'s rule: neither
+    ``configured_by_user_id`` nor ``configured_at`` are touched, and the
+    caller must not audit it. Changing either value is always a real
+    transition, regardless of who made it. Because both sides of this
+    comparison are ``Decimal`` at the same fixed scale (never a ``float``),
+    it can never disagree with what the database itself would consider
+    equal.
+    """
+
+    def _run(s):
+        before_row = s.execute(
+            text(
+                f"SELECT warning_temperature_c, critical_temperature_c, "
+                f"configured_by_user_id, configured_at "
+                f"FROM {_SCHEMA}.temperature_threshold_config "
+                f"WHERE id = :id FOR UPDATE"
+            ),
+            {"id": _TEMPERATURE_THRESHOLD_CONFIG_ID},
+        ).first()
+        previous = _to_threshold_config(before_row) if before_row is not None else None
+
+        if previous is not None and (
+            previous.warning_c == warning_c and previous.critical_c == critical_c
+        ):
+            return ThresholdConfigChange(previous=previous, current=previous, changed=False)
+
+        if before_row is None:
+            row = s.execute(
+                text(
+                    f"""
+                    INSERT INTO {_SCHEMA}.temperature_threshold_config
+                        (id, warning_temperature_c, critical_temperature_c,
+                         configured_by_user_id, configured_at)
+                    VALUES (:id, :warning_c, :critical_c, :configured_by_user_id, now())
+                    RETURNING warning_temperature_c, critical_temperature_c,
+                              configured_by_user_id, configured_at
+                    """
+                ),
+                {
+                    "id": _TEMPERATURE_THRESHOLD_CONFIG_ID,
+                    "warning_c": warning_c,
+                    "critical_c": critical_c,
+                    "configured_by_user_id": configured_by_user_id,
+                },
+            ).first()
+        else:
+            row = s.execute(
+                text(
+                    f"""
+                    UPDATE {_SCHEMA}.temperature_threshold_config
+                    SET warning_temperature_c = :warning_c,
+                        critical_temperature_c = :critical_c,
+                        configured_by_user_id = :configured_by_user_id,
+                        configured_at = now()
+                    WHERE id = :id
+                    RETURNING warning_temperature_c, critical_temperature_c,
+                              configured_by_user_id, configured_at
+                    """
+                ),
+                {
+                    "id": _TEMPERATURE_THRESHOLD_CONFIG_ID,
+                    "warning_c": warning_c,
+                    "critical_c": critical_c,
+                    "configured_by_user_id": configured_by_user_id,
+                },
+            ).first()
+
+        return ThresholdConfigChange(
+            previous=previous, current=_to_threshold_config(row), changed=True
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+def clear_temperature_threshold_config(
+    *, session=None
+) -> TemperatureThresholdConfigRecord | None:
+    """Delete the threshold-config row, returning what was deleted (None if
+    nothing was set — a genuine no-op, matching
+    ``clear_auto_disable_override``'s absence-based idiom)."""
+
+    def _run(s):
+        row = s.execute(
+            text(
+                f"SELECT warning_temperature_c, critical_temperature_c, "
+                f"configured_by_user_id, configured_at "
+                f"FROM {_SCHEMA}.temperature_threshold_config "
+                f"WHERE id = :id FOR UPDATE"
+            ),
+            {"id": _TEMPERATURE_THRESHOLD_CONFIG_ID},
+        ).first()
+        if row is None:
+            return None
+        s.execute(
+            text(
+                f"DELETE FROM {_SCHEMA}.temperature_threshold_config WHERE id = :id"
+            ),
+            {"id": _TEMPERATURE_THRESHOLD_CONFIG_ID},
+        )
+        return _to_threshold_config(row)
 
     if session is not None:
         return _run(session)
