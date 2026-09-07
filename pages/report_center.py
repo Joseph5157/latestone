@@ -1,12 +1,11 @@
 """Report Center page — layout only, no queries.
 
-Frontend shell for report generation, CSV export (development default),
-and history. Report types are confirmed by the RTL Functional
-Specification (§11). The client-approved production report format and
-delivery channel remain unresolved (REQ-1A §16); Installed RTLs, RTL
-Alarms (30 Days), and Maximum Temperature (REPORT-MAXTEMP-1) are all
-data-backed. Maximum Temperature has no CSV export yet — that is
-REPORT-EXPORT-1, a separate gate.
+Frontend shell for report generation, CSV/PDF export (both development
+default, C-04 baseline), and history. Report types are confirmed by the
+RTL Functional Specification (§11). The client-approved production
+delivery mechanism remains unresolved (REQ-1A §16); all three reports —
+Installed RTLs, RTL Alarms (30 Days), and Maximum Temperature — are
+data-backed and exportable as of REPORT-EXPORT-1.
 """
 from __future__ import annotations
 
@@ -30,20 +29,19 @@ def layout() -> html.Div:
                 "Generate and view monitoring reports.",
                 className="page__subtitle",
             ),
-            # Honesty notice — all three reports are data-backed; only
-            # export coverage differs (Installed RTLs and RTL Alarms have
-            # development-default CSV, Maximum Temperature does not yet —
-            # REPORT-EXPORT-1 is a separate gate).
+            # Honesty notice — all three reports are data-backed and
+            # exportable as CSV or PDF (REPORT-EXPORT-1); the client-
+            # approved production delivery mechanism remains pending.
             html.Div(
                 className="status-panel status-panel--inactive",
                 children=[
                     html.Strong("Export format note. "),
                     html.Span(
-                        "CSV is the current development export format; "
-                        "the client-approved production format is still "
-                        "pending. No files are emailed or delivered "
-                        "elsewhere. Maximum Temperature does not have a "
-                        "download yet — its export is a separate gate."
+                        "CSV and PDF are the current development export "
+                        "formats; the client-approved production delivery "
+                        "mechanism is still pending. No files are emailed "
+                        "or delivered elsewhere — every export is a "
+                        "direct browser download."
                     ),
                 ],
             ),
@@ -223,8 +221,8 @@ def layout() -> html.Div:
                                     ),
                                 ],
                             ),
-                            # Actions: preview (Generate) and export (Download
-                            # CSV) are deliberately separate actions (R4-D2).
+                            # Actions: preview (Generate) and export (Download)
+                            # are deliberately separate actions (R4-D2).
                             html.Div(
                                 className="report-form__actions",
                                 children=[
@@ -235,8 +233,27 @@ def layout() -> html.Div:
                                         disabled=True,
                                         className="report-form__btn report-form__btn--primary",
                                     ),
+                                    # Format choice sits right next to the
+                                    # Download button it controls — CSV or
+                                    # PDF, both development-default (C-04).
+                                    html.Label(
+                                        "Export format",
+                                        htmlFor="report-export-format",
+                                        className="report-form__label",
+                                        style={"marginLeft": "8px"},
+                                    ),
+                                    dcc.RadioItems(
+                                        id="report-export-format",
+                                        options=[
+                                            {"label": " CSV", "value": "csv"},
+                                            {"label": " PDF", "value": "pdf"},
+                                        ],
+                                        value="csv",
+                                        inline=True,
+                                        className="report-form__radio",
+                                    ),
                                     html.Button(
-                                        "Download CSV",
+                                        "Download",
                                         id="report-download-btn",
                                         n_clicks=0,
                                         disabled=True,

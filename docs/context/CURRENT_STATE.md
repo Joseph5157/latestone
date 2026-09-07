@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T05:31:42Z
+Date: 2026-09-07T06:24:01Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `d10c566` "feat(forwarding): add scheduled auto-disable (C08-AUTO-DISABLE-1)"
-- Working tree: 12 entries — see below
+- `main` = `95bdfa5` "feat(reports): implement maximum temperature report (REPORT-MAXTEMP-1)"
+- Working tree: 11 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2746 passed, 615 deselected in 22.67s
+- `python -m pytest -m "not db"` → 2773 passed, 615 deselected in 23.62s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 262 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 112 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 262 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 263 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 113 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 263 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,16 +83,15 @@ C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) p
 
 ```
 M callbacks/report_center.py
- M config/reports.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
  M pages/report_center.py
- M repositories/plant_monitoring_repository.py
- M services/report_service.py
+ M requirements.txt
+ M services/report_export.py
  M tests/test_auth_harden_repair.py
  M tests/test_report_center.py
+ M tests/test_report_export.py
+ M tests/test_report_export_authorization.py
 ?? debug.log
-?? tests/test_report_max_temperature.py
-?? tests/test_report_max_temperature_db.py
 ```
 

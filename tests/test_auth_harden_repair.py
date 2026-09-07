@@ -579,7 +579,7 @@ class TestReportScopeLabels:
         )
         download, _status, _style = self._export_handler()(
             n_clicks, report_key, asset_scope, plant_id, transformer_id,
-            device_id, None,
+            device_id, None, None, None, "csv", None,
         )
         csv_text = base64.b64decode(download["content"]).decode("utf-8")
         return csv_text, download["filename"]

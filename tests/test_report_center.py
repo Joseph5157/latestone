@@ -534,6 +534,14 @@ class TestReportLoadingAndActionsLayout:
         assert "report-generate-btn" in ids
         assert "report-download-btn" in ids
 
+    def test_export_format_choice_is_present_and_offers_csv_and_pdf(self):
+        """REPORT-EXPORT-1: the UI must clearly let the user choose CSV or
+        PDF — a dedicated control, not just a note in prose."""
+        assert "report-export-format" in _collect_ids(layout())
+        text = str(layout())
+        assert "CSV" in text and "PDF" in text
+        assert "XLSX" not in text.upper()
+
     def test_demo_status_rendered_muted_not_freshness_green(self):
         tables = [
             t for t in _data_tables(layout()) if t.id == "recent-reports-table"

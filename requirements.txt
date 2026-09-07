@@ -13,3 +13,12 @@ dash-ag-grid==35.2.0
 # happens to pull tzdata in as its own optional dependency — an incidental,
 # unguaranteed source for a correctness-critical feature. Pinned explicitly.
 tzdata==2026.3
+# fpdf2 (services/report_export.py, REPORT-EXPORT-1) — a small, pure-Python
+# PDF writer with no system library dependency (unlike WeasyPrint/Cairo,
+# which would need OS-level packages this stack does not otherwise need).
+# Its high-level Table API repeats headers across pages on its own, so no
+# custom pagination code is needed here. reportlab is NOT used even though
+# it happens to be present in this dev venv: it arrived incidentally via an
+# unrelated tool, not this project's own requirements — the same trap
+# already caught once for tzdata (C08-AUTO-DISABLE-1).
+fpdf2==2.7.9

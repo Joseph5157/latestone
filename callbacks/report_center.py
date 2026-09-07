@@ -25,6 +25,7 @@ from services.report_export import (
     EXPORT_FORMAT_LABEL,
     EXPORTABLE_REPORTS,
     installed_rtls_document,
+    max_temperature_document,
     render_export,
     rtl_alarms_document,
 )
@@ -874,27 +875,50 @@ def register(app) -> None:
 
         return {"display": "block"}, result
 
-    # ---- CSV export (REPORT-4) — separate action from Generate (R4-D2) ----
+    # ---- Export, CSV or PDF (REPORT-4, extended by REPORT-EXPORT-1) ----
+    # Separate action from Generate (R4-D2).
 
-    def _gather_export_rows(report_key, asset_scope, plant_id, transformer_id,
-                            device_id, device_scope):
+    def _gather_export_rows(
+        report_key, asset_scope, plant_id, transformer_id, device_id,
+        device_scope, period=None, custom_start=None, custom_end=None,
+    ):
         """Rebuild the report through the SAME service functions and
         parameters the preview uses (R4-D7) — the exporter never invents
-        query semantics of its own."""
+        query semantics of its own. Returns (rows, period_text); period_text
+        is None for the two reports with no per-request period.
+
+        Maximum Temperature resolves its window through
+        `_resolve_max_temperature_window` — the identical helper the preview
+        calls — so an export can never disagree with the preview about what
+        "the resolved period" means for the same form state.
+        """
         if report_key == "installed_rtls":
-            return installed_rtls_rows(
+            rows = installed_rtls_rows(
                 plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
                 transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
                 device_id=device_id if asset_scope == "device" else None,
                 device_scope=device_scope,
             )
+            return rows, None
         if report_key == "rtl_alarms_30d":
-            return rtl_alarms_30d_rows(
+            rows = rtl_alarms_30d_rows(
                 plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
                 transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
                 device_id=device_id if asset_scope == "device" else None,
                 device_scope=device_scope,
             )
+            return rows, None
+        if report_key == "max_temperature":
+            since, until = _resolve_max_temperature_window(period, custom_start, custom_end)
+            rows = max_temperature_rows(
+                plant_id=plant_id if asset_scope in ("plant", "transformer", "device") else None,
+                transformer_id=transformer_id if asset_scope in ("transformer", "device") else None,
+                device_id=device_id if asset_scope == "device" else None,
+                device_scope=device_scope,
+                since=since,
+                until=until,
+            )
+            return rows, _format_report_period(since, until)
         raise ReportError(f"{report_key!r} is not an exportable report.")
 
     @app.callback(
@@ -903,8 +927,7 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def toggle_download_button(report_key):
-        """Download exists only for data-backed reports (R4-D9): REP-03
-        never exposes one."""
+        """Download exists only for data-backed reports (R4-D9)."""
         return report_key not in EXPORTABLE_REPORTS
 
     @app.callback(
@@ -917,12 +940,16 @@ def register(app) -> None:
         State("report-plant", "value"),
         State("report-transformer", "value"),
         State("report-device", "value"),
+        State("report-period", "value"),
+        State("report-custom-date-range", "start_date"),
+        State("report-custom-date-range", "end_date"),
+        State("report-export-format", "value"),
         State("auth-store", "data"),
         prevent_initial_call=True,
     )
     def download_report_csv(
         n_clicks, report_key, asset_scope, plant_id, transformer_id,
-        device_id, auth_data,
+        device_id, period, custom_start, custom_end, export_format, auth_data,
     ):
         if not n_clicks or not report_key:
             return no_update, no_update, no_update
@@ -949,11 +976,12 @@ def register(app) -> None:
                 {"display": "block"},
             )
 
+        export_format = export_format or "csv"
         try:
             scope = current_device_scope()
-            rows = _gather_export_rows(
+            rows, period_text = _gather_export_rows(
                 report_key, asset_scope, plant_id, transformer_id,
-                device_id, scope,
+                device_id, scope, period, custom_start, custom_end,
             )
             now = datetime.now(timezone.utc)
             scope_desc = _scope_label(
@@ -964,10 +992,14 @@ def register(app) -> None:
                 document = installed_rtls_document(rows, scope_label=scope_desc, now=now)
             elif report_key == "rtl_alarms_30d":
                 document = rtl_alarms_document(rows, scope_label=scope_desc, now=now)
+            elif report_key == "max_temperature":
+                document = max_temperature_document(
+                    rows, scope_label=scope_desc, period_text=period_text, now=now,
+                )
             else:
                 raise ReportError(f"{report_key!r} is not an exportable report.")
 
-            content, mime, filename = render_export(report_key, document)
+            content, mime, filename = render_export(report_key, document, export_format)
         except ReportError:
             logger.exception("Failed to build %s export", report_key)
             return (
@@ -977,13 +1009,22 @@ def register(app) -> None:
                 {"display": "block"},
             )
 
+        status_children = [
+            html.P(html.Strong(f"Exported {len(document.rows)} row(s). ")),
+            html.P(EXPORT_FORMAT_LABEL),
+        ]
+        if report_key == "max_temperature":
+            # The resolved period is identified in the filename (and in
+            # the PDF's own header line) — this line just also surfaces it
+            # in the UI, without adding anything to the CSV body itself.
+            status_children.insert(
+                1, html.P(html.Strong("Period exported: "), period_text)
+            )
         status = html.Div(
             className="status-panel status-panel--inactive",
-            children=[
-                html.P(html.Strong(f"Exported {len(document.rows)} row(s). ")),
-                html.P(EXPORT_FORMAT_LABEL),
-            ],
+            children=status_children,
         )
-        return dcc.send_bytes(content.encode("utf-8"), filename), status, {
+        raw = content if isinstance(content, bytes) else content.encode("utf-8")
+        return dcc.send_bytes(raw, filename), status, {
             "display": "block",
         }

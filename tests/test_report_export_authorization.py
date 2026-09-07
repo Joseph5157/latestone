@@ -141,7 +141,9 @@ def download(monkeypatch):
     via `trusted_session`, rather than handing the callback a session dict.
     """
     rows = _RowsSpy()
+    maxtemp_rows = _RowsSpy()
     monkeypatch.setattr(report_center, "installed_rtls_rows", rows)
+    monkeypatch.setattr(report_center, "max_temperature_rows", maxtemp_rows)
     monkeypatch.setattr(
         report_center, "current_device_scope", lambda: ASSIGNED_SCOPE
     )
@@ -153,16 +155,19 @@ def download(monkeypatch):
 
     app = _CapturingApp()
     report_center.register(app)
-    return app.functions["download_report_csv"], rows
+    return app.functions["download_report_csv"], rows, maxtemp_rows
 
 
-def _click(handler, asset_scope="plant"):
-    return handler(1, "installed_rtls", asset_scope, "p1", None, None, None)
+def _click(handler, asset_scope="plant", report_key="installed_rtls", export_format="csv"):
+    return handler(
+        1, report_key, asset_scope, "p1", None, None,
+        None, None, None, export_format, None,
+    )
 
 
 def test_download_does_not_raise_type_error(download, monkeypatch):
     """The defect itself: this raised TypeError before any row was fetched."""
-    handler, _rows = download
+    handler, _rows, _maxtemp_rows = download
 
     with trusted_session(monkeypatch, user_id=1, role=ADMINISTRATOR):
         payload, _status, _style = _click(handler)
@@ -172,7 +177,7 @@ def test_download_does_not_raise_type_error(download, monkeypatch):
 
 @pytest.mark.parametrize("role", EVERY_ROLE)
 def test_permitted_roles_reach_export_generation(download, monkeypatch, role):
-    handler, rows = download
+    handler, rows, maxtemp_rows = download
 
     with trusted_session(monkeypatch, user_id=1, role=role):
         payload, status, style = _click(handler)
@@ -192,7 +197,7 @@ def test_refusal_happens_before_any_row_work(download):
     pre-ROLE-1 STALE_SESSION payload: authenticated flag or not, there is
     nobody the server recognises.
     """
-    handler, rows = download
+    handler, rows, maxtemp_rows = download
 
     with no_trusted_session():
         payload, status, _style = _click(handler)
@@ -205,7 +210,7 @@ def test_refusal_happens_before_any_row_work(download):
 def test_technician_export_stays_inside_the_assigned_scope(download, monkeypatch):
     """The guard is not what constrains this — the DeviceScope threaded into
     row construction is. Migrating the guard must not change that."""
-    handler, rows = download
+    handler, rows, maxtemp_rows = download
 
     with trusted_session(monkeypatch, user_id=1, role=TECHNICIAN):
         _click(handler)
@@ -220,7 +225,7 @@ def test_technician_export_stays_inside_the_assigned_scope(download, monkeypatch
 def test_out_of_scope_devices_cannot_be_reached_through_export(download, monkeypatch):
     """No scope widening: the export passes the caller's scope, and never a
     broader one, whatever asset scope was chosen in the form."""
-    handler, rows = download
+    handler, rows, maxtemp_rows = download
 
     with trusted_session(monkeypatch, user_id=1, role=TECHNICIAN):
         _click(handler, asset_scope="device")
@@ -228,3 +233,66 @@ def test_out_of_scope_devices_cannot_be_reached_through_export(download, monkeyp
     scope = rows.calls[0]["device_scope"]
     assert scope.allows("d-assigned") is True
     assert scope.allows("d-somebody-elses") is False
+
+
+# --------------------------------------------------------------------------
+# D. REPORT-EXPORT-1: Maximum Temperature export and the format choice
+# --------------------------------------------------------------------------
+
+
+def test_max_temperature_export_reaches_row_construction_and_stays_scoped(
+    download, monkeypatch,
+):
+    """The newly-exportable third report goes through the identical
+    guard-then-scope path as the other two — not a separate, weaker one."""
+    handler, _rows, maxtemp_rows = download
+
+    with trusted_session(monkeypatch, user_id=1, role=TECHNICIAN):
+        _click(handler, report_key="max_temperature")
+
+    assert maxtemp_rows.calls, "max_temperature must reach row construction"
+    assert maxtemp_rows.calls[0]["device_scope"] is ASSIGNED_SCOPE
+
+
+def test_max_temperature_refusal_happens_before_any_row_work(download):
+    """Authorization must occur before fetching rows, for every report —
+    not only the two that existed before this gate."""
+    handler, _rows, maxtemp_rows = download
+
+    with no_trusted_session():
+        payload, status, _style = _click(handler, report_key="max_temperature")
+
+    assert maxtemp_rows.calls == [], "a refused export must not query anything"
+    assert payload is not None
+    assert "not permitted" in str(status)
+
+
+@pytest.mark.parametrize("export_format,expected_extension", [("csv", ".csv"), ("pdf", ".pdf")])
+def test_both_export_formats_reach_generation_with_the_right_extension(
+    download, monkeypatch, export_format, expected_extension,
+):
+    handler, rows, _maxtemp_rows = download
+
+    with trusted_session(monkeypatch, user_id=1, role=ADMINISTRATOR):
+        payload, status, style = _click(handler, export_format=export_format)
+
+    assert rows.calls, f"{export_format} must still reach row construction"
+    assert payload["filename"].endswith(expected_extension)
+    assert style == {"display": "block"}
+    assert status is not None
+
+
+def test_missing_export_format_state_defaults_to_csv(download, monkeypatch):
+    """A component that has not fired yet can hand the callback `None` for
+    `report-export-format`; that must not crash or silently drop the
+    export — it defaults to the CSV development default."""
+    handler, rows, _maxtemp_rows = download
+
+    with trusted_session(monkeypatch, user_id=1, role=ADMINISTRATOR):
+        payload, _status, _style = handler(
+            1, "installed_rtls", "plant", "p1", None, None,
+            None, None, None, None, None,
+        )
+
+    assert rows.calls
+    assert payload["filename"].endswith(".csv")

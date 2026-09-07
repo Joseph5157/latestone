@@ -260,7 +260,13 @@ so implementation does not have to re-derive it:
   for physical programming execution, forwarding delivery, and all
   producer-dependent work. See `REQ-3I_Clarification_Register.md` §5.
 
-## REPORT-MAXTEMP-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
+## REPORT-MAXTEMP-1 — CLOSED / PUSHED / REMOTE-VERIFIED
+
+Branch: `main`, baseline `d10c566ef5e400d9163fdba2413580f3ca4517d9` (the
+C08-AUTO-DISABLE-1 commit). Commit: `95bdfa59487b0c171e9d7c07f96a6fa32d0bd81d`
+— subject "feat(reports): implement maximum temperature report
+(REPORT-MAXTEMP-1)". Pushed to `origin/main`; local `HEAD`, `origin/main`,
+and `git ls-remote origin refs/heads/main` all verified to match this SHA.
 
 Date: 2026-09-07. Maximum Temperature is now a real, data-backed report
 (replacing its Prototype Only result), built against the C-15 development
@@ -321,6 +327,9 @@ Installed RTLs (REPORT-2) and RTL Alarms 30 Days (REPORT-3).
   --check` — CLEAN.
 - Real dev Postgres remains at migration `007` — untouched; this gate adds
   no migration at all (no schema change was needed).
+- Push verification: after `git push origin main`, `git rev-parse HEAD`,
+  `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main`
+  all returned `95bdfa59487b0c171e9d7c07f96a6fa32d0bd81d`.
 
 ### Known ambiguity
 
@@ -338,18 +347,116 @@ Installed RTLs (REPORT-2) and RTL Alarms 30 Days (REPORT-3).
 - No new authority conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, or
   the C-15 baseline recorded above and the source files inspected.
 
-## Next implementation gate: REPORT-EXPORT-1 — QUEUED, NOT STARTED
+## REPORT-EXPORT-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
 
-Set 2026-09-07, once REPORT-MAXTEMP-1's implementation was verified above.
-Not started — no CSV/PDF export code exists for Maximum Temperature yet.
-Scope: give Maximum Temperature the same development-default CSV export
-Installed RTLs and RTL Alarms already have (`services/report_export.py`,
-`EXPORTABLE_REPORTS`), rebuilding rows through the SAME
-`max_temperature_rows`/`resolve_max_temperature_period` functions the
-preview uses (R4-D7's principle), and deciding whether/how the resolved
-period is represented in the exported document. The client-approved
-production report format (PDF vs CSV vs XLSX) remains the C-04 baseline —
-CSV only, development default — unchanged by this gate.
+Date: 2026-09-07. All three real reports (Installed RTLs, RTL Alarms 30
+Days, Maximum Temperature) now export as both CSV and PDF, per the C-04
+development baseline — PDF + CSV, no native XLSX. **This is a development
+baseline pending client confirmation, not an Eskom-confirmed production
+format.** This section originally existed as the pre-implementation
+pointer (a stale "CSV only... unchanged by this gate" draft was corrected
+in-place before implementation started); what follows records what was
+actually built and verified.
+
+### What was built
+
+- `services/report_export.py` — `ExportDocument` gained `period_text`
+  (and its old, misleadingly-named `period_label` field was renamed to
+  `scope_label` — it always held the scope description, never a time
+  period). Two registered formatters: `format_csv` (unchanged output
+  shape for Installed RTLs/RTL Alarms) and new `format_pdf`, built on
+  fpdf2's high-level `Table`, which repeats column headers on every page
+  it spans by default. `EXPORTABLE_REPORTS` now lists all three reports.
+  New `max_temperature_document()` builder, matching the exact 9-column
+  contract.
+- **Maximum Temperature CSV** keeps the exact report header as row 1 —
+  no metadata preamble, no fake "Period" column, a plain rectangular
+  table identical in shape to the other two. Its resolved period is
+  identified only in its filename (`export_filename`'s `period_text`
+  argument, gated to `report_key == "max_temperature"` — Installed RTLs'
+  and RTL Alarms' filenames are byte-for-byte unchanged) and echoed in
+  the export status panel in the UI ("Period exported: …"); neither is a
+  change to the CSV bytes themselves.
+- **PDF** visibly includes report title, scope, period, generated time,
+  table headers, and paginated rows with repeated headers, for all three
+  reports. Uses fpdf2's normal (compressed) output — no
+  `pdf.compress = False`; this is production-shaped PDF behavior, not a
+  development shortcut.
+- `callbacks/report_center.py` — `_gather_export_rows` now returns
+  `(rows, period_text)` and dispatches to the right document builder;
+  Maximum Temperature's branch calls `_resolve_max_temperature_window` —
+  the IDENTICAL helper the preview uses — so export and preview can never
+  disagree about the window for the same form state (R4-D7). Authorization
+  (`require_capability(EXPORT_DATA)`) still runs first, before any rows
+  are fetched, for every report and every format.
+- `pages/report_center.py` — a `report-export-format` control (CSV/PDF,
+  default CSV) next to the Download button, which is relabeled
+  "Download" (was "Download CSV", now format-neutral).
+- `requirements.txt` — `fpdf2==2.7.9` pinned, with an inline comment
+  explaining why (small, pure-Python, no system library dependency,
+  built-in header-repeat/pagination) and why `reportlab` is NOT used even
+  though it happens to already be present in this dev venv (arrived
+  incidentally via an unrelated tool — the same trap the tzdata lesson,
+  C08-AUTO-DISABLE-1, already caught once).
+- OU/Zone/Sector/CNC/Feeder remain blank in every exported row, pending
+  C-07 — not invented for export any more than for preview.
+
+### Verification
+
+- Focused: `tests/test_report_export.py` (40) +
+  `tests/test_report_export_authorization.py` (18) +
+  `tests/test_report_export_db.py` (6) — **64 passed**.
+- Full report-center regression, run together in one invocation:
+  `tests/test_report_center.py` + `tests/test_report_installed_rtls.py` +
+  `tests/test_rtl_alarms_report.py` + `tests/test_rtl_alarms_report_db.py`
+  + `tests/test_report_max_temperature.py` +
+  `tests/test_report_max_temperature_db.py` +
+  `tests/test_auth_harden_repair.py` (its export-callback helpers needed
+  a signature-compat update for the callback's new parameters, not a
+  defect) — all passed.
+- Full suite: `python -m pytest -q` — all passed, exit 0.
+- `git diff --check` — clean. `python scripts/build_context_pack.py
+  --check` — CLEAN.
+- Real dev Postgres remains at migration `007` — untouched; this gate adds
+  no migration (no schema change was needed).
+
+### Corrections applied during this gate (both requested by the user
+### after the first implementation pass, before this closure)
+
+1. The first pass gave Maximum Temperature's CSV a metadata preamble
+   (Report/Scope/Period/Generated, then a blank line, before the real
+   header). Removed entirely: CSV is now a plain rectangular table for
+   every report, with no exceptions — the period lives in the filename
+   and the UI status line only, never in the CSV body.
+2. The first pass set `pdf.compress = False` for grep-ability in tests.
+   Removed: `format_pdf` now uses fpdf2's normal compression. Because
+   FlateDecode-compressed content streams cannot be substring-matched as
+   raw text, the PDF tests were rewritten to verify formatter BEHAVIOR
+   instead — structural framing (`%PDF-`/`%%EOF`, `/Type /Page` object
+   counts, which are never inside a compressed stream) plus spies on
+   `FPDF.cell`/`fpdf.table.Table.row` that capture the exact text/cells
+   passed through while the real call still renders.
+
+### Known ambiguity
+
+None encountered beyond the two corrections above. No new authority
+conflict between `AGENTS.md`, `SOURCE_AUTHORITY.md`, the C-04 baseline,
+or the source files inspected.
+
+## Next implementation gate: THRESH-CONFIG-1 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once REPORT-EXPORT-1's implementation was verified above.
+Not started — no threshold configuration code exists yet. Scope: give the
+Administrator a configurable warning/critical temperature threshold,
+against the C-01 development baseline (`## Development baselines set`
+above): administrator-configurable, never permanently hardcoded, with
+every change audited (pattern: `services/audit_service.py`, as used by
+forwarding/programming/deactivation/ingestion/C08's override). **Actual
+Eskom threshold values remain unconfirmed — this gate builds the
+framework, not production numbers.** `MonitoringCondition` stays
+permanently `UNKNOWN` until this framework exists (AGENTS.md §Data rules);
+whether/how a configured threshold changes that is this gate's own
+decision to make, not assumed here.
 
 ---
 
