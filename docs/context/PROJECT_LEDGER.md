@@ -3,8 +3,9 @@
 ## 1. Authoritative Checkpoint
 
 - **Branch:** `main`
-- **SHA:** `603e1581a53a42e15c1ed865f774e8751363a770` — "feat(programming): add development simulation flow" (pushed to `origin/main`; local `HEAD`, `origin/main`, and `git ls-remote` all verified to match — see the RTL-PROG-SIM-1 section of `docs/context/ACTIVE_GATE.md`)
-- **Last updated:** 2026-09-07 (advanced from `0787b90` past RTL-PROG-SIM-1 to this commit's push)
+- **SHA:** `72dd1cf95e94b642f05b517c804cea235a0067b4` — "test(seed): skip the ADR check only where no ADRs are delivered" (pushed to `origin/main`; local `HEAD`, `origin/main`, and `git ls-remote` all verified to match — see the CLIENT-SYNC-2B section of `docs/context/ACTIVE_GATE.md`)
+- **Last updated:** 2026-09-07 (advanced from `603e158` past RTL-PROG-SIM-1, LOCAL-DB-CATCHUP-1, CLIENT-SYNC-2A/2A-FIX and CLIENT-SYNC-2B to this commit's push)
+- **Client delivery:** branch `cc-1-command-center-progress` @ `3f21c3a000de5026868c2031eb865569c368e509` on `powerplant-dashboard-client` (CLIENT-SYNC-2B, 2026-09-07). The client repo's `main` remains `aa1dd3c` and the stale local `client-release` (`d89a090`, pre-Command-Center) is **not** the delivery branch — see §7a.
 - **Working tree expectation:** `debug.log` (untracked) only, plus `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` (untracked, pending adoption per POWER-MASTER-PLAN-1).
 - **Real development database revision: `012_vibration_contract_answers`** — level with the code as of 2026-09-07 (`LOCAL-DB-CATCHUP-1`). **This replaces the long-standing "real dev DB is deliberately at `007_audit_log`" caveat repeated by every gate from C08-AUTO-DISABLE-1 through RTL-PROG-SIM-1**; those statements were true when written and are now historical. The upgrade was non-destructive (`alembic upgrade head` only — no reset, purge, schema recreation or seed script) and every pre-existing population was preserved exactly. Migrations continue to be exercised in tests through the `isolated_schema` fixture, never against this schema.
 - **Test baseline (at RTL-IF-4 close):** 2690 passed (non-db), 510 deselected; 3200 passed full suite — unchanged by RTL-IF-1..4, which added focused test files without modifying this baseline's pre-existing tests (see ACTIVE_GATE.md verification log for RTL-IF-4).
@@ -243,9 +244,36 @@
   `op.create_table(...)`** so it cannot rot again. Full suite passed
   (exit 0), context pack CLEAN, `git diff --check` clean, leakage guard
   re-run against both branches. **The client repository was not touched.**
-  **Pending commit** — this row does not yet change the checkpoint SHA
-  above. Next queued gate: `CLIENT-SYNC-2B`. Full detail in
-  `docs/context/ACTIVE_GATE.md`.
+  Committed and pushed as `65a5ceab6f79896a223a4f4ef3eb9bd5a67657ae`. Full
+  detail in `docs/context/ACTIVE_GATE.md`.
+- **Amendment (2026-09-07j):** `CLIENT-SYNC-2` is **CLOSED** — all three
+  parts (`CLIENT-SYNC-2A` inspection, `CLIENT-SYNC-2A-FIX` boundary
+  preparation, `CLIENT-SYNC-2B` curation and delivery) completed against
+  development baseline `72dd1cf95e94b642f05b517c804cea235a0067b4`. The
+  accepted milestone was delivered to **client branch
+  `cc-1-command-center-progress` as
+  `3f21c3a000de5026868c2031eb865569c368e509`** (217 files changed; local
+  `HEAD` and the client remote ref verified to match). Runtime **parity**
+  was curated rather than a surgical subset, because 2A's import-closure
+  analysis showed `app.py`/`callbacks/routing.py` are hubs and a subset
+  would mean permanent client/dev divergence re-applied weekly; the 357
+  delivered paths are byte-identical to `main`. **Migrations 008–012
+  delivered** (client `007_audit_log` → `012_vibration_contract_answers`,
+  all additive, non-destructive upgrade documented in the client README
+  with an explicit instruction not to reseed), plus the `tzdata`/`fpdf2`
+  dependencies. **The simulator ships default OFF** — commented in
+  `.env.example`, described in client-facing language, production
+  fail-closed intact, and no screen implies a physical RTL was programmed.
+  **The five client-only documents were preserved.** **Full client suite
+  passed (exit 0)** and the **staged leakage check reported 366 files with
+  zero violations**. **Client `main` (`aa1dd3c`) and the stale local
+  `client-release` (`d89a090`) were both untouched** — only the one branch
+  was pushed. Two blockers were found and resolved en route: a delivered
+  test depending on undelivered material (fixed on `main` at `72dd1cf` so
+  the delivered file stays byte-identical rather than diverging), and a
+  stale documented push target (`client-release`) corrected in the local
+  `docs/CLIENT_DELIVERY.md`. Next queued gate: `CLIENT-PC-SYNC-2`. Full
+  detail in `docs/context/ACTIVE_GATE.md`.
 
 ## 2. Executive Project Position
 
@@ -518,7 +546,7 @@ lifecycle remains client-dependent.
 
 ## 7. Client Demo / Priority Overrides
 
-- **Client delivery branches**: `client-release` and `client-demo-1` branches exist for curated client-facing snapshots (see `docs/CLIENT_DELIVERY.md`). Client sees login-only subset; full app stays on `main`.
+- **Client delivery branch**: `cc-1-command-center-progress` is the LIVE delivery branch (corrected 2026-09-07 by CLIENT-SYNC-2A; see `docs/CLIENT_DELIVERY.md`). The older `client-release` (`d89a090`, 218 files, pre-Command-Center) and `client-demo-1` are superseded history — **do not push from them**, and in particular do not run the old `git push client client-release:main`, which would deliver a pre-Command-Center tree. The client now sees the full curated runtime milestone, not a login-only subset; internal engineering material still never crosses.
 - **Client Review Gate (Phase 9)**: The frontend phase cycle explicitly paused at `docs/RTL_CLIENT_REVIEW_GATE.md` with the instruction: "Do not start new implementation until those decisions are provided."
 - No evidence of unplanned demo/UI interruptions to active requirement work found in repository context.
 
@@ -634,8 +662,9 @@ Work that can be implemented without unresolved client/external decisions:
 | 9 | **LOCAL-DB-CATCHUP-1** | 🟢 COMPLETED / VERIFIED (2026-09-07) | The real development database was advanced non-destructively from `007_audit_log` to `012_vibration_contract_answers` — `alembic upgrade head` only, no reset/purge/schema-recreation/seed. Target proven first (`APP_ENV=development`, `plant_monitoring_postgres`, `localhost:5436`, `powerplant_demo`, schema `plant_monitoring`, server self-identifying inside the local Docker network — not client/production), and a validated custom-format backup (11,921,321 bytes, `pg_restore --list` OK) was taken outside the repository beforehand. All eleven pre-existing populations preserved exactly; the migration added no business records and no audit rows; the four new tables verified present and empty. Administrator browser smoke passed (Fleet Overview, C08 panel, threshold panel "Not configured", vibration panel 15 unanswered) with nothing invented. Simulator smoke verified disabled state, temporary process-only enablement, controls/warning and callback reachability; real simulated execution was NOT performed because zero legitimate queued requests existed, and no fake MSISDN/programming history was created. Flag removed afterwards; final local state simulator-disabled. See `docs/context/ACTIVE_GATE.md`. |
 | 10 | **CLIENT-SYNC-2A** | 🟢 COMPLETED / INSPECTION ONLY (2026-09-07) | Read-only curation inspection; **neither repository modified**. Verified both SHAs, read the gitignored `docs/CLIENT_DELIVERY.md` authority and CLIENT-SYNC-1 provenance (`34d5d73` + `3d4897c`). Established: client branch at migration `007_audit_log`; the delta is **not feature-separable** (import closure from `app.py` — 118 dev runtime files vs 86 client, 28 missing + 51 differing; `app.py`/`callbacks/routing.py` are hubs, so omitting simulator/vibration/threshold/C08 each needs `app.py` + `pages/plants_overview.py` surgery and permanent source divergence); ~112 test-file operations on top; five client-only documents exist that a mirror would delete; migrations 008–012 are additive-only so non-destructive `alembic upgrade head` is supported. See `docs/context/ACTIVE_GATE.md`. |
 | 11 | **CLIENT-SYNC-2A-FIX** | 🟡 IMPLEMENTED, VERIFIED, PENDING COMMIT (2026-09-07) | Prepared the curation boundary; **client repo untouched**. Leakage guard strengthened: nine previously-uncaught internal paths added (our vibration open-question register, the internal review-gate doc, the client's own spec PDF + extracted text, `check_databases.py`, both workflow-PDF generators, `railway.json`) plus refusal by SHAPE — any `.env*` except `.env.example`, any `.log`/`.dump`/`.bak`/`.sql.gz`/`.pyc` — since a hand-written list is what rotted. Violations on `main` 84 → 93; client branch still clean at 263 files. Client-visible internal terminology scrubbed from four rendered strings (C-01, C-02, two `development baseline C-15` notices) with the user meaning preserved, keeping the client's own BR016/BR008. Reset-contract classification fixed: 010/011/012 had each added a table without updating `KNOWN_TABLES` or `RESET_PRESERVES` (no behavioural defect — `RESET_REPLACES` is readings-only, and all three FK only to `users`, which `PURGE_ORDER` never deletes), now classified and `KNOWN_TABLES` **derived from the migrations' own DDL** so it cannot rot again. Full suite exit 0; context pack CLEAN; `git diff --check` clean. See `docs/context/ACTIVE_GATE.md`. |
-| 12 | **CLIENT-SYNC-2B** | 🟢 UNBLOCKED FOR ENGINEERING, NOT YET STARTED | Curate **runtime parity** into the client branch and prepare the weekly Remote Desktop demo (§7a). First decision: **parity vs surgery** — the 79-file runtime set + 5 migrations + ~112 test-file operations, or hub-file edits that diverge client source from dev permanently and must be re-applied weekly. Then: copy in dependency order (`config/` → `services/` → `components/` → `pages/` → `callbacks/` → `app.py` LAST, it is the import hub); **preserve the five client-only documents**; ship migrations 008–012 with a **non-destructive `alembic upgrade head`** instruction (no reset, no reseed) plus `tzdata`/`fpdf2`, updating the client README which currently documents a `--reset` flow; keep the simulator default-off with its production fail-closed guard intact (including it inert is cheaper than the `app.py` surgery to remove it); decide the docstring/comment terminology policy left open by 2A-FIX; and run `python -m pytest -v` green **and** `python scripts/check_client_release.py` exit 0, then read `git ls-tree -r --name-only client-release` by hand before any push. See `docs/context/ACTIVE_GATE.md`. |
-| 13 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
+| 12 | **CLIENT-SYNC-2B** | 🟢 COMPLETED / DELIVERED / REMOTE-VERIFIED (client `3f21c3a`, 2026-09-07) | Runtime **parity** curated to client branch `cc-1-command-center-progress` and pushed: 217 files changed (106 added, 107 modified, 3 deleted, 1 rename), 357 paths byte-identical to `main`, client tree 263 → 366 files and 109 → 170 test files. Migrations 008–012 delivered (`007_audit_log` → `012_vibration_contract_answers`, additive; README gained a non-destructive "Upgrading an existing installation" section that explicitly says not to reseed) plus `tzdata`/`fpdf2`. Simulator ships **default OFF** (commented in `.env.example`, client-facing wording, production fail-closed intact). Five client-only documents preserved; client-tailored README/`.env.example`/`.gitignore`/`.gitattributes`/`GETTING_STARTED.md` not overwritten. Full client suite exit 0; staged leakage check 366 files / zero violations. Client `main` (`aa1dd3c`) and stale `client-release` (`d89a090`) untouched. Two blockers resolved en route — a delivered test depending on undelivered material (fixed on `main` at `72dd1cf`, no client divergence) and the stale documented push target. See `docs/context/ACTIVE_GATE.md`. |
+| 13 | **CLIENT-PC-SYNC-2** | 🟢 UNBLOCKED FOR ENGINEERING, NOT YET STARTED | Update the CLIENT's laptop to this milestone over Remote Desktop, migrate its database non-destructively, then browser-smoke before demonstrating. Must: pull `cc-1-command-center-progress` @ `3f21c3a` (not client `main`, not `client-release`); **verify that machine's host/port/database/schema BEFORE migrating**, as LOCAL-DB-CATCHUP-1 did here; **back up and validate the backup is readable** first; `pip install -r requirements.txt` for `tzdata`/`fpdf2`; **`alembic upgrade head` only — no reset, purge or reseed**, with row counts compared before and after; then smoke login, Fleet Overview, Command Center, the device workflow, reports with CSV/PDF export and the three configuration panels — leaving thresholds unconfigured and vibration answers unanswered rather than inventing client values. Leave the simulator OFF unless deliberately demonstrating it, and turn it back off afterwards. Report defects rather than fixing them on the client machine. See `docs/context/ACTIVE_GATE.md`. |
+| 14 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
 
 ### Blocked / Waiting for Client or Integration
 

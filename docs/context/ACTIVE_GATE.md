@@ -1296,7 +1296,154 @@ complementing the live-schema purge walk rather than replacing it.
   unchanged at `012`; **no migration added by this gate**.
 - **Client repository untouched** throughout.
 
-## Next implementation gate: CLIENT-SYNC-2B — QUEUED, NOT STARTED
+## CLIENT-SYNC-2B — COMPLETED / DELIVERED / REMOTE-VERIFIED
+
+Date: 2026-09-07. Development baseline
+`72dd1cf95e94b642f05b517c804cea235a0067b4`. The accepted milestone is
+delivered to the client repository.
+
+**Delivered client branch:** `cc-1-command-center-progress`
+**Client commit:** `3f21c3a000de5026868c2031eb865569c368e509` — subject
+"feat(client): synchronize accepted runtime milestone", parent
+`3d4897cdd903d6012fca94620caedc73e081f517`. Local `HEAD` and the client
+remote's `refs/heads/cc-1-command-center-progress` both verified to match
+this SHA. 217 files changed (106 added, 107 modified, 3 deleted, 1 rename),
++32,390 / −2,928.
+
+### What was delivered
+
+Runtime **parity**, not a surgical subset — CLIENT-SYNC-2A established that
+`app.py`/`callbacks/routing.py` are import hubs, so a subset would have
+required permanent client/dev source divergence re-applied every week.
+357 paths were copied byte-identical from `main` via
+`git checkout main --pathspec-from-file`: all of `alembic/ assets/
+callbacks/ components/ config/ db/ pages/ repositories/ services/ tests/`
+plus `app.py`, `routes.py`, `alembic.ini`, `pytest.ini`,
+`docker-compose.yml`, `requirements*.txt`, the four architecture documents
+the client already held, and `scripts/run_forwarding_auto_disable.py`.
+The client tree went 263 → 366 files, 109 → 170 test files.
+
+**Migrations 008–012 delivered** (`rtl_commands`, command lifecycle,
+forwarding auto-disable override, temperature threshold config, vibration
+contract answers), taking the client from `007_audit_log` to
+`012_vibration_contract_answers`. All additive, so the documented upgrade is
+non-destructive. `requirements.txt` carries the two new pins
+(`tzdata==2026.3`, `fpdf2==2.7.9`).
+
+**The simulator remains default OFF.** `RTL_PROGRAMMING_SIMULATOR_ENABLED`
+ships commented out in `.env.example`, documented in client-facing language
+with no internal identifiers, stating that no physical RTL, MQTT, SMS or
+other external communication occurs and that enabling it under
+`APP_ENV=production` stops the application at startup. The code ships inert:
+including it costs nothing visible, whereas removing it would have required
+`app.py` surgery.
+
+**The five client-only documents were preserved** —
+`docs/DATA_AND_SYSTEM_BEHAVIOUR.md`, `DEMO_WALKTHROUGH.md`,
+`FEATURES_AND_WORKFLOWS.md`, `SYSTEM_OVERVIEW.md`,
+`USER_ROLES_AND_PERMISSIONS.md`. They exist nowhere on `main` and a blanket
+mirror would have deleted them. With `GETTING_STARTED.md` they remain the
+entire contents of the delivered `docs/`.
+
+**Client-tailored files were not overwritten:** `README.md` (gained an
+"Upgrading an existing installation" section — reinstall dependencies,
+`alembic upgrade head`, and an explicit instruction NOT to run the seed
+scripts), `docs/GETTING_STARTED.md`, `.gitignore`, `.gitattributes`,
+`.env.example`.
+
+Scoping delivery to application material rather than "everything on `main`
+minus the guard" mattered: the naive set pulled in 30 internal `docs/`
+files — spec audits, UX acceptance records, wireframes, baseline
+screenshots — that the client does not have and the guard does not catch.
+
+### Two blockers found and resolved (CLIENT-SYNC-2B-FIX)
+
+1. **A delivered test depended on undelivered material.**
+   `tests/test_build_context_pack_check.py` exercises
+   `scripts/build_context_pack.py`, which is never delivered — removed from
+   the delivery, as it was never client-relevant coverage. And one assertion
+   in `tests/test_seed_reset_contract.py` read ADR-010, which is correctly
+   excluded. Rather than dropping ~20 useful tests or diverging the client
+   copy, the test was **fixed on `main`** (`72dd1cf`) to skip only when
+   `docs/decisions/` is absent altogether; where the directory exists a
+   missing or silent ADR still fails, and the path is anchored to the
+   repository root rather than the working directory. All three behaviours
+   were verified before pushing. The delivered file is byte-identical to
+   `main`.
+2. **The documented push target was stale.** `docs/CLIENT_DELIVERY.md`
+   said to curate on `client-release` and run
+   `git push client client-release:main`. `client-release` is `d89a090`,
+   218 files, **no Command Center** — it stopped being the delivery branch
+   and was never brought forward, so that command would have delivered a
+   pre-Command-Center tree. The live delivery branch is
+   `cc-1-command-center-progress`, which is what the client actually reads
+   (`refs/heads/…` and `refs/pull/1/head` on their remote). The local
+   gitignored `CLIENT_DELIVERY.md` was corrected: delivery branch, push
+   command, the guard step, the fact that the guard reads a committed
+   branch rather than the staged index (with the one-liner to check the
+   index), and the new rule that a delivered test may not depend on
+   undelivered material.
+
+### Verification
+
+- **Full client suite: exit 0** — 366-file tree, 170 test files, run against
+  the development PostgreSQL through environment variables so no `.env` was
+  written into the client tree, with `isolated_schema` keeping it off the
+  real schema. Three legitimate skips: two pre-existing
+  `DEMO_USERNAME/DEMO_PASSWORD not configured`, and the ADR test correctly
+  reporting "no docs/decisions/ — curated delivery without ADRs".
+- **Leakage check on the staged tree: 366 files, ZERO violations.** No
+  `.env`, dump, log or debug artefact staged. (The guard's branch-based mode
+  reads the committed tree, so the staged index was checked directly —
+  the meaningful check before a commit.)
+- `git diff --cached --check` reported two items, both proven
+  byte-identical to `main` and therefore inherited rather than introduced:
+  trailing whitespace at line 21 of the vendored
+  `assets/fonts/ibm-plex-sans/LICENSE.txt` (third-party licence shipped
+  verbatim — `assets/app.css` requires the font) and a blank line at EOF in
+  `tests/test_report_installed_rtls.py`. Surfaced to the user before
+  pushing; they chose to push as-is, since a third-party licence must not
+  be edited and neither item came from this curation.
+- **Client `main` untouched** at `aa1dd3cb13ac3b6c1e9191398b888a2be3c903ca`;
+  the stale local `client-release` untouched at `d89a090` and absent from
+  the client remote entirely. Only the one branch was pushed.
+- Real development database unchanged at `012_vibration_contract_answers`.
+
+## Next implementation gate: CLIENT-PC-SYNC-2 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once CLIENT-SYNC-2B was delivered and remote-verified above.
+Not started. Scope: update the **client's own laptop** to this milestone over
+Remote Desktop (`PROJECT_LEDGER.md` §7a), migrate its database
+non-destructively, then browser-smoke the result before demonstrating it.
+
+It must:
+
+- **Pull `cc-1-command-center-progress` at `3f21c3a…`** on the client
+  machine — not `main`, which is deliberately behind, and not the stale
+  `client-release`.
+- **Verify the target environment BEFORE migrating**, the same way
+  LOCAL-DB-CATCHUP-1 did on the development machine: confirm which
+  host/port/database/schema that laptop's Alembic actually points at, and
+  confirm it is the client's local development database. Check first,
+  migrate second.
+- **Back up that database before touching it**, and validate the backup is
+  readable — not merely non-empty.
+- **`pip install -r requirements.txt`** for `tzdata` and `fpdf2`.
+- **Migrate non-destructively: `alembic upgrade head` only.** No reset, no
+  purge, no reseed, no `--reset` — the client laptop's existing data must
+  survive, and the README now says so explicitly. Record row counts before
+  and after and compare them.
+- **Browser-smoke what the upgrade makes reachable**: login, Fleet Overview,
+  Command Center, the device workflow, reports with CSV/PDF export, and the
+  three configuration panels — leaving thresholds unconfigured and vibration
+  answers unanswered rather than inventing client values.
+- **Leave the simulator OFF** unless deliberately demonstrating it, and turn
+  it back off afterwards. No screen may imply a physical RTL was programmed.
+- Report any defect found rather than fixing it on the client machine.
+
+---
+
+## CLIENT-SYNC-2B — original queued scope (2026-09-07, SUPERSEDED)
 
 Set 2026-09-07, once CLIENT-SYNC-2A-FIX was verified above. Not started.
 Scope: **curate runtime parity into the client branch** — carry the

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T13:23:17Z
+Date: 2026-09-07T14:39:43Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `be560ee` "docs(context): close local database catch-up"
-- Working tree: 9 entries — see below
+- `main` = `72dd1cf` "test(seed): skip the ADR check only where no ADRs are delivered"
+- Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2914 passed, 686 deselected in 23.64s
+- `python -m pytest -m "not db"` → 2914 passed, 686 deselected in 23.65s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 269 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 119 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 269 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 12 | 271 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 121 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 271 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -82,14 +82,8 @@ C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) p
 ## Working tree
 
 ```
-M callbacks/report_center.py
- M components/temperature_threshold_panel.py
- M components/vibration_contract_panel.py
- M db/seed_plant_monitoring.py
- M docs/context/ACTIVE_GATE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
- M scripts/check_client_release.py
- M tests/test_seed_reset_contract.py
 ?? debug.log
 ```
 
