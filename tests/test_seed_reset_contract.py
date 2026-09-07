@@ -43,7 +43,11 @@ FRESH_SOURCE = pathlib.Path(fresh.__file__).read_text(encoding="utf-8")
 #: Static parsing, not a database read, so this stays a pure ("not db")
 #: test — the live-schema walk it complements is
 #: `TestPurgeOrderAgainstTheLiveSchema` below.
-_MIGRATIONS_DIR = pathlib.Path(seed.__file__).resolve().parents[1] / "alembic" / "versions"
+#: Repository root, derived from a module this package always imports —
+#: never the working directory, which varies with how pytest was invoked.
+_REPO_ROOT = pathlib.Path(seed.__file__).resolve().parents[1]
+
+_MIGRATIONS_DIR = _REPO_ROOT / "alembic" / "versions"
 _CREATE_TABLE_RE = re.compile(r"""op\.create_table\(\s*["'](\w+)["']""")
 
 
@@ -114,10 +118,34 @@ class TestNoCascade:
         assert not re.search(r"CASCADE", code, re.IGNORECASE)
 
     def test_the_adr_says_why(self):
-        adr = pathlib.Path(
-            "docs/decisions/ADR-010-monitoring-reset-preserves-operational-history.md"
-        ).read_text(encoding="utf-8")
-        assert "CASCADE" in adr
+        """The decision record must explain why CASCADE is not used.
+
+        Skipped ONLY where `docs/decisions/` is absent altogether — a
+        curated client delivery, which deliberately carries no ADRs
+        (docs/CLIENT_DELIVERY.md). That is the one legitimate reason for
+        this file to be missing.
+
+        Where the directory exists, a missing or silent ADR is a real
+        failure and is reported as one: the skip must never become a way
+        for the record to quietly disappear from the development
+        repository. Anchored to the repository root rather than the
+        working directory, so it does not depend on where pytest was
+        invoked from.
+        """
+        decisions = _REPO_ROOT / "docs" / "decisions"
+        if not decisions.is_dir():
+            pytest.skip(
+                "no docs/decisions/ — curated delivery without ADRs"
+            )
+
+        adr = decisions / (
+            "ADR-010-monitoring-reset-preserves-operational-history.md"
+        )
+        assert adr.is_file(), (
+            f"{adr.name} is missing while docs/decisions/ exists — the "
+            "reset contract has lost its decision record"
+        )
+        assert "CASCADE" in adr.read_text(encoding="utf-8")
 
 
 class TestPurgeIsSeparateAndExplicit:
