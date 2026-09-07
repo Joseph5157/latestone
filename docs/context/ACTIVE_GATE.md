@@ -817,7 +817,13 @@ localized and reversible (a dict mapping plus one shared transaction, not
 a new external boundary), which argues against a new ADR, but a future
 session may judge otherwise once RTL-PROG-SIM-1 exists alongside it.
 
-## RTL-PROG-SIM-1 — IMPLEMENTED / VERIFIED / PENDING COMMIT
+## RTL-PROG-SIM-1 — CLOSED / PUSHED / REMOTE-VERIFIED
+
+Branch: `main`, baseline `0787b90a3f658b2bf347f1ae58b659b181d33c52` (the
+RTL-PROG-EXEC-1 commit). Commit: `603e1581a53a42e15c1ed865f774e8751363a770`
+— subject "feat(programming): add development simulation flow". Pushed to
+`origin/main`; local `HEAD`, `origin/main`, and
+`git ls-remote origin refs/heads/main` all verified to match this SHA.
 
 Date: 2026-09-07. The demo flow now runs end to end locally: **Program
 RTL → request queued → explicitly simulate → sent → successful/failed**,
@@ -964,8 +970,13 @@ structurally absent from `rtl_programming_execution_service.py`,
   the sole head (this gate adds no migration).
 - `git diff --check` — clean. `python scripts/build_context_pack.py
   --check` — CLEAN.
-- Real dev Postgres remains at migration `007_audit_log` — untouched and
-  deliberately not upgraded by this gate.
+- Real dev Postgres remained at migration `007_audit_log` at this gate's
+  close — untouched and deliberately not upgraded by it. **This is no
+  longer current**: `LOCAL-DB-CATCHUP-1` (below) subsequently advanced the
+  real dev DB to `012_vibration_contract_answers`.
+- Push verification: after `git push origin main`, `git rev-parse HEAD`,
+  `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main`
+  all returned `603e1581a53a42e15c1ed865f774e8751363a770`.
 
 ### Known ambiguity
 
@@ -975,6 +986,193 @@ open question flagged at RTL-PROG-EXEC-1's close — whether the
 reconciliation/orchestration design should become its own ADR — now has a
 second tranche standing on it (this gate's environment boundary) and
 remains deliberately unresolved rather than decided unilaterally here.
+
+## LOCAL-DB-CATCHUP-1 — COMPLETED / VERIFIED
+
+Date: 2026-09-07. Environment/verification gate, **no application code
+and no tracked-document change beyond this closure record**. The real
+development database had fallen five migrations behind the code, because
+every gate since `007_audit_log` deliberately left it alone (the suite
+exercises migrations through the `isolated_schema` fixture only, never the
+real `plant_monitoring` schema). This gate closed that gap as its own
+careful, non-destructive step and then smoke-tested what the upgrade made
+reachable. Application commit at execution time:
+`603e1581a53a42e15c1ed865f774e8751363a770`.
+
+### Preflight — the target was proven before anything was touched
+
+- `APP_ENV=development` (`IS_PRODUCTION=False`, simulator resolved
+  `False`).
+- Docker container `plant_monitoring_postgres` (`postgres:16`, healthy),
+  published `0.0.0.0:5436->5432/tcp`.
+- Host `localhost`, **port 5436**, database `powerplant_demo`, schema
+  `plant_monitoring`.
+- The server was asked for its own identity rather than trusting
+  configuration: `inet_server_addr 172.24.0.3`, `inet_server_port 5432`,
+  PostgreSQL 16.14 (Debian) — inside the local Docker network, **not a
+  client or production target**.
+- `alembic current` = `007_audit_log`; `alembic heads` =
+  `012_vibration_contract_answers` (sole head).
+- Only non-secret connection metadata was reported at any point; no
+  password, credential, secret key or `.env` content was printed.
+
+### Backup — taken and validated before migrating
+
+A PostgreSQL **custom-format** dump was written **outside the repository**
+before the upgrade, via `docker exec … pg_dump -Fc` with the password
+supplied through the environment and never echoed. Non-zero size:
+**11,921,321 bytes**. Validated by streaming it back through
+`pg_restore --list`, which read it successfully: CUSTOM format,
+`dbname: powerplant_demo`, 184 TOC entries, 27 `TABLE DATA` entries. (The
+backup path is deliberately not recorded here — it is a local operator
+artifact, not repository state.)
+
+### Migration — non-destructive, upgrade only
+
+One `python -m alembic upgrade head`, which advanced:
+
+```
+007_audit_log
+  -> 008_rtl_commands
+  -> 009_rtl_command_lifecycle
+  -> 010_forwarding_auto_disable
+  -> 011_temperature_threshold_config
+  -> 012_vibration_contract_answers
+```
+
+**No reset, no purge, no schema drop/recreate, and no seed script**
+(`db/seed_plant_monitoring.py`, `db/seed_admin_demo.py`) was run at any
+point.
+
+### Preservation — every pre-existing population identical
+
+| Table | Before | After |
+|---|---|---|
+| `plants` | 30 | 30 |
+| `transformers` | 71 | 71 |
+| `devices` | 120 | 120 |
+| `readings` | 1,383,360 | 1,383,360 |
+| `users` | 7 | 7 |
+| `user_device_assignments` | 96 | 96 |
+| `device_events` | 13 | 13 |
+| `audit_log` | 3 | 3 |
+| `message_forwarding` | 1 | 1 |
+| `rtl_active_state` | 2 | 2 |
+| `rtl_programming_requests` | 0 | 0 |
+
+**The migration itself added no business records and no audit rows.**
+Table count went 12 → 16.
+
+### New schema objects verified
+
+- `rtl_commands` — present with its 009 lifecycle columns (`sent_at`,
+  `acknowledged_at`, `completed_at`, `failure_code`, `failure_detail`),
+  `uq_rtl_commands_request_id` (ADR-017's one-command-per-request), and
+  the four ordering/failure CHECK constraints.
+- `forwarding_auto_disable_override` — singleton CHECK + user FK.
+- `temperature_threshold_config` — singleton CHECK,
+  `warning < critical` CHECK, user FK.
+- `vibration_contract_answers` — PK + user FK, and deliberately **no**
+  CHECK on `question_key` (VIB-CONFIG-1's decision, intact).
+
+**All four new tables were empty / unconfigured after migration. No
+business values were invented anywhere.**
+
+### Administrator browser smoke (Playwright/Chromium, real upgraded DB)
+
+Signed in with the configured administrator credential and confirmed
+against the real data: Fleet Overview loads; the C08 auto-disable override
+panel renders ("Default cutoff: 18:30 Africa/Johannesburg. No override…");
+the temperature threshold panel renders and correctly reads **"Not
+configured."**; the vibration contract panel renders **15 "Unanswered"**
+items and "0 of 15 questions answered". No DB/schema error text appeared
+anywhere on the page. **No fake temperature thresholds and no vibration
+contract answers were created** — reachability/read rendering was treated
+as sufficient, exactly as the gate required.
+
+### Simulator smoke
+
+- **Disabled state verified first**: with the simulator off, none of the
+  four simulation control ids exist in the Program RTL panel, and the
+  pre-existing "Requests are recorded, not sent." honesty notice is
+  intact.
+- **Temporary, process-only enablement** (an environment variable on the
+  app process — `.env` was never edited, and a check confirmed the flag is
+  absent from it) rendered the simulation controls, the **"Development
+  simulation — no physical RTL, MQTT, SMS or Eskom communication occurs."**
+  warning, and the "not evidence that any physical RTL was programmed"
+  wording. Callback reachability confirmed: the simulation callback binds
+  `program-rtl-sim-result.children` only in that mode.
+- **No real simulated execution was performed.** The dev database contained
+  **zero** programming requests, so no legitimate queued request existed to
+  simulate. Per this gate's own constraint, **no fake Master MSISDN and no
+  permanent fake programming history were created**. Success/Failure/
+  Timeout execution is already covered by the isolated-schema DB tests in
+  `tests/test_rtl_programming_simulation.py`.
+- **The simulator flag was removed afterwards.** Final local state is
+  simulator **disabled**: absent from the shell environment, absent from
+  `.env`, `programming_simulator.enabled = False`,
+  `is_simulation_enabled() = False`, and every app process started by this
+  gate was stopped.
+
+### Non-blocking observations (neither is a defect in this gate)
+
+1. A pre-existing **React uncontrolled→controlled input warning** appears
+   in the browser console on authenticated pages. Traced to the manage
+   drawer's Program RTL inputs (`program-rtl-uid`, `program-rtl-msisdn`),
+   which have carried no initial `value` prop since well before this work
+   — byte-identical at pre-session commit `d10c566`. Cosmetic, dev-mode
+   only, unrelated to migrations 008–012 and to RTL-PROG-SIM-1. Not fixed
+   here: this gate does not edit application code.
+2. **Two pre-existing `app.py` processes** (a different Python
+   interpreter, not started by this gate, not bound to a port) remain
+   running on the machine — the same "stray process" class
+   `LOCAL-ENV-CLEAN-1` dealt with before. Left untouched because their
+   ownership was uncertain and killing someone's running work is not a
+   side effect this gate should take unasked.
+
+### Final state
+
+- **Real dev DB revision: `012_vibration_contract_answers`** — now level
+  with the code. `alembic heads` still reports it as the sole head.
+- Worktree clean except `?? debug.log`; `git diff --check` clean; no
+  tracked file changed by the verification work itself (the Playwright
+  scripts and screenshots were written to a session scratchpad outside the
+  repository).
+
+## Next implementation gate: CLIENT-SYNC-2 — QUEUED, NOT STARTED
+
+Set 2026-09-07, once LOCAL-DB-CATCHUP-1 was verified above. Not started.
+Scope: curate the accepted current development milestone into the client
+delivery repository/branch and prepare the next weekly client demo
+(`docs/context/PROJECT_LEDGER.md` §7a — accepted development is
+synchronized to the client GitHub repo at suitable weekly milestones, and
+demonstrated on the client's own laptop by Remote Desktop).
+
+**This is a CURATION gate, not a mirror.** Whoever opens it must:
+
+- **Inspect the existing client-delivery workflow and CLIENT-SYNC-1's own
+  provenance FIRST** — `docs/CLIENT_DELIVERY.md`, the `client-release` /
+  `client-demo-1` branches, and `scripts/check_client_release.py` — before
+  deciding anything. The curation policy already exists; this gate follows
+  it rather than inventing a new one.
+- **Determine exactly which accepted changes since the last client sync
+  are suitable for demonstration**, item by item, with a reason for each
+  inclusion and exclusion.
+- **Preserve the existing `client-release` leakage safeguards unchanged**:
+  the never-curate list, the curation-by-hand model, and
+  `scripts/check_client_release.py` still govern every push.
+- **Do NOT blindly mirror the development repository.**
+- **Keep development-only/internal tooling, context documents, secrets,
+  debug files and simulator enablement OUT of the client delivery** unless
+  the existing curation policy explicitly permits them.
+- Simulation **may** be demo-capable, but must remain clearly
+  development-only and **default-off** — the RTL-PROG-SIM-1 boundary
+  (explicit opt-in, fail-closed under `APP_ENV=production`) must survive
+  curation intact, and no client-facing screen may imply a physical RTL
+  was programmed.
+
+---
 
 ## Next implementation gate: LOCAL-DB-CATCHUP-1 — QUEUED, NOT STARTED
 

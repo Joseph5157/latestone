@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T12:16:36Z
+Date: 2026-09-07T12:51:21Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `0787b90` "feat(programming): reconcile command execution status"
-- Working tree: 12 entries — see below
+- `main` = `603e158` "feat(programming): add development simulation flow"
+- Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2914 passed, 686 deselected in 23.84s
+- `python -m pytest -m "not db"` → 2914 passed, 686 deselected in 23.65s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 11 | 267 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 117 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 267 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 11 | 268 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 118 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 268 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -82,17 +82,8 @@ C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) p
 ## Working tree
 
 ```
-M .env.example
- M app.py
- M callbacks/device_manage.py
- M components/device_manage_drawer.py
- M config/settings.py
- M docs/context/ACTIVE_GATE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
- M tests/test_action_guard_callbacks.py
-?? callbacks/rtl_programming_simulation.py
 ?? debug.log
-?? services/rtl_programming_simulation_service.py
-?? tests/test_rtl_programming_simulation.py
 ```
 
