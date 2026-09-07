@@ -63,12 +63,22 @@ def vibration_contract_panel(
         className="vibration-contract-panel",
         children=[
             html.H3(
-                "Vibration Contract (C-02, framework only)",
+                "Vibration Contract",
                 className="vibration-contract-panel__heading",
             ),
             html.P(
                 f"{answered_count} of {total_count} questions answered.",
                 className="vibration-contract-panel__status",
+            ),
+            # The heading used to carry an internal tracking id to say this.
+            # The meaning is load-bearing and the id was not: this records
+            # the sensor specification as it becomes known, and no vibration
+            # data is monitored, charted or alarmed anywhere.
+            html.P(
+                "Records the vibration sensor specification as it is "
+                "confirmed. Vibration is not yet measured, charted or "
+                "alarmed anywhere in the application.",
+                className="vibration-contract-panel__note",
             ),
             html.Ul(
                 _summary_rows(answers),

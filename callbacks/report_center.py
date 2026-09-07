@@ -253,9 +253,9 @@ def _build_definition_status(report_key: str) -> html.Div:
                 )),
                 html.P(
                     "Default period is a rolling 30 days; a custom date "
-                    "range is also available (development baseline C-15, "
-                    "pending client confirmation). OU, Zone, Sector, CNC "
-                    "and Feeder Name are unavailable until the client "
+                    "range is also available. That default is provisional "
+                    "and remains subject to confirmation. OU, Zone, Sector, "
+                    "CNC and Feeder Name are unavailable until the client "
                     "asset-hierarchy mapping is confirmed; they are shown "
                     "as placeholders. Date Installed reflects the specific "
                     "device that recorded the maximum and is blank when "
@@ -660,9 +660,9 @@ def register(app) -> None:
             ]
             notice_style = {"display": "block", "marginTop": "4px"}
             notice = html.Em(
-                "Default period is a rolling 30 days (development baseline "
-                "C-15, pending client confirmation). Choose Custom for a "
-                "specific date range.",
+                "Default period is a rolling 30 days; that default is "
+                "provisional and remains subject to confirmation. Choose "
+                "Custom for a specific date range.",
                 className="report-form__note",
             )
             return (

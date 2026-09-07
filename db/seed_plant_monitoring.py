@@ -76,6 +76,16 @@ RESET_PRESERVES = (
     "audit_log",
     "message_forwarding",
     "users",
+    # Administrator-set configuration (migrations 010/011/012). A reseed of
+    # synthetic telemetry is not a reason to forget a configured cutoff
+    # override, temperature threshold, or recorded vibration contract
+    # answer — and none of them is measurement data this seed owns. They
+    # were added by three consecutive migrations without being classified
+    # here; the reset never touched them (RESET_REPLACES is readings only),
+    # so behaviour was always correct, but this contract did not say so.
+    "forwarding_auto_disable_override",
+    "temperature_threshold_config",
+    "vibration_contract_answers",
 )
 
 #: FK-safe deletion order for the DESTRUCTIVE teardown only (ADR-010 D3).

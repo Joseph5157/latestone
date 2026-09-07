@@ -36,6 +36,27 @@ FORBIDDEN_FILES = {
     "docs/DEMO_RUNSHEET.md",
     "scripts/check_client_release.py",
     "scripts/build_context_pack.py",
+    # --- added after CLIENT-SYNC-2A, which found these tracked on `main`
+    # --- and reachable by a careless copy while this guard stayed silent.
+    #
+    # Our open questions about the client's own vibration sensor. Publishing
+    # it hands the client a list of things we do not know, presented as
+    # project material.
+    "docs/VIBRATION_METRIC_CONTRACT_TBD.md",
+    # Internal decision/review gate record, same class as docs/context/.
+    "docs/RTL_CLIENT_REVIEW_GATE.md",
+    # The client's own specification PDF and the text extracted from it.
+    # Theirs, not ours to redistribute back to them as our deliverable.
+    "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf",
+    "pdf_content.txt",
+    "pdf_content_up_to_3.4.txt",
+    # Internal working scripts: a database inspection scratch script and the
+    # generators for our own internal workflow documents.
+    "check_databases.py",
+    "scripts/generate_workflow_pdf.py",
+    "scripts/generate_workflow_deep_dive_pdf.py",
+    # Our deployment infrastructure, not part of the delivered application.
+    "railway.json",
 }
 
 #: Any path under one of these directories is internal.
@@ -52,7 +73,28 @@ FORBIDDEN_PREFIXES = (
 )
 
 #: Filename patterns that are internal wherever they sit.
-FORBIDDEN_SUFFIXES = ("_PLANNING_PROMPT.md", "_IMPLEMENTATION_SPEC.md")
+FORBIDDEN_SUFFIXES = (
+    "_PLANNING_PROMPT.md",
+    "_IMPLEMENTATION_SPEC.md",
+    # Session/debug artefacts and database backups. Named by SHAPE rather
+    # than by filename because the exact list above is the part that rots —
+    # `PURGE_ORDER` and this file's own sibling checks both went stale
+    # exactly that way. A pattern keeps catching tomorrow's `debug2.log`.
+    ".log",
+    ".dump",
+    ".bak",
+    ".sql.gz",
+    ".pyc",
+)
+
+#: The only dotenv file that may ship. Everything else matching `.env*`
+#: is a real environment file and therefore real credentials.
+ALLOWED_ENV_FILE = ".env.example"
+
+
+def _is_secret_env_file(path: str) -> bool:
+    name = path.rsplit("/", 1)[-1]
+    return name.startswith(".env") and name != ALLOWED_ENV_FILE
 
 
 def tree_paths(branch: str) -> list[str]:
@@ -73,6 +115,7 @@ def violations(paths: list[str]) -> list[str]:
         if path in FORBIDDEN_FILES
         or path.startswith(FORBIDDEN_PREFIXES)
         or path.endswith(FORBIDDEN_SUFFIXES)
+        or _is_secret_env_file(path)
     ]
     return sorted(found)
 

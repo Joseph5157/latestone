@@ -1140,11 +1140,209 @@ as sufficient, exactly as the gate required.
   scripts and screenshots were written to a session scratchpad outside the
   repository).
 
-## Next implementation gate: CLIENT-SYNC-2 — QUEUED, NOT STARTED
+## CLIENT-SYNC-2A — COMPLETED / INSPECTION ONLY
 
-Set 2026-09-07, once LOCAL-DB-CATCHUP-1 was verified above. Not started.
-Scope: curate the accepted current development milestone into the client
-delivery repository/branch and prepare the next weekly client demo
+Date: 2026-09-07. Read-only inspection against development checkpoint
+`be560eeda825c8f2ec7f1b87620ad589d1dea24e` and client progress branch
+`cc-1-command-center-progress` @ `3d4897cdd903d6012fca94620caedc73e081f517`
+(both SHAs verified; client `main` = `aa1dd3c`). **Neither repository was
+modified** — nothing copied, staged, committed, pushed, or checked out.
+
+Authority read first: `docs/CLIENT_DELIVERY.md` (present locally,
+gitignored by design at `.gitignore:38` — absence from GitHub is not
+absence from the machine), `scripts/check_client_release.py`, and the
+CLIENT-SYNC-1 provenance (`34d5d73`, the substantive 66-path Command
+Center curation; `3d4897c`, a single `assets/app.css` fix).
+
+### What the inspection established
+
+- **Client branch migration head is `007_audit_log`** — five behind the
+  code.
+- **The delta is not feature-separable.** An import-closure walk from
+  `app.py` on both branches (first-party imports only, resolving
+  `from package import submodule`) gives **118 runtime files on dev vs 86
+  on the client**: 28 missing entirely, 51 present but different. `app.py`
+  and `callbacks/routing.py` are import hubs, so leaving out the
+  simulator, vibration, threshold or C08 each requires **editing
+  `app.py` and `pages/plants_overview.py`** — permanent client/dev source
+  divergence that must be re-applied every week, not a file-selection
+  choice. Reports, notification delivery and the simulated event source
+  are self-contained by contrast.
+- **Test obligation** (`CLIENT_DELIVERY.md` requires a green suite before
+  any push): 64 new test files, 46 modified, 2 deleted. Client has 109
+  test files, dev 171. Realistic total curation set ≈ 200 file
+  operations — a parity sync, not a weekly slice.
+- **The client branch holds 5 documents that exist nowhere on `main`**
+  (`docs/DATA_AND_SYSTEM_BEHAVIOUR.md`, `DEMO_WALKTHROUGH.md`,
+  `FEATURES_AND_WORKFLOWS.md`, `SYSTEM_OVERVIEW.md`,
+  `USER_ROLES_AND_PERMISSIONS.md`, from `ea0e184`). They appear as
+  deletions in a dev-vs-client diff — a blanket mirror would destroy the
+  client's own documentation pack.
+- **Migrations 008–012 are additive-only** (008/010/011/012 are
+  `create_table`; 009 only `add_column`s onto the table 008 creates), so a
+  non-destructive `alembic upgrade head` is supported by evidence on the
+  client laptop — no reset, no reseed. New dependencies for the client:
+  `tzdata==2026.3`, `fpdf2==2.7.9`.
+- **The leakage guard had gaps**, and client-visible UI carried internal
+  clarification-register ids. Both are fixed by CLIENT-SYNC-2A-FIX below.
+
+A first pass at this inspection grouped files by grep and presented
+feature-by-feature curation as available. It was wrong: the import
+closure had not been computed. Recorded here because the corrected
+finding — that curation here is parity-or-surgery — is the decision the
+next gate rests on.
+
+## CLIENT-SYNC-2A-FIX — IMPLEMENTED / VERIFIED / PENDING COMMIT
+
+Date: 2026-09-07. Prepares the curation boundary before anything is
+copied. **The client repository was not touched.**
+
+### Client leakage guard strengthened
+
+`scripts/check_client_release.py` now catches the nine paths CLIENT-SYNC-2A
+found tracked on `main` while the guard stayed silent: our own open-question
+register `docs/VIBRATION_METRIC_CONTRACT_TBD.md`, the internal
+`docs/RTL_CLIENT_REVIEW_GATE.md`, the client's own specification PDF plus
+`pdf_content.txt`/`pdf_content_up_to_3.4.txt` extracted from it,
+`check_databases.py`, both `scripts/generate_workflow*.py`, and
+`railway.json`. Violations on `main` go **84 → 93**; the client branch
+still reports **clean, 263 files, no internal material**.
+
+It also now refuses by **shape, not only by name** — any `.env*` other
+than `.env.example`, and any `.log`/`.dump`/`.bak`/`.sql.gz`/`.pyc` —
+because a hand-written list is precisely what rotted here, the same
+failure mode as the original `PURGE_ORDER` defect (ADR-010/SEED-RESET-1).
+Checked in both directions: no legitimate delivered file (`.env.example`,
+`app.py`, migrations, assets, tests) is flagged, and `.env`, `.env.local`,
+`debug.log`, `backup.dump` all are.
+
+`docs/CLIENT_DELIVERY.md`'s never-curate list was updated to match (that
+file is gitignored, so it is not part of the commit — but it is the
+human control the doc itself calls "the control", so it must not drift
+from the guard).
+
+### Client-visible internal terminology scrubbed
+
+Four rendered strings carried internal clarification-register ids. In each
+the id was doing real work, so the **meaning was preserved and only the id
+removed**:
+
+- Threshold heading `"… Threshold (C-01, framework only)"` → `"… Threshold"`
+  plus "Recorded as configuration only. These values do not yet raise
+  alarms or change any device's monitoring status."
+- Vibration heading `"Vibration Contract (C-02, framework only)"` →
+  `"Vibration Contract"` plus "Records the vibration sensor specification
+  as it is confirmed. Vibration is not yet measured, charted or alarmed
+  anywhere in the application."
+- Both Report Centre period notices: `"(development baseline C-15, pending
+  client confirmation)"` → "that default is provisional and remains
+  subject to confirmation" (the asserted `"rolling 30 days"` wording is
+  unchanged).
+
+Verified by rendering both panels — no internal id reaches the screen.
+**Deliberately kept:** `BR016`/`BR008`, which are the CLIENT's own
+functional-spec ids and meaningful to them, and the `ADR-002` reference in
+a `situation_summary.py` docstring, which is not rendered.
+
+**Deliberately NOT scrubbed:** internal gate names and ids in module
+docstrings and code comments (`temperature_threshold_panel.py:1`,
+`callbacks/vibration_contract.py:1`, `pages/report_center.py:4`, …). That
+terminology is pervasive across the codebase (`RTL-IF-2`, `AUD-1`,
+`FWD-D5`, `ADR-018`) and is genuine traceability on `main`; removing it
+wholesale would be a large, value-destroying change. Whether delivered
+`.py` files may carry it is a **curation-policy decision for
+CLIENT-SYNC-2B**, not a defect here.
+
+### Reset-contract table classification fixed
+
+The gap was **genuinely stale**, so it was fixed rather than left.
+Migrations 010, 011 and 012 each added a table and none was classified;
+`tests/test_seed_reset_contract.py`'s hand-written `KNOWN_TABLES` (12) and
+`db/seed_plant_monitoring.py`'s `RESET_PRESERVES` were stale in the SAME
+direction, so `assert KNOWN_TABLES == classified` kept passing — the one
+way a hand-written expectation fails silently, and exactly the rot that
+check exists to prevent.
+
+**No behavioural defect existed**: `RESET_REPLACES == ("readings",)` so a
+reset never touched them, and all three FK only to `users`, which
+`PURGE_ORDER` deliberately never deletes — so
+`TestPurgeOrderAgainstTheLiveSchema` was correctly silent. The contract
+simply did not *say* they were preserved.
+
+Fixed on both sides: `forwarding_auto_disable_override`,
+`temperature_threshold_config` and `vibration_contract_answers` are now in
+`RESET_PRESERVES` (stating what already happens), and `KNOWN_TABLES` is
+**derived from `op.create_table(...)` in the migration files** — which is
+what its own docstring already claimed it was. 15 tables, self-maintaining,
+and a future migration that adds an unclassified table now fails this test.
+Proven to bite by simulating one. It remains a pure (`not db`) test,
+complementing the live-schema purge walk rather than replacing it.
+
+### Verification
+
+- Focused: `tests/test_seed_reset_contract.py`,
+  `tests/test_temperature_threshold_panel.py`,
+  `tests/test_vibration_contract_panel.py`,
+  `tests/test_temperature_threshold.py`, `tests/test_vibration_contract.py`,
+  `tests/test_report_center.py`, `tests/test_report_max_temperature.py`,
+  `tests/test_report_export.py`, `tests/test_equipment_selector.py` — all
+  passed.
+- Full suite: `python -m pytest -q` — all passed, exit 0.
+- Leakage: guard clean against `cc-1-command-center-progress` (263 files);
+  93 violations against `main`, the nine new ones confirmed individually.
+- `python scripts/build_context_pack.py --check` — CLEAN.
+  `git diff --check` — clean.
+- Alembic head unchanged (`012_vibration_contract_answers`); real dev DB
+  unchanged at `012`; **no migration added by this gate**.
+- **Client repository untouched** throughout.
+
+## Next implementation gate: CLIENT-SYNC-2B — QUEUED, NOT STARTED
+
+Set 2026-09-07, once CLIENT-SYNC-2A-FIX was verified above. Not started.
+Scope: **curate runtime parity into the client branch** — carry the
+accepted development milestone into `client-release` and push it to
+`powerplant-dashboard-client`, then prepare the weekly Remote Desktop demo.
+
+CLIENT-SYNC-2A established that the honest options are parity or surgery:
+the 79-file runtime set (28 missing + 51 differing) plus 5 migrations and
+~112 test-file operations, or hub-file edits to `app.py` /
+`pages/plants_overview.py` that diverge client source from dev permanently
+and must be re-applied every week. **Whoever opens this gate decides that
+first** — everything else follows from it.
+
+It must:
+
+- Copy in dependency order — `config/` → `services/` → `components/` →
+  `pages/` → `callbacks/` → `app.py` **last**, since it is the import hub
+  and copying it early leaves the tree unimportable.
+- **Preserve the five client-only documents** listed above; they must
+  survive the sync.
+- Ship migrations 008–012 and instruct a **non-destructive
+  `alembic upgrade head`** — no reset, no reseed — plus the two new
+  dependencies. The client README currently documents a `--reset` refresh
+  flow and needs an "upgrading an existing database" section.
+- Keep the simulator **default-off**: the `.env.example` line stays
+  commented, and the production fail-closed guard must survive curation
+  intact. Including the code inert is cheaper and safer than the `app.py`
+  surgery removing it would require.
+- Decide the docstring/comment terminology policy left open above.
+- Run `python -m pytest -v` (green) **and**
+  `python scripts/check_client_release.py` (exit 0) before any push, then
+  read `git ls-tree -r --name-only client-release` by hand — the guard is
+  a second check, never a replacement for the curation judgement.
+
+---
+
+## CLIENT-SYNC-2 — original queued scope (2026-09-07, SUPERSEDED)
+
+Superseded by CLIENT-SYNC-2A / CLIENT-SYNC-2A-FIX / CLIENT-SYNC-2B above,
+which split this single gate into inspect → prepare the boundary →
+curate. Retained because its constraints were not weakened by that split
+— every one of them still binds CLIENT-SYNC-2B.
+
+Set 2026-09-07, once LOCAL-DB-CATCHUP-1 was verified. Scope: curate the
+accepted current development milestone into the client delivery
+repository/branch and prepare the next weekly client demo
 (`docs/context/PROJECT_LEDGER.md` §7a — accepted development is
 synchronized to the client GitHub repo at suitable weekly milestones, and
 demonstrated on the client's own laptop by Remote Desktop).

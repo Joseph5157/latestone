@@ -69,12 +69,21 @@ def temperature_threshold_panel(
         className="temperature-threshold-panel",
         children=[
             html.H3(
-                f"{_TEMPERATURE_METRIC.label} Threshold (C-01, framework only)",
+                f"{_TEMPERATURE_METRIC.label} Threshold",
                 className="temperature-threshold-panel__heading",
             ),
             html.P(
                 _status_text(state),
                 className="temperature-threshold-panel__status",
+            ),
+            # The heading used to carry an internal tracking id to say this.
+            # The meaning is load-bearing and the id was not: these values
+            # are stored configuration, and nothing reads them back to
+            # evaluate a reading yet.
+            html.P(
+                "Recorded as configuration only. These values do not yet "
+                "raise alarms or change any device's monitoring status.",
+                className="temperature-threshold-panel__note",
             ),
             html.Div(
                 className="temperature-threshold-panel__form",

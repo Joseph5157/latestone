@@ -27,15 +27,36 @@ from db import seed_plant_monitoring as seed
 SEED_SOURCE = pathlib.Path(seed.__file__).read_text(encoding="utf-8")
 FRESH_SOURCE = pathlib.Path(fresh.__file__).read_text(encoding="utf-8")
 
-#: Every table the schema actually has, from the migration-owned DDL. Kept
-#: here as the expected universe so a new table has to be classified rather
-#: than silently ignored.
-KNOWN_TABLES = {
-    "plants", "transformers", "devices", "readings",
-    "device_events", "user_device_assignments", "rtl_active_state",
-    "rtl_programming_requests", "rtl_commands", "audit_log",
-    "message_forwarding", "users",
-}
+#: Every table the schema actually has, READ FROM the migration-owned DDL
+#: rather than restated here.
+#:
+#: This used to be a hand-written set, and it rotted exactly the way
+#: PURGE_ORDER once did: migrations 010, 011 and 012 each added a table and
+#: none was added here, so `test_the_classification_covers_every_table`
+#: kept passing while three tables sat unclassified. Both sides of that
+#: assertion were stale in the same direction, which is the one way a
+#: hand-written expectation can fail silently. Deriving the universe from
+#: `op.create_table(...)` closes that: a migration that adds a table now
+#: fails this file until the table is classified in
+#: `seed_plant_monitoring`, which is what the check was always meant to do.
+#:
+#: Static parsing, not a database read, so this stays a pure ("not db")
+#: test — the live-schema walk it complements is
+#: `TestPurgeOrderAgainstTheLiveSchema` below.
+_MIGRATIONS_DIR = pathlib.Path(seed.__file__).resolve().parents[1] / "alembic" / "versions"
+_CREATE_TABLE_RE = re.compile(r"""op\.create_table\(\s*["'](\w+)["']""")
+
+
+def _tables_created_by_migrations() -> set[str]:
+    found: set[str] = set()
+    for migration in sorted(_MIGRATIONS_DIR.glob("[0-9]*.py")):
+        found |= set(
+            _CREATE_TABLE_RE.findall(migration.read_text(encoding="utf-8"))
+        )
+    return found
+
+
+KNOWN_TABLES = _tables_created_by_migrations()
 
 
 class TestResetReplacesMeasurementsOnly:
