@@ -32,10 +32,17 @@ pack that would fail to build.
 Exits non-zero, and says exactly why, if: an ADR referenced by the active
 gate doesn't exist; an ADR's `Implemented-by` commit isn't reachable in this
 repo; a `Relevant files` citation doesn't resolve; a frozen pack's own
-SHA-256 manifest doesn't verify; or the test baseline is red. A context pack
-that reports success while carrying a broken citation is worse than no pack —
-this is the automated form of the citation sweep done by hand while writing
-the ADRs in docs/decisions/.
+SHA-256 manifest doesn't verify; the test baseline is red; or the `Gate:`
+header disagrees with the file's own `## Next implementation gate:`
+declaration (CTX-GUARD-1). A context pack that reports success while carrying
+a broken citation is worse than no pack — this is the automated form of the
+citation sweep done by hand while writing the ADRs in docs/decisions/.
+
+That last check exists because the header is the only part of ACTIVE_GATE.md
+this script reads: `parse_fields()` stops at the first markdown heading, so
+gates appended below it are invisible here. The header therefore sat on
+C08-BASELINE-1 for ten gates, and every run in that window reported CLEAN,
+because nothing compared the two places the gate is written down.
 """
 from __future__ import annotations
 
@@ -62,6 +69,16 @@ KNOWN_MANIFESTS = [ROOT / "command center" / "MANIFEST.txt"]
 ADR_REF_RE = re.compile(r"ADR-\d{3}[-\w]*\.md")
 FIELD_RE = re.compile(r"^([A-Z][\w /-]*):\s*(.*)$")
 HASH_LINE_RE = re.compile(r"^([0-9a-fA-F]{64})\s+(.+?)\s*$")
+
+#: CTX-GUARD-1. The active gate is written down twice — the header's `Gate:`
+#: field and an explicit `## Next implementation gate: <NAME>` section — and
+#: only the header is machine-read, because `parse_fields()` stops at the
+#: first heading. That asymmetry let the header sit on a gate that had closed
+#: ten gates earlier while the file's own declaration said otherwise.
+NEXT_GATE_RE = re.compile(r"^##\s+Next implementation gate:\s*(.+?)\s*$", re.MULTILINE)
+HEADING_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+CLOSED_RE = re.compile(r"\b(?:CLOSED|COMPLETED)\b", re.IGNORECASE)
+EM_DASH = "—"
 
 
 def run(cmd: list[str]) -> str:
@@ -152,6 +169,67 @@ def parse_fields(text: str) -> dict[str, str]:
         elif current_key:
             fields[current_key] += " " + line.strip()
     return fields
+
+
+def gate_identifier(label: str) -> str:
+    """A gate's name: everything before the first em dash, whitespace folded.
+
+    Both spellings carry a description after the name, and they are worded
+    differently on purpose — the header explains the gate, the declaration
+    states its status. Only the name is comparable, so only the name is
+    compared. Folding whitespace is what makes a soft-wrapped `Gate:` value
+    (`parse_fields` joins continuation lines) compare equal to a single-line
+    heading.
+    """
+    return " ".join(label.split(EM_DASH, 1)[0].split())
+
+
+def check_gate_agreement(gate_text: str) -> list[str]:
+    """CTX-GUARD-1: the `Gate:` header must name the open queued gate.
+
+    A declaration whose gate is closed elsewhere in the file is historical and
+    ignored. That is what lets superseded `## Next implementation gate:`
+    sections stay exactly as written — they are the record of how the project
+    reached the current gate, and rewriting history to satisfy a checker would
+    trade a real audit trail for a green run.
+    """
+    header = gate_identifier(parse_fields(gate_text).get("Gate", ""))
+    if not header:
+        return ["ACTIVE_GATE.md header block has no `Gate:` field to compare"]
+
+    closed = {
+        gate_identifier(heading)
+        for heading in HEADING_RE.findall(gate_text)
+        if not heading.startswith("Next implementation gate:") and CLOSED_RE.search(heading)
+    }
+
+    declared = [gate_identifier(d) for d in NEXT_GATE_RE.findall(gate_text)]
+    open_gates = list(dict.fromkeys(d for d in declared if d not in closed))
+
+    if not open_gates:
+        detail = (
+            f" (the {len(declared)} present name only gates already closed in this file)"
+            if declared else ""
+        )
+        return [
+            f"ACTIVE_GATE.md header says Gate: {header}, but the file declares no open "
+            f"`## Next implementation gate:` section to check it against{detail}"
+        ]
+
+    if len(open_gates) > 1:
+        return [
+            "ACTIVE_GATE.md declares more than one open `## Next implementation gate:` "
+            f"section ({', '.join(open_gates)}); exactly one must be open"
+        ]
+
+    if open_gates[0] != header:
+        return [
+            f"ACTIVE_GATE.md header says Gate: {header}, but the file declares "
+            f"`## Next implementation gate: {open_gates[0]}`. The header is not "
+            "updated when a gate is appended, so it is the likely stale one."
+        ]
+
+    return []
 
 
 def section(text: str, heading: str) -> str:
@@ -290,6 +368,8 @@ def main(argv: list[str]) -> int:
     git = git_snapshot()
     gate_text = ACTIVE_GATE.read_text(encoding="utf-8")
     gate_fields = parse_fields(gate_text)
+
+    problems.extend(check_gate_agreement(gate_text))
 
     gate_adr_names = sorted(set(ADR_REF_RE.findall(gate_text)))
     gate_adrs = [load_adr(name) for name in gate_adr_names]
