@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-07T14:39:43Z
+Date: 2026-09-10T05:21:57Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `72dd1cf` "test(seed): skip the ADR check only where no ADRs are delivered"
+- `main` = `1fe9b85` "docs(context): close CLIENT-SYNC-2"
 - Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2914 passed, 686 deselected in 23.65s
+- `python -m pytest -m "not db"` → 2914 passed, 686 deselected in 52.93s
 
 ## Branches
 
@@ -44,9 +44,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 12 | 271 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 121 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 271 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 12 | 272 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 122 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 272 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -77,13 +77,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08, C-15) pending client confirmation, and queue the next implementation gate — full detail in `docs/context/ACTIVE_GATE.md`.
+CLIENT-PC-SYNC-2 — update the client laptop to the delivered milestone, migrate its DB non-destructively, and browser-smoke — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/PROJECT_LEDGER.md
+ M docs/context/CURRENT_STATE.md
 ?? debug.log
 ```
 

@@ -1,9 +1,11 @@
 # Active Gate
 
-Status: **CLOSED / DEVELOPMENT BASELINES RECORDED**
-Date: 2026-09-06
-Gate: C08-BASELINE-1 — Record development baselines (C-01, C-02, C-04, C-08,
-C-15) pending client confirmation, and queue the next implementation gate
+Status: **QUEUED / NOT STARTED**
+Date: 2026-09-10
+Gate: CLIENT-PC-SYNC-2 — update the client laptop to the delivered milestone,
+migrate its DB non-destructively, and browser-smoke
+
+## C08-BASELINE-1 — CLOSED / DEVELOPMENT BASELINES RECORDED
 
 Documentation-only gate. **The values recorded below for C-08, C-15, C-04,
 C-01, and C-02 are development baselines approved by the development
