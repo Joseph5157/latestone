@@ -327,6 +327,14 @@ The application is a mature **Python/Plotly Dash power-plant monitoring dashboar
 | Integration | 🟠 BLOCKED — EXTERNAL | No MQTT/SMS/backend command transport (C-05); no device response path |
 | Acceptance | 🟠 BLOCKED — EXTERNAL | Physical programming impossible without transport |
 
+Request-creation UI (above) is implemented. Programming Activity/History
+**visibility** UI is not — the only existing reader
+(`list_recent_programming_requests(device_id)`) is a single device's own
+drawer read-back, not a work-list or history screen, and there is no
+scope-aware or fleet-batched reader for it. Recorded as future gate
+**RTL-PROG-VIS-1** (PLANNED / NOT STARTED, not the active gate) — see §10
+below and `docs/context/ACTIVE_GATE.md`.
+
 ### Message Forwarding
 
 | Layer | Status | Notes |
@@ -665,6 +673,7 @@ Work that can be implemented without unresolved client/external decisions:
 | 12 | **CLIENT-SYNC-2B** | 🟢 COMPLETED / DELIVERED / REMOTE-VERIFIED (client `3f21c3a`, 2026-09-07) | Runtime **parity** curated to client branch `cc-1-command-center-progress` and pushed: 217 files changed (106 added, 107 modified, 3 deleted, 1 rename), 357 paths byte-identical to `main`, client tree 263 → 366 files and 109 → 170 test files. Migrations 008–012 delivered (`007_audit_log` → `012_vibration_contract_answers`, additive; README gained a non-destructive "Upgrading an existing installation" section that explicitly says not to reseed) plus `tzdata`/`fpdf2`. Simulator ships **default OFF** (commented in `.env.example`, client-facing wording, production fail-closed intact). Five client-only documents preserved; client-tailored README/`.env.example`/`.gitignore`/`.gitattributes`/`GETTING_STARTED.md` not overwritten. Full client suite exit 0; staged leakage check 366 files / zero violations. Client `main` (`aa1dd3c`) and stale `client-release` (`d89a090`) untouched. Two blockers resolved en route — a delivered test depending on undelivered material (fixed on `main` at `72dd1cf`, no client divergence) and the stale documented push target. See `docs/context/ACTIVE_GATE.md`. |
 | 13 | **CLIENT-PC-SYNC-2** | 🟢 UNBLOCKED FOR ENGINEERING, NOT YET STARTED | Update the CLIENT's laptop to this milestone over Remote Desktop, migrate its database non-destructively, then browser-smoke before demonstrating. Must: pull `cc-1-command-center-progress` @ `3f21c3a` (not client `main`, not `client-release`); **verify that machine's host/port/database/schema BEFORE migrating**, as LOCAL-DB-CATCHUP-1 did here; **back up and validate the backup is readable** first; `pip install -r requirements.txt` for `tzdata`/`fpdf2`; **`alembic upgrade head` only — no reset, purge or reseed**, with row counts compared before and after; then smoke login, Fleet Overview, Command Center, the device workflow, reports with CSV/PDF export and the three configuration panels — leaving thresholds unconfigured and vibration answers unanswered rather than inventing client values. Leave the simulator OFF unless deliberately demonstrating it, and turn it back off afterwards. Report defects rather than fixing them on the client machine. See `docs/context/ACTIVE_GATE.md`. |
 | 14 | Production cookie/deployment hardening | 🟢 APP-SIDE COMPLETE (AUTH-PROD-HARDEN-1, committed) | `APP_ENV` setting added; `FLASK_SECRET_KEY` fails closed under `APP_ENV=production`; `SESSION_COOKIE_SECURE`/`HTTPONLY`/`SAMESITE` explicit; HTTPS enforcement documented as Railway's edge, not app middleware. Real Railway service still needs `APP_ENV`/`FLASK_SECRET_KEY` set to activate it. |
+| 15 | **RTL-PROG-VIS-1** | 🟢 PLANNED / NOT STARTED (recorded 2026-09-10) | Not blocked by any client decision — request/command lifecycle data is already fully persisted (`rtl_programming_requests`, `rtl_commands`), only the visibility UI is missing. Should expose: per-RTL latest programming status; requested time and requester; RTL Master MSISDN; completion/result/error where available; recent programming history (not just the latest request); scope-safe Technician visibility via `DeviceScope`/`current_device_scope()` (ADR-004, no second visibility predicate); later, optional, an Admin fleet-level programming summary — explicitly deferred past this gate's first slice. UI placement, whether a new scope-aware/batched reader is needed, exact columns, and ADR need are left to whoever opens this gate. **Not the active gate — CLIENT-PC-SYNC-2 (#13) remains active.** See `docs/context/ACTIVE_GATE.md`. |
 
 ### Blocked / Waiting for Client or Integration
 

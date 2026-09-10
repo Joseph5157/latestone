@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-10T05:34:40Z
+Date: 2026-09-10T08:22:48Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `ec40645` "docs(context): repair active gate authority"
+- `main` = `27a6db0` "fix(context): detect stale active gate headers"
 - Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2926 passed, 686 deselected in 34.12s
+- `python -m pytest -m "not db"` → 2926 passed, 686 deselected in 50.51s
 
 ## Branches
 
@@ -44,9 +44,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 12 | 273 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 123 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 273 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 12 | 274 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 124 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 274 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `tech-workspace-1` | 1 | 0 | REVIEW — unexpected divergence |
 
 ## Decisions
 
@@ -82,8 +83,8 @@ CLIENT-PC-SYNC-2 — update the client laptop to the delivered milestone, migrat
 ## Working tree
 
 ```
-M scripts/build_context_pack.py
+M docs/context/ACTIVE_GATE.md
+ M docs/context/PROJECT_LEDGER.md
 ?? debug.log
-?? tests/test_context_pack_gate_guard.py
 ```
 

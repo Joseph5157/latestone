@@ -1443,6 +1443,51 @@ It must:
   it back off afterwards. No screen may imply a physical RTL was programmed.
 - Report any defect found rather than fixing it on the client machine.
 
+### Future planned gate: RTL-PROG-VIS-1 — PLANNED / NOT STARTED
+
+Recorded 2026-09-10. **Not the active gate — CLIENT-PC-SYNC-2 above remains
+`main`'s active gate.** No feature code for this exists yet; this is a
+forward-looking backlog entry only, so a later "what should we build next"
+question does not have to re-derive it. Full detail lives in
+`docs/context/PROJECT_LEDGER.md` §4 ("RTL Programming") and §10 (Resume
+Queue, Ready Now) — this is a pointer, not a duplicate.
+
+**The gap this closes.** Both Administrator and Technician can already
+create RTL programming requests (the Program RTL drawer, `PROGRAM_RTL`
+action guard, `rtl_programming_service.py`), and the backend already
+persists and reconciles the full request/command lifecycle
+(`rtl_programming_requests` — `master_msisdn`, `requested_by`,
+`requested_at`, `status`, `completed_at`, `error_message` —
+`repositories/plant_monitoring_repository.py`; `rtl_commands` lifecycle via
+`services/rtl_command_service.py`, RTL-PROG-EXEC-1). None of that is
+exposed as a proper Programming Activity/History UI: the only existing
+reader, `list_recent_programming_requests(device_id, limit=5)`, is a single
+device's own drawer read-back, not a work-list or history screen, and there
+is no scope-aware or batched reader for it (unlike `list_device_paths`
+for hierarchy labels).
+
+**What RTL-PROG-VIS-1 should expose, when opened:**
+
+- Per-RTL latest programming status.
+- Requested time and requester (resolve `requested_by` to a display
+  identity, not a bare user id).
+- RTL Master MSISDN.
+- Completion/result/error where available (`completed_at`,
+  `error_message`, already persisted).
+- Recent programming history (not just the latest request per RTL).
+- Scope-safe Technician visibility — through `DeviceScope`/
+  `current_device_scope()` exactly as every other gate does (ADR-004);
+  no second visibility predicate.
+- Later, optional: an Admin fleet-level programming summary — explicitly
+  deferred past this gate's own first slice, not assumed to ship with it.
+
+**Explicitly not decided by this note:** UI placement (its own page vs. a
+Fleet Overview panel vs. folded into Command Center), whether it needs a
+new scope-aware repository reader or reuses/extends an existing one, exact
+column set, and whether it needs its own ADR. Whoever opens this gate
+decides those, the same way every other gate in this file states its task
+at open rather than here.
+
 ---
 
 ## CLIENT-SYNC-2B — original queued scope (2026-09-07, SUPERSEDED)
