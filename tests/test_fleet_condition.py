@@ -124,6 +124,7 @@ def test_listing_callback_ids_inputs_and_state_are_unchanged(overview_callback):
         ("fleet-kpis", "children"), ("fleet-health-distribution", "children"),
         ("fleet-systemic-state", "children"), ("admin-summary", "children"),
         ("needs-attention", "children"), ("fleet-subtitle", "children"), ("fleet-refreshed", "children"),
+        ("my-rtls", "children"),
     ]
     assert [(a.component_id, a.component_property) for a in args if isinstance(a, Input)] == [("page-context", "data")]
     assert [(a.component_id, a.component_property) for a in args if isinstance(a, State)] == [("auth-store", "data")]
@@ -152,7 +153,8 @@ def test_existing_single_service_snapshot_feeds_layer2_and_lower_outputs(monkeyp
     fn, _spec = overview_callback
     result = fn({"route": "overview"}, None)
     assert result[2] is None
-    assert len(result) == 10
+    assert len(result) == 11
+    assert result[10] is None, "UNRESTRICTED scope renders no My RTLs panel"
     assert result[0] == listings.sort_plant_rows_exception_first(listings.build_plant_rows([plant], {"p1": (3, 4)}, health))
     assert text_of(result[3]) == text_of(fleet_inventory(1, 3, 4))
     assert text_of(result[4]) == text_of(data_freshness(health.counts))
@@ -181,7 +183,7 @@ def test_query_failure_remains_an_error_not_a_fabricated_empty_fleet(monkeypatch
 
 def test_other_routes_remain_no_update(overview_callback):
     fn, _spec = overview_callback
-    assert fn({"route": "plant"}, None) == (no_update,) * 10
+    assert fn({"route": "plant"}, None) == (no_update,) * 11
 
 
 def test_layer2_styles_are_scoped_and_use_existing_tokens():

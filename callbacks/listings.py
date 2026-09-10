@@ -20,6 +20,7 @@ from components.fleet_summary import (
     transformer_kpi_cards,
 )
 from components.metric_health import metric_health_overview
+from components.my_rtls import my_rtls_panel
 from components.needs_attention import needs_attention
 from components.status_panels import error_panel
 from components.temperature_attribution import temperature_attribution
@@ -176,6 +177,80 @@ def build_device_rows(devices, health) -> list[dict]:
 def sort_device_rows_exception_first(rows: list[dict]) -> list[dict]:
     """Exceptions first, then device code — same rule as the tables above it."""
     return sorted(rows, key=lambda r: (-r["_severity"], r["device"]))
+
+
+# --------------------------------------------------------------------------
+# My RTLs (TECH-WORKSPACE-1) — a Technician's own assignment work list.
+#
+# Renders ABOVE Fleet Condition, for a restricted scope only (ADR-004). No
+# action controls (ADR-016): each row links to the existing device page, the
+# sole authorized entry point to Program RTL / Message Forwarding /
+# Deactivate.
+# --------------------------------------------------------------------------
+
+def build_my_rtls_rows(scope: DeviceScope, health) -> list[dict]:
+    """One row per device in the caller's OWN scope. Uncapped (D3).
+
+    Iterates `scope.device_ids`, never `health.devices`: an assigned RTL
+    that has never reported (or sits under an inactive transformer) may be
+    entirely absent from the freshness rollup, and a missing rollup still
+    gets a row here, defaulted to NO_DATA (`aggregate_freshness([])`) — the
+    same rule `build_plant_rows` already follows for a plant with nothing
+    reporting under it.
+
+    Labels come from ONE scoped `hierarchy_service.list_device_paths` call —
+    never `list_all_devices`/`hierarchy_code_index`, both unscoped fleet-wide
+    reads ADR-004 forbids a restricted caller's render from reaching. Skipped
+    entirely when there are no ids to resolve, so an EMPTY scope costs zero
+    label queries, matching the zero this function costs an UNRESTRICTED
+    caller by never being called at all (`my_rtls_section` below).
+    """
+    device_ids = sorted(scope.device_ids or ())
+    if not device_ids:
+        return []
+    paths = {
+        p.device_id: p
+        for p in hierarchy_service.list_device_paths(device_ids, scope=scope)
+    }
+    rows = []
+    for device_id in device_ids:
+        rollup = health.devices.get(device_id) or aggregate_freshness([])
+        path = paths.get(device_id)
+        rows.append({
+            "id": device_id,
+            "device": path.device_code if path else device_id,
+            "plant": path.plant_name if path else "",
+            "transformer": path.transformer_code if path else "",
+            "freshness": rollup.label("metrics"),
+            "_severity": severity_rank(rollup.state),
+            "_state": rollup.state.value,
+        })
+    return rows
+
+
+def sort_my_rtls_rows_exception_first(rows: list[dict]) -> list[dict]:
+    """Exceptions first, then RTL code — same rule as every table on this page."""
+    return sorted(rows, key=lambda r: (-r["_severity"], r["device"]))
+
+
+def my_rtls_section(scope: DeviceScope, health):
+    """The My RTLs panel, or None for an unrestricted role.
+
+    ADR-004: the rendering condition is `not scope.is_unrestricted`, never a
+    role comparison. Administrator and General both resolve to UNRESTRICTED
+    and see no panel at all — not an empty one, which would misreport an
+    unrestricted role as having a (empty) assignment set.
+
+    A restricted scope always renders, including EMPTY (a technician with
+    zero active assignments): that is a real, distinct fact from
+    "unrestricted" and gets its own truthful empty state
+    (`components.my_rtls.my_rtls_panel`), the same "show it, say nothing to
+    show" rule `needs_attention`'s own empty state already follows.
+    """
+    if scope.is_unrestricted:
+        return None
+    rows = sort_my_rtls_rows_exception_first(build_my_rtls_rows(scope, health))
+    return my_rtls_panel(rows)
 
 
 # --------------------------------------------------------------------------
@@ -651,13 +726,14 @@ def register(app) -> None:
         Output("needs-attention", "children"),
         Output("fleet-subtitle", "children"),
         Output("fleet-refreshed", "children"),
+        Output("my-rtls", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
         prevent_initial_call=True,
     )
     def populate_overview(context, auth_data):
         if not context or context.get("route") != "overview":
-            return (no_update,) * 10
+            return (no_update,) * 11
 
         # One instant for the whole render. Taken once here and passed to both
         # the freshness computation and the header, so the stamp cannot name a
@@ -676,11 +752,16 @@ def register(app) -> None:
         systemic = []
         admin = []
         attention = []
+        my_rtls = []
 
         def build():
             plants = hierarchy_service.list_plants(scope=scope)
             counts = hierarchy_service.get_plant_hierarchy_counts(scope=scope)
             health = monitoring_service.get_fleet_health(rendered_at, scope=scope)
+            # My RTLs (TECH-WORKSPACE-1): reads the SAME shared FleetHealth
+            # and scope as everything else on this render — no second query,
+            # no second definition of freshness.
+            my_rtls.append(my_rtls_section(scope, health))
             cards.append(
                 fleet_inventory(
                     plants=len(plants),
@@ -735,6 +816,7 @@ def register(app) -> None:
             (attention[0] if attention else None),
             (subtitle[0] if subtitle else ""),
             format_render_stamp(rendered_at),
+            (my_rtls[0] if my_rtls else None),
         )
 
     @app.callback(
@@ -899,4 +981,16 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def navigate_from_devices_table(active_cell):
+        return device_row_target(active_cell)
+
+    @app.callback(
+        Output("url", "pathname", allow_duplicate=True),
+        Input("my-rtls-table", "active_cell"),
+        prevent_initial_call=True,
+    )
+    def navigate_from_my_rtls_table(active_cell):
+        # Same link column id ("device") and the same device dashboard
+        # target as devices-table — device_row_target is reused verbatim
+        # rather than duplicated, so the two tables cannot drift on what
+        # counts as the identity column or how a device_id becomes a URL.
         return device_row_target(active_cell)

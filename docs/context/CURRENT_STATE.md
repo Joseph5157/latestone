@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-10T05:34:40Z
+Date: 2026-09-10T08:01:14Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `ec40645` "docs(context): repair active gate authority"
-- Working tree: 3 entries — see below
+- current branch `tech-workspace-1` = `27a6db0` "fix(context): detect stale active gate headers" (not `main`)
+- Working tree: 11 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2926 passed, 686 deselected in 34.12s
+- `python -m pytest -m "not db"` → 2963 passed, 686 deselected in 46.36s
 
 ## Branches
 
@@ -36,6 +36,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
+- `tech-workspace-1`
 - `ui-1-frontend-audit`
 - `worktree-fleet-overview-visual-v2`
 - `worktree-plant-monitoring-architecture`
@@ -44,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 12 | 273 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 123 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 273 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 12 | 274 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 124 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 274 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -77,13 +78,21 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CLIENT-PC-SYNC-2 — update the client laptop to the delivered milestone, migrate its DB non-destructively, and browser-smoke — full detail in `docs/context/ACTIVE_GATE.md`.
+TECH-WORKSPACE-1 — give the Technician persona a "My RTLs" work list and one-click navigation to their assigned RTLs on the existing Fleet Overview, reusing existing scope/action policy exactly as it stands — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M scripts/build_context_pack.py
+M assets/app.css
+ M callbacks/listings.py
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ M pages/plants_overview.py
+ M tests/test_equipment_selector.py
+ M tests/test_fleet_condition.py
+?? components/my_rtls.py
 ?? debug.log
-?? tests/test_context_pack_gate_guard.py
+?? tests/test_my_rtls.py
+?? tests/test_my_rtls_wiring.py
 ```
 
