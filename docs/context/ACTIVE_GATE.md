@@ -5,6 +5,16 @@ Date: 2026-09-10
 Gate: CLIENT-PC-SYNC-2 — update the client laptop to the delivered milestone,
 migrate its DB non-destructively, and browser-smoke
 
+**TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
+(TECH-WORKSPACE-1, closed on that branch 2026-09-10) has been merged into
+`main` by this gate. Its own copy of this file had rewritten this header and
+the `## Next implementation gate:` declaration to `TECH-WORKSPACE-1` purely
+so its isolated CTX-GUARD-1 check would pass on that branch — its own note
+said explicitly not to carry that rename onto `main`. That rename was
+reverted as part of this merge: `CLIENT-PC-SYNC-2` above remains `main`'s
+one real active gate, unchanged and unstarted. TECH-WORKSPACE-1's verified
+content is preserved below as its own closed, historical section.
+
 ## C08-BASELINE-1 — CLOSED / DEVELOPMENT BASELINES RECORDED
 
 Documentation-only gate. **The values recorded below for C-08, C-15, C-04,
@@ -1410,6 +1420,350 @@ screenshots — that the client does not have and the guard does not catch.
   the stale local `client-release` untouched at `d89a090` and absent from
   the client remote entirely. Only the one branch was pushed.
 - Real development database unchanged at `012_vibration_contract_answers`.
+
+## TECH-WORKSPACE-1 — CLOSED / IMPLEMENTED / VERIFIED / BROWSER-ACCEPTED / MERGED TO MAIN (TECH-WORKSPACE-MERGE-1, 2026-09-11)
+
+Opened 2026-09-10 on branch `tech-workspace-1` at `main`/`tech-workspace-1`
+common ancestor `27a6db0`, closed on that branch the same day, and merged
+into `main` on 2026-09-11 by gate TECH-WORKSPACE-MERGE-1 (see the merge note
+in the file header). `CLIENT-PC-SYNC-2` above remains `main`'s one real
+active/queued gate — this section is a closed historical record, not a
+supersession of it.
+
+**Independent review (Codex, 2026-09-10): no blockers.** Reviewed and
+confirmed before implementation: preserve every `scope.device_id` even when
+absent from `FleetHealth`; a missing rollup defaults to NO_DATA; labels come
+only from the scoped `list_device_paths(scope.device_ids, scope=scope)` —
+never `hierarchy_code_index`/`list_all_devices`; EMPTY and UNRESTRICTED get
+explicit, distinct handling (never a truthiness check on the same value); no
+action controls and no second authorization predicate; one shared
+`scope`/`rendered_at` per render; `populate_overview` moves consistently
+from 10 to 11 Outputs; device navigation stays row_id-based (sort/filter
+safe); zero My-RTLs label queries for an unrestricted or an empty scope. UX
+placement confirmed: My RTLs renders ABOVE Fleet Condition.
+
+### What was built (Slice 1 + Slice 2, not yet Slice-3 browser-verified)
+
+- `components/my_rtls.py` (new) — `my_rtls_panel(rows)`: the card surface,
+  reusing `components/card.py`'s `card_header` and `components/entity_table.py`
+  exactly as the plant/transformer/device tables already do (`link_column_id`,
+  `state_column_id`, `responsive=True`). Empty rows render a truthful "No
+  RTLs are currently assigned to you." message rather than an absent panel —
+  EMPTY and "no panel at all" (UNRESTRICTED) must read as different facts.
+  No action controls anywhere in this module (ADR-016).
+- `callbacks/listings.py` — `build_my_rtls_rows(scope, health)`: iterates
+  `scope.device_ids` (never `health.devices`), defaulting a missing rollup to
+  `aggregate_freshness([])`/NO_DATA — the Known ambiguity this gate flagged
+  at open. Labels come from one `hierarchy_service.list_device_paths(device_ids,
+  scope=scope)` call, skipped entirely when there are no ids (EMPTY costs
+  zero queries, matching UNRESTRICTED's zero cost of never calling this
+  function at all). `sort_my_rtls_rows_exception_first` — same NO_DATA >
+  STALE > FRESH, then-code rule as every other table on this page.
+  `my_rtls_section(scope, health)` — returns `None` for `scope.is_unrestricted`
+  (ADR-004, never a role comparison); a restricted scope, EMPTY included,
+  always renders a panel.
+- `callbacks/listings.py::register` — `populate_overview` gained
+  `Output("my-rtls", "children")` as an 11th Output (was 10); its early-return
+  `(no_update,) * 10` became `(no_update,) * 11`. `my_rtls_section(scope,
+  health)` is called inside the existing `build()` closure, from the SAME
+  `scope`/`health` every other Layer-2 output already reads — no second
+  query, no second freshness computation.
+- `pages/plants_overview.py` — one new `html.Div(id="my-rtls")` slot, placed
+  immediately above the Fleet Condition `html.Section` (the approved
+  placement) and above Needs Attention.
+- `assets/app.css` — `.my-rtls`/`.my-rtls__empty`, matching `.needs-attention`'s
+  own spacing/empty-state rules rather than inventing new ones; `.card`
+  supplies the surface.
+- Tests: `tests/test_my_rtls.py` (new, 19) — row builder (every scope id
+  covered even when absent from health, NO_DATA default, metrics-noun
+  freshness label, scoped-label wiring, raw-id fallback, no
+  `list_all_devices`/`hierarchy_code_index` reachable from the row builder,
+  exception-first ordering), the rendering-condition function, and the
+  component (columns, empty state, count wording, no action-control text,
+  responsive wrapper). `tests/test_my_rtls_wiring.py` (new, 12) — page-slot
+  presence/position/emptiness, Output-count (11, ending in `my-rtls`),
+  Inputs/State unchanged, `(no_update,) * 11` on a non-overview route, the
+  EMPTY-vs-UNRESTRICTED query-count contract (0 queries either way; 1 query
+  for a real restricted+nonempty scope), one shared `FleetHealth` call, and
+  Admin/General rendering left otherwise unaffected by the new slot.
+  `tests/test_fleet_condition.py` — updated for the same Output-count/
+  no_update-length change (10 → 11), consistently.
+
+### Verification
+
+- Focused: `tests/test_my_rtls.py` (19) + `tests/test_my_rtls_wiring.py` (12)
+  — **31 passed**.
+- Regression named by this gate, run together: `tests/test_authorization.py`
+  + `tests/test_action_guard.py` + `tests/test_technician_operations.py` +
+  `tests/test_device_scope.py` + `tests/test_route_scope.py` +
+  `tests/test_credentialed_personas.py` — all passed.
+- `python -m pytest -m "not db" -v` — **2957 passed** (was 2926 at gate open;
+  +19 +12 new, zero regressions), exit 0.
+- DB tests most relevant to this gate's own code path —
+  `tests/test_device_paths_db.py` + `tests/test_route_scope_db.py` +
+  `tests/test_scope_repository.py` — all passed.
+- Full suite: `python -m pytest -q` — 6 failures, all in
+  `tests/test_seed_integrity.py` and
+  `tests/test_plant_monitoring_repository.py::TestRangeQueries`, none of
+  which this gate's diff touches. Reproduced identically on the unmodified
+  tree (`git stash` + re-run) — pre-existing dev-DB drift from the live
+  simulator (row counts/date span exceed the original 30-day seed baseline),
+  not a regression from this gate. Every DB test that exercises this gate's
+  own code path (device scope, `list_device_paths`, the overview route)
+  passed.
+- `python scripts/build_context_pack.py --check` — CLEAN, both before and
+  after this implementation pass.
+
+### Slice 3 — Browser acceptance (real credentialed Technician session)
+
+Ran against the real dev DB (`plant_monitoring_postgres`, port 5436, at
+migration head `012_vibration_contract_answers`), the app started locally
+(`python app.py`), and a real login as `demo.tech01`/`tech1234` (24 active
+assignments) — not a mocked identity. Also spot-checked `admin`/`demo1234`
+and `demo.general01`/`general1234`.
+
+**One real defect found, reported before fixing, then fixed in this same
+session:** clicking a My RTLs row highlighted the cell (`active_cell` was
+set) but never navigated — `callbacks/listings.py` had no
+`Input("my-rtls-table", "active_cell")` callback, unlike the other three
+listing tables which each have one. Confirmed via screenshot (cell
+highlighted, `window.location.pathname` unchanged) and via the server log
+showing no `routing` warning at all for the click (the route callback never
+fired). Neither `tests/test_my_rtls.py` nor `tests/test_my_rtls_wiring.py`
+had caught it — both exercise the row builder and the page-level wiring,
+neither exercises an actual row click.
+
+**Fix:** `navigate_from_my_rtls_table`, registered immediately after
+`navigate_from_devices_table`, reusing `device_row_target` verbatim (the My
+RTLs identity column id is `"device"`, the same as `devices-table`'s, so no
+second target function was needed). One companion fix was required:
+`tests/test_equipment_selector.py`'s `test_every_callback_id_exists_in_some_layout`
+guard failed because `my-rtls-table` — like `device_operations_panel`'s and
+the three admin panels' ids before it — only exists inside a
+callback-rendered component, never a static layout; added
+`collect_ids(my_rtls_panel([...one row...]))` to that test's
+`PAGE_LAYOUT_IDS` union, the same pattern already used for those four.
+`tests/test_my_rtls_wiring.py::TestMyRtlsRowNavigation` (new, 6): callback
+wired to `my-rtls-table` with `allow_duplicate=True`; identity-column click
+navigates to the correct device; `row_id` (not the post-sort/filter `row`
+index) drives navigation; a non-link column click is `no_update`; a missing
+`active_cell` is `no_update`; a `None` `row_id` is `no_update`.
+
+**Full acceptance checklist:**
+
+| Check | Result |
+|---|---|
+| Login lands on `/plants` | Confirmed via the real flow: visiting a protected route while logged out preserves `pathname`; the login form renders there; signing in re-triggers routing on that same pathname, now authenticated. (Visiting the literal `/login` URL and signing in from there does not redirect — pre-existing behaviour in `callbacks/auth.py`/`routing.py`, reproduces identically for `admin`, untouched by this gate's diff — noted, not fixed, out of scope.) |
+| My RTLs above Fleet Condition | Confirmed |
+| Only assigned RTLs appear | Confirmed — 24 rows for `demo.tech01`, matching `list_active_device_ids_for_user(104)` exactly |
+| Assigned RTLs with NO_DATA still appear | Not live-verified — the dev DB currently has 0 NO_DATA/STALE devices fleet-wide (all 120 fresh, no live simulator running); user chose to rely on `tests/test_my_rtls.py`'s unit coverage instead of mutating dev data for this one check |
+| Exception-first ordering | Sort mechanics confirmed (Plant-column sort re-ordered correctly with row identity intact); the NO_DATA-before-STALE-before-FRESH exception order itself was not visually demonstrable live for the same all-fresh-data reason above — covered by `TestExceptionFirstOrdering` |
+| One-click navigation after sort/filter | Confirmed working after the fix — re-clicked the same RTL (29118) that failed before the fix; landed on `/devices/plant-29-t2-d1` |
+| Assigned device shows Manage RTL + allowed actions | Confirmed — Program RTL, Message Forwarding, Deactivate RTL all present |
+| Forged/unassigned device URL refused | Confirmed — both an unassigned real device and a nonexistent device_id get the identical "No access" panel; server log shows clean warnings, no leakage |
+| Needs Attention present and scoped | Confirmed |
+| Admin Overview unchanged | Confirmed — 120 fleet-wide, no My RTLs panel, full admin sidebar/nav intact |
+| General Overview unchanged | Confirmed — same, no My RTLs panel |
+| 1366×768 / 1440×900 overflow | Confirmed clean at both (`document.documentElement.scrollWidth == clientWidth` at both widths, no visual clipping) |
+
+### Gate-close verification (this session, after the navigation fix)
+
+- Focused: `tests/test_my_rtls.py` + `tests/test_my_rtls_wiring.py` +
+  `tests/test_table_navigation.py` + `tests/test_equipment_selector.py` +
+  `tests/test_fleet_condition.py` — **138 passed**.
+- Regression named by this gate: `tests/test_authorization.py` +
+  `tests/test_action_guard.py` + `tests/test_technician_operations.py` +
+  `tests/test_device_scope.py` + `tests/test_route_scope.py` +
+  `tests/test_credentialed_personas.py` — all passed.
+- `python -m pytest -m "not db"` — **2963 passed** (was 2926 at gate open;
+  +37 new across `test_my_rtls.py`/`test_my_rtls_wiring.py`, zero
+  regressions), exit 0.
+- DB tests most relevant to this gate's own code path —
+  `tests/test_device_paths_db.py` + `tests/test_route_scope_db.py` +
+  `tests/test_scope_repository.py` — **60 passed**.
+- `python scripts/build_context_pack.py` — CLEAN, `CURRENT_STATE.md`
+  refreshed. `python scripts/build_context_pack.py --check` — CLEAN.
+- `git diff --check` — clean, no whitespace/conflict-marker issues.
+- Full suite: `python -m pytest -q` — same **6 pre-existing failures**
+  as recorded at gate open, all in `tests/test_seed_integrity.py` and
+  `tests/test_plant_monitoring_repository.py::TestRangeQueries`. None of
+  this gate's diff touches those files or their code paths. Re-confirmed
+  via `git stash` + re-run against the unmodified tree in an earlier pass
+  this session — identical failures reproduce with none of this gate's
+  code present, so they are dev-DB drift from the live simulator (actual
+  row counts/date span now exceed the original 30-day seed baseline), not
+  a regression from this gate. Documented here rather than fixed — out of
+  this gate's scope.
+
+### Commit/push permission: GRANTED (2026-09-10)
+
+User authorized closing this gate: commit all TECH-WORKSPACE-1 files
+(excluding the untracked, unrelated `debug.log`) and push branch
+`tech-workspace-1`. **At the time this permission was granted, the gate was
+not yet merged to `main`** — `main` still declared `CLIENT-PC-SYNC-2` as its
+real active gate. **Update (2026-09-11, TECH-WORKSPACE-MERGE-1):** this
+branch has since been merged into `main`; `CLIENT-PC-SYNC-2` remains `main`'s
+active gate unchanged (see the merge note in this file's header). Nothing in
+the client delivery repo was touched by either gate.
+
+Full current-state findings, recommended UX structure, risks and the slice
+plan were produced in the planning session and relayed to the user directly
+(not duplicated verbatim here); what follows is the frozen, user-approved
+scope this gate now executes against.
+
+## Task
+
+Give the Technician persona direct visibility of and access to their
+assigned RTLs from the existing Fleet Overview (`/plants`), without
+widening any permission and without adding a second place authorization is
+decided.
+
+Concretely: a "My RTLs" panel on `pages/plants_overview.py`, rendered when
+`current_device_scope()` is a restricted scope (`not scope.is_unrestricted`
+— never a role comparison, per ADR-016's rule against a second permission
+table), listing every device in `scope.device_ids` with its freshness state
+and a one-click link to `/devices/{device_id}` via `routes.device_href`. No
+action controls in the panel — the existing device page already mounts the
+shared `device_manage_drawer()` for exactly the personas `may_action`
+approves (ADR-016, `08e44af`), and this gate must not create a second entry
+point to those three actions.
+
+Decisions frozen for this gate (user-approved 2026-09-10, supersede the
+planning session's own recommendations where they differ):
+
+- **D1 — deferred.** No per-RTL recent-event marker in this gate. Events
+  stay in the Notification Center / Command Center only.
+- **D2 — keep both.** My RTLs and the existing Needs Attention panel both
+  render for a Technician; the overlap (both exception-first) is accepted,
+  not resolved by suppressing either.
+- **D3 — no cap.** The work list is uncapped — it is the Technician's
+  complete assignment set, not a fleet-wide sample, so ADR-011-style
+  disclosure-with-truncation does not apply here.
+- **D4 — deferred.** No signed-in identity line added to the sidebar in
+  this gate.
+- **D5 — deferred.** No account-level message-forwarding status line added
+  to the panel in this gate.
+- **No new ADR** for this gate unless implementation surfaces a genuinely
+  new architectural rule not already covered by ADR-002/ADR-004/ADR-016;
+  the mechanism this gate uses (branch on `scope.is_unrestricted`, reuse the
+  existing operational-action entry point) is already fully licensed by
+  those three and documenting it again would not be a new decision.
+- **Admin/General must render behaviorally and visually unchanged** by this
+  gate — not asserted as byte-identical markup. A wiring test comparing
+  literal Dash tree equality before/after is the wrong test for this; assert
+  on the specific outputs (plants table rows/columns, KPI cards, Needs
+  Attention, Administration block) being unaffected and on the new panel
+  slot being `None`/absent for those two roles.
+
+## Relevant files
+
+Existing files this gate reads and expects to modify (read-verified this
+session):
+
+- `pages/plants_overview.py` — layout only; gains one new panel slot.
+- `callbacks/listings.py` — `populate_overview` (`Output` list currently 10
+  wide, ends `(no_update,) * 10` on the early return — both must move
+  together with any new Output added); `administration_section` is the
+  precedent for a capability/scope-gated section that skips its query
+  entirely rather than building and discarding.
+- `components/fleet_summary.py` — `fleet_subtitle_text`; a scoped variant
+  needed for a restricted persona.
+- `components/needs_attention.py` — read for the exception-first
+  three-key row convention (`_state`/`_severity`/`id`) this gate's new row
+  builder must match, not duplicate.
+- `components/entity_table.py` — the `link_column_id` + `active_cell`
+  navigation idiom every existing listing table uses.
+- `routes.py` — `device_href`; identifiers are never hand-interpolated.
+- `services/authorization.py` — `ROUTE_POLICY`, `CAPABILITY_POLICY`,
+  `ACTION_POLICY`; this gate must not add or change a row in any of the
+  three.
+- `services/device_scope.py` — `DeviceScope`, `scope_for`,
+  `current_device_scope`; the sole authority this gate's rendering
+  condition is derived from (ADR-004).
+- `services/action_guard.py` — `may_action`/`require_action`; read-only
+  reference, not called from the new panel.
+- `services/monitoring_service.py` — `FleetHealth`, `aggregate_freshness`,
+  `severity_rank`; the rollup the new row builder reads, never recomputes.
+- `services/hierarchy_service.py` — `list_device_paths`; the one batched
+  ADR-008 read path for plant/transformer/device labels.
+- `repositories/plant_monitoring_repository.py` —
+  `list_active_device_ids_for_user`; already the sole source of
+  `scope.device_ids` for a technician, unchanged by this gate.
+- `components/device_operations.py`, `callbacks/device_manage.py`,
+  `pages/device_dashboard.py` — the existing, unmodified reachability path
+  (ADR-016) this gate's rows link into; a diff touching these three means
+  the gate has gone wrong.
+- `components/app_sidebar.py` — read-only reference for the ADR-004/ROLE-2
+  visibility convention; no nav key added in this gate (D4 deferred).
+- `docs/decisions/ADR-002-fleet-attention-is-freshness-only.md` — attention
+  is freshness only; this gate must not invent an alarm/threshold concept.
+- `docs/decisions/ADR-004-device-scope-is-not-user-selectable.md` — no
+  scope selector; the panel is a read-only indicator of `scope_for()`.
+- `docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md`
+  — the one authorized entry point to the three device actions; this gate
+  reuses it and does not create a second one.
+
+Not yet created (do not exist at gate-open, so deliberately not
+backtick-bulleted above — `scripts/build_context_pack.py`'s Relevant-files
+check would fail a citation to a path that does not exist yet): a new
+`components/my_rtls.py` presentation component, a `my_rtls_section` /
+row-builder pair added to `callbacks/listings.py`, and
+`tests/test_my_rtls.py` + `tests/test_my_rtls_wiring.py`.
+
+## Required tests
+
+- `python -m pytest -m "not db" -v` — must stay at 2926 passed or higher
+  after every slice; never allowed to go red.
+- New, slice 1: `tests/test_my_rtls.py` — pure row-builder/component tests
+  (structural/rendered Dash assertions, never `repr()` comparisons).
+- New, slice 2: `tests/test_my_rtls_wiring.py` — scope branching
+  (`EMPTY` vs `UNRESTRICTED` must take different code paths, never
+  distinguished by truthiness), query-count assertion (one
+  `list_device_paths` call per render, zero when unrestricted), Output-count
+  assertion on `populate_overview`.
+- Regression, run unchanged every slice: `tests/test_authorization.py`,
+  `tests/test_action_guard.py`, `tests/test_technician_operations.py`,
+  `tests/test_device_scope.py`, `tests/test_route_scope.py`,
+  `tests/test_credentialed_personas.py` — the proof that no permission
+  moved.
+- At gate close (needs Docker + seeded DB): `python -m pytest -v`, plus a
+  real credentialed-Technician browser check per
+  `tests/test_credentialed_personas.py`'s logins.
+
+## Non-goals (explicit)
+
+- No `ROUTE_POLICY`, `CAPABILITY_POLICY`, or `ACTION_POLICY` row added,
+  removed, or changed.
+- No new route (`/my-rtls` or similar) and no new sidebar nav key.
+- No scope selector, no admin "view as technician", no per-role UI branch
+  that compares `role` directly instead of going through `DeviceScope`.
+- No action controls (Program RTL / Message Forwarding / Deactivate) in
+  the new panel — those stay reachable only through the existing device
+  page entry point.
+- No registration, assignment management, or user management surface
+  opened to a non-administrator.
+- No alarm/threshold/warning-critical concept invented anywhere — this
+  system has none (ADR-001, ADR-002; `MonitoringCondition` is always
+  `UNKNOWN`).
+- No commit, no push, until this gate's own "Commit/push permission" field
+  is updated to GRANTED.
+
+## Known ambiguities
+
+- A Technician's assigned RTL that has never reported (or sits under an
+  inactive transformer) may be absent from `FleetHealth.devices`. The row
+  builder must iterate `scope.device_ids`, not `health.devices`, and
+  default a missing rollup to `aggregate_freshness([])` (NO_DATA) — the
+  same rule `build_plant_rows` already follows. Flagged here so slice 1's
+  tests are written against this case deliberately, not discovered by a
+  gap in coverage.
+- `rtl_active_state` (administrative active/inactive) is a separate axis
+  from `devices.status`/freshness, and there is currently no bulk reader
+  for it. This gate's panel ships with no active-list column and makes no
+  claim about it; a deactivated-but-still-listed RTL is expected, not a
+  defect, until a future gate decides whether to add one.
+
+---
 
 ## Next implementation gate: CLIENT-PC-SYNC-2 — QUEUED, NOT STARTED
 

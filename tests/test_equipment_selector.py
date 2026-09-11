@@ -21,6 +21,7 @@ from components.assign_device_drawer import assign_device_drawer
 from components.user_form_drawer import user_form_drawer
 from components.device_manage_drawer import device_manage_drawer
 from components.device_operations import device_operations_panel
+from components.my_rtls import my_rtls_panel
 from components.auto_disable_override_panel import auto_disable_override_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
@@ -88,6 +89,16 @@ PAGE_LAYOUT_IDS = (
     # ROLE-4B: rendered into the device page's operations slot by a callback,
     # so it is mountable even though no static layout contains it.
     | collect_ids(device_operations_panel("plant-01-t1-d1"))
+    # TECH-WORKSPACE-1: rendered into the Fleet Overview's my-rtls slot by
+    # callbacks/listings.py's populate_overview, same reasoning as
+    # device_operations_panel above — a non-empty rows list is needed here
+    # so the underlying entity_table (id "my-rtls-table") actually renders;
+    # the empty-state branch renders no table at all.
+    | collect_ids(my_rtls_panel([
+        {"id": "plant-01-t1-d1", "device": "29017", "plant": "Plant",
+         "transformer": "T1", "freshness": "Fresh", "_severity": 0,
+         "_state": "fresh"},
+    ]))
     # C08-AUTO-DISABLE-1: rendered into the Fleet Overview's
     # auto-disable-override-panel slot by callbacks/forwarding_schedule.py,
     # same reasoning as device_operations_panel above.
