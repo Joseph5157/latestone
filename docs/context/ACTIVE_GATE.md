@@ -1,9 +1,10 @@
 # Active Gate
 
 Status: **QUEUED / NOT STARTED**
-Date: 2026-09-10
-Gate: CLIENT-PC-SYNC-2 — update the client laptop to the delivered milestone,
-migrate its DB non-destructively, and browser-smoke
+Date: 2026-09-11
+Gate: CLIENT-PC-SYNC-3 — update the client laptop to the delivered
+milestone, migrate its DB non-destructively, and browser-smoke (supersedes
+CLIENT-PC-SYNC-2, which was never started)
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
 (TECH-WORKSPACE-1, closed on that branch 2026-09-10) has been merged into
@@ -11,9 +12,17 @@ migrate its DB non-destructively, and browser-smoke
 the `## Next implementation gate:` declaration to `TECH-WORKSPACE-1` purely
 so its isolated CTX-GUARD-1 check would pass on that branch — its own note
 said explicitly not to carry that rename onto `main`. That rename was
-reverted as part of this merge: `CLIENT-PC-SYNC-2` above remains `main`'s
-one real active gate, unchanged and unstarted. TECH-WORKSPACE-1's verified
-content is preserved below as its own closed, historical section.
+reverted as part of this merge; TECH-WORKSPACE-1's verified content is
+preserved below as its own closed, historical section.
+
+**CLIENT-PC-SYNC-3 note (2026-09-11):** CLIENT-SYNC-3 curated
+TECH-WORKSPACE-1 to the client delivery branch, moving it from `3f21c3a` to
+`983c171` — one milestone past what CLIENT-PC-SYNC-2 was queued against.
+CLIENT-PC-SYNC-2 is therefore recorded as superseded before execution (it
+was never started) rather than completed; CLIENT-PC-SYNC-3 below carries
+the identical non-destructive backup/migrate/smoke procedure re-targeted at
+the current milestone, with Technician "My RTLs" added to the browser-smoke
+checklist.
 
 ## C08-BASELINE-1 — CLOSED / DEVELOPMENT BASELINES RECORDED
 
@@ -1765,7 +1774,69 @@ row-builder pair added to `callbacks/listings.py`, and
 
 ---
 
-## Next implementation gate: CLIENT-PC-SYNC-2 — QUEUED, NOT STARTED
+## CLIENT-SYNC-3 — CLOSED / DELIVERED / REMOTE-VERIFIED
+
+Date: 2026-09-11. Development baseline `fa69c9c66f3d28d9bb6620040a93ffba918022ef`
+(the TECH-WORKSPACE-MERGE-1 commit, above). The accepted milestone is
+delivered to the client repository.
+
+**Delivered client branch:** `cc-1-command-center-progress`
+**Client commit:** `983c17169a0cedd2282a0df4731228e0b05feac7` — subject
+"feat(client): synchronize technician workspace milestone", parent
+`3f21c3a000de5026868c2031eb865569c368e509`. Local `HEAD` and the client
+remote's `refs/heads/cc-1-command-center-progress` both verified to match
+this SHA.
+
+### What was delivered
+
+Exactly the 8 runtime files that changed between the dev baseline this
+branch was last synced from (`72dd1cf`, CLIENT-SYNC-2B) and the current dev
+baseline (`fa69c9c`) — established by diffing the entire repository between
+those two commits, not by reasoning about the merge alone, so nothing else
+was missed: `assets/app.css`, `callbacks/listings.py`,
+`components/my_rtls.py` (new), `pages/plants_overview.py`,
+`tests/test_equipment_selector.py`, `tests/test_fleet_condition.py`,
+`tests/test_my_rtls.py` (new), `tests/test_my_rtls_wiring.py` (new) — the
+Technician "My RTLs" work-list panel (TECH-WORKSPACE-1), copied
+byte-identical from dev `main` via `git checkout fa69c9c -- <paths>` and
+verified identical afterward. 8 files changed, 749 insertions, 3 deletions.
+
+**Excluded, same never-curate / undelivered-dependency precedent
+CLIENT-SYNC-2B established:** `docs/context/ACTIVE_GATE.md`,
+`docs/context/CURRENT_STATE.md`, `docs/context/PROJECT_LEDGER.md`,
+`scripts/build_context_pack.py` (never delivered), and its new test
+`tests/test_context_pack_gate_guard.py` (exercises the undelivered script —
+CLIENT-SYNC-2B's rule that a delivered test may not depend on undelivered
+material). The five client-only documents, `README.md`,
+`GETTING_STARTED.md`, `.gitignore`/`.gitattributes`/`.env.example` were left
+untouched.
+
+### Verification
+
+- Full client suite (real dev Postgres via env vars on the command line, no
+  `.env` written into the client tree): **6 failed, 3623 passed, 3
+  skipped**. All 6 failures (`tests/test_seed_integrity.py`,
+  `tests/test_plant_monitoring_repository.py::TestRangeQueries`) reproduced
+  identically on dev `main` itself against the same shared database —
+  pre-existing dev-DB drift from the live simulator (already documented in
+  TECH-WORKSPACE-1's own gate-close record above), not introduced by this
+  curation.
+- Leakage check (`scripts/check_client_release.py`'s `violations()`, run
+  against the client tree's actual `git ls-files` output including the
+  newly staged files): **NONE**.
+- `git diff --check` (staged): clean.
+- **Client `main` untouched** at `aa1dd3cb13ac3b6c1e9191398b888a2be3c903ca`;
+  local `client-release` untouched at `d89a09035ffd259c00eb4f2138ec1f42cfb97505`.
+
+## CLIENT-PC-SYNC-2 — SUPERSEDED BEFORE EXECUTION (2026-09-11, by CLIENT-PC-SYNC-3)
+
+**Never started.** Superseded, not completed — no client laptop was touched
+under this gate. Superseded because CLIENT-SYNC-3 (above) moved the client
+delivery branch forward from `3f21c3a` to `983c171` after this gate was
+queued, so a client-laptop sync against `3f21c3a` would now install a stale
+milestone. Retained below verbatim as the historical record of what was
+queued; CLIENT-PC-SYNC-3 below carries the identical procedure re-targeted
+at the current milestone.
 
 Set 2026-09-07, once CLIENT-SYNC-2B was delivered and remote-verified above.
 Not started. Scope: update the **client's own laptop** to this milestone over
@@ -1797,9 +1868,47 @@ It must:
   it back off afterwards. No screen may imply a physical RTL was programmed.
 - Report any defect found rather than fixing it on the client machine.
 
+## Next implementation gate: CLIENT-PC-SYNC-3 — QUEUED, NOT STARTED
+
+Set 2026-09-11, superseding CLIENT-PC-SYNC-2 (above) before it was executed:
+CLIENT-SYNC-3 moved the client delivery branch forward to `983c171` after
+CLIENT-PC-SYNC-2 was queued against `3f21c3a`. Not started. Scope is
+otherwise identical to CLIENT-PC-SYNC-2 — update the **client's own laptop**
+to this milestone over Remote Desktop (`PROJECT_LEDGER.md` §7a), migrate its
+database non-destructively, then browser-smoke the result before
+demonstrating it.
+
+It must:
+
+- **Pull `cc-1-command-center-progress` at `983c171…`** on the client
+  machine — not `main`, which is deliberately behind, and not the stale
+  `client-release`.
+- **Verify the target environment BEFORE migrating**, the same way
+  LOCAL-DB-CATCHUP-1 did on the development machine: confirm which
+  host/port/database/schema that laptop's Alembic actually points at, and
+  confirm it is the client's local development database. Check first,
+  migrate second.
+- **Back up that database before touching it**, and validate the backup is
+  readable — not merely non-empty.
+- **`pip install -r requirements.txt`** for `tzdata` and `fpdf2`.
+- **Migrate non-destructively: `alembic upgrade head` only.** No reset, no
+  purge, no reseed, no `--reset` — the client laptop's existing data must
+  survive, and the README now says so explicitly. Record row counts before
+  and after and compare them.
+- **Browser-smoke what the upgrade makes reachable**: login, Fleet Overview,
+  Command Center, the device workflow, **Technician "My RTLs" work list and
+  one-click navigation from it to an assigned device** (TECH-WORKSPACE-1 —
+  the milestone this sync newly adds over CLIENT-PC-SYNC-2's target),
+  reports with CSV/PDF export, and the three configuration panels — leaving
+  thresholds unconfigured and vibration answers unanswered rather than
+  inventing client values.
+- **Leave the simulator OFF** unless deliberately demonstrating it, and turn
+  it back off afterwards. No screen may imply a physical RTL was programmed.
+- Report any defect found rather than fixing it on the client machine.
+
 ### Future planned gate: RTL-PROG-VIS-1 — PLANNED / NOT STARTED
 
-Recorded 2026-09-10. **Not the active gate — CLIENT-PC-SYNC-2 above remains
+Recorded 2026-09-10. **Not the active gate — CLIENT-PC-SYNC-3 above remains
 `main`'s active gate.** No feature code for this exists yet; this is a
 forward-looking backlog entry only, so a later "what should we build next"
 question does not have to re-derive it. Full detail lives in

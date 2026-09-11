@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-11T11:28:11Z
+Date: 2026-09-11T12:16:47Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `ababc1d` "docs(plan): record RTL programming visibility gate"
-- Working tree: 10 entries — see below
+- `main` = `fa69c9c` "Merge branch 'tech-workspace-1' into main (TECH-WORKSPACE-MERGE-1)"
+- Working tree: 3 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2963 passed, 686 deselected in 39.55s
+- `python -m pytest -m "not db"` → 2963 passed, 686 deselected in 27.62s
 
 ## Branches
 
@@ -36,6 +36,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
+- `tech-workspace-1`
 - `ui-1-frontend-audit`
 - `worktree-fleet-overview-visual-v2`
 - `worktree-plant-monitoring-architecture`
@@ -44,10 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 12 | 275 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 125 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 275 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `tech-workspace-1` | 1 | 1 | REVIEW — unexpected divergence |
+| `cc-1-command-center-progress` | 13 | 277 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 127 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 277 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -78,20 +78,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CLIENT-PC-SYNC-2 — update the client laptop to the delivered milestone, migrate its DB non-destructively, and browser-smoke — full detail in `docs/context/ACTIVE_GATE.md`.
+CLIENT-PC-SYNC-3 — update the client laptop to the delivered milestone, migrate its DB non-destructively, and browser-smoke (supersedes CLIENT-PC-SYNC-2, which was never started) — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M  assets/app.css
-M  callbacks/listings.py
-A  components/my_rtls.py
-M  docs/context/ACTIVE_GATE.md
-M  pages/plants_overview.py
-M  tests/test_equipment_selector.py
-M  tests/test_fleet_condition.py
-A  tests/test_my_rtls.py
-A  tests/test_my_rtls_wiring.py
+M docs/context/ACTIVE_GATE.md
+ M docs/context/PROJECT_LEDGER.md
 ?? debug.log
 ```
 
