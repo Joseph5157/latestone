@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-11T12:16:47Z
+Date: 2026-09-14T18:34:35Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `fa69c9c` "Merge branch 'tech-workspace-1' into main (TECH-WORKSPACE-MERGE-1)"
-- Working tree: 3 entries — see below
+- `main` = `13b4f72` "docs(context): record repository and deployment map"
+- Working tree: 4 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2963 passed, 686 deselected in 27.62s
+- `python -m pytest -m "not db"` → 2963 passed, 686 deselected in 28.65s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 277 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 127 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 277 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 279 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 129 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 279 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -78,12 +78,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CLIENT-PC-SYNC-3 — update the client laptop to the delivered milestone, migrate its DB non-destructively, and browser-smoke (supersedes CLIENT-PC-SYNC-2, which was never started) — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — no implementation gate is currently queued. `CLIENT-PC-SYNC-3` (update the client laptop to the delivered milestone, migrate its DB non-destructively, and browser-smoke) is now CLOSED / PASS, recorded in its own section below. `RTL-PROG-VIS-1`, documented further down as a planned backlog entry, remains not opened. — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
  M docs/context/PROJECT_LEDGER.md
 ?? debug.log
 ```

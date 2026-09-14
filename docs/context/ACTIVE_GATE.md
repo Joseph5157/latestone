@@ -1,10 +1,12 @@
 # Active Gate
 
-Status: **QUEUED / NOT STARTED**
-Date: 2026-09-11
-Gate: CLIENT-PC-SYNC-3 — update the client laptop to the delivered
-milestone, migrate its DB non-destructively, and browser-smoke (supersedes
-CLIENT-PC-SYNC-2, which was never started)
+Status: **NONE ACTIVE**
+Date: 2026-09-15
+Gate: NONE — no implementation gate is currently queued. `CLIENT-PC-SYNC-3`
+(update the client laptop to the delivered milestone, migrate its DB
+non-destructively, and browser-smoke) is now CLOSED / PASS, recorded in its
+own section below. `RTL-PROG-VIS-1`, documented further down as a planned
+backlog entry, remains not opened.
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
 (TECH-WORKSPACE-1, closed on that branch 2026-09-10) has been merged into
@@ -1868,7 +1870,7 @@ It must:
   it back off afterwards. No screen may imply a physical RTL was programmed.
 - Report any defect found rather than fixing it on the client machine.
 
-## Next implementation gate: CLIENT-PC-SYNC-3 — QUEUED, NOT STARTED
+## CLIENT-PC-SYNC-3 — CLOSED / PASS
 
 Set 2026-09-11, superseding CLIENT-PC-SYNC-2 (above) before it was executed:
 CLIENT-SYNC-3 moved the client delivery branch forward to `983c171` after
@@ -1906,10 +1908,56 @@ It must:
   it back off afterwards. No screen may imply a physical RTL was programmed.
 - Report any defect found rather than fixing it on the client machine.
 
+### Verification — reported by the user who performed the sync on the client laptop (2026-09-15)
+
+This procedure ran on the client's own laptop over Remote Desktop, a
+machine outside this session's reach. What follows is the user's direct
+report of what was done and observed there; it has not been, and cannot
+be, independently re-run or re-verified from this repository/session —
+recorded as reported, per `SOURCE_AUTHORITY.md` rung 5 (our conversation)
+being the only rung this session can reach for facts about a system it
+does not control.
+
+- Client branch/SHA confirmed pulled: `cc-1-command-center-progress` @
+  `983c17169a0cedd2282a0df4731228e0b05feac7` — matches the `983c171…`
+  target this gate names above and `PROJECT_LEDGER.md`'s recorded client
+  delivery pointer.
+- Database migrated non-destructively `007_audit_log` →
+  `012_vibration_contract_answers` (`alembic upgrade head` only).
+- Protected/pre-existing row counts unchanged before vs. after the
+  migration.
+- Administrator browser acceptance: PASS.
+- Technician (`demo.tech01`) browser acceptance: PASS.
+- 24 assigned RTLs visible to the technician.
+- "My RTLs" navigation to an assigned device works (TECH-WORKSPACE-1, the
+  milestone this sync newly adds over CLIENT-PC-SYNC-2's target).
+- Access to an unassigned RTL is refused for the technician.
+- No Administration UI leakage to the technician.
+- `RTL_PROGRAMMING_SIMULATOR_ENABLED=False` on the client laptop — simulator
+  left OFF.
+- No defect reported.
+
+**Result: CLOSED / PASS.** No application code was touched by this gate —
+it is an environment/verification gate (same shape as `LOCAL-DB-CATCHUP-1`
+above), so this closure only updates `docs/context/ACTIVE_GATE.md` and
+`docs/context/PROJECT_LEDGER.md`. Per explicit instruction, no new
+implementation gate is opened by this closure.
+
+## Next implementation gate: NONE — none queued (2026-09-15)
+
+`CLIENT-PC-SYNC-3` above is the most recently closed gate. Per explicit
+instruction at closure, no successor gate was opened in the same session.
+`RTL-PROG-VIS-1` (below) is recorded as the leading backlog candidate — not
+blocked by any client decision — but it is a planned entry only, not an
+opened gate. Whoever opens the next gate updates this section and the
+header above together, per AGENTS.md's "gate opens and closes on a green
+pack" rule.
+
 ### Future planned gate: RTL-PROG-VIS-1 — PLANNED / NOT STARTED
 
-Recorded 2026-09-10. **Not the active gate — CLIENT-PC-SYNC-3 above remains
-`main`'s active gate.** No feature code for this exists yet; this is a
+Recorded 2026-09-10. **Not the active gate — no implementation gate is
+currently active** (`CLIENT-PC-SYNC-3` above closed 2026-09-15 without a
+successor being opened). No feature code for this exists yet; this is a
 forward-looking backlog entry only, so a later "what should we build next"
 question does not have to re-derive it. Full detail lives in
 `docs/context/PROJECT_LEDGER.md` §4 ("RTL Programming") and §10 (Resume
