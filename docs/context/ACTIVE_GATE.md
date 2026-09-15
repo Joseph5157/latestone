@@ -2,13 +2,30 @@
 
 Status: **CLOSED / PASS**
 Date: 2026-09-15
-Gate: NONE — no implementation gate is currently queued.
+Gate: NONE
 
-CMD-AUDIT-VIS-1 is closed. It exposed existing persisted command and audit
-history read-only on the shared RTL device page, through trusted `DeviceScope`
-and the existing action policy. It added no transport, protocol, retry,
-acknowledgement parser, or authorization model. Simulation remains distinct
-from physical execution.
+Implement a durable, internal acknowledgement lifecycle for persisted
+reportable alarm events in Notification Center. An acknowledgement records a
+human response to the displayed event; it does not clear, resolve, suppress,
+forward, or deliver an alarm. Administrator may acknowledge fleet alarms;
+Technician may acknowledge only events for devices in trusted `DeviceScope`;
+General User remains read-only with no acknowledgement control. The mutation
+must use server-trusted identity, scope-filter the target at the repository
+boundary, persist actor and time atomically with an `audit_log` record, and
+leave physical RTL/MQTT/SMS/email work out of scope.
+
+The Notification Center continues to group events by device/category. Its
+state and optional action refer to the latest persisted event represented by
+that row. Freshness-derived `>24h No Data` rows have no persisted alarm event
+and remain explicitly non-acknowledgeable.
+
+Relevant files: `alembic/versions/013_alarm_acknowledgement.py`,
+`repositories/plant_monitoring_repository.py`, `services/event_semantics.py`,
+`services/notification_service.py`, `services/alarm_acknowledgement_service.py`,
+`services/authorization.py`, `callbacks/notifications.py`,
+`pages/notifications.py`, `config/audit.py`, and focused notification/alarm
+tests.
+
 Commit/push permission: **GRANTED and exercised.**
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
@@ -1969,7 +1986,22 @@ non-DB suite passed (2983 passed, 687 deselected); context checks and
 DB-marked repository coverage remains unrun. Browser acceptance was not run
 because neither Dash nor PostgreSQL was already running.
 
-## Next implementation gate: NONE — no implementation gate is currently queued.
+## ALARM-ACK-1 — CLOSED / PASS
+
+Implemented and verified 2026-09-15. Notification Center now presents the
+internal acknowledgement state of persisted reportable alarm events and gives
+Administrator and assigned Technician users a scoped acknowledgement action.
+General User remains read-only. Acknowledgement persists actor and timestamp
+on `device_events` and writes `ALARM_ACKNOWLEDGED` to `audit_log` atomically;
+it never clears/resolves an alarm and adds no external delivery or hardware
+transport. Freshness-derived notifications remain non-acknowledgeable.
+
+Focused pure tests, context verification, and the private-basetemp non-DB
+suite passed. Database-marked persistence/migration tests were added but not
+executed because PostgreSQL was intentionally offline; no database or Docker
+state was started. Physical RTL acknowledgement remains unimplemented.
+
+## Next implementation gate: NONE
 
 ### RTL-PROG-VIS-1 — CLOSED / PASS
 

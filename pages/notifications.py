@@ -40,6 +40,7 @@ def layout() -> html.Div:
                 "Monitor formal business notifications and data freshness status.",
                 className="page__subtitle",
             ),
+            dcc.Store(id="notification-refresh", data={"event_id": None}),
             # Honesty banner. The distinction is display vs delivery: the rows
             # in this table are real (BR008 + persisted device events), but
             # nothing is sent anywhere.
@@ -75,6 +76,7 @@ def layout() -> html.Div:
                     ),
                     # Error slot
                     html.Div(id="notification-error", className="listing-error"),
+                    html.Div(id="notification-action-result", className="listing-error"),
                     # Notification table
                     entity_table(
                         table_id="notification-table",
@@ -83,6 +85,7 @@ def layout() -> html.Div:
                             {"name": "Entity", "id": "entity_label"},
                             {"name": "Type", "id": "entity_type"},
                             {"name": "Notification", "id": "notification_type"},
+                            {"name": "State", "id": "acknowledgement_state"},
                             {"name": "Detail", "id": "detail"},
                         ],
                         rows=[],

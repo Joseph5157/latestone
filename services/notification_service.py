@@ -33,6 +33,11 @@ class NotificationRow:
     detail: str
     occurred_at: datetime | None
     href: str
+    # A notification may be derived from freshness or from a persisted event.
+    # Only the latter can carry this internal acknowledgement lifecycle.
+    event_id: int | None = None
+    acknowledgement_state: str | None = None
+    acknowledged_at: datetime | None = None
 
 
 def _device_label(device_id: str, device_code: str | None = None) -> str:

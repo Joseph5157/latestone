@@ -503,7 +503,8 @@ class TestNotificationPresentationCSS:
 
     @pytest.mark.parametrize(
         "column_id",
-        ["occurred_at", "entity_label", "entity_type", "notification_type", "detail"],
+        ["occurred_at", "entity_label", "entity_type", "notification_type",
+         "acknowledgement_state", "acknowledge_action", "detail"],
     )
     def test_mobile_record_labels_cover_all_five_columns(self, column_id):
         media = CSS_TEXT[CSS_TEXT.index("@media (max-width: 768px)"):]

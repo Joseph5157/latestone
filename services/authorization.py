@@ -148,6 +148,7 @@ EXPORT_DATA = "export_data"
 PROGRAM_RTL = "program_rtl"
 TOGGLE_MESSAGE_FORWARDING = "toggle_message_forwarding"
 DEACTIVATE_RTL = "deactivate_rtl"
+ACKNOWLEDGE_ALARM = "acknowledge_alarm"
 MANAGE_ASSIGNMENT = "manage_assignment"
 # C08-AUTO-DISABLE-1: setting/clearing the global same-day auto-disable
 # cutoff override. Device-less like MANAGE_ASSIGNMENT and REGISTER_DEVICE —
@@ -204,6 +205,7 @@ ACTION_POLICY: dict[str, tuple[frozenset[str], frozenset[str]]] = {
     PROGRAM_RTL: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
     TOGGLE_MESSAGE_FORWARDING: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
     DEACTIVATE_RTL: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
+    ACKNOWLEDGE_ALARM: (_ADMIN_ONLY, frozenset({TECHNICIAN})),
     MANAGE_ASSIGNMENT: (_ADMIN_ONLY, _NO_ROLE),
 }
 

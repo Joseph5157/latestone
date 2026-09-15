@@ -209,7 +209,7 @@ def build_event_notifications(
     Semantic rule (EVT-D8, corrected per review): the latest persisted
     relevant event per (device, category), keyed ``{category}:{device_id}``
     with the count of queried events in the detail — NO time window, no
-    expiry/retention/acknowledgement/suppression rule. An event-backed
+    expiry/retention/suppression rule. An event-backed
     notification never disappears merely because REP-01 is a 30-day
     report. Unregistered UIDs have no device, so their stable key uses the
     normalized reported_uid instead — unknown UIDs are never collapsed
@@ -267,7 +267,9 @@ def build_event_notifications(
         else:
             bucket = existing
         bucket.count += 1
-        if event.event_ts > bucket.latest.event_ts:
+        if (event.event_ts, event.event_id) > (
+            bucket.latest.event_ts, bucket.latest.event_id,
+        ):
             bucket.latest = event
         if event.battery_voltage is not None:
             bucket.battery_voltage = event.battery_voltage
@@ -296,6 +298,19 @@ def build_event_notifications(
                 detail=detail,
                 occurred_at=latest_ts,
                 href=b.href,
+                event_id=(
+                    b.latest.event_id
+                    if semantics_for(b.latest.event_type).is_reportable_alarm
+                    else None
+                ),
+                acknowledgement_state=(
+                    "Acknowledged"
+                    if getattr(b.latest, "acknowledged_at", None) is not None
+                    else "Active"
+                )
+                if semantics_for(b.latest.event_type).is_reportable_alarm
+                else None,
+                acknowledged_at=getattr(b.latest, "acknowledged_at", None),
             )
         )
     return rows

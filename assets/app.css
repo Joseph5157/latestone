@@ -2454,6 +2454,8 @@ body {
   .entity-table-wrapper--responsive td[data-dash-column="entity_label"]::before { content: "Entity"; }
   .entity-table-wrapper--responsive td[data-dash-column="entity_type"]::before { content: "Type"; }
   .entity-table-wrapper--responsive td[data-dash-column="notification_type"]::before { content: "Notification"; }
+  .entity-table-wrapper--responsive td[data-dash-column="acknowledgement_state"]::before { content: "State"; }
+  .entity-table-wrapper--responsive td[data-dash-column="acknowledge_action"]::before { content: "Action"; }
   .entity-table-wrapper--responsive td[data-dash-column="detail"]::before { content: "Detail"; }
 
   /* Report Center record cards (ENT-6A): the report tables opt into the

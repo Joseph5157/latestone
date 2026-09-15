@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-15T11:59:51Z
+Date: 2026-09-15T12:29:47Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `b25c520` "feat(programming): expose scoped RTL activity history"
-- Working tree: 9 entries — see below
+- `main` = `4122397` "feat(history): expose scoped command audit history"
+- Working tree: 18 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2983 passed, 687 deselected, 1 warning in 30.54s
+- `python -m pytest -m "not db"` → 2997 passed, 695 deselected, 1 warning in 30.75s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 282 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 132 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 282 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 283 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 133 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 283 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -78,19 +78,28 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — no implementation gate is currently queued. — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M assets/app.css
- M callbacks/programming_activity.py
- M components/programming_activity.py
+ M callbacks/notifications.py
+ M config/audit.py
  M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
  M docs/context/PROJECT_LEDGER.md
+ M pages/notifications.py
  M repositories/plant_monitoring_repository.py
- M services/rtl_programming_activity_service.py
- M tests/test_programming_activity.py
+ M services/authorization.py
+ M services/event_semantics.py
+ M services/notification_service.py
+ M tests/test_notification_service.py
+?? alembic/versions/013_alarm_acknowledgement.py
 ?? debug.log
+?? services/alarm_acknowledgement_service.py
+?? tests/test_alarm_acknowledgement.py
+?? tests/test_alarm_acknowledgement_db.py
+?? tests/test_migration_alarm_acknowledgement.py
 ```
 

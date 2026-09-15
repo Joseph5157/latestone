@@ -3647,7 +3647,7 @@ def update_command_state(
 _DEVICE_EVENT_COLUMNS = (
     "event_id, device_id, transformer_id, reported_uid, event_type, "
     "severity, event_ts, temperature, battery_voltage, message, source, "
-    "created_at"
+    "created_at, acknowledged_at, acknowledged_by_user_id"
 )
 
 
@@ -3710,25 +3710,43 @@ def insert_device_event(
         return _run(own)
 
 
-def get_device_event(event_id: int) -> dict | None:
+def get_device_event(
+    event_id: int,
+    *,
+    session=None,
+    allowed_device_ids: frozenset[str] | None = None,
+) -> dict | None:
     """One device_events row as a plain dict, or None when absent.
 
     Test/read-back helper for the ingestion slice; not a UI query.
     """
-    with session_scope() as session:
-        row = session.execute(
-            text(
-                f"SELECT {_DEVICE_EVENT_COLUMNS} "
-                f"FROM {_SCHEMA}.device_events WHERE event_id = :event_id"
+    def _run(s):
+        scope_sql, scope_params = _scope_clause("e", allowed_device_ids)
+        row = s.execute(
+            _scoped(
+                text(
+                    f"SELECT {_DEVICE_EVENT_COLUMNS} "
+                    f"FROM {_SCHEMA}.device_events e "
+                    f"WHERE e.event_id = :event_id{scope_sql}"
+                ),
+                allowed_device_ids,
             ),
-            {"event_id": event_id},
+            {"event_id": event_id, **scope_params},
         ).first()
+        return row
+
+    if session is not None:
+        row = _run(session)
+    else:
+        with session_scope() as own:
+            row = _run(own)
     if row is None:
         return None
     keys = (
         "event_id", "device_id", "transformer_id", "reported_uid",
         "event_type", "severity", "event_ts", "temperature",
         "battery_voltage", "message", "source", "created_at",
+        "acknowledged_at", "acknowledged_by_user_id",
     )
     return dict(zip(keys, row))
 
@@ -3756,6 +3774,8 @@ class DeviceEventRecord:
     message: str | None
     source: str | None
     created_at: datetime
+    acknowledged_at: datetime | None
+    acknowledged_by_user_id: int | None
 
 
 def _to_device_event(row) -> DeviceEventRecord:
@@ -3772,7 +3792,48 @@ def _to_device_event(row) -> DeviceEventRecord:
         message=row[9],
         source=row[10],
         created_at=row[11],
+        acknowledged_at=row[12],
+        acknowledged_by_user_id=row[13],
     )
+
+
+def acknowledge_device_event(
+    event_id: int,
+    *,
+    actor_user_id: int,
+    allowed_device_ids: frozenset[str] | None,
+    session,
+) -> DeviceEventRecord | None:
+    """Atomically acknowledge one scoped event that is still active.
+
+    ``None`` is intentionally ambiguous to the repository: the service
+    distinguishes an absent/out-of-scope event from an already-acknowledged
+    one through its scoped read.  The device-scope predicate is repeated in
+    this write, so a caller cannot turn a previously-read event id into a
+    cross-device mutation.
+    """
+    scope_sql, scope_params = _scope_clause("e", allowed_device_ids)
+    row = session.execute(
+        _scoped(
+            text(
+                f"""
+                UPDATE {_SCHEMA}.device_events AS e
+                SET acknowledged_at = now(),
+                    acknowledged_by_user_id = :actor_user_id
+                WHERE e.event_id = :event_id
+                  AND e.acknowledged_at IS NULL{scope_sql}
+                RETURNING {_DEVICE_EVENT_COLUMNS}
+                """
+            ),
+            allowed_device_ids,
+        ),
+        {
+            "event_id": event_id,
+            "actor_user_id": actor_user_id,
+            **scope_params,
+        },
+    ).first()
+    return _to_device_event(row) if row is not None else None
 
 
 def list_recent_device_events(

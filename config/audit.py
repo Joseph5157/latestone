@@ -45,6 +45,10 @@ RTL_DEACTIVATED = "RTL_DEACTIVATED"
 #: written system-originated — a startup event has no human actor (ACT-D5).
 RTL_ACTIVATED = "RTL_ACTIVATED"
 
+#: Internal alarm acknowledgement.  This records an operator response to one
+#: persisted event; it neither clears nor resolves the event/alarm.
+ALARM_ACKNOWLEDGED = "ALARM_ACKNOWLEDGED"
+
 #: C08-AUTO-DISABLE-1: an Administrator setting or clearing the temporary
 #: same-day cutoff override. Always human-originated (the actor is whoever
 #: clicked the control), against the single global entity — there is
