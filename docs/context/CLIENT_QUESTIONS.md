@@ -22,7 +22,7 @@
 
 **Why we need this:** Every device-facing feature depends on knowing how the application will send commands and receive data from the field.
 
-**What it unlocks:** RTL programming execution, event data ingestion, message forwarding delivery, real-time power-down forwarding, and all producer-dependent work.
+**What it unlocks:** Physical RTL command transport, real device-event ingestion, message-forwarding delivery, real-time power-down forwarding, and all producer-dependent work. The repository already has protocol-neutral command lifecycle/dispatch readiness and development-only simulation; neither supplies the production transport or protocol decision.
 
 ---
 
@@ -81,7 +81,11 @@ remains pending for all items marked "baseline" below.
    `docs/context/ACTIVE_GATE.md` (gate `C08-AUTO-DISABLE-1`, now queued
    against this baseline).
 2. **C-05 — Communication method: NOT ANSWERED.** Confirmed to remain
-   Eskom-controlled/external. Still the sole leading engineering gate — see
+   Eskom-controlled/external. It remains the gate for physical transport and
+   producer integration, despite completed application-side command lifecycle,
+   scoped activity/history, alarm acknowledgement, and protocol-neutral
+   dispatch readiness. Those development capabilities do not determine an
+   Eskom transport, payload, endpoint, ACK format, or device behaviour — see
    `REQ-3I_Clarification_Register.md` §5.
 3. **C-15 — Max Temperature report period: DEVELOPMENT BASELINE SET,
    pending client confirmation.** Rolling 30 days by default, plus a custom

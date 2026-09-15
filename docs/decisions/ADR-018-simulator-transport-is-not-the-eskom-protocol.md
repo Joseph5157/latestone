@@ -11,7 +11,7 @@ Evidence: `alembic/versions/009_rtl_command_lifecycle.py`;
 (`dispatch_command`); `tests/test_migration_rtl_command_lifecycle.py`;
 `tests/test_rtl_command_service_lifecycle.py`;
 `tests/test_rtl_command_dispatch.py`
-Implemented-by: not yet
+Implemented-by: `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a` (`feat(integration): add simulated RTL command lifecycle`)
 Supersedes: nothing — extends ADR-017 without changing what
 `rtl_programming_requests` or `rtl_commands`'s creation-time contract mean.
 

@@ -9,7 +9,7 @@ Evidence: `alembic/versions/008_rtl_commands.py`;
 command in the same transaction as the request insert and its audit row);
 `config/commands.py`; `services/rtl_command_service.py`;
 `tests/test_migration_rtl_commands.py`; `tests/test_rtl_commands.py`
-Implemented-by: not yet
+Implemented-by: `831ea2b3ea612921d9fb44813924aeea43922fb0` (`feat(integration): add protocol-neutral RTL command foundation`)
 Supersedes: nothing — extends OPS-PROG-1 without changing what
 `rtl_programming_requests` means.
 

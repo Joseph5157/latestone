@@ -7,7 +7,7 @@ Evidence: `services/simulated_event_source.py`;
 `services/event_semantics.py` (unchanged); `services/notification_service.py`
 (unchanged); `services/report_service.py` (unchanged);
 `tests/test_simulated_event_source.py`
-Implemented-by: not yet
+Implemented-by: `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8` (`feat(integration): add simulated RTL event ingestion`)
 Supersedes: nothing — reuses INGEST-1I's `ingest_event()` boundary and
 ADR-018's transport-vs-simulator framing without changing either.
 

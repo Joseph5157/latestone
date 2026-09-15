@@ -8,7 +8,7 @@ Evidence: `services/notification_delivery.py` (`DeliveryRequest`,
 — `NotificationRow`, `current_notifications()`); `services/event_semantics.py`
 (unchanged); `services/message_forwarding_service.py` (unchanged);
 `tests/test_notification_delivery.py`
-Implemented-by: not yet
+Implemented-by: `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` (`feat(integration): add notification delivery abstraction`)
 Supersedes: nothing — extends the ADR-018/ADR-019 simulator lineage
 (outgoing command transport, incoming event ingestion) with a third,
 independent boundary (outgoing notification delivery) without changing

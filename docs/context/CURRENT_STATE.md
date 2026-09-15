@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-15T12:43:39Z
+Date: 2026-09-15T13:14:47Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `76b3d40` "feat(alarms): add scoped acknowledgement lifecycle"
+- `main` = `9f17509` "feat(transport): prepare protocol-neutral command dispatch"
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3007 passed, 695 deselected, 1 warning in 30.99s
+- `python -m pytest -m "not db"` → 3007 passed, 695 deselected, 1 warning in 34.91s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 284 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 134 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 284 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 285 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 135 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 285 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -71,10 +71,10 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-014-latest-reads-are-bounded-seeks.md | Approved | `3b33015` (`fix(db): bound latest-reading query cost`; full sha 3b330152c176a51af570f148008413c05c435d45 — the commit carries this ADR too, so the sha is recorded here afterwards, as FIX-1 did in `5901945`) |
 | ADR-015-credentials-name-logins-not-roles.md | Approved | `f0862d0` (`feat(auth): add credentialed demo personas`; full sha f0862d085680ca0d4b0f774d6b44f5d224810b75 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014 did) |
 | ADR-016-operational-actions-are-shared-administration-is-not.md | Approved | `08e44af` (`feat(roles): expose technician device operations`; full sha 08e44af75c344533ccca50ce3d72de27c45e1243 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014 and ADR-015 were) |
-| ADR-017-rtl-commands-are-the-protocol-neutral-transport-seam.md | Approved | not yet |
-| ADR-018-simulator-transport-is-not-the-eskom-protocol.md | Approved | not yet |
-| ADR-019-simulated-event-source-reuses-canonical-ingestion.md | Approved | not yet |
-| ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md | Approved | not yet |
+| ADR-017-rtl-commands-are-the-protocol-neutral-transport-seam.md | Approved | `831ea2b3ea612921d9fb44813924aeea43922fb0` (`feat(integration): add protocol-neutral RTL command foundation`) |
+| ADR-018-simulator-transport-is-not-the-eskom-protocol.md | Approved | `bb7fea3af0c85cff3cdf84dd82a36a2ed397644a` (`feat(integration): add simulated RTL command lifecycle`) |
+| ADR-019-simulated-event-source-reuses-canonical-ingestion.md | Approved | `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8` (`feat(integration): add simulated RTL event ingestion`) |
+| ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md | Approved | `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` (`feat(integration): add notification delivery abstraction`) |
 
 ## Active gate
 
@@ -83,13 +83,13 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M config/commands.py
- M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
+M docs/context/CLIENT_QUESTIONS.md
+ M docs/context/DECISION_INDEX.md
  M docs/context/PROJECT_LEDGER.md
- M services/device_transport.py
- M services/rtl_command_dispatch_service.py
+ M docs/decisions/ADR-017-rtl-commands-are-the-protocol-neutral-transport-seam.md
+ M docs/decisions/ADR-018-simulator-transport-is-not-the-eskom-protocol.md
+ M docs/decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md
+ M docs/decisions/ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md
 ?? debug.log
-?? tests/test_rtl_command_dispatch_policy.py
 ```
 
