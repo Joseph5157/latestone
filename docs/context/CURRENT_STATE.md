@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-14T18:34:35Z
+Date: 2026-09-15T10:13:21Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `13b4f72` "docs(context): record repository and deployment map"
-- Working tree: 4 entries — see below
+- `main` = `6bc06e4` "docs(context): close CLIENT-PC-SYNC-3 CLOSED / PASS"
+- Working tree: 2 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2963 passed, 686 deselected in 28.65s
+- `python -m pytest -m "not db"` → 2963 passed, 686 deselected, 1 warning in 31.11s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 279 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 129 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 279 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 280 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 130 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 280 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,9 +83,7 @@ NONE — no implementation gate is currently queued. `CLIENT-PC-SYNC-3` (update 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
- M docs/context/PROJECT_LEDGER.md
+M scripts/build_context_pack.py
 ?? debug.log
 ```
 

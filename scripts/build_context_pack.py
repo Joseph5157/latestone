@@ -50,6 +50,7 @@ import hashlib
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -336,10 +337,16 @@ def verify_manifest(manifest_path: Path) -> ManifestResult:
 # ---------------------------------------------------------------------------
 
 def run_tests() -> tuple[bool, str]:
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "-m", "not db"],
-        cwd=ROOT, capture_output=True, text=True,
-    )
+    # Give the child pytest process a private base directory.  On Windows a
+    # long-lived shared ``pytest-of-<user>`` directory can be inaccessible to
+    # this subprocess even though the current interpreter can create a new
+    # temporary directory.  Keeping the directory outside ROOT preserves
+    # --check's no-working-tree-writes contract.
+    with tempfile.TemporaryDirectory(prefix="powerplant-context-pytest-") as base_temp:
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "-m", "not db", "--basetemp", base_temp],
+            cwd=ROOT, capture_output=True, text=True,
+        )
     lines = [l for l in result.stdout.strip().splitlines() if l]
     if lines:
         summary = lines[-1]
