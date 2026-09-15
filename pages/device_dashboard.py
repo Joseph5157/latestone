@@ -23,6 +23,7 @@ from dash import dcc, html
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.device_manage_drawer import device_manage_drawer
+from components.programming_activity import PROGRAMMING_ACTIVITY_ID
 from components.device_operations import OPERATIONS_ID
 from components.metric_chart import metric_chart
 from components.readings_table import readings_table
@@ -236,6 +237,10 @@ def layout(
             # least one operational action on THIS device; `require_action`
             # in the confirm callbacks is what actually refuses.
             html.Div(id=OPERATIONS_ID),
+            # RTL-PROG-VIS-1. Filled only for the same personas and device
+            # scope that may operate this RTL; General Users receive no
+            # programming/control history. The callback performs no mutation.
+            dcc.Loading(html.Div(id=PROGRAMMING_ACTIVITY_ID), className="programming-activity-loading"),
             # The same drawer `/admin/devices` opens. Its ids are fixed rather
             # than pattern-matched, which is safe because the router renders
             # exactly one page: the admin page and this one are never mounted

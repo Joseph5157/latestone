@@ -3151,6 +3151,110 @@ def list_recent_programming_requests(
     return [_to_programming_request(row) for row in rows]
 
 
+@dataclass(frozen=True)
+class ProgrammingActivityRecord:
+    """One request with its optional command lifecycle for activity views.
+
+    This is a read model, not a new lifecycle.  The request remains the
+    append-only operator-intent record and the command remains its separate
+    protocol-neutral seam.  ``command_*`` fields are therefore nullable for
+    historic or incomplete records; callers must not infer physical delivery
+    from their presence.
+    """
+
+    request_id: int
+    device_id: str
+    requested_by_name: str
+    master_msisdn: str
+    requested_at: datetime
+    request_status: str
+    request_completed_at: datetime | None
+    error_message: str | None
+    command_id: int | None
+    command_state: str | None
+    command_sent_at: datetime | None
+    command_acknowledged_at: datetime | None
+    command_completed_at: datetime | None
+    failure_code: str | None
+
+
+def _to_programming_activity(row) -> ProgrammingActivityRecord:
+    return ProgrammingActivityRecord(*row)
+
+
+def list_programming_activity(
+    device_ids,
+    *,
+    allowed_device_ids: frozenset[str] | None,
+    limit_per_device: int = 10,
+) -> list[ProgrammingActivityRecord]:
+    """Recent request/command activity for a bounded, scoped RTL set.
+
+    One windowed query serves one device page today and a future assigned-RTL
+    work list without an N+1 pattern.  Scope is applied in SQL, not filtered
+    after the read: an empty Technician scope consequently returns no rows
+    without querying, while ``None`` remains the explicit unrestricted scope.
+    """
+    ids = list(dict.fromkeys(device_ids))
+    if not ids or allowed_device_ids == frozenset():
+        return []
+    if not isinstance(limit_per_device, int) or isinstance(limit_per_device, bool):
+        raise ValueError("limit_per_device must be a positive integer")
+    if limit_per_device < 1:
+        raise ValueError("limit_per_device must be a positive integer")
+
+    scope_sql, scope_params = _scope_clause("r", allowed_device_ids)
+    statement = _scoped(
+        text(
+            f"""
+            WITH ranked_activity AS (
+                SELECT r.request_id,
+                       r.device_id,
+                       COALESCE(NULLIF(u.full_name, ''), u.username,
+                                'Unknown account') AS requested_by_name,
+                       r.master_msisdn,
+                       r.requested_at,
+                       r.status AS request_status,
+                       r.completed_at AS request_completed_at,
+                       r.error_message,
+                       c.command_id,
+                       c.state AS command_state,
+                       c.sent_at AS command_sent_at,
+                       c.acknowledged_at AS command_acknowledged_at,
+                       c.completed_at AS command_completed_at,
+                       c.failure_code,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY r.device_id
+                           ORDER BY r.requested_at DESC, r.request_id DESC
+                       ) AS activity_rank
+                FROM {_SCHEMA}.rtl_programming_requests r
+                LEFT JOIN {_SCHEMA}.users u ON u.user_id = r.requested_by
+                LEFT JOIN {_SCHEMA}.rtl_commands c ON c.request_id = r.request_id
+                WHERE r.device_id IN :device_ids{scope_sql}
+            )
+            SELECT request_id, device_id, requested_by_name, master_msisdn,
+                   requested_at, request_status, request_completed_at,
+                   error_message, command_id, command_state, command_sent_at,
+                   command_acknowledged_at, command_completed_at, failure_code
+            FROM ranked_activity
+            WHERE activity_rank <= :limit_per_device
+            ORDER BY requested_at DESC, request_id DESC
+            """
+        ).bindparams(bindparam("device_ids", expanding=True, type_=String)),
+        allowed_device_ids,
+    )
+    with session_scope() as session:
+        rows = session.execute(
+            statement,
+            {
+                "device_ids": ids,
+                "limit_per_device": limit_per_device,
+                **scope_params,
+            },
+        ).all()
+    return [_to_programming_activity(row) for row in rows]
+
+
 def get_programming_request(request_id: int) -> ProgrammingRequestRecord | None:
     """One programming request by primary key, or None.
 

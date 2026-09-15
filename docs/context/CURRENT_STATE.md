@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-15T10:13:21Z
+Date: 2026-09-15T11:39:05Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `6bc06e4` "docs(context): close CLIENT-PC-SYNC-3 CLOSED / PASS"
-- Working tree: 2 entries — see below
+- `main` = `bcfe805` "fix(ctx): isolate context-pack pytest temp state"
+- Working tree: 13 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2963 passed, 686 deselected, 1 warning in 31.11s
+- `python -m pytest -m "not db"` → 2979 passed, 687 deselected, 1 warning in 34.04s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 280 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 130 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 280 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 281 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 131 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 281 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -78,12 +78,23 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — no implementation gate is currently queued. `CLIENT-PC-SYNC-3` (update the client laptop to the delivered milestone, migrate its DB non-destructively, and browser-smoke) is now CLOSED / PASS, recorded in its own section below. `RTL-PROG-VIS-1`, documented further down as a planned backlog entry, remains not opened. — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — no implementation gate is currently queued. — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M scripts/build_context_pack.py
+M app.py
+ M assets/app.css
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ M docs/context/PROJECT_LEDGER.md
+ M pages/device_dashboard.py
+ M repositories/plant_monitoring_repository.py
+ M services/action_guard.py
+?? callbacks/programming_activity.py
+?? components/programming_activity.py
 ?? debug.log
+?? services/rtl_programming_activity_service.py
+?? tests/test_programming_activity.py
 ```
 

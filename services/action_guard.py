@@ -47,7 +47,7 @@ from services.authorization import (
     may_perform_action,
     may_perform_capability,
 )
-from services.device_scope import scope_for
+from services.device_scope import DeviceScope, scope_for
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,11 @@ def require_action(
 
 
 def may_action(
-    user: AuthenticatedUser | None, action: str, *, device_id: str
+    user: AuthenticatedUser | None,
+    action: str,
+    *,
+    device_id: str,
+    scope: DeviceScope | None = None,
 ) -> bool:
     """Whether `user` may perform `action` on `device_id`. Never raises.
 
@@ -116,7 +120,12 @@ def may_action(
     if may_perform_action(user.role, action, is_assigned=False):
         return True
 
-    is_assigned = scope_for(user).allows(device_id)
+    # A protected read callback may already have resolved the CURRENT trusted
+    # scope once for its repository call.  Reusing that object prevents a
+    # duplicate assignment lookup while preserving this guard as the sole
+    # policy decision.  Callers must never supply browser-derived scope data.
+    resolved_scope = scope if scope is not None else scope_for(user)
+    is_assigned = resolved_scope.allows(device_id)
     return may_perform_action(user.role, action, is_assigned=is_assigned)
 
 

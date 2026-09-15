@@ -1,12 +1,16 @@
 # Active Gate
 
-Status: **NONE ACTIVE**
+Status: **CLOSED / PASS**
 Date: 2026-09-15
-Gate: NONE — no implementation gate is currently queued. `CLIENT-PC-SYNC-3`
-(update the client laptop to the delivered milestone, migrate its DB
-non-destructively, and browser-smoke) is now CLOSED / PASS, recorded in its
-own section below. `RTL-PROG-VIS-1`, documented further down as a planned
-backlog entry, remains not opened.
+Gate: NONE — no implementation gate is currently queued.
+
+RTL-PROG-VIS-1 is CLOSED / PASS below: persisted programming
+activity/history is visible to Administrators for any RTL and to Technicians
+only for current assignments; General Users receive no programming/activity
+visibility. Request recording, queued commands and development simulation
+remain visibly distinct from physical execution, which is not implemented. No
+successor gate is opened by this closure.
+Commit/push permission: **GRANTED and exercised.**
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
 (TECH-WORKSPACE-1, closed on that branch 2026-09-10) has been merged into
@@ -1945,23 +1949,36 @@ implementation gate is opened by this closure.
 
 ## Next implementation gate: NONE — none queued (2026-09-15)
 
-`CLIENT-PC-SYNC-3` above is the most recently closed gate. Per explicit
-instruction at closure, no successor gate was opened in the same session.
-`RTL-PROG-VIS-1` (below) is recorded as the leading backlog candidate — not
-blocked by any client decision — but it is a planned entry only, not an
-opened gate. Whoever opens the next gate updates this section and the
-header above together, per AGENTS.md's "gate opens and closes on a green
-pack" rule.
+`RTL-PROG-VIS-1` below is the most recently closed implementation gate. No
+successor has been selected. Physical RTL delivery remains blocked by C-05;
+the visibility work does not select or construct a transport, protocol, retry
+engine, acknowledgement parser, or programming payload.
 
-### Future planned gate: RTL-PROG-VIS-1 — PLANNED / NOT STARTED
+### RTL-PROG-VIS-1 — CLOSED / PASS
 
-Recorded 2026-09-10. **Not the active gate — no implementation gate is
-currently active** (`CLIENT-PC-SYNC-3` above closed 2026-09-15 without a
-successor being opened). No feature code for this exists yet; this is a
-forward-looking backlog entry only, so a later "what should we build next"
-question does not have to re-derive it. Full detail lives in
-`docs/context/PROJECT_LEDGER.md` §4 ("RTL Programming") and §10 (Resume
-Queue, Ready Now) — this is a pointer, not a duplicate.
+Opened and closed 2026-09-15. The shared device page now has a compact
+Programming Activity section, reached naturally from the Technician's My RTLs
+workflow or any Administrator device dashboard. A scoped, windowed repository
+reader joins the persisted request, command and requester-display data without
+an N+1 pattern; the read service and callback apply the current trusted
+`DeviceScope` before querying and in SQL. The existing `PROGRAM_RTL` policy is
+reused: Administrator is any-device, Technician is current-assignment-only,
+and General User is denied. Browser `auth-store` data is trigger-only; trusted
+server identity decides visibility.
+
+The UI names queued requests truthfully, labels every currently progressed
+lifecycle as development Simulation, exposes safe result/error text, and says
+plainly that physical RTL delivery is not connected. Recording a new request
+refreshes the activity display; no mutation, transport, protocol, retry, or
+physical acknowledgement was added. No migration was required.
+
+Verification: 111 focused non-DB tests passed (27 deselected); the full
+non-DB suite passed with an isolated private pytest base directory (2979
+passed, 687 deselected); `python scripts/build_context_pack.py --check` and
+`git diff --check` passed. PostgreSQL was intentionally not started, so the
+new isolated-schema repository test remains DB-marked and unrun here. Browser
+acceptance was not run because neither a local Dash process nor the project
+PostgreSQL service was already running.
 
 **The gap this closes.** Both Administrator and Technician can already
 create RTL programming requests (the Program RTL drawer, `PROGRAM_RTL`
