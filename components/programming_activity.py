@@ -48,7 +48,16 @@ class ProgrammingActivityView(Protocol):
     request_status: str
     request_completed_at: datetime | None
     error_message: str | None
+    command_type: str | None
     command_state: str | None
+
+
+class DeviceAuditHistoryView(Protocol):
+    """Safe, device-scoped audit shape supplied by the read service."""
+
+    occurred_at: datetime
+    operation: str
+    requester_name: str
 
 
 def _timestamp(value: datetime | None) -> str:
@@ -65,6 +74,16 @@ def _command_status(record: ProgrammingActivityView) -> str:
     if record.command_state is None:
         return "No command record"
     return _COMMAND_STATUS_LABELS.get(record.command_state, record.command_state)
+
+
+def _command_type(record: ProgrammingActivityView) -> str:
+    if record.command_type is None:
+        return "No command type recorded"
+    return record.command_type.replace("_", " ").title()
+
+
+def _audit_action(record: DeviceAuditHistoryView) -> str:
+    return record.operation.replace("_", " ").title()
 
 
 def _execution_mode(record: ProgrammingActivityView) -> str:
@@ -104,9 +123,10 @@ def _detail(label: str, value: str) -> html.Div:
 
 def programming_activity_panel(
     records: Sequence[ProgrammingActivityView],
+    audit_records: Sequence[DeviceAuditHistoryView] = (),
 ) -> html.Section:
-    """Render recent-first programming history with no physical claim."""
-    body = (
+    """Render scoped command and audit history without a physical claim."""
+    command_body = (
         html.Div(
             className="programming-activity__empty",
             children="No programming activity recorded for this RTL.",
@@ -135,6 +155,7 @@ def programming_activity_panel(
                             className="programming-activity__details",
                             children=[
                                 _detail("Requested by", record.requested_by_name),
+                                _detail("Command type", _command_type(record)),
                                 _detail("Master MSISDN", record.master_msisdn),
                                 _detail("Command status", _command_status(record)),
                                 _detail("Execution", _execution_mode(record)),
@@ -148,6 +169,46 @@ def programming_activity_panel(
             ],
         )
     )
+    audit_body = (
+        html.Div(
+            className="programming-activity__empty",
+            children="No audit activity recorded for this RTL.",
+        )
+        if not audit_records
+        else html.Ol(
+            className="programming-activity__list",
+            children=[
+                html.Li(
+                    className="programming-activity__item",
+                    children=[
+                        html.Div(
+                            className="programming-activity__item-head",
+                            children=[
+                                html.Strong(
+                                    _audit_action(record),
+                                    className="programming-activity__status",
+                                ),
+                                html.Span(
+                                    _timestamp(record.occurred_at),
+                                    className="programming-activity__time",
+                                ),
+                            ],
+                        ),
+                        html.Div(
+                            className="programming-activity__details",
+                            children=[
+                                _detail("Requester", record.requester_name),
+                                _detail("Lifecycle", "Audit record"),
+                                _detail("Execution", "Not applicable"),
+                                _detail("Result", "Recorded in this application"),
+                            ],
+                        ),
+                    ],
+                )
+                for record in audit_records
+            ],
+        )
+    )
     return html.Section(
         className="device-section programming-activity",
         children=[
@@ -157,17 +218,20 @@ def programming_activity_panel(
                     html.Div(
                         children=[
                             html.Div("Operations", className="device-section__eyebrow"),
-                            html.H2("Programming activity"),
+                            html.H2("Command & audit history"),
                         ]
                     ),
-                    html.P("Request and command lifecycle recorded by this application."),
+                    html.P("Recorded requests, command lifecycle, and device audit entries."),
                 ],
             ),
             html.P(
                 "Physical RTL delivery is not connected in this environment.",
                 className="programming-activity__notice",
             ),
-            body,
+            html.H3("Command history", className="programming-activity__subheading"),
+            command_body,
+            html.H3("Audit history", className="programming-activity__subheading"),
+            audit_body,
         ],
     )
 
@@ -180,8 +244,8 @@ def programming_activity_error() -> html.Section:
             html.Div(
                 className="status-panel status-panel--error",
                 children=[
-                    html.H3("Programming activity unavailable"),
-                    html.P("Programming activity could not be loaded. Please try again."),
+                    html.H3("Command and audit history unavailable"),
+                    html.P("Command and audit history could not be loaded. Please try again."),
                 ],
             )
         ],

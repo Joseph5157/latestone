@@ -5943,6 +5943,12 @@ body {
   padding: var(--sp-2) var(--sp-3);
 }
 
+.page--device-dashboard .programming-activity__subheading {
+  color: var(--color-text);
+  font-size: var(--fs-body);
+  margin: var(--sp-3) 0 var(--sp-2);
+}
+
 .page--device-dashboard .programming-activity__empty {
   color: var(--color-muted);
   font-size: var(--fs-body);

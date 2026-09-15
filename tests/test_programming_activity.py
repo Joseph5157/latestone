@@ -66,6 +66,7 @@ def _record(
         request_completed_at=None,
         error_message=error_message,
         command_id=9 if command_state else None,
+        command_type=command_cfg.COMMAND_TYPE_PROGRAM_RTL if command_state else None,
         command_state=command_state,
         command_sent_at=None,
         command_acknowledged_at=None,
@@ -147,6 +148,22 @@ class TestActivityPresentation:
         ):
             assert forbidden not in rendered
 
+    def test_command_and_audit_history_use_safe_read_only_labels(self):
+        audit = repo.DeviceAuditHistoryRecord(
+            audit_id=7,
+            device_id=DEVICE_ID,
+            occurred_at=NOW,
+            operation="RTL_PROGRAM_REQUESTED",
+            requester_name="Technician One",
+        )
+        rendered = text_of(programming_activity_panel([_record()], [audit])).lower()
+        assert "command & audit history" in rendered
+        assert "program rtl" in rendered
+        assert "rtl program requested" in rendered
+        assert "audit record" in rendered
+        assert "recorded in this application" in rendered
+        assert "not applicable" in rendered
+
     def test_device_dashboard_carries_a_loading_activity_slot(self):
         from pages.device_dashboard import layout
 
@@ -183,6 +200,43 @@ class TestScopedReader:
         ) == []
         assert calls == []
 
+    def test_unassigned_device_cannot_read_audit_history(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            activity_service.repo,
+            "list_device_audit_history",
+            lambda *args, **kwargs: calls.append((args, kwargs)),
+        )
+
+        assert activity_service.recent_audit_history(
+            OTHER_DEVICE_ID, scope=DeviceScope(frozenset({DEVICE_ID}))
+        ) == []
+        assert calls == []
+
+    def test_assigned_device_reaches_the_scoped_audit_reader(self, monkeypatch):
+        calls = []
+        expected = [
+            repo.DeviceAuditHistoryRecord(
+                audit_id=7,
+                device_id=DEVICE_ID,
+                occurred_at=NOW,
+                operation="RTL_PROGRAM_REQUESTED",
+                requester_name="Technician One",
+            )
+        ]
+        monkeypatch.setattr(
+            activity_service.repo,
+            "list_device_audit_history",
+            lambda ids, **kwargs: calls.append((ids, kwargs)) or expected,
+        )
+        scope = DeviceScope(frozenset({DEVICE_ID}))
+
+        assert activity_service.recent_audit_history(DEVICE_ID, scope=scope) == expected
+        assert calls == [(
+            [DEVICE_ID],
+            {"allowed_device_ids": scope.device_ids, "limit_per_device": 10},
+        )]
+
     def test_repository_reader_is_batched_scoped_and_newest_first(self):
         source = inspect.getsource(repo.list_programming_activity)
         assert "ROW_NUMBER() OVER" in source
@@ -190,6 +244,14 @@ class TestScopedReader:
         assert "ORDER BY r.requested_at DESC, r.request_id DESC" in source
         assert "allowed_device_ids" in source
         assert "LEFT JOIN" in source
+
+    def test_audit_repository_reader_is_batched_scoped_and_newest_first(self):
+        source = inspect.getsource(repo.list_device_audit_history)
+        assert "JOIN" in source
+        assert "a.entity_type = 'device'" in source
+        assert "ROW_NUMBER() OVER" in source
+        assert "ORDER BY a.occurred_at DESC, a.audit_id DESC" in source
+        assert "allowed_device_ids" in source
 
 
 class TestTrustedScopeCallback:
@@ -202,6 +264,11 @@ class TestTrustedScopeCallback:
             "recent_activity",
             lambda target, *, scope: calls.append((target, scope)) or return_value,
         )
+        monkeypatch.setattr(
+            activity_callback.activity_service,
+            "recent_audit_history",
+            lambda target, *, scope: calls.append((f"audit:{target}", scope)) or [],
+        )
         with as_session(monkeypatch, session):
             result = _handler()(
                 {"route": "device", "device_id": device_id},
@@ -213,13 +280,13 @@ class TestTrustedScopeCallback:
     def test_administrator_can_read_any_rtl_activity(self, monkeypatch):
         result, calls = self._call(monkeypatch, ADMIN_SESSION, UNRESTRICTED)
         assert result is not None
-        assert calls == [(DEVICE_ID, UNRESTRICTED)]
+        assert calls == [(DEVICE_ID, UNRESTRICTED), (f"audit:{DEVICE_ID}", UNRESTRICTED)]
 
     def test_technician_can_read_an_assigned_rtl_activity(self, monkeypatch):
         scope = DeviceScope(frozenset({DEVICE_ID}))
         result, calls = self._call(monkeypatch, TECH_SESSION, scope)
         assert result is not None
-        assert calls == [(DEVICE_ID, scope)]
+        assert calls == [(DEVICE_ID, scope), (f"audit:{DEVICE_ID}", scope)]
 
     def test_technician_cannot_read_an_unassigned_rtl_activity(self, monkeypatch):
         scope = DeviceScope(frozenset({DEVICE_ID}))
@@ -362,5 +429,6 @@ class TestProgrammingActivityRepository:
         assert [row.request_id for row in rows] == [newest.request_id, oldest.request_id]
         assert all(row.device_id == self.device_id for row in rows)
         assert rows[0].requested_by_name == "Activity Operator"
+        assert rows[0].command_type == command_cfg.COMMAND_TYPE_PROGRAM_RTL
         assert rows[0].command_state == command_cfg.STATE_QUEUED
         assert other.request_id not in {row.request_id for row in rows}

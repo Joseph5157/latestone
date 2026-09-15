@@ -3152,6 +3152,90 @@ def list_recent_programming_requests(
 
 
 @dataclass(frozen=True)
+class DeviceAuditHistoryRecord:
+    """One device-scoped audit row, reduced to safe operational fields.
+
+    Audit payload JSON is intentionally not returned here.  It can contain
+    implementation-specific before/after values and is not required for an
+    operator to understand who performed which recorded action.  The device
+    join lets this generic audit table use the same neutral DeviceScope SQL
+    constraint as every other device reader.
+    """
+
+    audit_id: int
+    device_id: str
+    occurred_at: datetime
+    operation: str
+    requester_name: str
+
+
+def _to_device_audit_history(row) -> DeviceAuditHistoryRecord:
+    return DeviceAuditHistoryRecord(*row)
+
+
+def list_device_audit_history(
+    device_ids,
+    *,
+    allowed_device_ids: frozenset[str] | None,
+    limit_per_device: int = 10,
+) -> list[DeviceAuditHistoryRecord]:
+    """Return newest-first, scope-constrained device audit entries.
+
+    ``audit_log`` is polymorphic, so its ``entity_id`` alone cannot receive
+    the usual device scope clause.  Joining the audited device is deliberate:
+    it proves the entity still names a device and applies scope in SQL before
+    any audit entry becomes a presentation record.
+    """
+    ids = list(dict.fromkeys(device_ids))
+    if not ids or allowed_device_ids == frozenset():
+        return []
+    if not isinstance(limit_per_device, int) or isinstance(limit_per_device, bool):
+        raise ValueError("limit_per_device must be a positive integer")
+    if limit_per_device < 1:
+        raise ValueError("limit_per_device must be a positive integer")
+
+    scope_sql, scope_params = _scope_clause("d", allowed_device_ids)
+    statement = _scoped(
+        text(
+            f"""
+            WITH ranked_audit AS (
+                SELECT a.audit_id,
+                       d.device_id,
+                       a.occurred_at,
+                       a.operation,
+                       COALESCE(NULLIF(u.full_name, ''), u.username,
+                                'System') AS requester_name,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY d.device_id
+                           ORDER BY a.occurred_at DESC, a.audit_id DESC
+                       ) AS audit_rank
+                FROM {_SCHEMA}.audit_log a
+                JOIN {_SCHEMA}.devices d ON d.device_id = a.entity_id
+                LEFT JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                WHERE a.entity_type = 'device'
+                  AND a.entity_id IN :device_ids{scope_sql}
+            )
+            SELECT audit_id, device_id, occurred_at, operation, requester_name
+            FROM ranked_audit
+            WHERE audit_rank <= :limit_per_device
+            ORDER BY occurred_at DESC, audit_id DESC
+            """
+        ).bindparams(bindparam("device_ids", expanding=True, type_=String)),
+        allowed_device_ids,
+    )
+    with session_scope() as session:
+        rows = session.execute(
+            statement,
+            {
+                "device_ids": ids,
+                "limit_per_device": limit_per_device,
+                **scope_params,
+            },
+        ).all()
+    return [_to_device_audit_history(row) for row in rows]
+
+
+@dataclass(frozen=True)
 class ProgrammingActivityRecord:
     """One request with its optional command lifecycle for activity views.
 
@@ -3171,6 +3255,7 @@ class ProgrammingActivityRecord:
     request_completed_at: datetime | None
     error_message: str | None
     command_id: int | None
+    command_type: str | None
     command_state: str | None
     command_sent_at: datetime | None
     command_acknowledged_at: datetime | None
@@ -3218,6 +3303,7 @@ def list_programming_activity(
                        r.completed_at AS request_completed_at,
                        r.error_message,
                        c.command_id,
+                       c.command_type,
                        c.state AS command_state,
                        c.sent_at AS command_sent_at,
                        c.acknowledged_at AS command_acknowledged_at,
@@ -3234,7 +3320,7 @@ def list_programming_activity(
             )
             SELECT request_id, device_id, requested_by_name, master_msisdn,
                    requested_at, request_status, request_completed_at,
-                   error_message, command_id, command_state, command_sent_at,
+                   error_message, command_id, command_type, command_state, command_sent_at,
                    command_acknowledged_at, command_completed_at, failure_code
             FROM ranked_activity
             WHERE activity_rank <= :limit_per_device

@@ -4,12 +4,11 @@ Status: **CLOSED / PASS**
 Date: 2026-09-15
 Gate: NONE — no implementation gate is currently queued.
 
-RTL-PROG-VIS-1 is CLOSED / PASS below: persisted programming
-activity/history is visible to Administrators for any RTL and to Technicians
-only for current assignments; General Users receive no programming/activity
-visibility. Request recording, queued commands and development simulation
-remain visibly distinct from physical execution, which is not implemented. No
-successor gate is opened by this closure.
+CMD-AUDIT-VIS-1 is closed. It exposed existing persisted command and audit
+history read-only on the shared RTL device page, through trusted `DeviceScope`
+and the existing action policy. It added no transport, protocol, retry,
+acknowledgement parser, or authorization model. Simulation remains distinct
+from physical execution.
 Commit/push permission: **GRANTED and exercised.**
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
@@ -1947,12 +1946,30 @@ above), so this closure only updates `docs/context/ACTIVE_GATE.md` and
 `docs/context/PROJECT_LEDGER.md`. Per explicit instruction, no new
 implementation gate is opened by this closure.
 
-## Next implementation gate: NONE — none queued (2026-09-15)
+## CMD-AUDIT-VIS-1 — CLOSED / PASS
 
-`RTL-PROG-VIS-1` below is the most recently closed implementation gate. No
-successor has been selected. Physical RTL delivery remains blocked by C-05;
-the visibility work does not select or construct a transport, protocol, retry
-engine, acknowledgement parser, or programming payload.
+Opened and closed 2026-09-15. The shared RTL device page's existing protected
+history section now identifies Command & audit history: persisted command type,
+requester, timestamp, lifecycle, safe result/error and execution mode, plus
+device-scoped `audit_log` entries. Audit payload JSON stays internal. The
+repository applies the existing neutral device-id scope in SQL by joining the
+audited device; the service also refuses an out-of-scope device before a query.
+
+The callback resolves both identity and `DeviceScope` from the trusted server
+session and reuses `PROGRAM_RTL` visibility policy: Administrator any RTL,
+Technician current assignment only, General User none. Browser `auth-store`
+data is a rerender trigger only. Command lifecycle that moves past queued is
+explicitly labelled Simulation; the page continues to say physical RTL delivery
+is not connected. No command dispatch, device transport, acknowledgement or
+lifecycle mutation was added.
+
+Verification: 115 focused non-DB tests passed (27 deselected); the private-temp
+non-DB suite passed (2983 passed, 687 deselected); context checks and
+`git diff --check` passed. PostgreSQL was intentionally not started, so
+DB-marked repository coverage remains unrun. Browser acceptance was not run
+because neither Dash nor PostgreSQL was already running.
+
+## Next implementation gate: NONE — no implementation gate is currently queued.
 
 ### RTL-PROG-VIS-1 — CLOSED / PASS
 

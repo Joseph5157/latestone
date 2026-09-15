@@ -36,9 +36,10 @@ def programming_activity_children(user, device_id: str, *, scope):
         return None
     try:
         records = activity_service.recent_activity(device_id, scope=scope)
+        audit_records = activity_service.recent_audit_history(device_id, scope=scope)
     except activity_service.ProgrammingActivityError:
         return programming_activity_error()
-    return programming_activity_panel(records)
+    return programming_activity_panel(records, audit_records)
 
 
 def register(app) -> None:

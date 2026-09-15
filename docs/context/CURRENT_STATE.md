@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-15T11:39:05Z
+Date: 2026-09-15T11:59:51Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `bcfe805` "fix(ctx): isolate context-pack pytest temp state"
-- Working tree: 13 entries — see below
+- `main` = `b25c520` "feat(programming): expose scoped RTL activity history"
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2979 passed, 687 deselected, 1 warning in 34.04s
+- `python -m pytest -m "not db"` → 2983 passed, 687 deselected, 1 warning in 30.54s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 281 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 131 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 281 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 282 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 132 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 282 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,18 +83,14 @@ NONE — no implementation gate is currently queued. — full detail in `docs/co
 ## Working tree
 
 ```
-M app.py
- M assets/app.css
+M assets/app.css
+ M callbacks/programming_activity.py
+ M components/programming_activity.py
  M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
  M docs/context/PROJECT_LEDGER.md
- M pages/device_dashboard.py
  M repositories/plant_monitoring_repository.py
- M services/action_guard.py
-?? callbacks/programming_activity.py
-?? components/programming_activity.py
+ M services/rtl_programming_activity_service.py
+ M tests/test_programming_activity.py
 ?? debug.log
-?? services/rtl_programming_activity_service.py
-?? tests/test_programming_activity.py
 ```
 
