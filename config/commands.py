@@ -12,6 +12,8 @@ an enum.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 #: The only command type either tranche writes. A programming request always
 #: produces exactly one PROGRAM_RTL command (RTL-IF-1); future tranches may
 #: add further types (e.g. a deactivation or forwarding command) as those
@@ -54,6 +56,39 @@ ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 #: (or extension of) this vocabulary, not a reuse of an Eskom wire code.
 FAILURE_CODE_SIMULATED_FAILURE = "SIMULATED_FAILURE"
 FAILURE_CODE_SIMULATED_TIMEOUT = "SIMULATED_TIMEOUT"
+
+
+@dataclass(frozen=True)
+class DispatchPolicy:
+    """Protocol-neutral dispatch policy for a future transport worker.
+
+    ``DeviceTransport`` reports timeout as an outcome; this object records
+    the policy a caller wants the eventual adapter/worker to apply without
+    embedding a wire timeout or retry interpretation here.  Retries are
+    deliberately disabled by the safe default and must be explicitly opted
+    into by a later, client-approved policy.
+    """
+
+    timeout_seconds: float = 30.0
+    max_retries: int = 0
+    retry_delay_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        if isinstance(self.timeout_seconds, bool) or self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be greater than zero")
+        if isinstance(self.max_retries, bool) or not isinstance(self.max_retries, int):
+            raise ValueError("max_retries must be a non-negative integer")
+        if self.max_retries < 0:
+            raise ValueError("max_retries must be a non-negative integer")
+        if isinstance(self.retry_delay_seconds, bool) or self.retry_delay_seconds < 0:
+            raise ValueError("retry_delay_seconds must be non-negative")
+
+    @property
+    def retries_enabled(self) -> bool:
+        return self.max_retries > 0
+
+
+DEFAULT_DISPATCH_POLICY = DispatchPolicy()
 
 #: `rtl_programming_requests.status` vocabulary (migration 005's CHECK
 #: constraint: 'pending', 'queued', 'sent', 'successful', 'failed').

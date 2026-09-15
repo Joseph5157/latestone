@@ -4,26 +4,18 @@ Status: **CLOSED / PASS**
 Date: 2026-09-15
 Gate: NONE
 
-Implement a durable, internal acknowledgement lifecycle for persisted
-reportable alarm events in Notification Center. An acknowledgement records a
-human response to the displayed event; it does not clear, resolve, suppress,
-forward, or deliver an alarm. Administrator may acknowledge fleet alarms;
-Technician may acknowledge only events for devices in trusted `DeviceScope`;
-General User remains read-only with no acknowledgement control. The mutation
-must use server-trusted identity, scope-filter the target at the repository
-boundary, persist actor and time atomically with an `audit_log` record, and
-leave physical RTL/MQTT/SMS/email work out of scope.
+Prepare the existing `rtl_commands` lifecycle for a future real RTL
+transport. Add no protocol knowledge: dispatch remains expressed solely by
+`DeviceTransport`/`TransportOutcome`, with the existing simulator explicitly
+development-only. Provide a configurable timeout/retry policy shape whose
+safe default performs zero retries, and fail closed when no production
+transport is configured. Preserve existing command transitions,
+authorization, request projection, and audit behavior; no MQTT/API/endpoint,
+payload, ACK format, or physical-device claim is in scope.
 
-The Notification Center continues to group events by device/category. Its
-state and optional action refer to the latest persisted event represented by
-that row. Freshness-derived `>24h No Data` rows have no persisted alarm event
-and remain explicitly non-acknowledgeable.
-
-Relevant files: `alembic/versions/013_alarm_acknowledgement.py`,
-`repositories/plant_monitoring_repository.py`, `services/event_semantics.py`,
-`services/notification_service.py`, `services/alarm_acknowledgement_service.py`,
-`services/authorization.py`, `callbacks/notifications.py`,
-`pages/notifications.py`, `config/audit.py`, and focused notification/alarm
+Relevant files: `config/commands.py`, `services/device_transport.py`,
+`services/rtl_command_dispatch_service.py`, `services/rtl_command_service.py`,
+`services/rtl_programming_execution_service.py`, and focused command-dispatch
 tests.
 
 Commit/push permission: **GRANTED and exercised.**
@@ -2000,6 +1992,22 @@ Focused pure tests, context verification, and the private-basetemp non-DB
 suite passed. Database-marked persistence/migration tests were added but not
 executed because PostgreSQL was intentionally offline; no database or Docker
 state was started. Physical RTL acknowledgement remains unimplemented.
+
+## COMMAND-DISPATCH-1 — CLOSED / PASS
+
+Implemented and verified 2026-09-15. The existing `DeviceTransport` seam and
+`rtl_commands` lifecycle now have an explicit fail-closed dispatch boundary:
+no transport leaves commands queued, while an injected transport can drive the
+existing SENT, ACKNOWLEDGED, SUCCEEDED, FAILED, and TIMED_OUT transitions.
+`DispatchPolicy` provides validated timeout/retry configuration with retries
+disabled by default; explicit retry counts are refused until client-approved
+semantics exist. No protocol, payload, endpoint, ACK format, or physical RTL
+behavior was invented. `SimulatorTransport` remains development/test-only.
+
+Focused dispatch-policy/simulator tests, context verification, and the
+private-basetemp non-DB suite passed. Database-marked lifecycle tests were not
+run because PostgreSQL was intentionally offline; no database or Docker state
+was started.
 
 ## Next implementation gate: NONE
 

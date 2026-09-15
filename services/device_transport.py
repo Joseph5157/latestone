@@ -60,7 +60,17 @@ class DeviceTransport(Protocol):
         failure — that is what `TRANSPORT_RESULT_FAILURE`/`_TIMEOUT` are
         for; an exception here is a genuine transport-implementation bug,
         not a modeled outcome."""
-        ...
+    ...
+
+
+def is_transport_configured(transport: DeviceTransport | None) -> bool:
+    """Whether a caller supplied an actual transport object.
+
+    No production transport is registered in this repository.  Keeping this
+    predicate tiny makes the dispatcher's fail-closed boundary explicit and
+    avoids a guessed environment variable or protocol-specific factory.
+    """
+    return transport is not None and callable(getattr(transport, "send", None))
 
 
 __all__ = [
@@ -69,4 +79,5 @@ __all__ = [
     "TRANSPORT_RESULT_SUCCESS",
     "TRANSPORT_RESULT_TIMEOUT",
     "TransportOutcome",
+    "is_transport_configured",
 ]

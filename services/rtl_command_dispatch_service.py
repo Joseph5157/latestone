@@ -28,6 +28,7 @@ from services.device_transport import (
     TRANSPORT_RESULT_SUCCESS,
     TRANSPORT_RESULT_TIMEOUT,
     DeviceTransport,
+    is_transport_configured,
 )
 
 
@@ -43,7 +44,16 @@ class CommandNotDispatchableError(Exception):
     """
 
 
-def dispatch_command(command_id: int, transport: DeviceTransport) -> CommandRecord:
+class ProductionTransportNotConfiguredError(CommandNotDispatchableError):
+    """No production transport was supplied; command remains QUEUED."""
+
+
+def dispatch_command(
+    command_id: int,
+    transport: DeviceTransport | None = None,
+    *,
+    policy: command_cfg.DispatchPolicy = command_cfg.DEFAULT_DISPATCH_POLICY,
+) -> CommandRecord:
     """Dispatch one QUEUED command through ``transport`` to a terminal
     (or SENT-and-unresolved, if the transport itself raises) state.
 
@@ -62,6 +72,17 @@ def dispatch_command(command_id: int, transport: DeviceTransport) -> CommandReco
     modeled delivery failure, so a raise here is a real bug, not something
     to paper over with a guessed lifecycle transition.
     """
+    if not is_transport_configured(transport):
+        raise ProductionTransportNotConfiguredError(
+            "No device transport is configured; command remains queued."
+        )
+    if not isinstance(policy, command_cfg.DispatchPolicy):
+        raise ValueError("policy must be a DispatchPolicy")
+    if policy.retries_enabled:
+        raise CommandNotDispatchableError(
+            "Retries are not enabled until a client-approved command policy exists."
+        )
+
     command = rtl_command_service.get_command(command_id)
     if command is None:
         raise CommandNotDispatchableError(f"Unknown command_id: {command_id!r}")
@@ -106,4 +127,8 @@ def dispatch_command(command_id: int, transport: DeviceTransport) -> CommandReco
     )
 
 
-__all__ = ["CommandNotDispatchableError", "dispatch_command"]
+__all__ = [
+    "CommandNotDispatchableError",
+    "ProductionTransportNotConfiguredError",
+    "dispatch_command",
+]
