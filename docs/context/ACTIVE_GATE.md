@@ -1,79 +1,120 @@
 # Active Gate
 
-Status: **CLOSED / PASS (with one flagged, unfixed defect — see below)**
+Status: **CLOSED / PASS (one test remains expected-red until a future
+real-DB catch-up gate — see below)**
 Date: 2026-09-16
 Gate: NONE
-Commit/push permission: **GRANTED** (this catch-up/verification gate only;
-per-instruction — no application code was touched).
+Commit/push permission: **GRANTED** (this fix gate only, per-instruction).
 
 ## Task
 
-LOCAL-DB-CATCHUP-2 is closed. The real local development PostgreSQL database
-(`plant_monitoring_postgres`, `localhost:5436`, db `powerplant_demo`, schema
-`plant_monitoring`) was upgraded from `012_vibration_contract_answers` to
-head `013_alarm_acknowledgement` via `alembic upgrade head`, and the recent
-backend/UI tranches (alarm acknowledgement, command/audit history, Program
-RTL lifecycle, report export, technician assignment, device registration
-guidance) were verified against the now-upgraded live data. No application
-code was changed. Full verification (including the full DB-marked suite,
-not just the gate-affected subset) surfaced one real, pre-existing schema/
-test-invariant conflict — see "Defect found" below — which was reported
-rather than fixed, per this gate's own instruction.
+ALARM-ACK-FK-014 is closed. New migration `014_alarm_ack_fk_no_action`
+replaces `fk_device_events_acknowledged_by_user`'s `ON DELETE SET NULL`
+(from migration 013) with `ON DELETE NO ACTION`, restoring conformance
+with ADR-010 D4 ("No CASCADE, ever... Not on the constraints, not on the
+deletes") and the FK inventory that ADR documents. Migration 013 itself
+was not edited. The real local development database was **not** upgraded
+by this gate (explicit instruction) — it remains at `013_alarm_acknowledgement`
+until a future catch-up gate applies 014, same pattern LOCAL-DB-CATCHUP-1/2
+used for 013 itself.
 
 ## Relevant files
 
-- `alembic/versions/013_alarm_acknowledgement.py`
-- `tests/test_seed_reset_contract.py` (the surfaced defect)
-- `tests/test_seed_integrity.py`, `tests/test_plant_monitoring_repository.py`
-  (pre-existing live-simulator data-drift failures, unrelated to migration
-  013)
-- `tests/test_alarm_acknowledgement_db.py`, `tests/test_programming_activity.py`,
-  `tests/test_rtl_command_dispatch.py`
+- `alembic/versions/014_alarm_ack_fk_no_action.py` (new)
+- `tests/test_migration_alarm_ack_fk_no_action.py` (new, focused)
+- `tests/test_migration_alarm_acknowledgement.py`,
+  `tests/test_alarm_acknowledgement_db.py` (regression, migration 013
+  untouched)
+- `tests/test_seed_reset_contract.py` (the invariant this gate restores —
+  see "Known ambiguities" below for why one of its tests stays red here)
+- `docs/decisions/ADR-010-monitoring-reset-preserves-operational-history.md`
+  (the FK/NO-ACTION invariant this migration restores conformance with)
 
 ## Non-goals (explicit)
 
-- No fix to `alembic/versions/013_alarm_acknowledgement.py`'s
-  `ondelete="SET NULL"` foreign key, and no fix to
-  `tests/test_seed_reset_contract.py` or `db/seed_plant_monitoring.py`'s
-  `PURGE_ORDER` — the defect below is reported, not resolved, per this
-  gate's explicit instruction not to fold an unrelated fix into a catch-up
-  gate.
-- No reseed of the real development database — the upgraded dev data
-  (30/71/120, readings, device_events, audit_log) was preserved throughout.
-- No change to alarm acknowledgement services, authorization, `DeviceScope`,
-  Program RTL, report export, or technician assignment code.
+- No edit to `alembic/versions/013_alarm_acknowledgement.py` — the fix is a
+  new migration, not an amendment to a merged/possibly-already-applied one.
+- No `alembic upgrade` against the real local development database — that
+  is explicitly deferred to a future catch-up gate.
+- No change to `db/seed_plant_monitoring.py`'s `PURGE_ORDER` or
+  `RESET_PRESERVES` — the FK fix alone restores the invariant those rely
+  on; no reclassification of any table was needed.
+- No new ADR — this is conformance with the already-Approved ADR-010, not a
+  new architectural decision.
 
-## Known ambiguities / defect found
+## Known ambiguities
 
-**Defect (real, pre-existing, first surfaced by this gate's full-suite run
-— not introduced by this gate):** `alembic/versions/013_alarm_acknowledgement.py`
-creates `fk_device_events_acknowledged_by_user` with `ondelete="SET NULL"`.
+**Reported to the user before proceeding, resolved by explicit choice
+("Leave real DB untouched, report red — Recommended"):**
 `tests/test_seed_reset_contract.py::TestPurgeOrderAgainstTheLiveSchema::
-test_no_foreign_key_relies_on_cascade` asserts every foreign key in the
-schema has delete rule `NO ACTION` — the invariant `db/seed_plant_monitoring.py`'s
-hand-maintained `PURGE_ORDER` depends on ("the safety of the order above
-depends on nothing being removed implicitly", per that test's own
-docstring). This is a real conflict between a merged migration
-(ALARM-ACK-1, pre-dating this gate) and an existing architectural
-invariant test, not a flaw in this gate's own upgrade. It was not caught
-by ALARM-ACK-1 or ALARM-ACK-013-FIX because neither ran the full DB-marked
-suite or the real upgraded dev DB — both ran only the gate-affected test
-subset with `isolated_schema`. **Not fixed here** — flagged for a future
-gate to decide: either change the FK to `ondelete="NO ACTION"` (acknowledger
-user deletion would then need explicit handling) or adjust the test's
-invariant/`PURGE_ORDER` if `SET NULL` here is judged acceptable.
+test_no_foreign_key_relies_on_cascade` is hard-wired, by design (see its
+class name and docstring — "walks the LIVE schema"), to
+`config.settings.monitoring.schema`, i.e. the **real** `plant_monitoring`
+schema — not the disposable `isolated_schema` copy the class also carries
+as a fixture. It therefore cannot turn green until the real dev database
+actually has migration 014 applied, which this gate was explicitly told
+not to do. Confirmed as the **only** failure in the full focused/regression
+run (85 of 86 relevant tests passed; the full non-DB suite passed
+entirely). This is expected and intentional under this gate's scope, not a
+new defect — it is the direct, known consequence of deferring the real-DB
+upgrade, exactly as the LOCAL-DB-CATCHUP-2 note (below) already flagged.
+A future real-DB catch-up gate (e.g. `LOCAL-DB-CATCHUP-3`) that runs
+`alembic upgrade head` will turn this test green without any further code
+change — migration 014 alone is sufficient.
 
-Six further failures in the same full-suite run
-(`tests/test_seed_integrity.py` × 4, `tests/test_plant_monitoring_repository.py::
-TestRangeQueries` × 2) are unrelated to migration 013: the real dev
-`readings` table has grown to 1,831,680 rows (vs. the 1,383,360-row/30-day
-seed contract) from `db/live_simulator.py` having run across many past
-sessions, so cadence/coverage/window assertions pinned to the original seed
-shape now fail against live-simulator drift. Pre-existing environmental
-condition, not a defect in code touched by this gate or by ALARM-ACK-1 —
-consistent with prior context notes that dev seed data goes stale over
-time. Not reseeded, per this gate's explicit instruction not to reseed
-unless the migration itself makes existing data unusable (it does not).
+## ALARM-ACK-FK-014 — CLOSED / PASS
+
+Date: 2026-09-16. Baseline: `main` @ `4203de9e458e73476e0d16fe355c6c7d41191e3e`
+(the LOCAL-DB-CATCHUP-2 commit).
+
+### What was built
+
+- `alembic/versions/014_alarm_ack_fk_no_action.py` — drops and recreates
+  `fk_device_events_acknowledged_by_user` with `ondelete="NO ACTION"`
+  (previously `"SET NULL"`, from migration 013). `downgrade()` restores
+  `SET NULL` for exact reversibility. Migration 013 is untouched; the
+  acknowledgement-pair CHECK it created is unaffected.
+- `tests/test_migration_alarm_ack_fk_no_action.py` (new) — FK `delete_rule`
+  is `NO ACTION` (queried directly from `information_schema`/
+  `referential_constraints` against `isolated_schema`); the acknowledgement
+  pair CHECK still rejects an incomplete pair and accepts a complete one;
+  deleting a `users` row referenced by `device_events.acknowledged_by_user_id`
+  is refused (`IntegrityError`), proving the FK no longer silently
+  `SET NULL`s on delete.
+
+### Verification
+
+- `python -m alembic heads` — `014_alarm_ack_fk_no_action` (sole head;
+  script-only check, no DB connection).
+- Focused: `tests/test_migration_alarm_ack_fk_no_action.py` (4) +
+  `tests/test_migration_alarm_acknowledgement.py` (4) +
+  `tests/test_alarm_acknowledgement_db.py` (5) — **13 passed**.
+- Regression, run together with the above plus
+  `tests/test_seed_reset_contract.py` + `tests/test_programming_activity.py`
+  + `tests/test_rtl_command_dispatch.py` — **85 passed, 1 failed** (the
+  live-schema test discussed in "Known ambiguities" above; expected and
+  accepted, not a new defect).
+- `python -m pytest -m "not db"` (full non-DB suite) — **all passed**,
+  exit 0.
+- `git diff --check` — clean. `python scripts/build_context_pack.py --check`
+  — CLEAN at gate open.
+- Real dev Postgres remains at `013_alarm_acknowledgement` — deliberately
+  not upgraded, per this gate's explicit instruction.
+
+### Known ambiguity
+
+None beyond the live-schema test discussed above, which was surfaced to
+the user before proceeding rather than resolved unilaterally.
+
+## LOCAL-DB-CATCHUP-2 note (2026-09-16, superseded in part by ALARM-ACK-FK-014)
+
+LOCAL-DB-CATCHUP-2's flagged defect ("`fk_device_events_acknowledged_by_user`
+uses `SET NULL`, conflicting with `test_seed_reset_contract.py`'s
+invariant") is now fixed at the migration-script level by
+ALARM-ACK-FK-014's migration 014, above. The real dev database itself
+still needs a future catch-up gate to actually apply it — LOCAL-DB-CATCHUP-2's
+own historical record (below) is otherwise unchanged and still accurate as
+a record of what that gate did.
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
 (TECH-WORKSPACE-1, closed on that branch 2026-09-10) has been merged into
