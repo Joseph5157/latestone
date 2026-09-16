@@ -19,7 +19,7 @@ from services import rtl_programming_activity_service as activity_service
 from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN
 from services.device_scope import DeviceScope, UNRESTRICTED
 from tests.auth_test_support import as_session
-from tests.dash_tree import find_by_id, text_of
+from tests.dash_tree import find_by_class, find_by_exact_class, find_by_id, text_of
 
 NOW = datetime(2026, 9, 15, 14, 32, tzinfo=timezone.utc)
 DEVICE_ID = "plant-01-t1-d1"
@@ -160,9 +160,7 @@ class TestActivityPresentation:
         assert "command & audit history" in rendered
         assert "program rtl" in rendered
         assert "rtl program requested" in rendered
-        assert "audit record" in rendered
-        assert "recorded in this application" in rendered
-        assert "not applicable" in rendered
+        assert "technician one" in rendered
 
     def test_device_dashboard_carries_a_loading_activity_slot(self):
         from pages.device_dashboard import layout
@@ -268,6 +266,93 @@ class TestLifecycleRail:
         rail = _lifecycle_rail(_record(command_state=command_cfg.STATE_QUEUED))
         marker = rail.children[0].children[0]
         assert getattr(marker, "aria-hidden") == "true"
+
+
+class TestCompactAuditHistory:
+    """MOBBIN-UX-5: audit history renders as a compact reverse-chronological
+    log — a decorative marker, the action, then "Requester · Timestamp" —
+    never the command list's larger card treatment, and never a severity
+    class on the marker (audit actions carry no severity)."""
+
+    def _audit(
+        self, *, audit_id=7, operation="RTL_PROGRAM_REQUESTED",
+        requester="Technician One", occurred_at=NOW,
+    ):
+        return repo.DeviceAuditHistoryRecord(
+            audit_id=audit_id,
+            device_id=DEVICE_ID,
+            occurred_at=occurred_at,
+            operation=operation,
+            requester_name=requester,
+        )
+
+    def test_action_renders(self):
+        """1. The operation, title-cased, is present."""
+        rendered = text_of(programming_activity_panel([], [self._audit()]))
+        assert "Rtl Program Requested" in rendered
+
+    def test_requester_renders(self):
+        """2. The exact requester_name the read model supplied is present."""
+        rendered = text_of(programming_activity_panel(
+            [], [self._audit(requester="Technician One")]
+        ))
+        assert "Technician One" in rendered
+
+    def test_timestamp_renders(self):
+        """3. The exact occurred_at timestamp, formatted the same way the
+        command list already formats every other timestamp on this panel."""
+        from components.programming_activity import _timestamp
+
+        rendered = text_of(programming_activity_panel([], [self._audit(occurred_at=NOW)]))
+        assert _timestamp(NOW) in rendered
+
+    def test_audit_records_remain_in_supplied_order(self):
+        """4. This component renders order as given — it does not re-sort.
+        Ordering itself is the repository/service's job
+        (`list_device_audit_history`'s `ORDER BY ... DESC`), asserted
+        separately in TestScopedReader below."""
+        newest = self._audit(audit_id=2, operation="RTL_DEACTIVATED", requester="Bob")
+        oldest = self._audit(audit_id=1, operation="RTL_PROGRAM_REQUESTED", requester="Alice")
+
+        panel = programming_activity_panel([], [newest, oldest])
+        actions = [text_of(n) for n in find_by_exact_class(panel, "programming-activity__audit-action")]
+        assert actions == ["Rtl Deactivated", "Rtl Program Requested"]
+
+    def test_redundant_filler_labels_are_gone(self):
+        """5. The old per-row "Lifecycle: Audit record" / "Execution: Not
+        applicable" / "Result: Recorded in this application" rows added no
+        fact beyond "this is an audit entry" and must not render."""
+        rendered = text_of(programming_activity_panel([], [self._audit()])).lower()
+        assert "lifecycle: audit record" not in rendered
+        assert "execution: not applicable" not in rendered
+        assert "result: recorded in this application" not in rendered
+        assert "not applicable" not in rendered
+        assert "recorded in this application" not in rendered
+        # The compact row also carries no per-entry detail grid at all.
+        audit_item = find_by_exact_class(
+            programming_activity_panel([], [self._audit()]),
+            "programming-activity__audit-item",
+        )[0]
+        assert find_by_class(audit_item, "programming-activity__detail") == []
+
+    def test_command_lifecycle_rendering_is_unchanged(self):
+        """6. This tranche touches audit presentation only — the command
+        history rail keeps its exact existing markup and wording."""
+        rendered = text_of(programming_activity_panel([_record()], [])).lower()
+        assert "queued (current)" in rendered
+        assert "awaiting device integration" in rendered
+        assert find_by_class(
+            programming_activity_panel([_record()], []),
+            "programming-activity__lifecycle",
+        )
+
+    def test_empty_audit_state_is_unchanged(self):
+        """7. Zero audit records still renders the same truthful empty-state
+        sentence, not the compact list markup."""
+        panel = programming_activity_panel([], [])
+        rendered = text_of(panel)
+        assert "No audit activity recorded for this RTL." in rendered
+        assert find_by_class(panel, "programming-activity__audit-item") == []
 
 
 class TestScopedReader:

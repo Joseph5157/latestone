@@ -186,6 +186,43 @@ def _audit_action(record: DeviceAuditHistoryView) -> str:
     return record.operation.replace("_", " ").title()
 
 
+def _audit_entry(record: DeviceAuditHistoryView) -> html.Li:
+    """One compact reverse-chronological audit row: a decorative marker, the
+    action, and "Requester · Timestamp" beneath it (MOBBIN-UX-5).
+
+    Renders exactly the three facts `DeviceAuditHistoryView` supplies —
+    operation, requester_name, occurred_at — and nothing else: no target or
+    detail the read model does not carry, no severity/state class on the
+    marker (audit actions have no severity, unlike a command's lifecycle
+    state), no filler "Lifecycle: Audit record" / "Execution: Not
+    applicable" / "Result: Recorded in this application" rows, since none of
+    them added a fact beyond "this is an audit entry".
+    """
+    return html.Li(
+        className="programming-activity__audit-item",
+        children=[
+            html.Span(
+                "●",
+                className="programming-activity__audit-marker",
+                **{"aria-hidden": "true"},
+            ),
+            html.Div(
+                className="programming-activity__audit-body",
+                children=[
+                    html.Strong(
+                        _audit_action(record),
+                        className="programming-activity__audit-action",
+                    ),
+                    html.Div(
+                        f"{record.requester_name} · {_timestamp(record.occurred_at)}",
+                        className="programming-activity__audit-meta",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
 def _execution_mode(record: ProgrammingActivityView) -> str:
     if record.command_state in (None, command_cfg.STATE_QUEUED):
         return "Awaiting device integration"
@@ -280,37 +317,8 @@ def programming_activity_panel(
         )
         if not audit_records
         else html.Ol(
-            className="programming-activity__list",
-            children=[
-                html.Li(
-                    className="programming-activity__item",
-                    children=[
-                        html.Div(
-                            className="programming-activity__item-head",
-                            children=[
-                                html.Strong(
-                                    _audit_action(record),
-                                    className="programming-activity__status",
-                                ),
-                                html.Span(
-                                    _timestamp(record.occurred_at),
-                                    className="programming-activity__time",
-                                ),
-                            ],
-                        ),
-                        html.Div(
-                            className="programming-activity__details",
-                            children=[
-                                _detail("Requester", record.requester_name),
-                                _detail("Lifecycle", "Audit record"),
-                                _detail("Execution", "Not applicable"),
-                                _detail("Result", "Recorded in this application"),
-                            ],
-                        ),
-                    ],
-                )
-                for record in audit_records
-            ],
+            className="programming-activity__audit-list",
+            children=[_audit_entry(record) for record in audit_records],
         )
     )
     return html.Section(

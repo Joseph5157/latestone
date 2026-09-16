@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-16T07:43:31Z
+Date: 2026-09-16T08:05:34Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `9d18ee9` "feat(ui): show technician assignment save progress"
-- Working tree: 11 entries — see below
+- `main` = `941346e` "feat(ui): show report export preparation state"
+- Working tree: 12 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3041 passed, 695 deselected in 25.88s
+- `python -m pytest -m "not db"` → 3048 passed, 695 deselected in 26.19s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 290 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 140 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 290 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 291 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 141 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 291 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,9 +83,11 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M callbacks/report_center.py
+M assets/app.css
+ M components/programming_activity.py
  M docs/context/CURRENT_STATE.md
  M docs/context/MOBBIN_UX_REFERENCE.md
+ M tests/test_programming_activity.py
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
@@ -93,6 +95,5 @@ M callbacks/report_center.py
 ?? .pytest-alarm-ack/
 ?? .pytest-command-dispatch-suite/
 ?? debug.log
-?? tests/test_report_export_preparation_state.py
 ```
 

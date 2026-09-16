@@ -88,6 +88,19 @@ invented progress bar.
   Zoho CRM's audit logs. No event-count histogram or other chart bolted
   onto it — that would be new scope on a screen `AGENTS.md` doesn't list as
   carrying a chart, not a presentation refinement.
+  **Implemented 2026-09-16** in `components/programming_activity.py`
+  (`_audit_entry`) — a decorative marker, the action, then "Requester ·
+  Timestamp" beneath it, replacing the old per-row detail-card treatment.
+  Renders exactly the three facts `DeviceAuditHistoryView` supplies
+  (`operation`, `requester_name`, `occurred_at`); **no "target" field
+  exists on that read model**, so none is shown — this corrects the
+  "actor, action, target, timestamp" wording above, which assumed a field
+  this application does not have. The marker carries no severity class
+  (audit actions have no severity concept); the redundant filler rows
+  ("Lifecycle: Audit record" / "Execution: Not applicable" / "Result:
+  Recorded in this application") were removed since none added a fact.
+  Data retrieval, ordering, authorization and `DeviceScope` are unchanged;
+  the command lifecycle rail is unchanged.
 
 ## Explicitly rejected / avoid
 
