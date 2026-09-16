@@ -23,6 +23,17 @@ the higher rung wins and the lower rung is corrected — not averaged, not
 Rung 5 never overrides rung 2. A decision that "we discussed" does not
 survive contact with a source file that says otherwise.
 
+## RTL functional requirements authority
+
+For RTL functionality, the sole client requirements authority is `Remote
+Temperature Logger Functional Specification RTL v0.3` (Unique Identifier
+`240-137264801`, Revision `1`, 18 pages), recorded in
+`docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`. Older PADs, planning packs,
+historical audits, architecture material and internal assumptions are
+historical/reference material only; they cannot supply, amend, or override an
+RTL client requirement. This specific rule governs the broad client-document
+rung above wherever the two could otherwise be read together.
+
 ## Why code outranks our own approved prose
 
 This is not a style preference. Three CC-1 planning decisions were approved in
@@ -73,7 +84,7 @@ schema. Do not describe our schema as if it were theirs.
 | What is the current commit / test baseline? | `docs/context/CURRENT_STATE.md` (generated — never hand-edited) |
 | Was this decided, and does it still stand? | `docs/context/DECISION_INDEX.md` → `docs/decisions/ADR-*.md` |
 | What am I allowed to change right now? | `docs/context/ACTIVE_GATE.md` |
-| Which client requirement drives this? | `REQ-1B_Implementation_Gap_Matrix.md` |
+| Which RTL client requirement drives this? | `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md` |
 
 Anything under `docs/archive/` is historical. It records what we once thought.
 It is never evidence for what is true now.

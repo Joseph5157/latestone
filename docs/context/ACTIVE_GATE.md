@@ -1,43 +1,43 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **IN PROGRESS**
 Date: 2026-09-16
-Gate: NONE
+Gate: FS-TRACKER-ADOPT-1
 Commit/push permission: **GRANTED.**
 
 ## Task
 
-AUDIT-VIEWER-1 is closed. Administrators can open a read-only, newest-first
-audit-log viewer with timestamp, actor, action, entity type, and entity ID.
-The existing table supplies native filtering and paging; no audit payload,
-write action, chart, or new audit meaning is exposed.
+Adopt `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md` as the authoritative
+RTL requirements-completion ledger. The sole client requirements authority
+for RTL functionality is `Remote Temperature Logger Functional Specification
+RTL v0.3`, Unique Identifier `240-137264801`, Revision `1`, 18 pages.
+
+Validate the tracker against current `main` without application/runtime
+changes. Historical PADs, plans, audits, architecture material and simulator
+behaviour remain historical/reference material and cannot override the
+Functional Specification.
 
 ## Relevant files
 
-- `routes.py`
-- `services/authorization.py`
-- `components/app_sidebar.py`
-- `pages/audit_log.py`
-- `callbacks/audit_log.py`
-- `services/audit_log_service.py`
-- `repositories/plant_monitoring_repository.py`
-- `tests/test_audit_log_viewer.py`
-- `tests/test_audit_log_viewer_db.py`
-- `docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md`
+- `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
+- `docs/context/SOURCE_AUTHORITY.md`
+- `docs/context/ACTIVE_GATE.md`
+- `docs/context/PROJECT_LEDGER.md`
+- current code/tests cited by corrected tracker rows
 
 ## Non-goals (explicit)
 
-- No audit semantics, audit writes, migration, edit/delete action, chart, or
-  bulk operation.
-- No Technician or General User access, including via a forged route or
-  browser-owned `auth-store` data.
-- No new page-level filtering or pagination mechanism unless the existing
-  table architecture makes it a narrow reuse.
+- No application/runtime, schema, test, simulator, historical-plan or audit
+  rewrite.
+- Do not infer client requirements from any source other than the Functional
+  Specification.
+- Preserve `debug.log` and unrelated untracked files.
 
 ## Known ambiguities
 
-The generic audit log includes system rows with no user. The viewer must use
-the existing safe actor fallback rather than inventing an identity.
+Tracker `COMPLETE` requires requirement-specific implementation and
+verification evidence; UI, local persistence, simulators, mocks and
+protocol-neutral seams alone are insufficient for RTL Master/device work.
 
 ## DEV-READINGS-RESET-1 — CLOSED / PASS
 
@@ -2318,7 +2318,7 @@ confirmed the sidebar route, newest-first rows, five requested columns, and
 read-only presentation. Context-pack close check and `git diff --check`
 passed.
 
-## Next implementation gate: NONE
+## Next implementation gate: FS-TRACKER-ADOPT-1
 
 ### RTL-PROG-VIS-1 — CLOSED / PASS
 
