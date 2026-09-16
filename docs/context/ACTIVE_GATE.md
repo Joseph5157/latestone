@@ -8,39 +8,87 @@ no application code was touched).
 
 ## Task
 
-LOCAL-DB-CATCHUP-3 is closed. The real local development PostgreSQL
-database (`plant_monitoring_postgres`, `localhost:5436`, db
-`powerplant_demo`, schema `plant_monitoring`) was upgraded from
-`013_alarm_acknowledgement` to head `014_alarm_ack_fk_no_action` via
-`alembic upgrade head`. This applies ALARM-ACK-FK-014's already-written fix
-(the acknowledgement actor FK is now `NO ACTION`, matching ADR-010) to the
-real database for the first time. `tests/test_seed_reset_contract.py::
-TestPurgeOrderAgainstTheLiveSchema::test_no_foreign_key_relies_on_cascade`,
-flagged as expected-red by ALARM-ACK-FK-014, **now passes**. No application
-code was changed. Readings were not reseeded.
+DEV-READINGS-RESET-1 is closed. The real local development database's
+`readings` table was restored to the canonical 30-day synthetic seed via
+`python -m db.seed_plant_monitoring --reset` (the existing, ADR-010-safe
+command — measurements only, hierarchy and operational history untouched).
+This resolves the live-simulator data-drift condition flagged (not fixed)
+by LOCAL-DB-CATCHUP-2/3: `readings` had grown to 1,831,680 rows from
+`db/live_simulator.py` running across many past sessions; it is now back to
+the canonical 1,383,360 rows / 1,441 timestamps / 30-day window. The 6
+previously-failing seed-integrity/range-query tests now pass. No
+application code was changed; Alembic remains at `014_alarm_ack_fk_no_action`.
 
 ## Relevant files
 
-- `alembic/versions/014_alarm_ack_fk_no_action.py` (applied, not edited)
-- `tests/test_seed_reset_contract.py` (the invariant now restored on the
-  real schema)
-- `tests/test_migration_alarm_ack_fk_no_action.py`,
-  `tests/test_migration_alarm_acknowledgement.py`,
-  `tests/test_alarm_acknowledgement_db.py`
+- `db/seed_plant_monitoring.py` (`--reset`, invoked — not edited)
+- `tests/test_seed_integrity.py`, `tests/test_plant_monitoring_repository.py::TestRangeQueries`
+  (the tests this gate turns green)
 
 ## Non-goals (explicit)
 
 - No application-code change of any kind.
-- No reseed of `readings` or any other table — all pre-existing dev data,
-  including the previously-acknowledged `device_events` row (event 14),
-  preserved across the upgrade.
-- No edit to any migration file.
+- No migration — Alembic head/current was `014_alarm_ack_fk_no_action`
+  before and after; `--reset` is a data-only operation.
+- No touch to hierarchy (`plants`/`transformers`/`devices`) or operational
+  history (`device_events`, `user_device_assignments`, `rtl_active_state`,
+  `rtl_programming_requests`, `rtl_commands`, `audit_log`,
+  `message_forwarding`, `users`, or the three config tables) — all
+  preserved byte-for-byte, confirmed by row-count comparison before/after.
 
 ## Known ambiguities
 
-None. The fix migration 014 already existed and was already verified
-against `isolated_schema` by ALARM-ACK-FK-014; this gate only applies it to
-the real database and re-confirms the same outcome there.
+None.
+
+## DEV-READINGS-RESET-1 — CLOSED / PASS
+
+Date: 2026-09-16. Baseline: `main` @ `365c871b04a185240b7b6bd670d1ea59977f40a6`
+(the LOCAL-DB-CATCHUP-3 commit).
+
+### Pre-flight
+
+- DB target reconfirmed local/dev: `localhost:5436`, db `powerplant_demo`,
+  schema `plant_monitoring` (via `config.settings`, no credentials
+  printed); `docker ps` confirmed `plant_monitoring_postgres` running.
+  Pre-reset `alembic current` = `014_alarm_ack_fk_no_action`.
+- Pre-reset row-count snapshot taken for every non-readings table
+  (`plants` 30, `transformers` 71, `devices` 120, `device_events` 13,
+  `user_device_assignments` 97, `rtl_active_state` 2,
+  `rtl_programming_requests` 1, `rtl_commands` 1, `audit_log` 6,
+  `message_forwarding` 1, `users` 7, and the three config tables at 0)
+  — used as the preservation baseline below. Pre-reset `readings` =
+  1,831,680 (drifted from live-simulator activity across past sessions).
+
+### Reset
+
+- `python -m db.seed_plant_monitoring --reset` ran to completion: "Reset:
+  1,831,680 reading(s) replaced. Hierarchy and operational history
+  (events, assignments, active state, requests) preserved." Then reseeded
+  "1,441 (30 days, 30-min intervals)" timestamps,
+  `2026-08-17T09:30:00+00:00` to `2026-09-16T09:30:00+00:00` (current, per
+  ADR-009's injectable-reference-time convention), and loaded
+  "1,383,360 rows... in 60.3s" — the canonical 120 devices × 1,441
+  timestamps × 8 metrics count.
+- Post-reset row-count comparison: every non-readings table listed above
+  identical to its pre-reset value, including the previously-acknowledged
+  `device_events` row (event 14, `acknowledged_by_user_id` 103) unchanged.
+  `readings` = 1,383,360 (canonical).
+- `alembic current` = `014_alarm_ack_fk_no_action` — unchanged by the
+  data-only reset.
+
+### Verification
+
+- `tests/test_seed_integrity.py` + `tests/test_plant_monitoring_repository.py::
+  TestRangeQueries` — **25 passed** (the 6 previously-failing tests from
+  LOCAL-DB-CATCHUP-2/3 are among them, now green).
+- `python -m pytest -q` (full suite, DB included, against the real reset
+  DB) — **all passed**, exit 0, zero failures.
+- `git diff --check` — clean (no application code touched).
+  `python scripts/build_context_pack.py --check` — CLEAN at gate open.
+
+### Known ambiguity
+
+None.
 
 ## LOCAL-DB-CATCHUP-3 — CLOSED / PASS
 
