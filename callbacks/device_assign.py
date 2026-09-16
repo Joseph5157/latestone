@@ -224,6 +224,17 @@ def register(app) -> None:
         State(ASSIGN_DEVICE_ID, "data"),
         State(ASSIGN_TECHNICIAN_ID, "value"),
         State("auth-store", "data"),
+        # MOBBIN-UX-3: transient persistence state only — Dash applies the
+        # "during" values the instant the request fires and restores the
+        # "after" values once this callback returns OR raises, with no
+        # change to what it returns. This is also what prevents a repeat
+        # click from starting a second write while one is in flight: the
+        # button is disabled for the whole round trip, not just after this
+        # function decides an outcome.
+        running=[
+            (Output(ASSIGN_CONFIRM_BTN, "disabled"), True, False),
+            (Output(ASSIGN_CONFIRM_BTN, "children"), "Saving…", "Confirm Assignment"),
+        ],
         prevent_initial_call=True,
     )
     def confirm_assignment(n_clicks, device_id, technician, auth_data):
@@ -238,7 +249,9 @@ def register(app) -> None:
         The drawer stays open whatever the outcome: success names what was
         saved and relabels the secondary action to "Close", failure says
         nothing was saved, refusal renders the shared notice with zero
-        writes.
+        writes. This function's own return values are unchanged by the
+        `running` state above — no optimistic table/assignment state is
+        rendered until one of these outcomes actually returns.
         """
         if not n_clicks or not device_id:
             return no_update, no_update

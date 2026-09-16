@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-16T07:27:47Z
+Date: 2026-09-16T07:35:08Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `84dccfe` "feat(ui): add discrete Program RTL command lifecycle rail"
-- Working tree: 14 entries — see below
+- `main` = `0af6e3e` "feat(ui): add hierarchy inventory empty states"
+- Working tree: 11 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3025 passed, 695 deselected in 25.84s
+- `python -m pytest -m "not db"` → 3031 passed, 695 deselected in 25.82s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 288 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 138 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 288 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 289 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 139 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 289 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,19 +83,16 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M callbacks/listings.py
+M callbacks/device_assign.py
  M docs/context/CURRENT_STATE.md
- M pages/plant_detail.py
- M pages/transformer_detail.py
- M tests/test_auth_harden_repair.py
- M tests/test_listing_errors.py
+ M docs/context/MOBBIN_UX_REFERENCE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
 ?? .pytest-alarm-ack-suite/
 ?? .pytest-alarm-ack/
 ?? .pytest-command-dispatch-suite/
-?? .pytest-inventory-empty-state-1/
 ?? debug.log
+?? tests/test_technician_assignment_saving_state.py
 ```
 

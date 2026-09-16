@@ -46,6 +46,13 @@ invented progress bar.
 - **Technician assignment** — the assignment action must show explicit
   Saving → Saved/Failed feedback tied to the real persistence call. No
   optimistic "assigned" state shown before the write is confirmed.
+  **Implemented 2026-09-16** in `callbacks/device_assign.py`
+  (`confirm_assignment`'s `running=` argument) — transient-state only, via
+  Dash's own `running=` contract on the existing callback: the Confirm
+  Assignment button reads "Saving…" and is disabled for the request's
+  duration, then reverts, with no change to the callback's own
+  Saved/Failed/No-op/refusal outcomes or copy, and no optimistic table
+  state before persistence returns.
 - **Reports (Report Center)** — generation/export shows Preparing export →
   Download/Failure feedback. No blocking modal beyond what's needed to
   communicate that state; nothing decorative.
