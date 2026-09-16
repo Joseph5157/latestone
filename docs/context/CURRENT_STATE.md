@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-16T08:14:00Z
+Date: 2026-09-16T08:40:03Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `3e274a7` "feat(ui): compact device audit history"
-- Working tree: 13 entries — see below
+- `main` = `51acc59` "feat(ui): add device registration identifier feedback"
+- Working tree: 6 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3065 passed, 695 deselected in 27.22s
+- `python -m pytest -m "not db"` → 3065 passed, 696 deselected, 1 warning in 31.29s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 292 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 142 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 292 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 293 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 143 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 293 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,18 +83,11 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M assets/app.css
- M callbacks/device_register.py
+M alembic/versions/013_alarm_acknowledgement.py
+ M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M docs/context/MOBBIN_UX_REFERENCE.md
- M pages/device_register.py
- M tests/test_device_register.py
-?? .pytest-alarm-ack-check/
-?? .pytest-alarm-ack-failure/
-?? .pytest-alarm-ack-full/
-?? .pytest-alarm-ack-suite/
-?? .pytest-alarm-ack/
-?? .pytest-command-dispatch-suite/
+ M docs/context/PROJECT_LEDGER.md
+ M tests/test_migration_alarm_acknowledgement.py
 ?? debug.log
 ```
 

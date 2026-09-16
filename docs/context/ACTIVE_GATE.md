@@ -1,24 +1,40 @@
 # Active Gate
 
 Status: **CLOSED / PASS**
-Date: 2026-09-15
+Date: 2026-09-16
 Gate: NONE
+Commit/push permission: **GRANTED.**
 
-Prepare the existing `rtl_commands` lifecycle for a future real RTL
-transport. Add no protocol knowledge: dispatch remains expressed solely by
-`DeviceTransport`/`TransportOutcome`, with the existing simulator explicitly
-development-only. Provide a configurable timeout/retry policy shape whose
-safe default performs zero retries, and fail closed when no production
-transport is configured. Preserve existing command transitions,
-authorization, request projection, and audit behavior; no MQTT/API/endpoint,
-payload, ACK format, or physical-device claim is in scope.
+## Task
 
-Relevant files: `config/commands.py`, `services/device_transport.py`,
-`services/rtl_command_dispatch_service.py`, `services/rtl_command_service.py`,
-`services/rtl_programming_execution_service.py`, and focused command-dispatch
-tests.
+ALARM-ACK-013-FIX is closed. Migration `013_alarm_acknowledgement` now calls
+Alembic with the intended `name, table_name, condition` order for the
+acknowledgement-pair CHECK on `device_events`; the acknowledgement schema
+semantics are unchanged. Focused and affected DB tests ran with
+`isolated_schema`, and the real development `plant_monitoring` schema was not
+upgraded.
 
-Commit/push permission: **GRANTED and exercised.**
+## Relevant files
+
+- `alembic/versions/013_alarm_acknowledgement.py`
+- `tests/test_migration_alarm_acknowledgement.py`
+- `tests/test_alarm_acknowledgement_db.py`
+- `tests/test_programming_activity.py`
+- `tests/test_rtl_command_dispatch.py`
+
+## Non-goals (explicit)
+
+- No change to alarm acknowledgement services, authorization, `DeviceScope`,
+  or UI unless a focused test proves a separate defect.
+- No acknowledgement-schema redesign, new alarm lifecycle, or external
+  delivery/transport behavior.
+- No `alembic upgrade` against the real development database; that belongs to
+  LOCAL-DB-CATCHUP-2.
+
+## Known ambiguities
+
+None. The intended PostgreSQL constraint expression already exists in the
+migration; only Alembic's `table_name` and `condition` positions are wrong.
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
 (TECH-WORKSPACE-1, closed on that branch 2026-09-10) has been merged into
@@ -2008,6 +2024,23 @@ Focused dispatch-policy/simulator tests, context verification, and the
 private-basetemp non-DB suite passed. Database-marked lifecycle tests were not
 run because PostgreSQL was intentionally offline; no database or Docker state
 was started.
+
+## ALARM-ACK-013-FIX — CLOSED / PASS
+
+Opened and closed 2026-09-16. Corrected migration
+`013_alarm_acknowledgement`'s `op.create_check_constraint` invocation: its
+`table_name` and `condition` positional arguments had been reversed. The
+resulting PostgreSQL constraint remains exactly
+`(acknowledged_at IS NULL) = (acknowledged_by_user_id IS NULL)` on
+`device_events`. Added an operation-level regression test that asserts the
+Alembic call's exact positional order, and moved the migration contract tests
+to the shared `isolated_schema` fixture.
+
+Verification: migration tests 4 passed; affected ALARM-ACK-1,
+CMD-AUDIT-VIS-1, COMMAND-DISPATCH, and lifecycle DB tests 69 passed; non-DB
+suite 3065 passed; `alembic heads` reported the single head
+`013_alarm_acknowledgement`; context-pack close check and `git diff --check`
+passed. No real development database upgrade was run.
 
 ## Next implementation gate: NONE
 

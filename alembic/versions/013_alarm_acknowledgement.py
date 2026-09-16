@@ -48,8 +48,8 @@ def upgrade() -> None:
     )
     op.create_check_constraint(
         "ck_device_events_acknowledgement_pair",
-        "(acknowledged_at IS NULL) = (acknowledged_by_user_id IS NULL)",
         "device_events",
+        "(acknowledged_at IS NULL) = (acknowledged_by_user_id IS NULL)",
         schema=SCHEMA,
     )
 
