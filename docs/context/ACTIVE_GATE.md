@@ -39,40 +39,6 @@ write action, chart, or new audit meaning is exposed.
 The generic audit log includes system rows with no user. The viewer must use
 the existing safe actor fallback rather than inventing an identity.
 
-## DEV-READINGS-RESET-1 Task
-
-DEV-READINGS-RESET-1 is closed. The real local development database's
-`readings` table was restored to the canonical 30-day synthetic seed via
-`python -m db.seed_plant_monitoring --reset` (the existing, ADR-010-safe
-command — measurements only, hierarchy and operational history untouched).
-This resolves the live-simulator data-drift condition flagged (not fixed)
-by LOCAL-DB-CATCHUP-2/3: `readings` had grown to 1,831,680 rows from
-`db/live_simulator.py` running across many past sessions; it is now back to
-the canonical 1,383,360 rows / 1,441 timestamps / 30-day window. The 6
-previously-failing seed-integrity/range-query tests now pass. No
-application code was changed; Alembic remains at `014_alarm_ack_fk_no_action`.
-
-## Relevant files
-
-- `db/seed_plant_monitoring.py` (`--reset`, invoked — not edited)
-- `tests/test_seed_integrity.py`, `tests/test_plant_monitoring_repository.py::TestRangeQueries`
-  (the tests this gate turns green)
-
-## Non-goals (explicit)
-
-- No application-code change of any kind.
-- No migration — Alembic head/current was `014_alarm_ack_fk_no_action`
-  before and after; `--reset` is a data-only operation.
-- No touch to hierarchy (`plants`/`transformers`/`devices`) or operational
-  history (`device_events`, `user_device_assignments`, `rtl_active_state`,
-  `rtl_programming_requests`, `rtl_commands`, `audit_log`,
-  `message_forwarding`, `users`, or the three config tables) — all
-  preserved byte-for-byte, confirmed by row-count comparison before/after.
-
-## Known ambiguities
-
-None.
-
 ## DEV-READINGS-RESET-1 — CLOSED / PASS
 
 Date: 2026-09-16. Baseline: `main` @ `365c871b04a185240b7b6bd670d1ea59977f40a6`

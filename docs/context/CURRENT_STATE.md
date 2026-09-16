@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-16T10:07:55Z
+Date: 2026-09-16T10:23:40Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `229e9ba` "docs(context): restore canonical dev readings"
-- Working tree: 21 entries — see below
+- `main` = `7536d21` "feat(admin): add audit log viewer"
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3076 passed, 706 deselected, 1 warning in 49.22s
+- `python -m pytest -m "not db"` → 3076 passed, 706 deselected in 27.76s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 298 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 148 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 298 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 299 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 149 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 299 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,26 +83,15 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M app.py
- M assets/app.css
- M callbacks/routing.py
- M components/app_sidebar.py
- M docs/context/ACTIVE_GATE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
  M docs/context/PROJECT_LEDGER.md
- M repositories/plant_monitoring_repository.py
- M routes.py
- M services/authorization.py
- M tests/test_app_sidebar.py
- M tests/test_authorization.py
- M tests/test_equipment_selector.py
- M tests/test_route_enforcement.py
-?? assets/icons/nav-audit-log.svg
-?? callbacks/audit_log.py
+?? .pytest-alarm-ack-check/
+?? .pytest-alarm-ack-failure/
+?? .pytest-alarm-ack-full/
+?? .pytest-alarm-ack-suite/
+?? .pytest-alarm-ack/
+?? .pytest-command-dispatch-suite/
 ?? debug.log
-?? pages/audit_log.py
-?? services/audit_log_service.py
-?? tests/test_audit_log_viewer.py
-?? tests/test_audit_log_viewer_db.py
 ```
 
