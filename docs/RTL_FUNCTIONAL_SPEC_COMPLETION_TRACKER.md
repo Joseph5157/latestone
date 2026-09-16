@@ -1,8 +1,8 @@
 # RTL Functional Specification Completion Tracker
 
-**Project:** Powerplant / Remote Temperature Logger (RTL) Monitoring Dashboard  
-**Client authority:** `Remote Temperature Logger Functional Specification RTL v0.3.pdf` only — Unique Identifier `240-137264801`, Revision `1`, 18 pages.  
-**Audit baseline:** `Joseph5157/powerplant-monitoring` `main` @ `1fa20ee2e2dd76dfc318ead15590dffdd0280e19` (2026-09-16).  
+**Project:** Powerplant / Remote Temperature Logger (RTL) Monitoring Dashboard
+**Client authority:** `Remote Temperature Logger Functional Specification RTL v0.3.pdf` only — Unique Identifier `240-137264801`, Revision `1`, 18 pages.
+**Audit baseline:** `Joseph5157/powerplant-monitoring` `main` @ `1fa20ee2e2dd76dfc318ead15590dffdd0280e19` (2026-09-16).
 **Purpose:** The living requirements-completion ledger for RTL functionality against the authoritative Functional Specification. Repository state remains in `docs/context/CURRENT_STATE.md`; this tracker records what remains against the client specification.
 
 > Earlier PADs, planning documents, historical audits, architecture material and internal development assumptions are historical/reference material only. They must not supply, change, or override RTL client requirements.
@@ -258,3 +258,4 @@ Append one row after every successful gate. Never delete previous entries.
 | Date | Gate | Requirement IDs closed/advanced | Commit SHA | Verification | Notes |
 |---|---|---|---|---|---|
 | 2026-09-16 | Initial audit baseline | Tracker created from authoritative Functional Specification vs current `main` | — | Functional Specification + GitHub inspection | No application code changed |
+| 2026-09-16 | FS-TRACKER-ADOPT-1 | Tracker authority adopted; BR012 and ACTIVE-01 corrected to `PARTIAL`; General User/BR016 conflicts confirmed | `7d684e0` | 17 focused context tests passed; context-pack structural check clean | Documentation/context only; no application/runtime change |

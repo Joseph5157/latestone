@@ -1,43 +1,52 @@
 # Active Gate
 
-Status: **IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-16
-Gate: FS-TRACKER-ADOPT-1
+Gate: NONE
 Commit/push permission: **GRANTED.**
 
 ## Task
 
-Adopt `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md` as the authoritative
-RTL requirements-completion ledger. The sole client requirements authority
-for RTL functionality is `Remote Temperature Logger Functional Specification
-RTL v0.3`, Unique Identifier `240-137264801`, Revision `1`, 18 pages.
-
-Validate the tracker against current `main` without application/runtime
-changes. Historical PADs, plans, audits, architecture material and simulator
-behaviour remain historical/reference material and cannot override the
-Functional Specification.
+FS-TRACKER-ADOPT-1 is closed. `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
+is the authoritative RTL requirements-completion ledger; the sole client
+requirements authority for RTL functionality is `Remote Temperature Logger
+Functional Specification RTL v0.3`, Unique Identifier `240-137264801`,
+Revision `1`, 18 pages. `docs/context/CURRENT_STATE.md` continues to describe
+repository state, while the tracker records what remains against the client
+specification.
 
 ## Relevant files
 
 - `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
 - `docs/context/SOURCE_AUTHORITY.md`
-- `docs/context/ACTIVE_GATE.md`
-- `docs/context/PROJECT_LEDGER.md`
 - current code/tests cited by corrected tracker rows
 
 ## Non-goals (explicit)
 
 - No application/runtime, schema, test, simulator, historical-plan or audit
-  rewrite.
-- Do not infer client requirements from any source other than the Functional
-  Specification.
-- Preserve `debug.log` and unrelated untracked files.
+  rewrite was made.
+- Historical PADs, plans, audits, architecture material and simulator
+  behaviour cannot override the Functional Specification.
 
 ## Known ambiguities
 
 Tracker `COMPLETE` requires requirement-specific implementation and
 verification evidence; UI, local persistence, simulators, mocks and
 protocol-neutral seams alone are insufficient for RTL Master/device work.
+
+## FS-TRACKER-ADOPT-1 — CLOSED / PASS
+
+The root tracker was moved to `docs/` and adopted as the RTL functionality
+requirements-completion authority. `SOURCE_AUTHORITY.md` now directs RTL
+requirement questions to the Functional Specification/tracker, not older
+PADs or internal material. Validation corrected BR012 and ACTIVE-01 from
+`MISSING` to `PARTIAL`: the repository already has a tested local startup to
+`rtl_active_state` projection, but no real RTL Master source or
+synchronization. General User Notifications/Command Center access and
+application-owned BR016 auto-disable remain `CONFLICT`.
+
+Verification: focused context-pack tests passed; the context-pack structural
+check and `git diff --check` were clean. No application/runtime code changed.
 
 ## DEV-READINGS-RESET-1 — CLOSED / PASS
 
@@ -2318,7 +2327,7 @@ confirmed the sidebar route, newest-first rows, five requested columns, and
 read-only presentation. Context-pack close check and `git diff --check`
 passed.
 
-## Next implementation gate: FS-TRACKER-ADOPT-1
+## Next implementation gate: NONE
 
 ### RTL-PROG-VIS-1 — CLOSED / PASS
 

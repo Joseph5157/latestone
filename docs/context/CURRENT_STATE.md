@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-16T10:23:40Z
+Date: 2026-09-16T11:58:05Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `7536d21` "feat(admin): add audit log viewer"
-- Working tree: 10 entries — see below
+- `main` = `7d684e0` "docs(requirements): adopt functional specification completion tracker"
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3076 passed, 706 deselected in 27.76s
+- `python -m pytest -m "not db"` → 3076 passed, 706 deselected in 33.95s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 299 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 149 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 299 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 301 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 151 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 301 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,15 +83,10 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md
+ M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M docs/context/PROJECT_LEDGER.md
-?? .pytest-alarm-ack-check/
-?? .pytest-alarm-ack-failure/
-?? .pytest-alarm-ack-full/
-?? .pytest-alarm-ack-suite/
-?? .pytest-alarm-ack/
-?? .pytest-command-dispatch-suite/
+?? .pytest-fs-tracker-context/
 ?? debug.log
 ```
 
