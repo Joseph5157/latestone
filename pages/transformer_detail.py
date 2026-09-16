@@ -85,5 +85,6 @@ def layout(
                 administrative_state_column_id="status",
                 responsive=True,
             ),
+            html.Div(id="devices-empty"),
         ],
     )

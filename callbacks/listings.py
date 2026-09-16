@@ -22,7 +22,7 @@ from components.fleet_summary import (
 from components.metric_health import metric_health_overview
 from components.my_rtls import my_rtls_panel
 from components.needs_attention import needs_attention
-from components.status_panels import error_panel
+from components.status_panels import empty_data_panel, error_panel
 from components.temperature_attribution import temperature_attribution
 from components.unassigned_rtls import unassigned_rtl_panel
 from config.metrics import ATTRIBUTION_METRIC_KEY
@@ -72,6 +72,13 @@ DEVICE_COLUMNS = [
     {"name": "Status", "id": "status"},
     {"name": "Data", "id": "freshness"},
 ]
+
+# MOBBIN-UX-2: fixed operational wording — a fact about registration, not a
+# guess at cause. The same sentence for every empty plant/transformer, no
+# matter whether inventory is genuinely absent or merely invisible to this
+# caller's DeviceScope; neither this module nor the message infers which.
+NO_TRANSFORMERS_MESSAGE = "No transformers are registered for this plant."
+NO_DEVICES_MESSAGE = "No RTL devices are registered for this transformer."
 
 
 # --------------------------------------------------------------------------
@@ -519,6 +526,27 @@ def listing_outputs(build_rows, columns: list[dict], context_msg: str) -> tuple:
         return [], columns, error_panel()
 
 
+def inventory_empty_notice(rows: list[dict] | None, error, message: str):
+    """A truthful "nothing here" panel for a hierarchy inventory table.
+
+    Two rules, both load-bearing (MOBBIN-UX-2):
+
+    - `error is not None` wins outright. A query failure and a genuinely
+      empty result must never look the same — `listing_outputs` already owns
+      the one explanation for a blank table when the query itself failed, so
+      this returns None rather than layering a second, contradictory message
+      under it.
+    - Any row at all — however STALE or NO_DATA its freshness — means this
+      is not empty. Telemetry absence is not inventory absence; only a
+      genuinely zero-length result triggers the notice.
+    """
+    if error is not None:
+        return None
+    if rows:
+        return None
+    return empty_data_panel(message)
+
+
 def admin_summary_output(now: datetime):
     """The administration block for the Fleet Overview, or None.
 
@@ -827,13 +855,14 @@ def register(app) -> None:
         Output("plant-context", "children"),
         Output("plant-metric-health", "children"),
         Output("plant-attribution", "children"),
+        Output("transformers-empty", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
         prevent_initial_call=True,
     )
     def populate_plant_detail(context, auth_data):
         if not context or context.get("route") != "plant":
-            return (no_update,) * 7
+            return (no_update,) * 8
         plant_id = context.get("plant_id")
 
         # One instant for the whole render (§2): Data Health, Metric Health
@@ -860,7 +889,7 @@ def register(app) -> None:
                 "scope",
                 plant_id,
             )
-            return ([], TRANSFORMER_COLUMNS, error_panel(), None, None, None, None)
+            return ([], TRANSFORMER_COLUMNS, error_panel(), None, None, None, None, None)
 
         result: dict = {}
 
@@ -886,6 +915,7 @@ def register(app) -> None:
                 temperature_attribution(result["attribution"], show_transformer=True)
                 if result else None
             ),
+            inventory_empty_notice(rows, error, NO_TRANSFORMERS_MESSAGE),
         )
 
     @app.callback(
@@ -896,13 +926,14 @@ def register(app) -> None:
         Output("transformer-context", "children"),
         Output("transformer-metric-health", "children"),
         Output("transformer-attribution", "children"),
+        Output("devices-empty", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
         prevent_initial_call=True,
     )
     def populate_transformer_detail(context, auth_data):
         if not context or context.get("route") != "transformer":
-            return (no_update,) * 7
+            return (no_update,) * 8
         transformer_id = context.get("transformer_id")
         plant_name = context.get("plant_name", "")
         transformer_code = context.get("transformer_code", "")
@@ -919,7 +950,7 @@ def register(app) -> None:
                 "session's device scope",
                 transformer_id,
             )
-            return ([], DEVICE_COLUMNS, error_panel(), None, None, None, None)
+            return ([], DEVICE_COLUMNS, error_panel(), None, None, None, None, None)
 
         result: dict = {}
 
@@ -950,6 +981,7 @@ def register(app) -> None:
                 temperature_attribution(result["attribution"], show_transformer=False)
                 if result else None
             ),
+            inventory_empty_notice(rows, error, NO_DEVICES_MESSAGE),
         )
 
     # Row-click navigation. dash_table has no non-markdown way to render a cell

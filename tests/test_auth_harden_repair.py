@@ -312,12 +312,13 @@ class TestPlantDetailScope:
     def test_r06_technician_out_of_scope_plant_leaks_no_metadata(
         self, technician_assigned_to_a
     ):
-        rows, _columns, error, kpis, context, metric_health, attribution = self._handler()(
+        rows, _columns, error, kpis, context, metric_health, attribution, empty = self._handler()(
             {"route": "plant", "plant_id": PLANT_B}, None
         )
         assert rows == []
         assert error is not None
         assert kpis is None and context is None and metric_health is None and attribution is None
+        assert empty is None, "the error slot already explains the blank table"
         rendered = "".join(str(x) for x in (error,))
         assert PLANT_B_NAME not in rendered
         assert "Testland" not in rendered
@@ -330,8 +331,8 @@ class TestPlantDetailScope:
         monkeypatch.setattr(monitoring_service, "latest_reading_rows", lambda **k: [])
         monkeypatch.setattr(monitoring_service, "latest_metric_readings", lambda *a, **k: [])
 
-        rows, _columns, error, _kpis, context, _metric_health, _attribution = self._handler()(
-            {"route": "plant", "plant_id": PLANT_A}, None
+        rows, _columns, error, _kpis, context, _metric_health, _attribution, _empty = (
+            self._handler()({"route": "plant", "plant_id": PLANT_A}, None)
         )
         assert error is None
         assert context is not None
@@ -347,7 +348,7 @@ class TestPlantDetailScope:
         monkeypatch.setattr(monitoring_service, "latest_metric_readings", lambda *a, **k: [])
 
         with trusted_session(monkeypatch, user_id=7, role="general"):
-            rows, _columns, error, _kpis, context, _metric_health, _attribution = (
+            rows, _columns, error, _kpis, context, _metric_health, _attribution, _empty = (
                 self._handler()({"route": "plant", "plant_id": PLANT_B}, None)
             )
         assert error is None, "General must retain unrestricted read access"
@@ -360,7 +361,7 @@ class TestPlantDetailScope:
         monkeypatch.setattr(monitoring_service, "latest_metric_readings", lambda *a, **k: [])
 
         with trusted_session(monkeypatch, user_id=1, role="administrator"):
-            _rows, _columns, error, _kpis, context, _metric_health, _attribution = (
+            _rows, _columns, error, _kpis, context, _metric_health, _attribution, _empty = (
                 self._handler()({"route": "plant", "plant_id": PLANT_B}, None)
             )
         assert error is None
@@ -390,7 +391,7 @@ class TestTransformerDetailScope:
         self, technician_assigned_to_a, monkeypatch
     ):
         self._mock_monitoring(monkeypatch)
-        rows, _columns, error, kpis, context, metric_health, attribution = self._handler()(
+        rows, _columns, error, kpis, context, metric_health, attribution, empty = self._handler()(
             {
                 "route": "transformer",
                 "transformer_id": TRANSFORMER_A,
@@ -406,7 +407,7 @@ class TestTransformerDetailScope:
     def test_r2_17_technician_unrelated_transformer_detail_denied_no_metadata(
         self, technician_assigned_to_a
     ):
-        rows, _columns, error, kpis, context, metric_health, attribution = self._handler()(
+        rows, _columns, error, kpis, context, metric_health, attribution, empty = self._handler()(
             {
                 "route": "transformer",
                 "transformer_id": TRANSFORMER_B,
@@ -418,6 +419,7 @@ class TestTransformerDetailScope:
         assert rows == []
         assert error is not None
         assert kpis is None and context is None and metric_health is None and attribution is None
+        assert empty is None, "the error slot already explains the blank table"
         rendered = str(error)
         assert TRANSFORMER_B_CODE not in rendered
         assert PLANT_B_NAME not in rendered
@@ -427,7 +429,7 @@ class TestTransformerDetailScope:
     ):
         self._mock_monitoring(monkeypatch)
         with trusted_session(monkeypatch, user_id=1, role="administrator"):
-            _rows, _columns, error, _kpis, context, _metric_health, _attribution = (
+            _rows, _columns, error, _kpis, context, _metric_health, _attribution, _empty = (
                 self._handler()(
                     {
                         "route": "transformer",
@@ -446,7 +448,7 @@ class TestTransformerDetailScope:
     ):
         self._mock_monitoring(monkeypatch)
         with trusted_session(monkeypatch, user_id=7, role="general"):
-            _rows, _columns, error, _kpis, context, _metric_health, _attribution = (
+            _rows, _columns, error, _kpis, context, _metric_health, _attribution, _empty = (
                 self._handler()(
                     {
                         "route": "transformer",

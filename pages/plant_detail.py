@@ -83,5 +83,6 @@ def layout(plant_name: str = "", status: str = "") -> html.Div:
                 administrative_state_column_id="status",
                 responsive=True,
             ),
+            html.Div(id="transformers-empty"),
         ],
     )
