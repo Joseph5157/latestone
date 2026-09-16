@@ -52,16 +52,54 @@ def _transformer_options(plant_id: str) -> list[dict]:
     ]
 
 
+def _validate_code(code: str | None) -> str | None:
+    """The RTL UID / Device Code field-level rule: required, trimmed <= 10
+    characters. The one place this rule is written (MOBBIN-UX-6) — both
+    Review-time validation and the live inline hint call this, so the two
+    can never drift apart. Returns an error message, or None when `code`
+    passes.
+    """
+    if not code or not code.strip():
+        return "Device code is required."
+    if len(code.strip()) > 10:
+        return "Device code must be 10 characters or fewer."
+    return None
+
+
+def _code_field_guidance(raw_value: str | None) -> str:
+    """Live, inline guidance for the device code input, before Review.
+
+    Uses only the rule `_validate_code` already enforces — no 5-digit or
+    numeric-only assumption, no uniqueness check, nothing this application
+    does not already validate:
+
+    - nothing typed yet (pristine/emptied): neutral guidance stating the
+      rule, not phrased as an error.
+    - typed but invalid (whitespace-only, or over the length limit): the
+      SAME message `_validate_code`/Review would show, so live feedback
+      and Review validation say the identical thing for the identical
+      input.
+    - typed and currently valid: a concise, present-tense note that means
+      only "passes this field's rule right now" — never "confirmed" or
+      "registered", since nothing here reaches the database.
+    """
+    if not raw_value:
+        return "Required · maximum 10 characters."
+    error = _validate_code(raw_value)
+    if error:
+        return error
+    return "Meets the device code format (10 characters or fewer)."
+
+
 def _validate_form(code: str, plant_id: str, transformer_id: str) -> dict[str, str]:
     """Validate required fields. Returns {field: error_message} dict.
 
     Empty dict means valid.
     """
     errors = {}
-    if not code or not code.strip():
-        errors["code"] = "Device code is required."
-    elif len(code.strip()) > 10:
-        errors["code"] = "Device code must be 10 characters or fewer."
+    code_error = _validate_code(code)
+    if code_error:
+        errors["code"] = code_error
     if not plant_id:
         errors["plant"] = "Please select a plant."
     if not transformer_id:
@@ -148,6 +186,22 @@ def register(app) -> None:
         except Exception:
             logger.exception("Failed to populate transformers for %r", plant_id)
             return [], True
+
+    @app.callback(
+        Output("device-register-code-hint", "children"),
+        Input("device-register-code", "value"),
+        prevent_initial_call=True,
+    )
+    def _code_hint(value):
+        """Live guidance only — never the Review-time authoritative error.
+
+        A separate Output/slot from `device-register-code-error`
+        (MOBBIN-UX-6), so this fires on every keystroke without a second
+        writer for the `role="alert"` slot `_show_review` owns; the layout's
+        static initial text already matches the pristine-empty case, so this
+        does not need `prevent_initial_call=False` to be correct on load.
+        """
+        return _code_field_guidance(value)
 
     @app.callback(
         Output("device-register-code-error", "children"),

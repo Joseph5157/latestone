@@ -14,9 +14,12 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import text
 
+from callbacks import device_register
 from callbacks.device_register import (
+    _code_field_guidance,
     _plant_options,
     _transformer_options,
+    _validate_code,
     _validate_form,
     _review_summary,
 )
@@ -28,6 +31,7 @@ from services.device_registration import (
     register_device,
     update_device_metadata,
 )
+from tests.dash_tree import find_by_id
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +117,155 @@ class TestValidateForm:
     def test_valid_with_whitespace_code_passes(self):
         errors = _validate_form(" 29017 ", "plant-1", "tx-1")
         assert errors == {}
+
+
+# ---------------------------------------------------------------------------
+# MOBBIN-UX-6 — live inline device code guidance, before Review.
+#
+# One rule (_validate_code), two presentations: _validate_form (Review-time,
+# authoritative) and _code_field_guidance (live, before Review). Every
+# "invalid" guidance string below is asserted equal to what _validate_code
+# itself returns, so the two literally cannot drift.
+# ---------------------------------------------------------------------------
+
+class TestCodeFieldGuidance:
+    def test_empty_value_is_neutral_initial_guidance(self):
+        """1. Initial (nothing typed) state is neutral, not an error."""
+        assert _code_field_guidance("") == "Required · maximum 10 characters."
+        assert _code_field_guidance(None) == "Required · maximum 10 characters."
+
+    def test_whitespace_only_is_invalid_guidance_matching_review(self):
+        """2. Whitespace-only entered -> invalid guidance, identical to
+        what Review would show for the same input."""
+        guidance = _code_field_guidance("   ")
+        assert guidance == _validate_code("   ") == "Device code is required."
+
+    def test_valid_current_rule_value_is_positive_guidance(self):
+        """3. A nonblank value within the current length rule -> positive
+        guidance that claims only "passes this field's rule right now",
+        never that the device is confirmed or registered."""
+        guidance = _code_field_guidance("29017")
+        assert guidance == "Meets the device code format (10 characters or fewer)."
+        assert "confirmed" not in guidance.lower()
+        assert "registered" not in guidance.lower()
+
+    def test_over_length_value_is_invalid_guidance_matching_review(self):
+        """6. Max-length behaviour is unchanged; the live hint says the
+        identical thing Review would for the same over-length input."""
+        guidance = _code_field_guidance("a" * 11)
+        assert guidance == _validate_code("a" * 11) == (
+            "Device code must be 10 characters or fewer."
+        )
+
+    def test_exactly_ten_characters_is_positive_guidance(self):
+        """6 (cont'd). The boundary itself is unchanged: 10 passes, 11 fails."""
+        assert _validate_code("a" * 10) is None
+        assert "10 characters or fewer" in _code_field_guidance("a" * 10)
+
+
+class TestReviewAcceptsCurrentContractIdentifiers:
+    """No 5-digit-only, numeric-only, or pattern rule exists. Proven
+    directly so a future edit cannot silently tighten the field beyond
+    what this tranche's brief authorizes."""
+
+    @pytest.mark.parametrize("code", [
+        "29017",   # the reserved numeric identifier form
+        "AB-12c",  # non-numeric, non-5-digit
+        "rtl_9",   # short, mixed case, underscore
+        "A" * 10,  # exactly at the length limit, all letters
+    ])
+    def test_non_numeric_and_non_five_digit_codes_pass(self, code):
+        """5. Review still accepts identifiers the current contract
+        allows, beyond the reserved 5-digit numeric example."""
+        errors = _validate_form(code, "plant-1", "tx-1")
+        assert "code" not in errors
+
+    def test_blank_still_rejected(self):
+        """4. Review validation still rejects a blank code."""
+        errors = _validate_form("", "plant-1", "tx-1")
+        assert errors["code"] == "Device code is required."
+
+    def test_whitespace_only_still_rejected(self):
+        """4 (cont'd). ...and a whitespace-only code."""
+        errors = _validate_form("   ", "plant-1", "tx-1")
+        assert errors["code"] == "Device code is required."
+
+    def test_eleven_characters_still_rejected(self):
+        errors = _validate_form("a" * 11, "plant-1", "tx-1")
+        assert errors["code"] == "Device code must be 10 characters or fewer."
+
+
+class _CapturingApp:
+    def __init__(self):
+        self.functions = {}
+
+    def callback(self, *args, **kwargs):
+        def decorator(fn):
+            self.functions[fn.__name__] = fn
+            return fn
+
+        return decorator
+
+
+class TestCodeHintLayoutAndWiring:
+    def test_layout_has_hint_slot_with_neutral_initial_text(self):
+        lay = layout()
+        node = find_by_id(lay, "device-register-code-hint")
+        assert node is not None
+        rendered = str(node.children)
+        assert "Required" in rendered
+        assert "10 characters" in rendered
+
+    def test_hint_slot_is_a_separate_output_from_the_alert_error_slot(self):
+        """Prefer a separate guidance slot rather than a second writer for
+        device-register-code-error (MOBBIN-UX-6) — the existing
+        role="alert" Review-time error is untouched."""
+        lay = layout()
+        hint = find_by_id(lay, "device-register-code-hint")
+        error = find_by_id(lay, "device-register-code-error")
+        assert hint is not error
+        assert getattr(error, "role", None) == "alert"
+        assert getattr(hint, "role", None) != "alert"
+
+    def test_form_review_success_structure_is_unchanged(self):
+        """7. Form -> Review -> Success structure unchanged."""
+        lay = layout()
+        ids = _collect_ids(lay)
+        for expected in (
+            "device-register-form", "device-register-review",
+            "device-register-success", "device-register-review-btn",
+            "device-register-submit-btn", "device-register-edit-btn",
+            "device-register-code-hint",
+        ):
+            assert expected in ids
+
+    def test_code_hint_callback_makes_no_privileged_read(self):
+        """8. Authorization untouched: the new callback is a pure function
+        of the value the caller already typed — no service call, no
+        current_identity/require_capability, since it discloses nothing an
+        unauthorized caller could not already see on their own screen."""
+        import inspect
+
+        app = _CapturingApp()
+        device_register.register(app)
+        source = inspect.getsource(app.functions["_code_hint"])
+        assert "require_capability" not in source
+        assert "current_identity" not in source
+        assert "hierarchy_service" not in source
+
+    def test_existing_registration_callbacks_still_require_capability(self):
+        """8 (cont'd). The pre-existing REGISTER_DEVICE-gated callbacks
+        (AUTH-HARDEN-1R) are registered exactly as before."""
+        import inspect
+
+        app = _CapturingApp()
+        device_register.register(app)
+        for name in (
+            "_populate_plants", "_populate_transformers",
+            "_show_review", "_submit_registration",
+        ):
+            source = inspect.getsource(app.functions[name])
+            assert "require_capability" in source
 
 
 # ---------------------------------------------------------------------------

@@ -43,6 +43,13 @@ invented progress bar.
 - **Device registration** — keep the current single-screen form → Review →
   Success flow as-is. The only addition is inline RTL UID validation
   feedback on the field itself; no multi-step wizard, no new screens.
+  **Implemented 2026-09-16** in `callbacks/device_register.py`
+  (`_code_field_guidance`, sharing the one field-level rule `_validate_code`
+  with Review-time validation so the two cannot drift) and
+  `pages/device_register.py` (a new `device-register-code-hint` slot,
+  separate from `device-register-code-error`'s `role="alert"`). No business
+  rule change: still "required, trimmed ≤ 10 characters" — no 5-digit-only,
+  numeric-only, pattern, or pre-Submit uniqueness check was added.
 - **Technician assignment** — the assignment action must show explicit
   Saving → Saved/Failed feedback tied to the real persistence call. No
   optimistic "assigned" state shown before the write is confirmed.
@@ -69,20 +76,40 @@ invented progress bar.
 - **Plant / Transformer detail** — improve the empty states so they are
   truthful about why a page looks empty (no transformers yet, stale/no
   seed data, etc.). Do not add charts to fill the space.
+  **Implemented, commit `0af6e3e25f537d1af98d74a018a0d85f7aab2f7c`** —
+  `callbacks/listings.py`'s `inventory_empty_notice`, reusing
+  `components/status_panels.py`'s existing `empty_data_panel` rather than a
+  new presentation. Additive to the existing error slot: a query failure
+  still wins outright, and any row at all — however STALE or NO_DATA —
+  still counts as non-empty, since telemetry absence is not inventory
+  absence.
 - **Fleet Overview** — preserve the current KPI / Data Health structure.
   Do not invent new KPIs such as "offline" or "active alarms" counts that
   the backend does not actually compute — a KPI tile must correspond to a
   real, already-queryable fact.
+  **Reviewed — no change required.** The accepted direction was
+  preservation, not a change; this reconciliation pass confirms nothing in
+  `components/fleet_summary.py`/`fleet_condition.py` was altered by any
+  MOBBIN-UX tranche.
 - **Device Manage drawer** — preserve the current action architecture
   (Program RTL, Simulate execution, Assign, etc.). Any Mobbin-informed
   change here is presentation polish only, not a rearchitecture of what
   actions exist or how they're authorized.
+  **Reviewed — no change required.** Same reasoning as Fleet Overview
+  above; `components/device_manage_drawer.py`'s action set and wiring are
+  untouched by every MOBBIN-UX tranche to date.
 - **Notifications** — keep the current operational table shape. No "Mark
   all read" or bulk-acknowledgement affordance without explicit client
   approval — acknowledgement semantics are not this application's call to
   make unilaterally.
+  **Reviewed — no change required.** No MOBBIN-UX tranche has touched
+  `pages/notifications.py` or its callback; the "Mark all read"/bulk
+  affordance remains withheld, per the client-approval condition above.
 - **Command history** — lifecycle progression display, same rule as
   Program RTL above: only because a real ordered state machine backs it.
+  **Implemented, commit `84dccfe8b110d176ee4e81e1918113ba49d528c7`** —
+  covered by the Program RTL lifecycle implementation above; the two are
+  one presentation change, not two.
 - **Audit history** — a compact, reverse-chronological activity log
   (actor, action, target, timestamp), matching patterns like Railway's and
   Zoho CRM's audit logs. No event-count histogram or other chart bolted

@@ -79,6 +79,18 @@ def layout() -> html.Div:
                         error_id="device-register-code-error",
                         required=True,
                     ),
+                    # Live, field-level guidance only (MOBBIN-UX-6) — a
+                    # separate slot from device-register-code-error's
+                    # role="alert", so typing does not interrupt a screen
+                    # reader on every keystroke. This starting text is the
+                    # same neutral guidance the callback renders for an
+                    # empty value, so the page is correct before the
+                    # callback ever fires.
+                    html.P(
+                        "Required · maximum 10 characters.",
+                        id="device-register-code-hint",
+                        className="field__hint",
+                    ),
                     # Cascade trigger. labelable=False: a <label for> cannot
                     # target the div dcc.Dropdown renders, so the label names a
                     # group around it instead of pointing at nothing.
