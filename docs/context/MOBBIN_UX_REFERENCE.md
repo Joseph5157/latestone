@@ -56,6 +56,16 @@ invented progress bar.
 - **Reports (Report Center)** — generation/export shows Preparing export →
   Download/Failure feedback. No blocking modal beyond what's needed to
   communicate that state; nothing decorative.
+  **Implemented 2026-09-16** in `callbacks/report_center.py`
+  (`download_report_csv`'s `running=` argument) — transient-state only, via
+  Dash's own `running=` contract on the existing export callback: the
+  Download button reads "Preparing export…" and is disabled for the
+  request's duration, then reverts, with no change to CSV/PDF generation,
+  DeviceScope, `EXPORT_DATA` authorization, report periods, filenames, row
+  gathering, or preview/export parity. `report-download-btn.disabled` had a
+  pre-existing owner (`toggle_download_button`, R4-D9); both callbacks now
+  declare `allow_duplicate=True` on that prop, Dash's own mechanism for two
+  legitimate writers of one Output.
 - **Plant / Transformer detail** — improve the empty states so they are
   truthful about why a page looks empty (no transformers yet, stale/no
   seed data, etc.). Do not add charts to fill the space.

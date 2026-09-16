@@ -922,7 +922,14 @@ def register(app) -> None:
         raise ReportError(f"{report_key!r} is not an exportable report.")
 
     @app.callback(
-        Output("report-download-btn", "disabled"),
+        # MOBBIN-UX-4: `download_report_csv` below also briefly writes this
+        # same prop via its `running=` in-flight state (disabling the
+        # button for the duration of an export). `allow_duplicate=True`
+        # is Dash's real mechanism for two different callbacks legitimately
+        # sharing one Output, paired here with the `prevent_initial_call`
+        # this callback already had; the R4-D9 behaviour below — disabled
+        # for a non-exportable report_key — is otherwise unchanged.
+        Output("report-download-btn", "disabled", allow_duplicate=True),
         Input("report-type", "value"),
         prevent_initial_call=True,
     )
@@ -945,6 +952,30 @@ def register(app) -> None:
         State("report-custom-date-range", "end_date"),
         State("report-export-format", "value"),
         State("auth-store", "data"),
+        # MOBBIN-UX-4: transient in-flight state only — Dash applies the
+        # "during" values the instant the request fires and restores the
+        # "after" values once this callback returns OR raises, with no
+        # change to what it returns. This is also what prevents a repeat
+        # click from starting a second export while one is in flight.
+        # `disabled` needs `allow_duplicate=True`: `toggle_download_button`
+        # below already owns that property as its own real Output (it
+        # disables the button for a non-exportable report_key), and this
+        # callback still has `prevent_initial_call=True`, satisfying the
+        # pairing Dash requires for a duplicate Output. `children` has no
+        # other owner (the layout sets it once, statically), so it needs no
+        # such flag.
+        running=[
+            (
+                Output("report-download-btn", "disabled", allow_duplicate=True),
+                True,
+                False,
+            ),
+            (
+                Output("report-download-btn", "children"),
+                "Preparing export…",
+                "Download",
+            ),
+        ],
         prevent_initial_call=True,
     )
     def download_report_csv(
