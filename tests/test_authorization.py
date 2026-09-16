@@ -61,11 +61,12 @@ ROUTE_PATHS = {
     "command_center_locations": "/command-center/locations",
 }
 
-#: The frozen ROLE-2 matrix. Technician and General are identical here on
-#: purpose: they diverge at device scope and action authorization in ROLE-3,
-#: not at route level.
+#: Functional Specification §5.9 retains the monitoring hierarchy and report
+#: export for General Users, while reserving operational surfaces for the
+#: Administrator and Technician roles.
 ADMIN_ONLY = ("admin_devices", "device_register", "admin_users", "audit_log")
-SHARED = ("overview", "plant", "transformer", "device", "notifications", "reports", "command_center", "command_center_locations")
+GENERAL_READ_ROUTES = ("overview", "plant", "transformer", "device", "reports")
+OPERATIONAL_ROUTES = ("notifications", "command_center", "command_center_locations")
 
 
 class TestRoleConstants:
@@ -76,10 +77,16 @@ class TestRoleConstants:
 
 
 class TestTheMatrix:
-    @pytest.mark.parametrize("route", SHARED)
-    def test_every_role_reaches_monitoring_notifications_and_reports(self, route):
+    @pytest.mark.parametrize("route", GENERAL_READ_ROUTES)
+    def test_every_role_reaches_monitoring_and_reports(self, route):
         for role in CONFIRMED_ROLES:
             assert may_access_route(role, route) is True
+
+    @pytest.mark.parametrize("route", OPERATIONAL_ROUTES)
+    def test_general_user_cannot_reach_operational_surfaces(self, route):
+        assert may_access_route(ADMINISTRATOR, route) is True
+        assert may_access_route(TECHNICIAN, route) is True
+        assert may_access_route(GENERAL, route) is False
 
     @pytest.mark.parametrize("route", ADMIN_ONLY)
     def test_only_the_administrator_reaches_admin_management(self, route):
@@ -87,13 +94,12 @@ class TestTheMatrix:
         assert may_access_route(TECHNICIAN, route) is False
         assert may_access_route(GENERAL, route) is False
 
-    def test_technician_and_general_have_the_same_route_set(self):
-        """Frozen for ROLE-2. Equal is not redundant: the roles differ later
-        at device scope, and encoding a difference here that ROLE-3 has to
-        undo would be worse than stating they match."""
+    def test_general_user_has_only_the_functional_specification_route_set(self):
+        """The General User set is exactly the §5.9 read-only route set."""
         technician = {r for r in ROUTE_POLICY if may_access_route(TECHNICIAN, r)}
         general = {r for r in ROUTE_POLICY if may_access_route(GENERAL, r)}
-        assert technician == general
+        assert general == set(GENERAL_READ_ROUTES)
+        assert technician - general == set(OPERATIONAL_ROUTES)
 
     def test_administrator_reaches_every_policied_route(self):
         assert all(may_access_route(ADMINISTRATOR, r) for r in ROUTE_POLICY)
@@ -161,9 +167,13 @@ class TestNavigationIsDerivedFromThePolicy:
     def test_administrator_keeps_the_current_navigation(self):
         assert visible_nav_keys(ADMINISTRATOR) == self._sidebar_keys()
 
-    @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
-    def test_admin_management_items_disappear(self, role):
-        assert visible_nav_keys(role) == {"overview", "notifications", "reports", "command_center"}
+    def test_technician_keeps_operational_navigation(self):
+        assert visible_nav_keys(TECHNICIAN) == {
+            "overview", "notifications", "reports", "command_center"
+        }
+
+    def test_general_user_sees_only_read_only_navigation(self):
+        assert visible_nav_keys(GENERAL) == {"overview", "reports"}
 
     @pytest.mark.parametrize("role", [None, "superuser"])
     def test_an_unrecognised_role_sees_no_navigation(self, role):

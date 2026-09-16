@@ -1,38 +1,41 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **IN PROGRESS**
 Date: 2026-09-16
-Gate: NONE
+Gate: FS-SCOPE-1
 Commit/push permission: **GRANTED.**
 
 ## Task
 
-FS-TRACKER-ADOPT-1 is closed. `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
-is the authoritative RTL requirements-completion ledger; the sole client
-requirements authority for RTL functionality is `Remote Temperature Logger
-Functional Specification RTL v0.3`, Unique Identifier `240-137264801`,
-Revision `1`, 18 pages. `docs/context/CURRENT_STATE.md` continues to describe
-repository state, while the tracker records what remains against the client
-specification.
+Align General User access with Functional Specification §5.9. General Users
+may log on, view the monitoring hierarchy through transformer/device views,
+and export data; they must not access Notifications, Command Center, or
+Command Center Locations. The Functional Specification/tracker remains the
+sole RTL client-requirements authority.
 
 ## Relevant files
 
+- `services/authorization.py`
+- `callbacks/routing.py`
+- `components/app_sidebar.py`
+- `tests/test_authorization.py`
+- `tests/test_route_enforcement.py`
+- `tests/test_action_guard.py`
 - `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
-- `docs/context/SOURCE_AUTHORITY.md`
-- current code/tests cited by corrected tracker rows
+- `docs/context/CURRENT_STATE.md`
 
 ## Non-goals (explicit)
 
-- No application/runtime, schema, test, simulator, historical-plan or audit
-  rewrite was made.
-- Historical PADs, plans, audits, architecture material and simulator
-  behaviour cannot override the Functional Specification.
+- No Administrator or Technician permissions, DeviceScope, trusted-session
+  resolution, exports, services, schema, or UI redesign.
+- No changes to historical documents or unrelated functionality.
 
 ## Known ambiguities
 
-Tracker `COMPLETE` requires requirement-specific implementation and
-verification evidence; UI, local persistence, simulators, mocks and
-protocol-neutral seams alone are insufficient for RTL Master/device work.
+The monitoring hierarchy routes are necessary for General Users to reach the
+read-only transformer/device data required by §5.9; `/reports` remains the
+existing export surface. Route policy is the source of both sidebar filtering
+and direct-route enforcement.
 
 ## FS-TRACKER-ADOPT-1 — CLOSED / PASS
 
@@ -2327,7 +2330,7 @@ confirmed the sidebar route, newest-first rows, five requested columns, and
 read-only presentation. Context-pack close check and `git diff --check`
 passed.
 
-## Next implementation gate: NONE
+## Next implementation gate: FS-SCOPE-1
 
 ### RTL-PROG-VIS-1 — CLOSED / PASS
 

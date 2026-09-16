@@ -75,9 +75,24 @@ class TestRouteDecision:
 
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN, GENERAL])
     @pytest.mark.parametrize(
-        "route", ["overview", "plant", "transformer", "device", "notifications", "reports"]
+        "route", ["overview", "plant", "transformer", "device", "reports"]
     )
-    def test_monitoring_notifications_and_reports_stay_open(self, role, route):
+    def test_monitoring_and_reports_stay_open(self, role, route):
+        assert routing.route_decision(identity(role), route) == routing.DECISION_ALLOW
+
+    @pytest.mark.parametrize(
+        "route", ["notifications", "command_center", "command_center_locations"]
+    )
+    def test_general_operational_direct_urls_are_refused(self, route):
+        assert routing.route_decision(identity(GENERAL), route) == (
+            routing.DECISION_FORBIDDEN
+        )
+
+    @pytest.mark.parametrize(
+        "route", ["notifications", "command_center", "command_center_locations"]
+    )
+    @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN])
+    def test_operational_direct_urls_remain_open_to_authorized_roles(self, role, route):
         assert routing.route_decision(identity(role), route) == routing.DECISION_ALLOW
 
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN, GENERAL])
@@ -174,9 +189,13 @@ class TestSidebarFiltering:
         assert "Registration" not in labels
         assert "Users" not in labels
 
-    @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
-    def test_what_remains_is_what_they_may_open(self, role):
-        assert rendered_labels(role) == ["Overview", "Command Center", "Notifications", "Reports"]
+    def test_technician_keeps_operational_navigation(self):
+        assert rendered_labels(TECHNICIAN) == [
+            "Overview", "Command Center", "Notifications", "Reports"
+        ]
+
+    def test_general_user_navigation_has_no_operational_surfaces(self):
+        assert rendered_labels(GENERAL) == ["Overview", "Reports"]
 
     @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
     def test_an_emptied_section_takes_its_heading_with_it(self, role):
@@ -198,6 +217,11 @@ class TestSidebarFiltering:
         for role in (TECHNICIAN, GENERAL):
             hrefs = [href for _label, href in links(sidebar_nav(None, role))]
             assert not any(h.startswith("/admin") for h in hrefs)
+
+    def test_general_user_has_no_operational_navigation_links(self):
+        hrefs = [href for _label, href in links(sidebar_nav(None, GENERAL))]
+        assert "/notifications" not in hrefs
+        assert "/command-center" not in hrefs
 
     @pytest.mark.parametrize("role", [None, "superuser"])
     def test_an_unrecognised_role_gets_an_empty_nav(self, role):

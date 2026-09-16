@@ -51,14 +51,15 @@ assert {ADMINISTRATOR, TECHNICIAN, GENERAL} == set(CONFIRMED_ROLES)
 
 _EVERY_ROLE = frozenset(CONFIRMED_ROLES)
 _ADMIN_ONLY = frozenset({ADMINISTRATOR})
+_OPERATIONAL_ROLES = frozenset({ADMINISTRATOR, TECHNICIAN})
 
 #: `routes.Route.name` -> the roles allowed to open it.
 #:
-#: Technician and General are identical here ON PURPOSE. They diverge in
-#: ROLE-3 at device scope and action authorization — Technician gains
-#: operational capability over assigned RTLs, General stays read-only — and
-#: inventing a route-level difference now would be something ROLE-3 has to
-#: undo. Equal is a decision, not an oversight.
+#: Functional Specification §5.9 limits General User to log-on, transformer
+#: data, and export. Monitoring hierarchy routes and reports stay available;
+#: operational Notifications and Command Center surfaces are limited to
+#: administrators and technicians. This route boundary controls both direct
+#: URL enforcement and sidebar filtering.
 ROUTE_POLICY: dict[str, frozenset[str]] = {
     # Monitoring: the fleet and the drill-down through it. Open to everyone
     # who is signed in — reading the plant hierarchy is the application's
@@ -67,10 +68,10 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "plant": _EVERY_ROLE,
     "transformer": _EVERY_ROLE,
     "device": _EVERY_ROLE,
-    "notifications": _EVERY_ROLE,
+    "notifications": _OPERATIONAL_ROLES,
     "reports": _EVERY_ROLE,
-    "command_center": _EVERY_ROLE,
-    "command_center_locations": _EVERY_ROLE,
+    "command_center": _OPERATIONAL_ROLES,
+    "command_center_locations": _OPERATIONAL_ROLES,
     # Administration: managing what exists and who exists.
     "admin_devices": _ADMIN_ONLY,
     "device_register": _ADMIN_ONLY,
