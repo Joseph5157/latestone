@@ -1,23 +1,20 @@
 # Active Gate
 
-Status: **IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-16
-Gate: FS-SCOPE-1
+Gate: NONE
 Commit/push permission: **GRANTED.**
 
 ## Task
 
-Align General User access with Functional Specification §5.9. General Users
-may log on, view the monitoring hierarchy through transformer/device views,
-and export data; they must not access Notifications, Command Center, or
-Command Center Locations. The Functional Specification/tracker remains the
-sole RTL client-requirements authority.
+FS-SCOPE-1 is closed. General User access now matches Functional Specification
+§5.9: log-on, monitoring hierarchy/transformer-device data, and report export
+remain available; Notifications, Command Center and Command Center Locations
+are denied.
 
 ## Relevant files
 
 - `services/authorization.py`
-- `callbacks/routing.py`
-- `components/app_sidebar.py`
 - `tests/test_authorization.py`
 - `tests/test_route_enforcement.py`
 - `tests/test_action_guard.py`
@@ -27,15 +24,25 @@ sole RTL client-requirements authority.
 ## Non-goals (explicit)
 
 - No Administrator or Technician permissions, DeviceScope, trusted-session
-  resolution, exports, services, schema, or UI redesign.
-- No changes to historical documents or unrelated functionality.
+  resolution, exports, services, schema, or UI redesign changed.
 
 ## Known ambiguities
 
-The monitoring hierarchy routes are necessary for General Users to reach the
-read-only transformer/device data required by §5.9; `/reports` remains the
-existing export surface. Route policy is the source of both sidebar filtering
-and direct-route enforcement.
+None.
+
+## FS-SCOPE-1 — CLOSED / PASS
+
+`ROUTE_POLICY` now limits General User to monitoring hierarchy routes and
+`/reports`; `CAPABILITY_POLICY[EXPORT_DATA]` remains available and
+`ACTION_POLICY` continues to deny General Users every operational action.
+The sidebar derives its links from that same route policy, while the router
+uses the current trusted identity to refuse direct operational URLs before
+rendering data.
+
+Verification: 297 focused authorization/navigation/action tests passed;
+`python -m pytest -m "not db"` passed 3,083 tests (706 deselected); General
+User desktop browser verification passed at 1440×900, including direct URL
+refusal for Notifications, Command Center and Command Center Locations.
 
 ## FS-TRACKER-ADOPT-1 — CLOSED / PASS
 
@@ -2330,7 +2337,7 @@ confirmed the sidebar route, newest-first rows, five requested columns, and
 read-only presentation. Context-pack close check and `git diff --check`
 passed.
 
-## Next implementation gate: FS-SCOPE-1
+## Next implementation gate: NONE
 
 ### RTL-PROG-VIS-1 — CLOSED / PASS
 

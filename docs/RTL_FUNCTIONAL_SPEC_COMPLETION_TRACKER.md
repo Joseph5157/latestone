@@ -49,7 +49,7 @@ The Functional Specification explicitly defines an **SMS interface** for:
 
 | Priority | Gate | Work | Status | Dependency |
 |---|---|---|---|---|
-| P0 | `FS-SCOPE-1` | Align General User access with §5.9 | `CONFLICT` | Internal |
+| P0 | `FS-SCOPE-1` | Align General User access with §5.9 | `COMPLETE` | None |
 | P0 | `FS-BR016-1` | Correct ownership of 18:30 forwarding auto-disable | `CONFLICT` | Internal / RTL Master |
 | P0 | `FS-SMS-1` | Real SMS/RTL Master integration for Program, Forwarding, Deactivate | `MISSING` | Client/RTL Master details |
 | P0 | `FS-PROG-1` | Align Program RTL fields/validation to Master MSISDN, UID, transformer name | `PARTIAL` | Internal + transport |
@@ -114,7 +114,7 @@ The Functional Specification explicitly defines an **SMS interface** for:
 |---|---|---|---|---|---|
 | Administrator | Upload settings to any RTL | Any-device operational authorization exists | `PARTIAL` | Complete real settings/programming transport | SMS/RTL Master contract | — |
 | Technician | Program/remove assigned RTL; receive assigned alarms | Assignment-scoped visibility/actions/alarms implemented | `PARTIAL` | Complete real programming/deactivation/external delivery | SMS/RTL Master and recipient contract | — |
-| General User | **Only** Log-on, View Transformer Data, Export Data | `ROUTE_POLICY` permits General Users on `notifications`, `command_center`, and `command_center_locations`, beyond the specified three capabilities | `CONFLICT` | Restrict route/navigation/capabilities to §5.9; preserve transformer viewing/export | Internal route and capability alignment | Route-policy tests demonstrate current overexposure |
+| General User | **Only** Log-on, View Transformer Data, Export Data | `ROUTE_POLICY` grants General Users only the monitoring hierarchy and `/reports`; `EXPORT_DATA` remains available and all operational actions remain denied | `COMPLETE` | Preserve §5.9 route, navigation, export and no-action regression coverage | None | `9930ea3`; 297 focused tests, 3,083 non-DB tests, and General User desktop browser verification passed |
 
 ## 7. Reports — §4.5.1.1
 
@@ -193,7 +193,7 @@ These should be mapped to the correct owning entity before schema changes.
 | 5.6 Archiving | None | Functional Specification states none | `COMPLETE` | No mandatory archive workflow required | None | Source explicitly states none |
 | 5.7 Frequency | “Adhoc basis?” | Ambiguous source wording | `CLIENT INPUT` | Clarify only if acceptance requires it | Client | — |
 | 5.8 Dependencies | TBC | No dependency inventory supplied | `CLIENT INPUT` | Identify production dependencies | Client | — |
-| 5.9 Roles | Admin/Tech/General | General User route policy exceeds the specified access | `CONFLICT` | Align General User scope | Internal route/capability alignment | Route-policy tests demonstrate current overexposure |
+| 5.9 Roles | Admin/Tech/General | General User route policy now limits the role to the monitoring hierarchy and report/export surface; operational routes/actions remain denied | `COMPLETE` | Preserve §5.9 authorization regression coverage | None | `9930ea3`; focused route/navigation/action tests and desktop browser verification passed |
 
 ## 13. Interface requirements — §7
 
@@ -259,3 +259,4 @@ Append one row after every successful gate. Never delete previous entries.
 |---|---|---|---|---|---|
 | 2026-09-16 | Initial audit baseline | Tracker created from authoritative Functional Specification vs current `main` | — | Functional Specification + GitHub inspection | No application code changed |
 | 2026-09-16 | FS-TRACKER-ADOPT-1 | Tracker authority adopted; BR012 and ACTIVE-01 corrected to `PARTIAL`; General User/BR016 conflicts confirmed | `7d684e0` | 17 focused context tests passed; context-pack structural check clean | Documentation/context only; no application/runtime change |
+| 2026-09-16 | FS-SCOPE-1 | `FS-SCOPE-1`; General User §5.9 role scope | `9930ea3` | 297 focused authorization/navigation/action tests; 3,083 non-DB tests; General User desktop browser verification | Notifications, Command Center and Command Center Locations are denied by trusted-session route policy and absent from General User navigation; report/export remains available |
