@@ -1,40 +1,79 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **CLOSED / PASS (with one flagged, unfixed defect — see below)**
 Date: 2026-09-16
 Gate: NONE
-Commit/push permission: **GRANTED.**
+Commit/push permission: **GRANTED** (this catch-up/verification gate only;
+per-instruction — no application code was touched).
 
 ## Task
 
-ALARM-ACK-013-FIX is closed. Migration `013_alarm_acknowledgement` now calls
-Alembic with the intended `name, table_name, condition` order for the
-acknowledgement-pair CHECK on `device_events`; the acknowledgement schema
-semantics are unchanged. Focused and affected DB tests ran with
-`isolated_schema`, and the real development `plant_monitoring` schema was not
-upgraded.
+LOCAL-DB-CATCHUP-2 is closed. The real local development PostgreSQL database
+(`plant_monitoring_postgres`, `localhost:5436`, db `powerplant_demo`, schema
+`plant_monitoring`) was upgraded from `012_vibration_contract_answers` to
+head `013_alarm_acknowledgement` via `alembic upgrade head`, and the recent
+backend/UI tranches (alarm acknowledgement, command/audit history, Program
+RTL lifecycle, report export, technician assignment, device registration
+guidance) were verified against the now-upgraded live data. No application
+code was changed. Full verification (including the full DB-marked suite,
+not just the gate-affected subset) surfaced one real, pre-existing schema/
+test-invariant conflict — see "Defect found" below — which was reported
+rather than fixed, per this gate's own instruction.
 
 ## Relevant files
 
 - `alembic/versions/013_alarm_acknowledgement.py`
-- `tests/test_migration_alarm_acknowledgement.py`
-- `tests/test_alarm_acknowledgement_db.py`
-- `tests/test_programming_activity.py`
-- `tests/test_rtl_command_dispatch.py`
+- `tests/test_seed_reset_contract.py` (the surfaced defect)
+- `tests/test_seed_integrity.py`, `tests/test_plant_monitoring_repository.py`
+  (pre-existing live-simulator data-drift failures, unrelated to migration
+  013)
+- `tests/test_alarm_acknowledgement_db.py`, `tests/test_programming_activity.py`,
+  `tests/test_rtl_command_dispatch.py`
 
 ## Non-goals (explicit)
 
+- No fix to `alembic/versions/013_alarm_acknowledgement.py`'s
+  `ondelete="SET NULL"` foreign key, and no fix to
+  `tests/test_seed_reset_contract.py` or `db/seed_plant_monitoring.py`'s
+  `PURGE_ORDER` — the defect below is reported, not resolved, per this
+  gate's explicit instruction not to fold an unrelated fix into a catch-up
+  gate.
+- No reseed of the real development database — the upgraded dev data
+  (30/71/120, readings, device_events, audit_log) was preserved throughout.
 - No change to alarm acknowledgement services, authorization, `DeviceScope`,
-  or UI unless a focused test proves a separate defect.
-- No acknowledgement-schema redesign, new alarm lifecycle, or external
-  delivery/transport behavior.
-- No `alembic upgrade` against the real development database; that belongs to
-  LOCAL-DB-CATCHUP-2.
+  Program RTL, report export, or technician assignment code.
 
-## Known ambiguities
+## Known ambiguities / defect found
 
-None. The intended PostgreSQL constraint expression already exists in the
-migration; only Alembic's `table_name` and `condition` positions are wrong.
+**Defect (real, pre-existing, first surfaced by this gate's full-suite run
+— not introduced by this gate):** `alembic/versions/013_alarm_acknowledgement.py`
+creates `fk_device_events_acknowledged_by_user` with `ondelete="SET NULL"`.
+`tests/test_seed_reset_contract.py::TestPurgeOrderAgainstTheLiveSchema::
+test_no_foreign_key_relies_on_cascade` asserts every foreign key in the
+schema has delete rule `NO ACTION` — the invariant `db/seed_plant_monitoring.py`'s
+hand-maintained `PURGE_ORDER` depends on ("the safety of the order above
+depends on nothing being removed implicitly", per that test's own
+docstring). This is a real conflict between a merged migration
+(ALARM-ACK-1, pre-dating this gate) and an existing architectural
+invariant test, not a flaw in this gate's own upgrade. It was not caught
+by ALARM-ACK-1 or ALARM-ACK-013-FIX because neither ran the full DB-marked
+suite or the real upgraded dev DB — both ran only the gate-affected test
+subset with `isolated_schema`. **Not fixed here** — flagged for a future
+gate to decide: either change the FK to `ondelete="NO ACTION"` (acknowledger
+user deletion would then need explicit handling) or adjust the test's
+invariant/`PURGE_ORDER` if `SET NULL` here is judged acceptable.
+
+Six further failures in the same full-suite run
+(`tests/test_seed_integrity.py` × 4, `tests/test_plant_monitoring_repository.py::
+TestRangeQueries` × 2) are unrelated to migration 013: the real dev
+`readings` table has grown to 1,831,680 rows (vs. the 1,383,360-row/30-day
+seed contract) from `db/live_simulator.py` having run across many past
+sessions, so cadence/coverage/window assertions pinned to the original seed
+shape now fail against live-simulator drift. Pre-existing environmental
+condition, not a defect in code touched by this gate or by ALARM-ACK-1 —
+consistent with prior context notes that dev seed data goes stale over
+time. Not reseeded, per this gate's explicit instruction not to reseed
+unless the migration itself makes existing data unusable (it does not).
 
 **TECH-WORKSPACE-MERGE-1 note (2026-09-11):** `tech-workspace-1`
 (TECH-WORKSPACE-1, closed on that branch 2026-09-10) has been merged into
@@ -53,6 +92,105 @@ was never started) rather than completed; CLIENT-PC-SYNC-3 below carries
 the identical non-destructive backup/migrate/smoke procedure re-targeted at
 the current milestone, with Technician "My RTLs" added to the browser-smoke
 checklist.
+
+## LOCAL-DB-CATCHUP-2 — CLOSED / PASS (defect flagged, not fixed)
+
+Date: 2026-09-16. Baseline: `main` @ `1245b48bb79a029be65dd248f59e30a0cdeac222`.
+Purpose: bring the real local development PostgreSQL database to Alembic
+head and verify recent backend/UI tranches against live data. No
+application code was changed by this gate.
+
+### Pre-flight
+
+- DB target confirmed local/dev, not client/Eskom/production: configured
+  `POSTGRES_HOST=localhost`, `POSTGRES_PORT=5436`, db `powerplant_demo`,
+  schema `plant_monitoring` (via `config.settings.database`/`monitoring`,
+  no credentials printed); `docker ps` confirmed the running container is
+  `plant_monitoring_postgres` (image `postgres:16`, port `5436`), matching
+  prior session records of the real local dev environment. Pre-upgrade
+  `alembic current` = `012_vibration_contract_answers`.
+
+### Migration
+
+- `alembic upgrade head` succeeded: `012_vibration_contract_answers` →
+  `013_alarm_acknowledgement`.
+- Post-upgrade `alembic current` = `013_alarm_acknowledgement`; `alembic
+  heads` = `013_alarm_acknowledgement` (sole head).
+- Schema readability and data preservation confirmed by direct row-count
+  query before/after: `plants` 30, `transformers` 71, `devices` 120,
+  `readings` 1,831,680, `device_events` 13, `users` 7 — all unchanged
+  across the upgrade.
+- New columns/constraint verified directly against `information_schema`/
+  `pg_constraint`: `device_events.acknowledged_at`
+  (`timestamp with time zone`, nullable),
+  `device_events.acknowledged_by_user_id` (`integer`, nullable),
+  `fk_device_events_acknowledged_by_user` (`ON DELETE SET NULL` to
+  `users.user_id`), and `ck_device_events_acknowledgement_pair`
+  (`(acknowledged_at IS NULL) = (acknowledged_by_user_id IS NULL)`) —
+  exactly as the migration defines them.
+
+### DB regression / full-suite results
+
+- Gate-named focused/affected tests (`test_migration_alarm_acknowledgement.py`,
+  `test_alarm_acknowledgement_db.py`, `test_programming_activity.py`,
+  `test_rtl_command_dispatch.py`) — **61 passed**.
+- `python -m pytest -m "not db" -v` (full non-DB suite) — **all passed**.
+- `python -m pytest -q` (full suite, DB included, against the real upgraded
+  dev DB) — 3761 collected, **7 failed**, rest passed. See "Known
+  ambiguities / defect found" above for the breakdown: 1 real
+  pre-existing FK/test-invariant conflict (not fixed, reported), 6
+  pre-existing live-simulator data-drift failures (not a defect, seed data
+  is stale relative to the original 30-day contract).
+
+### Browser verification (Administrator + Technician, real upgraded data)
+
+Dash app run locally (`python app.py`) against the upgraded DB; verified
+via Playwright (Chrome extension was not connected this session):
+
+- **Alarm acknowledgement**: acknowledged a real `power_down` device event
+  (`plant-01-t1-d1`, event 14) from the Notification Center. DB confirmed
+  `acknowledged_at`/`acknowledged_by_user_id` written, `audit_log` gained
+  one atomic `ALARM_ACKNOWLEDGED` row (old/new snapshot, actor); UI updated
+  to "Acknowledged · 2026-09-16 09:05 UTC" and the row's action disappeared.
+- **Compact device audit history**: the device page's "Command & audit
+  history" section showed the new "Alarm Acknowledged · admin · 16 Sep 2026
+  09:05 UTC" entry immediately.
+- **Program RTL lifecycle rail**: recorded a real Program RTL request
+  against `plant-01-t1-d1`; UI showed the lifecycle rail (Queued (current) →
+  Sent → Acknowledged → Succeeded), "Awaiting device integration" execution
+  state, and a matching `RTL Program Requested` audit entry — command
+  correctly stayed `queued` (fail-closed; no simulator was invoked).
+- **Report export ("Preparing" → completion)**: generated and downloaded a
+  Maximum Temperature CSV against real data (71 transformers); UI showed
+  "Exported 71 row(s)" on completion and the file downloaded successfully.
+- **Technician assignment saving**: assigned `demo.tech02` to previously
+  unassigned device 29064 via the admin Assign drawer; UI showed
+  "Assignment saved. demo.tech02 is assigned to this RTL..." confirmation.
+- **Device registration inline identifier guidance**: typing an RTL UID on
+  `/admin/devices/new` produced live inline feedback ("Meets the device
+  code format (10 characters or fewer)").
+- **Technician login/scoping**: `demo.tech01` logged in successfully and
+  saw a scoped "My RTLs" view (16 plants, 24 assigned RTLs) with no
+  Administrator-only nav items — role scoping intact post-upgrade.
+- **Plant zero-inventory / Transformer zero-RTL empty states**: not
+  reproducible — all 30 plants and 71 transformers have real assigned
+  devices in the upgraded dev data; no empty-state path was exercised.
+- One generic, pre-existing React dev-mode console warning ("changing an
+  uncontrolled input... to be controlled") appeared on multiple pages; not
+  related to this gate's migration or verified features, not investigated
+  further (Dash's own debug overlay, `DASH_DEBUG=true`).
+
+### Verification
+
+- `git diff --check` — clean (docs/context only).
+- `python scripts/build_context_pack.py --check` — CLEAN at gate open;
+  full pack run at close (see below).
+
+### Commit/push
+
+Only this documentation/context closure is committed
+(`docs(context): verify local database catchup`); no application code
+changed. Pushed to `origin/main` per this gate's own explicit instruction.
 
 ## C08-BASELINE-1 — CLOSED / DEVELOPMENT BASELINES RECORDED
 

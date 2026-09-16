@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-16T08:40:03Z
+Date: 2026-09-16T09:11:41Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `51acc59` "feat(ui): add device registration identifier feedback"
-- Working tree: 6 entries — see below
+- `main` = `1245b48` "fix(db): repair alarm acknowledgement migration"
+- Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3065 passed, 696 deselected, 1 warning in 31.29s
+- `python -m pytest -m "not db"` → 3065 passed, 696 deselected in 33.98s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 293 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 143 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 293 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 294 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 144 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 294 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,11 +83,13 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M alembic/versions/013_alarm_acknowledgement.py
- M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
- M docs/context/PROJECT_LEDGER.md
- M tests/test_migration_alarm_acknowledgement.py
+M docs/context/ACTIVE_GATE.md
+?? .pytest-alarm-ack-check/
+?? .pytest-alarm-ack-failure/
+?? .pytest-alarm-ack-full/
+?? .pytest-alarm-ack-suite/
+?? .pytest-alarm-ack/
+?? .pytest-command-dispatch-suite/
 ?? debug.log
 ```
 
