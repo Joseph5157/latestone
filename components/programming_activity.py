@@ -24,14 +24,120 @@ _REQUEST_STATUS_LABELS = {
     command_cfg.REQUEST_STATUS_FAILED: "Simulation did not complete",
 }
 
-_COMMAND_STATUS_LABELS = {
+#: Ordered happy-path lifecycle a command can move through
+#: (`config.commands.ALLOWED_TRANSITIONS`): QUEUED -> SENT -> ACKNOWLEDGED ->
+#: SUCCEEDED. FAILED/TIMED_OUT are alternate terminal outcomes that only
+#: branch off SENT — they are deliberately not part of this tuple, since the
+#: rail must stop at the point a command actually diverged, never show a
+#: state it can no longer reach (see `_lifecycle_steps`).
+_LIFECYCLE_HAPPY_PATH = (
+    command_cfg.STATE_QUEUED,
+    command_cfg.STATE_SENT,
+    command_cfg.STATE_ACKNOWLEDGED,
+    command_cfg.STATE_SUCCEEDED,
+)
+
+_LIFECYCLE_STATE_NAMES = {
     command_cfg.STATE_QUEUED: "Queued",
-    command_cfg.STATE_SENT: "Sent in simulation",
-    command_cfg.STATE_ACKNOWLEDGED: "Acknowledged in simulation",
-    command_cfg.STATE_SUCCEEDED: "Succeeded in simulation",
-    command_cfg.STATE_FAILED: "Failed in simulation",
-    command_cfg.STATE_TIMED_OUT: "Timed out in simulation",
+    command_cfg.STATE_SENT: "Sent",
+    command_cfg.STATE_ACKNOWLEDGED: "Acknowledged",
+    command_cfg.STATE_SUCCEEDED: "Succeeded",
+    command_cfg.STATE_FAILED: "Failed",
+    command_cfg.STATE_TIMED_OUT: "Timed out",
 }
+
+#: Decorative-only markers (paired with explicit status wording in every
+#: step's text, so meaning never depends on the marker or on colour alone).
+_LIFECYCLE_MARKERS = {
+    "done": "✓",
+    "current": "→",
+    "pending": "·",
+    "final": "✓",
+    "terminal": "✗",
+}
+
+
+def _lifecycle_steps(command_state: str | None) -> list[tuple[str, str]]:
+    """Return ordered (state, status) pairs truthful to the real transition map.
+
+    status is one of "done", "current", "pending", "final" (the resolved
+    SUCCEEDED step) or "terminal" (a resolved FAILED/TIMED_OUT step). A
+    FAILED/TIMED_OUT outcome truncates the rail immediately after SENT —
+    ACKNOWLEDGED/SUCCEEDED are never rendered as still-pending for a command
+    that can no longer reach them (`config.commands.ALLOWED_TRANSITIONS`).
+    """
+    if command_state is None:
+        return []
+    if command_state in (command_cfg.STATE_FAILED, command_cfg.STATE_TIMED_OUT):
+        return [
+            (command_cfg.STATE_QUEUED, "done"),
+            (command_cfg.STATE_SENT, "done"),
+            (command_state, "terminal"),
+        ]
+    steps: list[tuple[str, str]] = []
+    reached_current = False
+    for state in _LIFECYCLE_HAPPY_PATH:
+        if state == command_state:
+            status = "final" if state == command_cfg.STATE_SUCCEEDED else "current"
+            steps.append((state, status))
+            reached_current = True
+        elif reached_current:
+            steps.append((state, "pending"))
+        else:
+            steps.append((state, "done"))
+    return steps
+
+
+def _lifecycle_step_text(state: str, status: str) -> str:
+    name = _LIFECYCLE_STATE_NAMES[state]
+    if status == "done":
+        return f"{name} (done)"
+    if status == "current":
+        return f"{name} (current)"
+    if status == "pending":
+        if state == command_cfg.STATE_SENT:
+            return f"{name} (awaiting device integration)"
+        return f"{name} (not yet reached)"
+    if status == "final":
+        return f"{name} (completed)"
+    return f"{name} (command did not complete)"  # terminal FAILED/TIMED_OUT
+
+
+def _lifecycle_rail(record: ProgrammingActivityView) -> html.Div:
+    """Compact ordered lifecycle display — no percentage, no animation.
+
+    Named states in sequence only; a state is shown only if the command's
+    real transition history could still reach or has already reached it.
+    """
+    steps = _lifecycle_steps(record.command_state)
+    if not steps:
+        return html.Div(
+            "No command record",
+            className="programming-activity__lifecycle programming-activity__lifecycle--empty",
+        )
+    return html.Ol(
+        className="programming-activity__lifecycle",
+        children=[
+            html.Li(
+                className=(
+                    "programming-activity__lifecycle-step "
+                    f"programming-activity__lifecycle-step--{status}"
+                ),
+                children=[
+                    html.Span(
+                        _LIFECYCLE_MARKERS[status],
+                        className="programming-activity__lifecycle-marker",
+                        **{"aria-hidden": "true"},
+                    ),
+                    html.Span(
+                        _lifecycle_step_text(state, status),
+                        className="programming-activity__lifecycle-text",
+                    ),
+                ],
+            )
+            for state, status in steps
+        ],
+    )
 
 
 class ProgrammingActivityView(Protocol):
@@ -68,12 +174,6 @@ def _timestamp(value: datetime | None) -> str:
 
 def _request_status(record: ProgrammingActivityView) -> str:
     return _REQUEST_STATUS_LABELS.get(record.request_status, record.request_status)
-
-
-def _command_status(record: ProgrammingActivityView) -> str:
-    if record.command_state is None:
-        return "No command record"
-    return _COMMAND_STATUS_LABELS.get(record.command_state, record.command_state)
 
 
 def _command_type(record: ProgrammingActivityView) -> str:
@@ -152,12 +252,16 @@ def programming_activity_panel(
                             ],
                         ),
                         html.Div(
+                            "Command lifecycle",
+                            className="programming-activity__lifecycle-heading",
+                        ),
+                        _lifecycle_rail(record),
+                        html.Div(
                             className="programming-activity__details",
                             children=[
                                 _detail("Requested by", record.requested_by_name),
                                 _detail("Command type", _command_type(record)),
                                 _detail("Master MSISDN", record.master_msisdn),
-                                _detail("Command status", _command_status(record)),
                                 _detail("Execution", _execution_mode(record)),
                                 _detail("Completed", _timestamp(record.request_completed_at)),
                                 _detail("Result", _result(record)),

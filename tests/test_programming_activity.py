@@ -115,7 +115,7 @@ class TestActivityPresentation:
         )
         rendered = text_of(programming_activity_panel([record])).lower()
         assert "completed in simulation" in rendered
-        assert "succeeded in simulation" in rendered
+        assert "succeeded" in rendered
         assert "simulation (development only)" in rendered
         assert "no physical rtl delivery occurred" in rendered
 
@@ -132,7 +132,7 @@ class TestActivityPresentation:
         )
         rendered = text_of(programming_activity_panel([failed, timed_out])).lower()
         assert "simulated_failure: configured failure" in rendered
-        assert "timed out in simulation" in rendered
+        assert "timed out" in rendered
         assert "simulation timed out before completion" in rendered
 
     def test_no_copy_implies_physical_delivery(self):
@@ -168,6 +168,106 @@ class TestActivityPresentation:
         from pages.device_dashboard import layout
 
         assert find_by_id(layout(), PROGRAMMING_ACTIVITY_ID) is not None
+
+
+class TestLifecycleRail:
+    """MOBBIN-UX-1: the discrete Program RTL lifecycle rail.
+
+    Named states only, backed by the real `rtl_commands` transition map
+    (`config/commands.py`). No percentage, no animation classes, and a
+    FAILED/TIMED_OUT outcome must truncate the rail truthfully rather than
+    showing ACKNOWLEDGED/SUCCEEDED as still reachable.
+    """
+
+    def test_queued_shows_current_step_and_awaiting_integration(self):
+        rendered = text_of(programming_activity_panel([_record(
+            command_state=command_cfg.STATE_QUEUED,
+        )])).lower()
+        assert "queued (current)" in rendered
+        assert "sent (awaiting device integration)" in rendered
+        assert "acknowledged (not yet reached)" in rendered
+        assert "succeeded (not yet reached)" in rendered
+
+    def test_sent_shows_queued_done_and_sent_current(self):
+        rendered = text_of(programming_activity_panel([_record(
+            request_status=command_cfg.REQUEST_STATUS_SENT,
+            command_state=command_cfg.STATE_SENT,
+        )])).lower()
+        assert "queued (done)" in rendered
+        assert "sent (current)" in rendered
+        assert "acknowledged (not yet reached)" in rendered
+        assert "succeeded (not yet reached)" in rendered
+
+    def test_acknowledged_shows_two_done_steps_and_current(self):
+        rendered = text_of(programming_activity_panel([_record(
+            request_status=command_cfg.REQUEST_STATUS_SENT,
+            command_state=command_cfg.STATE_ACKNOWLEDGED,
+        )])).lower()
+        assert "queued (done)" in rendered
+        assert "sent (done)" in rendered
+        assert "acknowledged (current)" in rendered
+        assert "succeeded (not yet reached)" in rendered
+
+    def test_succeeded_shows_every_step_resolved(self):
+        rendered = text_of(programming_activity_panel([_record(
+            request_status=command_cfg.REQUEST_STATUS_SUCCESSFUL,
+            command_state=command_cfg.STATE_SUCCEEDED,
+        )])).lower()
+        assert "queued (done)" in rendered
+        assert "sent (done)" in rendered
+        assert "acknowledged (done)" in rendered
+        assert "succeeded (completed)" in rendered
+
+    def test_failed_terminates_the_rail_after_sent(self):
+        rendered = text_of(programming_activity_panel([_record(
+            request_status=command_cfg.REQUEST_STATUS_FAILED,
+            command_state=command_cfg.STATE_FAILED,
+            error_message="SIMULATED_FAILURE: configured failure",
+        )])).lower()
+        assert "queued (done)" in rendered
+        assert "sent (done)" in rendered
+        assert "failed (command did not complete)" in rendered
+        assert "acknowledged" not in rendered
+        assert "succeeded" not in rendered
+
+    def test_timed_out_terminates_the_rail_after_sent(self):
+        rendered = text_of(programming_activity_panel([_record(
+            request_status=command_cfg.REQUEST_STATUS_FAILED,
+            command_state=command_cfg.STATE_TIMED_OUT,
+        )])).lower()
+        assert "queued (done)" in rendered
+        assert "sent (done)" in rendered
+        assert "timed out (command did not complete)" in rendered
+        assert "acknowledged" not in rendered
+        assert "succeeded" not in rendered
+
+    def test_no_command_record_renders_a_single_truthful_placeholder(self):
+        rendered = text_of(programming_activity_panel([_record(
+            request_status=command_cfg.REQUEST_STATUS_PENDING,
+            command_state=None,
+        )])).lower()
+        assert "no command record" in rendered
+        for state_word in ("queued", "sent", "acknowledged", "succeeded", "timed out"):
+            assert state_word not in rendered
+
+    def test_rail_never_renders_percentage_progress(self):
+        for state in (
+            command_cfg.STATE_QUEUED,
+            command_cfg.STATE_SENT,
+            command_cfg.STATE_ACKNOWLEDGED,
+            command_cfg.STATE_SUCCEEDED,
+            command_cfg.STATE_FAILED,
+            command_cfg.STATE_TIMED_OUT,
+        ):
+            rendered = text_of(programming_activity_panel([_record(command_state=state)]))
+            assert "%" not in rendered
+
+    def test_rail_markers_are_decorative_only(self):
+        from components.programming_activity import _lifecycle_rail
+
+        rail = _lifecycle_rail(_record(command_state=command_cfg.STATE_QUEUED))
+        marker = rail.children[0].children[0]
+        assert getattr(marker, "aria-hidden") == "true"
 
 
 class TestScopedReader:

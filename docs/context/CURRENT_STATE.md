@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-15T13:14:47Z
+Date: 2026-09-16T07:17:46Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `9f17509` "feat(transport): prepare protocol-neutral command dispatch"
-- Working tree: 8 entries — see below
+- `main` = `26850d5` "docs(ux): preserve Mobbin workflow references"
+- Working tree: 12 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3007 passed, 695 deselected, 1 warning in 34.91s
+- `python -m pytest -m "not db"` → 3016 passed, 695 deselected in 25.87s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 13 | 285 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 135 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 285 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 13 | 287 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 137 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 287 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,13 +83,17 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/CLIENT_QUESTIONS.md
- M docs/context/DECISION_INDEX.md
- M docs/context/PROJECT_LEDGER.md
- M docs/decisions/ADR-017-rtl-commands-are-the-protocol-neutral-transport-seam.md
- M docs/decisions/ADR-018-simulator-transport-is-not-the-eskom-protocol.md
- M docs/decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md
- M docs/decisions/ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md
+M assets/app.css
+ M components/programming_activity.py
+ M docs/context/CURRENT_STATE.md
+ M docs/context/MOBBIN_UX_REFERENCE.md
+ M tests/test_programming_activity.py
+?? .pytest-alarm-ack-check/
+?? .pytest-alarm-ack-failure/
+?? .pytest-alarm-ack-full/
+?? .pytest-alarm-ack-suite/
+?? .pytest-alarm-ack/
+?? .pytest-command-dispatch-suite/
 ?? debug.log
 ```
 

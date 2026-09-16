@@ -5985,6 +5985,75 @@ body {
   font-size: var(--fs-body);
 }
 
+/* MOBBIN-UX-1 — discrete lifecycle rail: named states only, no percentage
+   and no animation. Each step carries explicit "(done)/(current)/(not yet
+   reached)/(completed)/(command did not complete)" wording, so state is
+   never conveyed by colour or border style alone. */
+.page--device-dashboard .programming-activity__lifecycle-heading {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--sp-1);
+  text-transform: uppercase;
+}
+
+.page--device-dashboard .programming-activity__lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+}
+
+.page--device-dashboard .programming-activity__lifecycle--empty {
+  color: var(--color-muted);
+  font-size: var(--fs-body);
+  margin: 0 0 var(--sp-3);
+}
+
+.page--device-dashboard .programming-activity__lifecycle-step {
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+}
+
+.page--device-dashboard .programming-activity__lifecycle-marker {
+  font-weight: 600;
+}
+
+.page--device-dashboard .programming-activity__lifecycle-text {
+  font-size: var(--fs-meta);
+}
+
+.page--device-dashboard .programming-activity__lifecycle-step--done {
+  color: var(--color-muted);
+}
+
+.page--device-dashboard .programming-activity__lifecycle-step--current {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.page--device-dashboard .programming-activity__lifecycle-step--pending {
+  border-style: dashed;
+  color: var(--color-muted);
+}
+
+.page--device-dashboard .programming-activity__lifecycle-step--final {
+  border-color: var(--state-fresh-text);
+  color: var(--state-fresh-text);
+}
+
+.page--device-dashboard .programming-activity__lifecycle-step--terminal {
+  border-color: var(--state-error-text);
+  color: var(--state-error-text);
+}
+
 .page--device-dashboard .programming-activity__time {
   color: var(--color-muted);
   font-size: var(--fs-meta);

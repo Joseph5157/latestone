@@ -34,6 +34,12 @@ invented progress bar.
   `TIMED_OUT`, per RTL-PROG-EXEC-1/RTL-PROG-SIM-1) as a discrete lifecycle
   rail — named states in sequence. **No percentage progress bar**: the
   backend has no continuous progress signal to back one.
+  **Implemented 2026-09-16** in `components/programming_activity.py`
+  (`_lifecycle_rail`/`_lifecycle_steps`) — presentation-only; no change to
+  `config/commands.py`, `services/rtl_command_service.py`,
+  authorization, `DeviceScope`, schema, or audit behaviour. A
+  `FAILED`/`TIMED_OUT` outcome truncates the rail after `SENT` rather than
+  showing `ACKNOWLEDGED`/`SUCCEEDED` as still reachable.
 - **Device registration** — keep the current single-screen form → Review →
   Success flow as-is. The only addition is inline RTL UID validation
   feedback on the field itself; no multi-step wizard, no new screens.
