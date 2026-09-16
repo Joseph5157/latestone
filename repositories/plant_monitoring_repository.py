@@ -3169,6 +3169,59 @@ class DeviceAuditHistoryRecord:
     requester_name: str
 
 
+@dataclass(frozen=True)
+class AuditLogRecord:
+    """One safe, read-only audit-log row for Administration.
+
+    The before/after JSON is deliberately excluded. The viewer answers when,
+    who, and what changed without turning internal audit payloads into a
+    browser-facing contract.
+    """
+
+    audit_id: int
+    occurred_at: datetime
+    actor_name: str
+    operation: str
+    entity_type: str
+    entity_id: str
+
+
+def _to_audit_log_record(row) -> AuditLogRecord:
+    return AuditLogRecord(*row)
+
+
+def list_audit_log(*, limit: int = 500) -> list[AuditLogRecord]:
+    """Return the newest safe audit records, with a bounded presentation read.
+
+    A left join preserves system-originated rows whose ``user_id`` is NULL.
+    As with device audit history, a display identity prefers full name, then
+    username, then the explicit ``System`` fallback.
+    """
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+        raise ValueError("limit must be a positive integer")
+
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"""
+                SELECT a.audit_id,
+                       a.occurred_at,
+                       COALESCE(NULLIF(u.full_name, ''), u.username, 'System')
+                           AS actor_name,
+                       a.operation,
+                       a.entity_type,
+                       a.entity_id
+                FROM {_SCHEMA}.audit_log a
+                LEFT JOIN {_SCHEMA}.users u ON u.user_id = a.user_id
+                ORDER BY a.occurred_at DESC, a.audit_id DESC
+                LIMIT :limit
+                """
+            ),
+            {"limit": limit},
+        ).all()
+    return [_to_audit_log_record(row) for row in rows]
+
+
 def _to_device_audit_history(row) -> DeviceAuditHistoryRecord:
     return DeviceAuditHistoryRecord(*row)
 

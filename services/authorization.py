@@ -75,6 +75,7 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "admin_devices": _ADMIN_ONLY,
     "device_register": _ADMIN_ONLY,
     "admin_users": _ADMIN_ONLY,
+    "audit_log": _ADMIN_ONLY,
 }
 
 
@@ -140,6 +141,7 @@ REGISTER_DEVICE = "register_device"
 # roles must not silently widen who may read or write its data.
 MANAGE_DEVICES = "manage_devices"
 MANAGE_USERS = "manage_users"
+VIEW_AUDIT_LOG = "view_audit_log"
 # ADR-013: device-less because a report spans zero, one or many devices —
 # there is no single device_id to name. Grouped with the capabilities, not
 # with the actions below, so the constant's position states its dimension.
@@ -178,6 +180,7 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     REGISTER_DEVICE: _ADMIN_ONLY,
     MANAGE_DEVICES: _ADMIN_ONLY,
     MANAGE_USERS: _ADMIN_ONLY,
+    VIEW_AUDIT_LOG: _ADMIN_ONLY,
     # ADR-013, moved from ACTION_POLICY where it read
     # `(_EVERY_ROLE, _NO_ROLE)`. The empty assigned-only set was the tell:
     # no role's export permission ever depended on an assignment, so the

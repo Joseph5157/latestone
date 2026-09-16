@@ -716,6 +716,8 @@ Work that can be implemented without unresolved client/external decisions:
 
 | 20 | **ALARM-ACK-013-FIX** | CLOSED / PASS (2026-09-16) | Repaired migration 013's `op.create_check_constraint` argument order so PostgreSQL receives `device_events` as `table_name` and the intended paired-nullability expression as `condition`. Alarm acknowledgement semantics, services, authorization, `DeviceScope`, and UI are unchanged. Added a direct order regression test and moved the migration contract tests to shared `isolated_schema`; 4 migration tests, 69 affected acknowledgement/history/dispatch/lifecycle DB tests, and the 3065-test non-DB suite passed. The real development schema was not upgraded. |
 
+| 21 | **AUDIT-VIEWER-1** | CLOSED / PASS (2026-09-16) | Added a read-only Administrator audit-log viewer at `/admin/audit-log`. It presents the existing audit trail newest first with timestamp, safe actor name (`System` for null actor), action, entity type, and entity ID; audit payload JSON is not exposed. Route policy, sidebar visibility, and trusted callback capability are Administrator-only. Shared DataTable native filtering and paging are reused; no mutation, chart, audit semantic, or migration was added. Focused authorization/presentation tests (165), isolated-schema DB tests (56), full non-DB suite (3076), and Administrator browser verification passed. |
+
 ### Blocked / Waiting for Client or Integration
 
 | # | Task | Blocked By | Dependency |

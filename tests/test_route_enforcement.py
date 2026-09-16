@@ -66,7 +66,7 @@ class TestRouteDecision:
 
     @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
     @pytest.mark.parametrize(
-        "route", ["admin_devices", "device_register", "admin_users"]
+        "route", ["admin_devices", "device_register", "admin_users", "audit_log"]
     )
     def test_admin_management_is_refused_by_direct_url(self, role, route):
         assert routing.route_decision(identity(role), route) == (

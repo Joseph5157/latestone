@@ -3,10 +3,43 @@
 Status: **CLOSED / PASS**
 Date: 2026-09-16
 Gate: NONE
-Commit/push permission: **GRANTED** (this catch-up/verification gate only;
-no application code was touched).
+Commit/push permission: **GRANTED.**
 
 ## Task
+
+AUDIT-VIEWER-1 is closed. Administrators can open a read-only, newest-first
+audit-log viewer with timestamp, actor, action, entity type, and entity ID.
+The existing table supplies native filtering and paging; no audit payload,
+write action, chart, or new audit meaning is exposed.
+
+## Relevant files
+
+- `routes.py`
+- `services/authorization.py`
+- `components/app_sidebar.py`
+- `pages/audit_log.py`
+- `callbacks/audit_log.py`
+- `services/audit_log_service.py`
+- `repositories/plant_monitoring_repository.py`
+- `tests/test_audit_log_viewer.py`
+- `tests/test_audit_log_viewer_db.py`
+- `docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md`
+
+## Non-goals (explicit)
+
+- No audit semantics, audit writes, migration, edit/delete action, chart, or
+  bulk operation.
+- No Technician or General User access, including via a forged route or
+  browser-owned `auth-store` data.
+- No new page-level filtering or pagination mechanism unless the existing
+  table architecture makes it a narrow reuse.
+
+## Known ambiguities
+
+The generic audit log includes system rows with no user. The viewer must use
+the existing safe actor fallback rather than inventing an identity.
+
+## DEV-READINGS-RESET-1 Task
 
 DEV-READINGS-RESET-1 is closed. The real local development database's
 `readings` table was restored to the canonical 30-day synthetic seed via
@@ -2302,6 +2335,22 @@ CMD-AUDIT-VIS-1, COMMAND-DISPATCH, and lifecycle DB tests 69 passed; non-DB
 suite 3065 passed; `alembic heads` reported the single head
 `013_alarm_acknowledgement`; context-pack close check and `git diff --check`
 passed. No real development database upgrade was run.
+
+## AUDIT-VIEWER-1 — CLOSED / PASS
+
+Opened and closed 2026-09-16. Added the Administrator-only `/admin/audit-log`
+route, sidebar entry, trusted callback capability check, and a safe,
+bounded read projection of existing `audit_log` rows. The repository joins the
+existing actor to `users`, retaining a `System` fallback for null actors, and
+never returns `old_values` or `new_values`. The page has no mutation controls;
+the shared table's native filter row and paging are the only exploration aids.
+
+Verification: 165 focused authorization/presentation tests passed; 56
+isolated-schema viewer/audit-wiring/device-history DB tests passed; full
+non-DB suite 3076 passed. Browser verification as the configured Administrator
+confirmed the sidebar route, newest-first rows, five requested columns, and
+read-only presentation. Context-pack close check and `git diff --check`
+passed.
 
 ## Next implementation gate: NONE
 

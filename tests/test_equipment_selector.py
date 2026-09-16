@@ -25,7 +25,7 @@ from components.my_rtls import my_rtls_panel
 from components.auto_disable_override_panel import auto_disable_override_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
-from pages import device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
+from pages import audit_log, device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
 from services.device_scope import UNRESTRICTED
 from tests.auth_test_support import trusted_session
 
@@ -110,6 +110,7 @@ PAGE_LAYOUT_IDS = (
     # vibration-contract-panel slot by callbacks/vibration_contract.py.
     | collect_ids(vibration_contract_panel({}))
     | collect_ids(user_admin.layout())
+    | collect_ids(audit_log.layout())
     | collect_ids(user_form_drawer())
     | collect_ids(report_center.layout())
     | collect_ids(notifications.layout())

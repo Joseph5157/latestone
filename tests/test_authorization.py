@@ -36,6 +36,7 @@ from services.authorization import (
     TECHNICIAN,
     TOGGLE_MESSAGE_FORWARDING,
     VIEW_ADMINISTRATION_OVERVIEW,
+    VIEW_AUDIT_LOG,
     may_access_route,
     may_perform_action,
     may_perform_capability,
@@ -55,6 +56,7 @@ ROUTE_PATHS = {
     "admin_devices": "/admin/devices",
     "device_register": "/admin/devices/new",
     "admin_users": "/admin/users",
+    "audit_log": "/admin/audit-log",
     "command_center": "/command-center",
     "command_center_locations": "/command-center/locations",
 }
@@ -62,7 +64,7 @@ ROUTE_PATHS = {
 #: The frozen ROLE-2 matrix. Technician and General are identical here on
 #: purpose: they diverge at device scope and action authorization in ROLE-3,
 #: not at route level.
-ADMIN_ONLY = ("admin_devices", "device_register", "admin_users")
+ADMIN_ONLY = ("admin_devices", "device_register", "admin_users", "audit_log")
 SHARED = ("overview", "plant", "transformer", "device", "notifications", "reports", "command_center", "command_center_locations")
 
 

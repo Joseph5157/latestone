@@ -81,7 +81,7 @@ class TestSidebarItems:
         assert labels == [
             "Overview", "Command Center",
             "Devices", "Assignments", "Registration",
-            "Notifications", "Reports", "Users",
+            "Notifications", "Reports", "Users", "Audit Log",
         ]
 
     def test_sections_are_grouped_operations_and_system(self):
@@ -108,6 +108,7 @@ class TestSidebarItems:
         assert items["Notifications"] == "/notifications"
         assert items["Reports"] == "/reports"
         assert items["Users"] == "/admin/users"
+        assert items["Audit Log"] == "/admin/audit-log"
 
 
 class TestActiveNavKey:
@@ -127,6 +128,7 @@ class TestActiveNavKey:
         assert nav.active_nav_key("/reports") == "reports"
         assert nav.active_nav_key("/notifications") == "notifications"
         assert nav.active_nav_key("/admin/users") == "users"
+        assert nav.active_nav_key("/admin/audit-log") == "audit_log"
 
     def test_unknown_route_has_no_active_item(self):
         assert nav.active_nav_key("/nope") is None

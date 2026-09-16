@@ -993,6 +993,7 @@ body {
 .app-sidebar__icon--registration  { -webkit-mask-image: url("/assets/icons/nav-registration.svg");  mask-image: url("/assets/icons/nav-registration.svg"); }
 .app-sidebar__icon--notifications { -webkit-mask-image: url("/assets/icons/nav-notifications.svg"); mask-image: url("/assets/icons/nav-notifications.svg"); }
 .app-sidebar__icon--reports       { -webkit-mask-image: url("/assets/icons/nav-reports.svg");       mask-image: url("/assets/icons/nav-reports.svg"); }
+.app-sidebar__icon--audit-log     { -webkit-mask-image: url("/assets/icons/nav-audit-log.svg");     mask-image: url("/assets/icons/nav-audit-log.svg"); }
 .app-sidebar__icon--users         { -webkit-mask-image: url("/assets/icons/nav-users.svg");         mask-image: url("/assets/icons/nav-users.svg"); }
 .app-sidebar__icon--command-center { -webkit-mask-image: url("/assets/icons/nav-command-center.svg"); mask-image: url("/assets/icons/nav-command-center.svg"); }
 .app-sidebar__icon--logout        { -webkit-mask-image: url("/assets/icons/nav-logout.svg");         mask-image: url("/assets/icons/nav-logout.svg"); }

@@ -10,7 +10,7 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, notifications, user_admin, report_center, command_center, command_center_locations
+from pages import audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, notifications, user_admin, report_center, command_center, command_center_locations
 from pages.placeholder import placeholder_layout
 from routes import (
     Route,
@@ -283,6 +283,10 @@ def register(app) -> None:
             if route.name == "admin_users":
                 ctx = {"route": "admin_users"}
                 return user_admin.layout(), ctx
+
+            if route.name == "audit_log":
+                ctx = {"route": "audit_log"}
+                return audit_log.layout(), ctx
 
             if route.name == "reports":
                 ctx = {"route": "reports"}
