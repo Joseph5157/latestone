@@ -75,7 +75,15 @@ def fleet_health_card(snapshot) -> html.Section:
                 className="command-center__composition",
                 children=[
                     html.Div(
-                        className=f"command-center__composition-row command-center__tone--{tone}",
+                        className=(
+                            "command-center__composition-row "
+                            f"command-center__tone--{tone}"
+                            + (
+                                " command-center__composition-row--supporting"
+                                if label in {"Stale", "No Data"}
+                                else ""
+                            )
+                        ),
                         children=[
                             html.Dt(label, className="command-center__composition-label"),
                             html.Dd(str(count), className="command-center__composition-count"),
@@ -107,7 +115,30 @@ def needs_attention_card(snapshot) -> html.Section:
             )
         )
     body.append(
-        html.P("Stale + No Data", className="command-center__definition")
+        html.Div(
+            className="command-center__supporting-detail",
+            children=[
+                html.P("Freshness detail", className="command-center__supporting-title"),
+                html.Dl(
+                    className="command-center__supporting-counts",
+                    children=[
+                        html.Div(
+                            children=[html.Dt("Stale"), html.Dd(str(snapshot.stale_rtls))]
+                        ),
+                        html.Div(
+                            children=[
+                                html.Dt("No Data"),
+                                html.Dd(str(snapshot.no_data_rtls)),
+                            ]
+                        ),
+                    ],
+                ),
+                html.P(
+                    "Needs Attention remains Stale + No Data.",
+                    className="command-center__definition",
+                ),
+            ],
+        )
     )
     body.append(
         dcc.Link(
@@ -127,21 +158,58 @@ def communication_card(snapshot) -> html.Section:
     missing-since fact to derive a duration from, and `device_last_updated`
     describes whichever metric IS reporting (ADR-002).
     """
-    body: list = [_stat(str(snapshot.no_data_rtls), "No Data RTLs", tone="none")]
+    reporting_rtls = snapshot.monitored_device_count - snapshot.no_data_rtls
+    reporting_percent = 100.0 - snapshot.no_data_percent
+    body: list = [
+        _stat(
+            str(reporting_rtls),
+            "RTLs with a complete metric picture",
+            tone="neutral",
+        )
+    ]
     if snapshot.has_monitored_devices:
         body.append(
             html.P(
-                _percent_text(snapshot.no_data_percent),
+                _percent_text(reporting_percent),
                 className="command-center__stat-share",
             )
         )
     body.append(
-        html.P(
-            f"Across {snapshot.no_data_affected_plants} plants",
-            className="command-center__stat-context",
+        html.Div(
+            className="command-center__supporting-detail",
+            children=[
+                html.P(
+                    "Supporting investigation detail",
+                    className="command-center__supporting-title",
+                ),
+                html.Dl(
+                    className="command-center__supporting-counts",
+                    children=[
+                        html.Div(
+                            children=[
+                                html.Dt("No Data"),
+                                html.Dd(str(snapshot.no_data_rtls)),
+                            ]
+                        ),
+                        html.Div(
+                            children=[
+                                html.Dt("Affected plants"),
+                                html.Dd(str(snapshot.no_data_affected_plants)),
+                            ]
+                        ),
+                    ],
+                ),
+                html.P(
+                    _percent_text(snapshot.no_data_percent),
+                    className="command-center__stat-context",
+                ),
+                html.P(
+                    NO_DATA_EXPLANATION,
+                    className="command-center__explanation",
+                ),
+            ],
         )
     )
-    body.append(html.P(NO_DATA_EXPLANATION, className="command-center__explanation"))
     body.append(
         dcc.Link(
             "View affected RTLs →",
@@ -149,7 +217,7 @@ def communication_card(snapshot) -> html.Section:
             className="command-center__card-action",
         )
     )
-    return cc_card("Communication", body, subtitle="RTLs with an incomplete data picture")
+    return cc_card("Communication", body, subtitle="Metric reporting coverage")
 
 
 def inventory_card(snapshot) -> html.Section:

@@ -1,87 +1,61 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-17
-Gate: NONE
-Commit/push permission: **GRANTED and exercised** (implementation commit,
-closure-doc commit, push, and remote verification required by this gate).
+Gate: CLIENT-FEEDBACK-NODATA-1
+Commit/push permission: **GRANTED** (implementation commit, closure-doc commit,
+push, and remote verification required by this gate).
 
 ## Task
 
-Make existing Command Center operational cards clearly drill into affected
-RTLs. Power Down and Battery Low select scoped persisted event occurrences;
-Needs Attention and Communication make their existing relationship to the
-freshness-only Priority Investigation list explicit. Preserve event-vs-current-
-state semantics, BR008, freshness thresholds, terminology and DeviceScope.
+Reduce No Data from a primary Command Center headline to supporting
+investigation information. Preserve the existing freshness classification,
+Stale + No Data attention total, ADR-009 investigation population/order,
+BR008 notification rule, DeviceScope and condition drill-down behavior.
 
 ## Relevant files
 
-- `services/command_center_service.py`
-- `callbacks/command_center.py`
-- `pages/command_center.py`
-- `components/command_center/electrical.py`
-- `components/command_center/condition_investigation.py`
 - `components/command_center/situation_summary.py`
 - `components/command_center/priority.py`
-- `components/command_center/recent_events.py`
 - `assets/app.css`
-- `tests/test_command_center_electrical.py`
 - `tests/test_command_center_priority.py`
 - `tests/test_command_center_priority_panel.py`
-- `tests/test_command_center_recent_events.py`
-- `tests/test_command_center_recent_events_panel.py`
+- `tests/test_command_center_situation_summary.py`
 - `tests/test_command_center_condition_drilldown.py`
+- `tests/test_monitoring_service.py`
+- `tests/test_notification_service.py`
 - `docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md`
 - `docs/context/CURRENT_STATE.md`
 
 ## Decisions this gate depends on
 
-- ADR-001: persisted events are pre-classified occurrences; no consumer
-  re-evaluates voltage thresholds or claims current condition without closure.
 - ADR-002: Requires Attention remains Stale + No Data only.
 - ADR-004: `DeviceScope` remains the sole device-visibility authority.
-- ADR-008: reuse the existing bounded events/freshness/hierarchy read paths.
-- ADR-009: Priority Investigation remains freshness-only.
+- ADR-008: reuse the existing freshness and hierarchy read paths.
+- ADR-009: Priority Investigation remains freshness-only, with No Data before
+  Stale; this gate changes visual weighting, not the approved service order.
 
 ## Non-goals (explicit)
 
-- No new event-state or closure model; event filtering is occurrence-based.
-- No alarm, freshness, BR008, terminology, route-policy, or report change.
+- No monitoring-state, freshness threshold, BR008, notification, alarm,
+  terminology, route-policy, report, or cadence-aware change.
 - No Command Center redesign and no Mobbin-derived requirement.
+- No removal or hiding of No Data from Fleet Health or Priority Investigation.
+- No Priority Investigation service-ranking change.
 - No weakening of Administrator/Technician scoping; General User remains denied.
 - No Functional Specification tracker status change.
 
 ## Known ambiguities
 
-None. Within current data the gate can truthfully provide scoped matching
-event occurrences, not current Power Down/Battery Low state.
+The meeting preference to reduce No Data prominence does not override
+ADR-009's approved queue order. This gate therefore preserves that order and
+changes only headline hierarchy, explanatory copy and visual emphasis.
 
 ## Implementation and verification
 
-Implementation: `d543b1b547e68c61b9f307f15604a0becc3a6778`.
+In progress.
 
-- Power Down and Battery Low are native buttons with pointer, hover, visible
-  focus, keyboard activation, `aria-controls`, and mutually exclusive
-  `aria-pressed` state.
-- Selection invokes the existing scoped persisted-event reader and one batched
-  device-path lookup, returning the latest matching occurrence per real RTL.
-- The affected list identifies RTL, Plant/Transformer context, condition,
-  occurrence time and battery payload when present, then links to the existing
-  device route. It explicitly says occurrence, not current state.
-- Needs Attention and Communication link to the existing freshness-only
-  Priority Investigation list; neither creates a second freshness queue.
-- Administrator browser result: 120-RTL scope; 3 Power Down and 3 Battery Low
-  RTLs; condition switching and device navigation passed.
-- Assigned Technician `demo.tech01`: 24-RTL scope; scoped zero-result Power Down;
-  one Battery Low RTL (`29005`); device navigation passed.
-- Focused Command Center suite passed. Full non-DB suite passed.
-- `python scripts/build_context_pack.py --check` CLEAN and `git diff --check`
-  clean before implementation commit.
-
-No Functional Specification tracker status changed. No alarm/freshness/BR008,
-terminology, route-policy, report, or event-state semantic changed.
-
-## Next implementation gate: NONE
+## Next implementation gate: CLIENT-FEEDBACK-NODATA-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

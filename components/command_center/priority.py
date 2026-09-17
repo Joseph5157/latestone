@@ -21,9 +21,9 @@ from dash import dcc, html
 
 from components.command_center.primitives import cc_card
 
-#: Names what ranks the list, so the order is not something the operator has
-#: to reverse-engineer from the rows.
-SUBTITLE = "No Data first, then longest-silent"
+#: Names the investigation population without turning either constituent
+#: freshness state into a headline. ADR-009 still owns the service order.
+SUBTITLE = "Freshness exceptions requiring investigation"
 
 #: A calm fleet. Deliberately not "System healthy" / "No problems" / "All
 #: clear": freshness establishes that data is arriving, which is not the

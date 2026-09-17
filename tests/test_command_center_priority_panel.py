@@ -222,9 +222,15 @@ class TestTitle:
         assert "Priority Investigation" in _texts(card)
 
     def test_the_subtitle_names_what_ranks_the_list(self):
-        """The operator should not have to guess why this order is this order."""
+        """The population stays explicit without making No Data a headline."""
         card = panel.priority_investigation_card(_Snapshot([_row()]))
         assert panel.SUBTITLE in _texts(card)
+        assert "No Data first" not in panel.SUBTITLE
+
+    def test_no_data_remains_visible_in_the_investigation_rows(self):
+        card = panel.priority_investigation_card(_Snapshot([_row()]))
+        assert "NO DATA" in _texts(card)
+        assert svc.NO_DATA_EXPLANATION in _texts(card)
 
 
 class TestThePanelInfersNothing:

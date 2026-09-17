@@ -55,6 +55,15 @@ class TestFleetHealth:
     def test_states_the_monitored_population(self):
         assert "120" in text_of(fleet_health_card(_Snap()))
 
+    def test_stale_and_no_data_are_supporting_rows(self):
+        card = fleet_health_card(_Snap())
+        rows = [
+            n for n in _walk(card)
+            if "command-center__composition-row" in str(getattr(n, "className", ""))
+        ]
+        assert "--supporting" not in str(rows[0].className)
+        assert all("--supporting" in str(row.className) for row in rows[1:])
+
     def test_uses_no_electrical_condition_vocabulary(self):
         """ADR-001: Critical/Warning name already-classified EVENT types.
         Freshness is a data-delivery signal and must never borrow them -
@@ -75,6 +84,12 @@ class TestNeedsAttention:
         printed rather than left for the reader to infer."""
         assert "Stale + No Data" in text_of(needs_attention_card(_Snap()))
 
+    def test_supporting_detail_preserves_the_exact_split(self):
+        text = text_of(needs_attention_card(_Snap()))
+        assert "Freshness detail" in text
+        assert "Stale" in text and "17" in text
+        assert "No Data" in text and "18" in text
+
     def test_empty_scope_shows_no_percentage(self):
         """0.0% of 0 reads as a measured healthy result. It is the absence
         of any measurement."""
@@ -89,6 +104,18 @@ class TestCommunication:
         text = text_of(communication_card(_Snap()))
         assert "18" in text
         assert "15.0%" in text
+
+    def test_leads_with_reporting_coverage_not_no_data(self):
+        text = text_of(communication_card(_Snap()))
+        assert "102" in text
+        assert "RTLs with a complete metric picture" in text
+        assert "85.0%" in text
+        assert text.index("complete metric picture") < text.index("No Data")
+
+    def test_no_data_is_labelled_as_supporting_investigation_detail(self):
+        text = text_of(communication_card(_Snap()))
+        assert "Supporting investigation detail" in text
+        assert "No Data" in text
 
     def test_carries_the_exact_frozen_copy(self):
         assert self.EXACT_COPY in text_of(communication_card(_Snap()))
@@ -132,3 +159,14 @@ class TestSituationSummaryPanels:
         text = " ".join(text_of(p) for p in panels)
         for title in ("Fleet Health", "Needs Attention", "Communication", "Inventory"):
             assert title in text
+
+
+def _walk(node):
+    yield node
+    children = getattr(node, "children", None)
+    if children is None:
+        return
+    if not isinstance(children, (list, tuple)):
+        children = [children]
+    for child in children:
+        yield from _walk(child)
