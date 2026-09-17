@@ -22,7 +22,6 @@ from components.user_form_drawer import user_form_drawer
 from components.device_manage_drawer import device_manage_drawer
 from components.device_operations import device_operations_panel
 from components.my_rtls import my_rtls_panel
-from components.auto_disable_override_panel import auto_disable_override_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
 from pages import audit_log, device_dashboard, device_admin, device_register, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
@@ -99,10 +98,6 @@ PAGE_LAYOUT_IDS = (
          "transformer": "T1", "freshness": "Fresh", "_severity": 0,
          "_state": "fresh"},
     ]))
-    # C08-AUTO-DISABLE-1: rendered into the Fleet Overview's
-    # auto-disable-override-panel slot by callbacks/forwarding_schedule.py,
-    # same reasoning as device_operations_panel above.
-    | collect_ids(auto_disable_override_panel(None, effective_today=False))
     # THRESH-CONFIG-1: same reasoning — rendered into the Fleet Overview's
     # temperature-threshold-panel slot by callbacks/temperature_threshold.py.
     | collect_ids(temperature_threshold_panel(None))

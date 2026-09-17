@@ -76,10 +76,12 @@ RESET_PRESERVES = (
     "audit_log",
     "message_forwarding",
     "users",
-    # Administrator-set configuration (migrations 010/011/012). A reseed of
-    # synthetic telemetry is not a reason to forget a configured cutoff
-    # override, temperature threshold, or recorded vibration contract
-    # answer — and none of them is measurement data this seed owns. They
+    # Configuration and a legacy migration artifact (migrations 010/011/012).
+    # BR016's former application-owned override table remains only for
+    # backwards-compatible schemas; it is not a client-required production
+    # feature. A reseed of synthetic telemetry must not alter it, configured
+    # temperature thresholds, or recorded vibration-contract answers. None is
+    # measurement data this seed owns. They
     # were added by three consecutive migrations without being classified
     # here; the reset never touched them (RESET_REPLACES is readings only),
     # so behaviour was always correct, but this contract did not say so.

@@ -1684,7 +1684,7 @@ _AUTO_DISABLE_OVERRIDE_ID = 1
 
 @dataclass(frozen=True)
 class AutoDisableOverrideRecord:
-    """The one active (or most recently set) override row, if any."""
+    """Legacy migration row; not an active BR016 product configuration."""
 
     override_date: date
     cutoff_time: time
@@ -1704,9 +1704,12 @@ def _to_override_record(row) -> AutoDisableOverrideRecord:
 
 
 def get_auto_disable_override(*, session=None) -> AutoDisableOverrideRecord | None:
-    """The current override row, or None when no override has ever been set
-    (or the last one was explicitly cleared). Does NOT filter by date — the
-    caller decides whether ``override_date`` still applies to "today"."""
+    """Read a legacy C08 override record for migration compatibility only.
+
+    BR016 is RTL Master-owned. No production service or UI calls this helper.
+    The table remains so already-migrated development databases are not
+    destructively altered by this ownership-correction gate.
+    """
 
     def _run(s):
         row = s.execute(
@@ -1751,7 +1754,7 @@ def set_auto_disable_override(
     set_by_user_id: int,
     session=None,
 ) -> OverrideChange:
-    """Upsert the single override row and classify the outcome.
+    """Legacy compatibility helper; not callable from production behaviour.
 
     Same-state re-application (identical ``override_date``, ``cutoff_time``
     and ``reason`` as the current row) is a genuine no-op — mirrors

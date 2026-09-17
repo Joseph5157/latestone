@@ -69,7 +69,7 @@ def _clean_test_schema():
     _drop_test_schema()
 
 
-class TestForwardingAutoDisableOverride:
+class TestLegacyForwardingAutoDisableOverrideSchema:
     def setup_method(self):
         # Each test starts with an empty override table — the module-scoped
         # schema fixture is shared across tests in this class, and the

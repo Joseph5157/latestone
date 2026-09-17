@@ -153,14 +153,9 @@ TOGGLE_MESSAGE_FORWARDING = "toggle_message_forwarding"
 DEACTIVATE_RTL = "deactivate_rtl"
 ACKNOWLEDGE_ALARM = "acknowledge_alarm"
 MANAGE_ASSIGNMENT = "manage_assignment"
-# C08-AUTO-DISABLE-1: setting/clearing the global same-day auto-disable
-# cutoff override. Device-less like MANAGE_ASSIGNMENT and REGISTER_DEVICE —
-# there is exactly one global override, never a per-device one to scope.
-MANAGE_AUTO_DISABLE_OVERRIDE = "manage_auto_disable_override"
 # THRESH-CONFIG-1 (C-01, framework only): setting/clearing the single
-# global warning/critical temperature threshold. Device-less for the same
-# reason as MANAGE_AUTO_DISABLE_OVERRIDE — there is exactly one global
-# configuration, never a per-device one.
+# global warning/critical temperature threshold. Device-less because there
+# is exactly one global configuration, never a per-device one.
 MANAGE_TEMPERATURE_THRESHOLD = "manage_temperature_threshold"
 # VIB-CONFIG-1 (C-02, framework only): recording/editing/clearing a
 # vibration contract question's answer. Device-less for the same reason
@@ -188,7 +183,6 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     # device dimension it was declared in did nothing. The SAME role set
     # carries over — this is a change of dimension, not of permission.
     EXPORT_DATA: _EVERY_ROLE,
-    MANAGE_AUTO_DISABLE_OVERRIDE: _ADMIN_ONLY,
     MANAGE_TEMPERATURE_THRESHOLD: _ADMIN_ONLY,
     MANAGE_VIBRATION_CONTRACT: _ADMIN_ONLY,
 }

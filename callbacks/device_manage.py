@@ -396,7 +396,7 @@ def register(app) -> None:
 
         The device_id authorizes — nothing else. FWD-D1: no device
         dimension is stored; FWD-D8: the confirmation states exactly what
-        happened (preference saved) and what has not (delivery, 18:30).
+        happened (preference saved) and what has not (delivery or BR016).
         """
         if not n_clicks:
             return no_update
@@ -433,13 +433,14 @@ def register(app) -> None:
             detail = (
                 "Message forwarding enabled for your account. This "
                 "preference applies to your account, not specifically to "
-                "this RTL. Delivery integration is not yet connected."
+                "this RTL. Delivery integration is not yet connected; the "
+                "RTL Master owns BR016's daily cutoff."
             )
         else:
             detail = (
                 "Message forwarding disabled for your account. This "
                 "preference applies to your account, not specifically to "
-                "this RTL."
+                "this RTL. The RTL Master owns BR016's daily cutoff."
             )
 
         logger.info(

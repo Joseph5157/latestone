@@ -249,10 +249,10 @@ def device_manage_drawer() -> html.Div:
                                 n_clicks=0,
                             ),
                             html.P(
-                                "Enable or disable startup/check-in message "
-                                "forwarding for your account. This preference "
-                                "applies to your account, not specifically to "
-                                "this RTL.",
+                                "Save a local enable or disable preference for "
+                                "your account. It applies to your account, not "
+                                "specifically to this RTL; no RTL Master command "
+                                "or message delivery occurs here.",
                                 className="manage-drawer__menu-desc",
                             ),
                             html.Button(
@@ -392,10 +392,10 @@ def device_manage_drawer() -> html.Div:
                         children=[
                             html.H3("Message Forwarding"),
                             html.P(
-                                "Enable or disable forwarding of startup/check-in "
-                                "messages to the installation phone number. This "
-                                "preference applies to your account, not "
-                                "specifically to this RTL.",
+                                "Save a local enable or disable preference for "
+                                "your account. No RTL Master command or message "
+                                "delivery occurs here. BR016's daily cutoff is "
+                                "performed by the RTL Master, not this dashboard.",
                                 className="manage-drawer__section-desc",
                             ),
                             html.Div(
@@ -435,9 +435,9 @@ def device_manage_drawer() -> html.Div:
                                     html.Span(
                                         "This applies to your account, not "
                                         "specifically to this RTL. Message "
-                                        "delivery integration and the "
-                                        "documented 18:30 automatic disable are "
-                                        "not yet connected."
+                                        "delivery integration is not yet "
+                                        "connected; BR016's 18:30 cutoff is "
+                                        "owned by the RTL Master."
                                     ),
                                 ],
                             ),

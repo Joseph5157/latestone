@@ -11,8 +11,10 @@ What is REAL after OPS-FWD-1: the per-user forwarding preference, its
 authorization, its audit trail, and reload/read-back from PostgreSQL.
 
 What is deliberately NOT here (FWD-D9): SMS/message transport, actual
-startup/check-in forwarding delivery, and the documented 18:30 automatic
-disable. Persisting the preference does not mean messages flow yet.
+startup/check-in forwarding delivery, and BR016's 18:30 automatic disable.
+The Functional Specification assigns that cutoff to the RTL Master; this
+dashboard has no scheduler, override, or substitute implementation for it.
+Persisting the preference does not mean messages flow yet.
 
 Frozen semantics (review decisions):
 

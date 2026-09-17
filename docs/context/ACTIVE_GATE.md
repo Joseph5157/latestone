@@ -1,30 +1,39 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
-Date: 2026-09-16
-Gate: NONE
-Commit/push permission: **GRANTED.**
+Status: **OPEN / IN PROGRESS**
+Date: 2026-09-17
+Gate: FS-BR016-1
+Commit/push permission: **GRANTED after verification.**
 
 ## Task
 
-FS-SCOPE-1 is closed. General User access now matches Functional Specification
-§5.9: log-on, monitoring hierarchy/transformer-device data, and report export
-remain available; Notifications, Command Center and Command Center Locations
-are denied.
+Align BR016 with the Functional Specification: the RTL Master automatically
+disables message forwarding at 18:30 daily. Remove the dashboard's active
+scheduler and unsupported Administrator same-day override without changing
+manual message-forwarding controls or their authorization.
 
 ## Relevant files
 
+- `services/message_forwarding_service.py`
 - `services/authorization.py`
+- `callbacks/device_manage.py`
+- `components/device_manage_drawer.py`
+- `app.py`
+- `repositories/plant_monitoring_repository.py`
+- `alembic/versions/010_forwarding_auto_disable.py`
+- `tests/test_br016_ownership.py`
 - `tests/test_authorization.py`
-- `tests/test_route_enforcement.py`
 - `tests/test_action_guard.py`
 - `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
 - `docs/context/CURRENT_STATE.md`
 
 ## Non-goals (explicit)
 
-- No Administrator or Technician permissions, DeviceScope, trusted-session
-  resolution, exports, services, schema, or UI redesign changed.
+- No real SMS or RTL Master transport/API is added or modified.
+- The retained migration table is compatibility-only and is not a client
+  production feature.
+
+## Next implementation gate: FS-BR016-1 — OPEN
 
 ## Known ambiguities
 
@@ -2337,7 +2346,7 @@ confirmed the sidebar route, newest-first rows, five requested columns, and
 read-only presentation. Context-pack close check and `git diff --check`
 passed.
 
-## Next implementation gate: NONE
+## Historical next implementation gate: NONE
 
 ### RTL-PROG-VIS-1 — CLOSED / PASS
 

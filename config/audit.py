@@ -17,9 +17,8 @@ identifiers (assignment_id) travel inside old_values/new_values instead.
 The forwarding entity deliberately has no device dimension (FWD-D1): the
 state belongs to the acting user; the device drawer only authorizes the
 action. A human-initiated MESSAGE_FORWARDING_* row always carries the
-actor's user_id; the NULL-user_id path is used by the 18:30 auto-disable job
-(C08-AUTO-DISABLE-1), which reuses MESSAGE_FORWARDING_DISABLED with
-``system_originated=True`` rather than a second constant.
+actor's user_id. BR016's daily cutoff belongs to the RTL Master, so this
+application has no system-originated forwarding-disable path.
 """
 from __future__ import annotations
 
@@ -49,14 +48,6 @@ RTL_ACTIVATED = "RTL_ACTIVATED"
 #: persisted event; it neither clears nor resolves the event/alarm.
 ALARM_ACKNOWLEDGED = "ALARM_ACKNOWLEDGED"
 
-#: C08-AUTO-DISABLE-1: an Administrator setting or clearing the temporary
-#: same-day cutoff override. Always human-originated (the actor is whoever
-#: clicked the control), against the single global entity — there is
-#: deliberately no per-user/per-RTL dimension (development baseline: one
-#: global override only).
-AUTO_DISABLE_OVERRIDE_SET = "AUTO_DISABLE_OVERRIDE_SET"
-AUTO_DISABLE_OVERRIDE_CLEARED = "AUTO_DISABLE_OVERRIDE_CLEARED"
-
 #: THRESH-CONFIG-1 (C-01, framework only): an Administrator setting,
 #: changing, or clearing the single global warning/critical temperature
 #: threshold configuration. Always human-originated — there is no
@@ -77,23 +68,14 @@ VIBRATION_CONTRACT_ANSWER_CLEARED = "VIBRATION_CONTRACT_ANSWER_CLEARED"
 #: The complete allowlist of operations that may be audited with a NULL
 #: actor via ``audit_service.record(..., system_originated=True)``.
 #: Deliberately minimal (ACT-D5): each entry must correspond to an actually
-#: implemented system-originated feature. MESSAGE_FORWARDING_DISABLED is
-#: reused here (C08-AUTO-DISABLE-1) exactly as this module's earlier comment
-#: anticipated — the scheduled auto-disable writes the same operation a
-#: human manual disable does, distinguished only by ``actor_user_id`` being
-#: NULL, never by a second constant.
-SYSTEM_OPERATIONS = frozenset({RTL_ACTIVATED, MESSAGE_FORWARDING_DISABLED})
+#: implemented system-originated feature. BR016 is intentionally absent: the
+#: RTL Master, not this dashboard, owns its daily forwarding cutoff.
+SYSTEM_OPERATIONS = frozenset({RTL_ACTIVATED})
 
 ENTITY_DEVICE = "device"
 ENTITY_ASSIGNMENT = "device_assignment"
 ENTITY_USER = "user"
 ENTITY_MESSAGE_FORWARDING = "message_forwarding"
-
-#: C08-AUTO-DISABLE-1's override is a single global row (no per-user/per-RTL
-#: entity to name), so its audit entity_id is always the fixed string below,
-#: never a database id.
-ENTITY_AUTO_DISABLE_SCHEDULE = "forwarding_auto_disable"
-AUTO_DISABLE_SCHEDULE_ENTITY_ID = "global"
 
 #: THRESH-CONFIG-1: same shape as the auto-disable override above — one
 #: global row, no per-device/per-user entity to name.
