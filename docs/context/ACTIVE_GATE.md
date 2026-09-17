@@ -3,9 +3,87 @@
 Status: **CLOSED / PASS**
 Date: 2026-09-17
 Gate: NONE
-Commit/push permission: **GRANTED** (per this gate's own explicit VERIFY/REPORT
-instructions: commit implementation, update tracker/context, commit closure
-docs, push `main`, remote-verify).
+Commit/push permission: **GRANTED and exercised** (implementation commit,
+closure-doc commit, push, and remote verification required by this gate).
+
+## Task
+
+Make existing Command Center operational cards clearly drill into affected
+RTLs. Power Down and Battery Low select scoped persisted event occurrences;
+Needs Attention and Communication make their existing relationship to the
+freshness-only Priority Investigation list explicit. Preserve event-vs-current-
+state semantics, BR008, freshness thresholds, terminology and DeviceScope.
+
+## Relevant files
+
+- `services/command_center_service.py`
+- `callbacks/command_center.py`
+- `pages/command_center.py`
+- `components/command_center/electrical.py`
+- `components/command_center/condition_investigation.py`
+- `components/command_center/situation_summary.py`
+- `components/command_center/priority.py`
+- `components/command_center/recent_events.py`
+- `assets/app.css`
+- `tests/test_command_center_electrical.py`
+- `tests/test_command_center_priority.py`
+- `tests/test_command_center_priority_panel.py`
+- `tests/test_command_center_recent_events.py`
+- `tests/test_command_center_recent_events_panel.py`
+- `tests/test_command_center_condition_drilldown.py`
+- `docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md`
+- `docs/context/CURRENT_STATE.md`
+
+## Decisions this gate depends on
+
+- ADR-001: persisted events are pre-classified occurrences; no consumer
+  re-evaluates voltage thresholds or claims current condition without closure.
+- ADR-002: Requires Attention remains Stale + No Data only.
+- ADR-004: `DeviceScope` remains the sole device-visibility authority.
+- ADR-008: reuse the existing bounded events/freshness/hierarchy read paths.
+- ADR-009: Priority Investigation remains freshness-only.
+
+## Non-goals (explicit)
+
+- No new event-state or closure model; event filtering is occurrence-based.
+- No alarm, freshness, BR008, terminology, route-policy, or report change.
+- No Command Center redesign and no Mobbin-derived requirement.
+- No weakening of Administrator/Technician scoping; General User remains denied.
+- No Functional Specification tracker status change.
+
+## Known ambiguities
+
+None. Within current data the gate can truthfully provide scoped matching
+event occurrences, not current Power Down/Battery Low state.
+
+## Implementation and verification
+
+Implementation: `d543b1b547e68c61b9f307f15604a0becc3a6778`.
+
+- Power Down and Battery Low are native buttons with pointer, hover, visible
+  focus, keyboard activation, `aria-controls`, and mutually exclusive
+  `aria-pressed` state.
+- Selection invokes the existing scoped persisted-event reader and one batched
+  device-path lookup, returning the latest matching occurrence per real RTL.
+- The affected list identifies RTL, Plant/Transformer context, condition,
+  occurrence time and battery payload when present, then links to the existing
+  device route. It explicitly says occurrence, not current state.
+- Needs Attention and Communication link to the existing freshness-only
+  Priority Investigation list; neither creates a second freshness queue.
+- Administrator browser result: 120-RTL scope; 3 Power Down and 3 Battery Low
+  RTLs; condition switching and device navigation passed.
+- Assigned Technician `demo.tech01`: 24-RTL scope; scoped zero-result Power Down;
+  one Battery Low RTL (`29005`); device navigation passed.
+- Focused Command Center suite passed. Full non-DB suite passed.
+- `python scripts/build_context_pack.py --check` CLEAN and `git diff --check`
+  clean before implementation commit.
+
+No Functional Specification tracker status changed. No alarm/freshness/BR008,
+terminology, route-policy, report, or event-state semantic changed.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## Task
 
@@ -37,7 +115,7 @@ data mapping.
 - No report query rebuilt for the XLSX path — it consumes the same
   `ExportDocument` CSV/PDF already build.
 
-## Next implementation gate: NONE
+## Next implementation gate at FS-EXPORT-1 closure: NONE
 
 ## Known ambiguities
 
