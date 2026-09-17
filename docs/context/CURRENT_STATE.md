@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-17T07:40:55Z
+Date: 2026-09-17T08:00:31Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `ed82a7b` "fix(alarms): align client-facing alarm labels with BR009 (FS-ALARM-1)"
+- `main` = `2d9616d` "feat(reports): add native XLSX export alongside CSV/PDF (FS-EXPORT-1)"
 - Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3098 passed, 698 deselected in 26.52s
+- `python -m pytest -m "not db"` → 3119 passed, 699 deselected in 27.26s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 309 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 159 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 309 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 311 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 161 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 311 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 

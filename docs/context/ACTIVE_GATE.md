@@ -9,41 +9,122 @@ docs, push `main`, remote-verify).
 
 ## Task
 
-FS-ALARM-1: align application-side alarm naming/classification with the
-authoritative RTL Functional Specification, especially BR009 ("Low battery
-notification is Battery Alarm; other alarms are sent as Comms Alarm") —
-without implementing real SMS delivery, RTL Master transport, device
-firmware, or battery sensing.
+FS-EXPORT-1: add native Excel/XLSX export, aligned to the authoritative RTL
+Functional Specification's own "Export to Excel" UI, to the existing
+format-neutral export pipeline (CSV/PDF) for all three reports — without
+changing report semantics, columns, authorization, taxonomy, or production
+data mapping.
 
 ## Relevant files
 
-- `config/notifications.py`
-- `services/event_semantics.py`
-- `services/notification_service.py`
-- `pages/notifications.py`
-- `callbacks/notifications.py`
-- `services/report_service.py`
-- `services/alarm_acknowledgement_service.py`
-- `tests/test_event_semantics.py`
-- `tests/test_notification_service.py`
-- `tests/test_rtl_alarms_report.py`
-- `tests/test_rtl_alarms_report_db.py`
+- `services/report_export.py`
+- `callbacks/report_center.py`
+- `pages/report_center.py`
+- `config/reports.py`
+- `requirements.txt`
+- `tests/test_report_export.py`
 - `tests/test_report_export_db.py`
+- `tests/test_report_export_authorization.py`
+- `tests/test_report_center.py`
 - `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
 - `docs/context/CURRENT_STATE.md`
 
 ## Non-goals (explicit)
 
-- No real SMS delivery, RTL Master transport, or new external integration.
-- No high-temperature or vibration alarm rule invented — the Functional
-  Specification does not provide enough implementation detail for either.
-- Startup/check-in is never classified as an alarm.
-- No schema migration — `power_down`/`sensor_error` already carry enough
-  information; only their client-facing label mapping changed.
+- CSV and PDF are not removed; both continue to work unchanged.
+- No change to report semantics, report columns (`config/reports.py`),
+  authorization (`EXPORT_DATA`), taxonomy, or production data mapping.
+- No report query rebuilt for the XLSX path — it consumes the same
+  `ExportDocument` CSV/PDF already build.
 
 ## Next implementation gate: NONE
 
 ## Known ambiguities
+
+None.
+
+## FS-EXPORT-1 — CLOSED / PASS
+
+Implementation: `2d9616d` (services/pages/requirements/tests). Closure/docs:
+this commit.
+
+`services/report_export.py` gained a third registered formatter,
+`format_xlsx`, on `openpyxl` (added to `requirements.txt`, pure Python, no
+system library dependency, matching the fpdf2 precedent). It reads the
+identical `ExportDocument` CSV/PDF already build — no report query is
+rebuilt — and produces a single-worksheet workbook, headers in row 1
+(bold), the exact `config/reports.py` column order, data from row 2, with
+NO metadata preamble: this deliberately mirrors CSV's R4-D11 shape rather
+than PDF's header block, since XLSX serves the same "open this directly as
+a table" use case CSV does and a preamble would shift the header away from
+where naive tooling (e.g. `pandas.read_excel`'s default `header=0`) expects
+it — exactly the "damage machine-readable tabular output" the gate's own
+instructions warned against.
+
+Cell typing is domain-native, not the CSV/PDF formatters' stringified
+`_cell()`: a new `_xlsx_value()` keeps `None` as a truly blank cell (never
+an empty string — a real `COUNTA()`/`SUM()` must see nothing there), keeps
+numeric values as real numeric cells (never `str()`'d), and converts a
+`datetime` to UTC and strips its tzinfo (Excel's own datetime type carries
+no timezone), with the cell's own `number_format` labelling it `"UTC"` so
+the wall-clock meaning stays as unambiguous as `_cell()`'s ISO-8601 "Z"
+suffix. A zero-row document still produces a valid, openable workbook
+(header row only), the same R4-D5 convention as CSV/PDF. Worksheet names
+use `report_key` directly (`_worksheet_name`), already safe and well under
+Excel's 31-character/forbidden-character limits; the sanitizer exists for a
+future report key, not because today's three need it.
+
+`callbacks/report_center.py` needed ZERO code changes: `render_export`
+already dispatched by extension string against `FORMATTERS`/`_MIME_TYPES`,
+and the download handler already branched on `isinstance(content, bytes)`
+for PDF — XLSX's bytes output took the same path with no new code. Only
+`pages/report_center.py`'s format selector gained an XLSX radio option.
+
+`EXPORT_FORMAT_LABEL` (`services/report_export.py`) was rewritten to name
+XLSX honestly as the format the Functional Specification's own UI already
+calls for, distinct from CSV/PDF's C-04 development-convenience status — a
+duplicate, independently-hardcoded copy of similar wording was found in
+`pages/report_center.py`'s banner during this gate (not sourced from
+`EXPORT_FORMAT_LABEL` at all) and was replaced with a single-sourced
+reference to it, so the banner and the post-export status panel can never
+drift apart again about which formats exist.
+
+### Verification
+
+- New/focused: `tests/test_report_export.py` (`TestWorksheetName`,
+  `TestXlsxFormatter` — valid-workbook, header-order, bold-header,
+  zero-row, no-preamble, string/numeric/datetime/blank cell-type proofs,
+  row-count, filename/mime); `tests/test_report_export_db.py` (real
+  end-to-end XLSX export against seeded device/event rows, scope-matched
+  to the existing CSV proof). All three pre-existing "no XLSX" assertions
+  (`test_no_xlsx_formatter_exists`, the format-honesty label checks, the
+  `render_export(..., "xlsx")` refusal test) were corrected to their
+  now-true opposite, not deleted silently.
+- Regression: `tests/test_report_export_authorization.py` (format
+  parametrization extended to xlsx — proves `EXPORT_DATA` capability and
+  the pre-row-fetch guard ordering are format-independent), `tests/
+  test_report_center.py` (format selector offers all three formats;
+  single-sourced banner text).
+- `python -m pytest -m "not db"` (full non-DB suite) — all passed, exit 0.
+- `python -m pytest -q` (full suite, DB included, against the real reset
+  dev DB) — all passed, exit 0.
+- `git diff --check` — clean. `python scripts/build_context_pack.py --check`
+  — CLEAN at gate open and close.
+- Browser verification (Playwright; Chrome extension was not connected
+  this session): as Administrator, selected RTL Alarms (30 Days), format
+  XLSX, downloaded `rtl_alarms_30d_Entire_Fleet_<timestamp>.xlsx` — opened
+  and inspected with `openpyxl.load_workbook` outside the app: sheet name
+  `rtl_alarms_30d`, exact 12-column header order, `None`→`NoneType`,
+  `Battery(V)`→`float`, `Alarm Date & Time`→real tz-naive `datetime` with
+  a `"UTC"`-labelled number format, `Alarm`→`"Comms Alarm"`/`"Battery
+  Alarm"` text (BR009, unaffected by this gate). As General User, selected
+  Installed RTLs, format XLSX, downloaded and inspected
+  `installed_rtls_Entire_Fleet_<timestamp>.xlsx` — 120 data rows, correct
+  headers/types, "Exported 120 row(s)" status shown — General User export
+  access (`EXPORT_DATA`, no assignment condition) unaffected by the new
+  format.
+
+### Known ambiguity
 
 None.
 
