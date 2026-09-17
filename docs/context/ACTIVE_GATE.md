@@ -9,43 +9,147 @@ docs, push `main`, remote-verify).
 
 ## Task
 
-FS-PROG-1: align Program RTL application-side fields and validation with the
-authoritative RTL Functional Specification (§4.4.1) — RTL Master MSISDN, a
-5-digit RTL UID, and a transformer name of at most 10 characters — without
-implementing real SMS/RTL Master transport.
+FS-ALARM-1: align application-side alarm naming/classification with the
+authoritative RTL Functional Specification, especially BR009 ("Low battery
+notification is Battery Alarm; other alarms are sent as Comms Alarm") —
+without implementing real SMS delivery, RTL Master transport, device
+firmware, or battery sensing.
 
 ## Relevant files
 
-- `services/rtl_programming_service.py`
-- `repositories/plant_monitoring_repository.py`
-- `callbacks/device_manage.py`
-- `components/device_manage_drawer.py`
-- `alembic/versions/001_baseline.py`
-- `tests/test_rtl_programming.py`
-- `tests/test_rtl_programming_execution.py`
-- `tests/test_rtl_command_dispatch.py`
-- `tests/test_rtl_command_service_lifecycle.py`
-- `tests/test_rtl_commands.py`
-- `tests/test_rtl_programming_simulation.py`
-- `tests/test_action_guard.py`
+- `config/notifications.py`
+- `services/event_semantics.py`
+- `services/notification_service.py`
+- `pages/notifications.py`
+- `callbacks/notifications.py`
+- `services/report_service.py`
+- `services/alarm_acknowledgement_service.py`
+- `tests/test_event_semantics.py`
+- `tests/test_notification_service.py`
+- `tests/test_rtl_alarms_report.py`
+- `tests/test_rtl_alarms_report_db.py`
+- `tests/test_report_export_db.py`
 - `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
 - `docs/context/CURRENT_STATE.md`
 
 ## Non-goals (explicit)
 
-- No real SMS or RTL Master transport/API is added or modified.
-- No "29" prefix rule invented — the Functional Specification extract shows
-  `29xxx` only as one worked example of a 5-digit UID.
-- No stricter phone-format validation for the Master MSISDN than the
-  schema already proves (non-empty, `VARCHAR(20)`).
-- No rewrite of registered device/transformer data; no change to the
-  device-registration boundary's own (looser) validation.
+- No real SMS delivery, RTL Master transport, or new external integration.
+- No high-temperature or vibration alarm rule invented — the Functional
+  Specification does not provide enough implementation detail for either.
+- Startup/check-in is never classified as an alarm.
+- No schema migration — `power_down`/`sensor_error` already carry enough
+  information; only their client-facing label mapping changed.
 
 ## Next implementation gate: NONE
 
 ## Known ambiguities
 
 None.
+
+## FS-ALARM-1 — CLOSED / PASS
+
+Implementation: `ed82a7b` (services/config/pages/tests). Closure/docs: this commit.
+
+BR009 ("Low battery notification is Battery Alarm; other alarms are sent as
+Comms Alarm") is now the client-facing alarm label everywhere it is shown:
+the Notification Center's Notification column and summary line, and the RTL
+Alarms (30 Days) report's Alarm column. `services/event_semantics.py` gained
+`EventSemantics.alarm_notification_label` — a new, narrower field separate
+from `notification_category_key` — so `battery_low` resolves to "Battery
+Alarm" and `power_down`/`sensor_error` both resolve to "Comms Alarm", while
+the underlying event type/category is preserved unchanged for bucketing (a
+device's power_down and sensor_error events still never merge into one row
+or into a battery_alarm row) and for the row's own `detail` text (e.g.
+"Power Down — 1 event(s); latest ...; battery 3.54 V"). Startup/check-in was
+never touched — it stays classified as `is_reportable_alarm=False` and is
+never labeled an alarm.
+
+A real defect was caught only by browser verification, not by the test
+suite: the Notification Center's summary line (`services/notification_
+service.py::summary_category_order`, `callbacks/notifications.py::format_
+summary_line`) previously walked the raw per-category label list from
+`config/notifications.py`, which still separately lists "Power Down" and
+"Sensor Error". Once those rows' `notification_type` became "Comms Alarm",
+the summary line's lookup silently found zero counts for "Power Down"/
+"Sensor Error" and never looked for "Comms Alarm" at all — a real
+power_down/sensor_error row was visible in the table but its count vanished
+from the summary line above it. Fixed with a new `event_semantics.
+summary_notification_labels()` that walks the SAME collapsed label set each
+row's `notification_type` actually carries, deduplicated in config order;
+`summary_category_order()` now delegates to it. Regression tests were added
+for this exact case (`TestSummaryCategoryOrder`, `TestCallbackPresentation`
+in `tests/test_notification_service.py`; `test_summary_labels_collapse_
+power_down_and_sensor_error` in `tests/test_event_semantics.py`).
+
+`services/report_service.py` needed no change: `rtl_alarms_30d_rows` already
+calls the shared `alarm_label_for_event_type`, so REP-01's Alarm column
+picked up the BR009 alignment automatically. The dead/unused
+`AlarmEventProjection`/`alarm_event_projections` path (no production caller;
+only `services/event_semantics.py` and its own tests reference it) was also
+corrected to the same shared label, for consistency, since it remains part
+of the module's public `__all__` API.
+
+`pages/notifications.py`'s "Supported Notification Types" reference table
+(a static list of `config/notifications.py` categories, each tied to a
+distinct BR002/BR010/BR011/BR013/BR003/4/16 business rule) still lists Power
+Down and Sensor Error as separate rows deliberately — collapsing them there
+would lose the distinct BR/data-source information the table exists to show.
+A new paragraph was added explaining the BR009 collapse so a reader is not
+confused by the mismatch between that legend and the live "Comms Alarm" rows
+above it.
+
+Command Center (`services/command_center_service.py`) was audited and left
+untouched: it reads `EventSemantics.display_label` ("Power Down"/"Sensor
+Error"/"Battery Low", unchanged) and its own independent `ELECTRICAL_
+CONDITIONS` severity tuple (Critical/Warning), never `notification_category_
+key` or `alarm_label_for_event_type` — BR009 does not apply to that surface
+and nothing there could have been affected.
+
+No schema/migration change — `power_down`/`sensor_error` already carried
+enough information; only the label MAPPING changed, per the task's explicit
+preference for semantic mapping over migration.
+
+### Verification
+
+- New/focused: `tests/test_event_semantics.py` (added `TestBR009AlarmLabels`,
+  `TestTransformerNameLengthDefenseInDepth`-adjacent additions to
+  `TestBuildEventNotifications`, `summary_notification_labels` coverage) +
+  `tests/test_notification_service.py` (`TestSummaryCategoryOrder`,
+  `TestCallbackPresentation` updated/added) — all passed.
+- Regression, run together in one invocation: `tests/test_event_semantics.py`
+  + `tests/test_notification_service.py` + `tests/test_rtl_alarms_report.py`
+  + `tests/test_rtl_alarms_report_db.py` + `tests/test_report_export_db.py`
+  + `tests/test_event_consumption_db.py` + `tests/test_alarm_acknowledgement_
+  db.py` + `tests/test_device_event_ingestion_db.py` — all passed.
+- `python -m pytest -m "not db"` (full non-DB suite) — all passed, exit 0.
+- `python -m pytest -q` (full suite, DB included, against the real reset dev
+  DB) — all passed, exit 0.
+- `git diff --check` — clean. `python scripts/build_context_pack.py --check`
+  — CLEAN at gate open and close.
+- Browser verification (Playwright; Chrome extension was not connected this
+  session), against the real dev DB's existing persisted alarm events (no
+  synthetic data inserted): logged in as Administrator, opened Notification
+  Center — summary line read "... Battery Alarm 3 · Comms Alarm 4 · Startup
+  / Check-In 5 · Unregistered UID 1" (fixed; previously silently omitted
+  Comms Alarm), table showed "Comms Alarm" for every `power_down`/
+  `sensor_error` row with the specific event name preserved in Detail (e.g.
+  "Power Down — ..."), "Battery Alarm" for `battery_low`, and "Startup /
+  Check-In" never relabeled an alarm; a previously-acknowledged `power_down`
+  row still showed "Acknowledged · ..." correctly. Generated the RTL Alarms
+  (30 Days) report preview — 7 rows, Alarm column exactly `{"Battery Alarm",
+  "Comms Alarm"}`. Logged in as `demo.tech01` (assigned Technician) —
+  Notification Center correctly scoped to 2 rows (their own Battery Alarm +
+  a Startup/Check-In), acknowledged their Battery Alarm live (`Acknowledgement
+  recorded...`, row updated to `Acknowledged · <timestamp>` with the label
+  and detail unchanged), and the RTL Alarms report correctly scoped to their
+  1 assigned alarm event. Role/device scoping unaffected throughout — neither
+  `services/authorization.py` nor `services/device_scope.py` was touched.
+
+### Known ambiguity
+
+None beyond the summary-line defect above, which was found and fixed within
+this same gate before closure — not carried forward.
 
 ## FS-PROG-1 — CLOSED / PASS
 

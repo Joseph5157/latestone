@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-17T07:17:19Z
+Date: 2026-09-17T07:40:55Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `176dc49` "feat(programming): validate RTL UID and transformer name at the FS-PROG-1 service boundary"
+- `main` = `ed82a7b` "fix(alarms): align client-facing alarm labels with BR009 (FS-ALARM-1)"
 - Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3083 passed, 698 deselected in 26.48s
+- `python -m pytest -m "not db"` → 3098 passed, 698 deselected in 26.52s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 307 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 157 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 307 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 309 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 159 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 309 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
