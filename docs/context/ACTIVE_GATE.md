@@ -1,9 +1,9 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-17
-Gate: FS-BR016-1
-Commit/push permission: **GRANTED after verification.**
+Gate: NONE
+Commit/push permission: **GRANTED.**
 
 ## Task
 
@@ -33,11 +33,31 @@ manual message-forwarding controls or their authorization.
 - The retained migration table is compatibility-only and is not a client
   production feature.
 
-## Next implementation gate: FS-BR016-1 — OPEN
+## Next implementation gate: NONE
 
 ## Known ambiguities
 
 None.
+
+## FS-BR016-1 — CLOSED / PASS
+
+Implementation: `eadf85415dd49aa70a0673bd190bd8b6fa3a33c5`.
+
+BR016 now has its Functional Specification ownership boundary: the dashboard
+does not schedule, execute, or offer an Administrator override for the daily
+18:30 forwarding cutoff. That operation is explicitly RTL Master-owned. The
+manual per-user forwarding preference, its Administrator/assigned-Technician
+authorization, and General User denial remain unchanged. Legacy migration 010
+table data is retained only for backwards-compatible schemas and has no active
+product caller.
+
+Verification: 192 focused forwarding/authorization/migration tests passed;
+the full non-DB suite exited 0; `python scripts/build_context_pack.py --check`
+was clean; and browser verification passed for Administrator and an assigned
+Technician. Both roles retain the manual forwarding drawer; no Administrator
+auto-disable/override UI remains, and the drawer names the RTL Master as the
+BR016 cutoff owner. Real RTL Master execution remains a separate external
+integration item.
 
 ## FS-SCOPE-1 — CLOSED / PASS
 

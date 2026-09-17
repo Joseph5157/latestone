@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-16T12:35:35Z
+Date: 2026-09-17T06:46:12Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `9930ea3` "fix(auth): restrict general user functional access"
-- Working tree: 9 entries — see below
+- `main` = `eadf854` "fix(forwarding): assign BR016 cutoff to RTL Master"
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3083 passed, 706 deselected in 32.25s
+- `python -m pytest -m "not db"` → 3069 passed, 692 deselected, 1 warning in 32.19s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 303 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 153 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 303 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 305 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 155 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 305 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -86,6 +86,7 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 M docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md
  M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
+?? .pytest-fs-br016-final/
 ?? .pytest-fs-scope-context-guard/
 ?? .pytest-fs-scope-nondb-final/
 ?? .pytest-fs-scope-nondb-rerun/

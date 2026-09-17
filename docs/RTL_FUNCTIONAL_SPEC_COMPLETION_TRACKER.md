@@ -50,7 +50,7 @@ The Functional Specification explicitly defines an **SMS interface** for:
 | Priority | Gate | Work | Status | Dependency |
 |---|---|---|---|---|
 | P0 | `FS-SCOPE-1` | Align General User access with §5.9 | `COMPLETE` | None |
-| P0 | `FS-BR016-1` | Correct ownership of 18:30 forwarding auto-disable | `CONFLICT` | Internal / RTL Master |
+| P0 | `FS-BR016-1` | Correct ownership of 18:30 forwarding auto-disable | `COMPLETE` | RTL Master execution remains an external integration item |
 | P0 | `FS-SMS-1` | Real SMS/RTL Master integration for Program, Forwarding, Deactivate | `MISSING` | Client/RTL Master details |
 | P0 | `FS-PROG-1` | Align Program RTL fields/validation to Master MSISDN, UID, transformer name | `PARTIAL` | Internal + transport |
 | P0 | `FS-ACTIVE-1` | Startup-driven active list + real deactivation result | `PARTIAL` | RTL Master |
@@ -82,7 +82,7 @@ The Functional Specification explicitly defines an **SMS interface** for:
 | BR013 | 7 | Sensor-range error informs RTL Master | Sensor Error representation exists; physical detection external | `EXTERNAL VERIFY` | Verify real RTL/RTL Master event and application ingestion | RTL/RTL Master evidence | — |
 | BR014 | 7 | 3 erroneous readings -> stop measurements 24h | Device firmware behaviour, not dashboard logic | `EXTERNAL VERIFY` | Device/integration acceptance evidence | RTL/device firmware | — |
 | BR015 | 7 | Forward startup messages to installer phone | Forwarding state + startup semantics exist; no real SMS delivery | `PARTIAL` | Resolve registered phone + deliver startup/check-in SMS | Recipient and SMS contract | — |
-| BR016 | 8 | **RTL Master** auto-disables forwarding at 18:30 | Dashboard currently owns scheduler + admin override as internal baseline | `CONFLICT` | Remove/reclassify app ownership or obtain explicit client change; synchronize RTL Master state | Internal code + RTL Master responsibility | — |
+| BR016 | 8 | **RTL Master** auto-disables forwarding at 18:30 | Dashboard has no BR016 scheduler or Administrator override; manual forwarding remains a local, authorized preference | `COMPLETE` | Preserve the ownership boundary; real RTL Master execution remains an external integration item | RTL Master integration | `eadf854`; focused forwarding/authorization tests, full non-DB suite, browser verification |
 
 ### Current code evidence for the table above
 
@@ -92,7 +92,6 @@ The Functional Specification explicitly defines an **SMS interface** for:
 - `services/rtl_programming_service.py`
 - `services/rtl_command_dispatch_service.py`
 - `services/message_forwarding_service.py`
-- `services/forwarding_auto_disable_service.py`
 - `services/rtl_deactivation_service.py`
 - `services/notification_service.py`
 - `services/event_semantics.py`
@@ -260,3 +259,4 @@ Append one row after every successful gate. Never delete previous entries.
 | 2026-09-16 | Initial audit baseline | Tracker created from authoritative Functional Specification vs current `main` | — | Functional Specification + GitHub inspection | No application code changed |
 | 2026-09-16 | FS-TRACKER-ADOPT-1 | Tracker authority adopted; BR012 and ACTIVE-01 corrected to `PARTIAL`; General User/BR016 conflicts confirmed | `7d684e0` | 17 focused context tests passed; context-pack structural check clean | Documentation/context only; no application/runtime change |
 | 2026-09-16 | FS-SCOPE-1 | `FS-SCOPE-1`; General User §5.9 role scope | `9930ea3` | 297 focused authorization/navigation/action tests; 3,083 non-DB tests; General User desktop browser verification | Notifications, Command Center and Command Center Locations are denied by trusted-session route policy and absent from General User navigation; report/export remains available |
+| 2026-09-17 | FS-BR016-1 | `FS-BR016-1`; BR016 ownership | `eadf854` | 192 focused forwarding/authorization/migration tests; full non-DB suite exit 0; Administrator and Technician browser verification | Dashboard scheduler and Administrator override removed; manual per-user preference and Admin/Technician authorization retained. Real RTL Master cutoff execution remains external integration work. |
