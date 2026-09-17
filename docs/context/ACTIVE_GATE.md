@@ -1,10 +1,10 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-17
-Gate: CLIENT-FEEDBACK-NODATA-1
-Commit/push permission: **GRANTED** (implementation commit, closure-doc commit,
-push, and remote verification required by this gate).
+Gate: NONE
+Commit/push permission: **GRANTED and exercised** (implementation commit,
+closure-doc commit, push, and remote verification required by this gate).
 
 ## Task
 
@@ -53,9 +53,28 @@ changes only headline hierarchy, explanatory copy and visual emphasis.
 
 ## Implementation and verification
 
-In progress.
+Implementation: `40b755e09325855f326facb5117c52bba1c5f83a`.
 
-## Next implementation gate: CLIENT-FEEDBACK-NODATA-1 — OPEN / IN PROGRESS
+- Communication now headlines complete metric coverage; its unchanged No Data
+  count, share and affected-Plant count sit under explicit supporting detail.
+- Needs Attention remains Stale + No Data and exposes that unchanged split as
+  supporting freshness detail. Fleet Health retains every state/count.
+- Priority Investigation retains ADR-009's service population and No
+  Data-before-Stale order. Its subtitle and No Data colour no longer make that
+  state a primary headline; textual badges/reasons remain explicit.
+- The monitoring service, command-center service, notification service,
+  thresholds, DeviceScope and drill-down callbacks were not modified.
+- Focused Command Center/freshness/notification suite: 231 passed.
+- Full non-DB suite: 3133 passed, 699 deselected.
+- Browser: Administrator retained 120 RTLs; assigned Technician retained 24.
+  Both displayed No Data supporting detail and freshness investigation links.
+  Administrator Power Down/Battery Low showed 3 scoped RTLs each; Technician
+  showed scoped zero-result Power Down and Battery Low RTL `29005`.
+- `python scripts/build_context_pack.py --check` and `git diff --check` clean.
+
+No Functional Specification tracker status changed.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 

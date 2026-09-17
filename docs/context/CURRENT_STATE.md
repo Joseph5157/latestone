@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-17T09:49:02Z
+Date: 2026-09-17T09:56:54Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `5f070a7` "docs(context): close client feedback drill-down gate"
+- `main` = `40b755e` "feat(command-center): reduce no-data visual prominence"
 - Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3128 passed, 699 deselected in 32.10s
+- `python -m pytest -m "not db"` → 3133 passed, 699 deselected in 32.11s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 316 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 166 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 316 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 317 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 167 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 317 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -78,13 +78,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CLIENT-FEEDBACK-NODATA-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
+M docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md
+ M docs/context/ACTIVE_GATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

@@ -93,7 +93,7 @@ that it violates the Functional Specification.
 | 5.5 | Priority Locations / Selected Location should support investigation | EXPLICIT CLIENT MEETING REQUEST | Affected-location rows select a Plant via query string; Selected Location links to Plant and Transformer pages | ALREADY IMPLEMENTED | `components/command_center/affected_locations.py:64-90,175-227`; `components/command_center/selected_location.py:49-110`; `routes.py:239-260` | Low | Improve wording only if usability testing finds selection unclear | No |
 | 5.6 | Recent Operational Events should drill into an RTL | EXPLICIT CLIENT MEETING REQUEST | Resolved device events have “Open asset” links and the panel links to Notification Center; unregistered/unresolved events correctly have no fake device route | ALREADY IMPLEMENTED | `components/command_center/recent_events.py:48,111-184`; `tests/test_command_center_recent_events_panel.py:125-155,207-213` | Low | Retain; optionally expose explicit event filters in Notification Center | No |
 | 5.7 | Command Center drill-down behavior should be obvious and fully tested | CLIENT QUESTION / OBSERVATION | Condition buttons expose an action cue, active `aria-pressed` state and a labelled affected-RTL panel; focused tests cover filtering, switching, zero results, scope, semantics and RTL navigation, with Administrator/Technician browser evidence | ALREADY IMPLEMENTED | `assets/app.css`; `tests/test_command_center_condition_drilldown.py`; implementation `d543b1b` | Low | Preserve interaction and browser acceptance coverage | No |
-| 6.1 | No Data should not be a primary operational condition | EXPLICIT CLIENT MEETING REQUEST | It is a Fleet Health row, a full Communication KPI, part of Needs Attention, and first in Priority Investigation ordering | CONFLICTS WITH CLIENT FEEDBACK | `components/command_center/situation_summary.py:55-138`; `components/command_center/priority.py:24-32`; `services/command_center_service.py:409-416,474-512` | Medium: visual hierarchy differs from client expectation | De-emphasize presentation only; retain freshness truth and BR008 rule | No if semantics remain unchanged |
+| 6.1 | No Data should not be a primary operational condition | EXPLICIT CLIENT MEETING REQUEST | Communication now leads with complete metric coverage; Stale and No Data are explicitly labelled supporting freshness/investigation detail; the Priority headline no longer promotes No Data. No Data remains visible in Fleet Health and every matching Priority row | ALREADY IMPLEMENTED | `components/command_center/situation_summary.py`; `components/command_center/priority.py`; `assets/app.css`; implementation `40b755e` | Low: future styling must not hide the supporting state | Preserve the presentation hierarchy and semantic regression tests | No |
 | 6.2 | Retain No Data as investigation/report/notification information | FUNCTIONAL SPEC REQUIREMENT | Freshness No Data remains a monitoring state; `>24h No Data` is a Notification Center rule; it is not a formal alarm report row | ALREADY IMPLEMENTED | `services/monitoring_service.py:32-45,249-264`; `services/notification_service.py:19-21,50-109`; `services/report_service.py:213-215,2583-2584` | High if removed globally | Keep state and BR008; adjust only placement/weighting | No |
 | 7.1 | Notification Center should show latest actual notifications | EXPLICIT CLIENT MEETING REQUEST | It merges derived BR008 rows with real persisted `device_events`, newest first; it is not a persisted notification-delivery inbox | PARTIALLY IMPLEMENTED | `services/notification_service.py:139-192`; `callbacks/notifications.py:157-163`; `pages/notifications.py:45-68` | High ambiguity around “actual notification” (source event vs delivered message) | Ask whether client means device events, generated in-app notices, or SMS/email delivery receipts | Yes |
 | 7.2 | Avoid placeholder/demo-only notification rows | CLIENT QUESTION / OBSERVATION | Main table is data-backed; page explicitly states derivation. No hard-coded notification rows are shown | ALREADY IMPLEMENTED | `pages/notifications.py:45-100`; `callbacks/notifications.py:151-173` | Low | Retain provenance copy; remove “prototype” language in a separate copy-only cleanup if still present | No |
@@ -226,21 +226,26 @@ closure semantics.
 
 ### No Data
 
-No Data currently has strong operational weight:
+Implementation `40b755e` reduced No Data's Command Center visual weight without
+changing its meaning:
 
-- primary composition row in Fleet Health;
-- standalone primary Communication card;
-- one half of Needs Attention;
-- highest priority in the device investigation list;
+- Fleet Health keeps exact Fresh/Stale/No Data counts, with Stale and No Data
+  styled as supporting rows;
+- Communication now headlines complete metric reporting coverage and places No
+  Data count/share/affected plants under an explicit supporting-detail label;
+- Needs Attention remains the primary Stale + No Data total and exposes both
+  constituent counts as supporting freshness detail;
+- Priority Investigation retains ADR-009's No Data-before-Stale service order,
+  but its headline now describes freshness exceptions rather than promoting No
+  Data; every No Data row retains its textual badge and explanation;
 - affected-location and selected-location composition;
 - Fleet Overview condition, coverage and freshness panels;
 - formal `>24h No Data` Notification Center rule.
 
-The meeting preference conflicts with that **presentation hierarchy**, but not
-with retaining the underlying state. BR008 still requires `>24h` notification
-behavior, and current freshness must continue to distinguish no reading from an
-old reading. A safe change can de-emphasize the Command Center card and rank
-without deleting No Data, changing BR008, or calling it an electrical alarm.
+The meeting preference is now reflected in the Command Center presentation.
+Freshness classification, attention and communication totals, ADR-009 ordering,
+DeviceScope, drill-down behavior, and BR008's independent `>24h` rule are
+unchanged. Fleet Overview remains outside this presentation-only gate.
 
 ### Notification Center
 
@@ -406,10 +411,9 @@ Wait for confirmation before implementing:
    Needs Attention/Communication anchors or filters to Priority Investigation;
    clarify actionable links; add interaction and Technician-scope tests. No
    domain or schema change.
-2. **CLIENT-FEEDBACK-NODATA-1 — presentation weighting.** De-emphasize No Data
-   as a primary Command Center condition while preserving all freshness and
-   BR008 semantics. Keep this separate so screenshots and acceptance can focus
-   on visual/operational hierarchy.
+2. **CLIENT-FEEDBACK-NODATA-1 — COMPLETED (`40b755e`).** No Data is supporting
+   Command Center investigation detail while all freshness, scope, drill-down,
+   ADR-009 ordering and BR008 semantics remain unchanged.
 3. **CLIENT-FEEDBACK-ENTRY-1 — role-aware landing.** After client confirmation,
    change entry route/navigation with explicit Administrator, Technician and
    General User acceptance tests.
