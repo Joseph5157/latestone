@@ -6,6 +6,14 @@ Each category specifies whether current frontend data supports derivation.
 
 These are schema/definition definitions only. No event data is fabricated.
 The backend notification service, when available, must populate these categories.
+
+FS-ALARM-1 / BR009: a category's ``label`` here is its own descriptive
+identity (used for bucketing, ordering and the summary line) — it is NOT
+automatically the alarm's client-facing notification text. BR009 governs
+only two client-facing alarm labels ("Battery Alarm" / "Comms Alarm"); that
+narrower mapping lives in ``services/event_semantics.py``
+(``EventSemantics.alarm_notification_label``), which a ``power_down``/
+``sensor_error`` row now resolves to instead of this category's own label.
 """
 from __future__ import annotations
 

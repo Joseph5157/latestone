@@ -146,8 +146,11 @@ class TestColumnMapping:
 
         rows = rtl_alarms_30d_rows(device_scope=SCOPE, now=NOW)
 
+        # BR009 (FS-ALARM-1): power_down and sensor_error both resolve to
+        # the client-facing "Comms Alarm" label, distinct from Battery Alarm.
         labels = {r.alarm_label for r in rows}
-        assert labels == {"Battery Alarm", "Power Down", "Sensor Error"}
+        assert labels == {"Battery Alarm", "Comms Alarm"}
+        assert len(rows) == 3  # still one row per underlying alarm EVENT
 
     def test_taxonomy_fields_are_actual_none(self, capture_repo):
         _, records = capture_repo

@@ -31,7 +31,7 @@ from config.events import (
     EVENT_TYPE_SENSOR_ERROR,
     EVENT_TYPE_STARTUP,
 )
-from config.notifications import get_category
+from config.notifications import all_categories, get_category
 from routes import device_href
 from services.notification_service import NotificationRow
 
@@ -62,6 +62,17 @@ NOTIFICATION_QUERY_LIMIT = 500
 #: surface is a development-scope default pending a client answer.
 UNREGISTERED_NOTIFICATION_TYPE = "Unregistered UID"
 
+#: BR009 (FS-ALARM-1) — the Functional Specification's ONLY two
+#: client-facing alarm labels: "Low battery notification is Battery Alarm;
+#: other alarms are sent as Comms Alarm". A reportable-alarm type's
+#: ``alarm_notification_label`` must be exactly one of these two strings.
+#: This is deliberately a SEPARATE concept from ``notification_category_key``
+#: (config/notifications.py): the category still distinguishes power_down
+#: from sensor_error for bucketing/ordering/summary purposes — BR009 only
+#: governs the single label text shown as the alarm's client-facing name.
+BR009_BATTERY_ALARM_LABEL = "Battery Alarm"
+BR009_COMMS_ALARM_LABEL = "Comms Alarm"
+
 
 @dataclass(frozen=True)
 class EventSemantics:
@@ -82,6 +93,11 @@ class EventSemantics:
     #: Defaulted so an unmapped type stays inert; every mapped type supplies
     #: one and a test enforces that.
     display_label: str | None = None
+    #: BR009 (FS-ALARM-1): the client-facing alarm label — one of
+    #: BR009_BATTERY_ALARM_LABEL / BR009_COMMS_ALARM_LABEL — for a
+    #: reportable-alarm type only. None for every non-alarm type
+    #: (startup/check-in, invalid UID): BR009 governs alarms, not those.
+    alarm_notification_label: str | None = None
 
 
 _SEMANTICS: dict[str, EventSemantics] = {
@@ -90,18 +106,21 @@ _SEMANTICS: dict[str, EventSemantics] = {
         is_reportable_alarm=True,
         forwarding_relevant=False,
         display_label="Battery Low",
+        alarm_notification_label=BR009_BATTERY_ALARM_LABEL,
     ),
     EVENT_TYPE_POWER_DOWN: EventSemantics(
         notification_category_key=CATEGORY_POWER_DOWN,
         is_reportable_alarm=True,
         forwarding_relevant=False,
         display_label="Power Down",
+        alarm_notification_label=BR009_COMMS_ALARM_LABEL,
     ),
     EVENT_TYPE_SENSOR_ERROR: EventSemantics(
         notification_category_key=CATEGORY_SENSOR_ERROR,
         is_reportable_alarm=True,
         forwarding_relevant=False,
         display_label="Sensor Error",
+        alarm_notification_label=BR009_COMMS_ALARM_LABEL,
     ),
     EVENT_TYPE_STARTUP: EventSemantics(
         notification_category_key=CATEGORY_STARTUP_CHECKIN,
@@ -173,21 +192,53 @@ def _category_label(category_key: str) -> str:
     return category.label
 
 
-def alarm_label_for_event_type(event_type: str) -> str:
-    """The report-facing alarm label for one event type (R3-D5).
+def summary_notification_labels() -> tuple[str, ...]:
+    """The distinct client-facing labels the Notification Center summary
+    line walks, in config category order (BR009 / FS-ALARM-1).
 
-    Single-sourced through the same semantics → category mapping as
-    notifications, so report code never spells out "Battery Alarm" etc.
-    itself. Raises for non-alarm types — callers must have filtered via
-    ``is_reportable_alarm`` first.
+    BR009 collapses ``power_down``'s and ``sensor_error``'s category labels
+    into one shared "Comms Alarm" ``notification_type`` — walking the raw
+    per-category label list (as ``config.notifications.all_categories``
+    alone would) makes those rows' counts silently vanish from the summary
+    line, since no row's ``notification_type`` is "Power Down" or "Sensor
+    Error" any more even though the table still shows them. This walks the
+    SAME collapsed label each row actually carries, deduplicated at the
+    first category position it appears (``power_down`` precedes
+    ``sensor_error`` in config order, so "Comms Alarm" appears once there).
+    """
+    labels: list[str] = []
+    for category in all_categories():
+        label = category.label
+        for semantics in _SEMANTICS.values():
+            if (
+                semantics.notification_category_key == category.key
+                and semantics.is_reportable_alarm
+                and semantics.alarm_notification_label
+            ):
+                label = semantics.alarm_notification_label
+                break
+        if label not in labels:
+            labels.append(label)
+    return tuple(labels)
+
+
+def alarm_label_for_event_type(event_type: str) -> str:
+    """The report- and notification-facing alarm label for one event type
+    (R3-D5, BR009).
+
+    Single-sourced through ``EventSemantics.alarm_notification_label``, so
+    report/notification code never spells out "Battery Alarm"/"Comms Alarm"
+    itself. This is BR009's exact two-way split — "Low battery notification
+    is Battery Alarm; other alarms are sent as Comms Alarm" — NOT the
+    broader notification_category_key used for bucketing (power_down and
+    sensor_error remain distinct categories/rows; only their client-facing
+    alarm label text collapses to "Comms Alarm"). Raises for non-alarm
+    types — callers must have filtered via ``is_reportable_alarm`` first.
     """
     semantics = semantics_for(event_type)
-    if (
-        not semantics.is_reportable_alarm
-        or semantics.notification_category_key is None
-    ):
+    if not semantics.is_reportable_alarm or semantics.alarm_notification_label is None:
         raise ValueError(f"{event_type!r} is not a reportable alarm type.")
-    return _category_label(semantics.notification_category_key)
+    return semantics.alarm_notification_label
 
 
 def reportable_alarm_event_types() -> tuple[str, ...]:
@@ -197,6 +248,17 @@ def reportable_alarm_event_types() -> tuple[str, ...]:
         for event_type, semantics in _SEMANTICS.items()
         if semantics.is_reportable_alarm
     )
+
+
+def _client_notification_label(semantics: EventSemantics, category_key: str) -> str:
+    """BR009: an alarm-backed row is named by the Functional Specification's
+    two allowed labels (Battery Alarm / Comms Alarm); a non-alarm row
+    (startup/check-in) keeps its own descriptive category name — BR009
+    governs alarms only, and item 6 forbids ever calling a check-in one.
+    """
+    if semantics.is_reportable_alarm and semantics.alarm_notification_label:
+        return semantics.alarm_notification_label
+    return _category_label(category_key)
 
 
 def build_event_notifications(
@@ -214,6 +276,13 @@ def build_event_notifications(
     report. Unregistered UIDs have no device, so their stable key uses the
     normalized reported_uid instead — unknown UIDs are never collapsed
     into one global row.
+
+    BR009 (FS-ALARM-1): bucketing stays keyed per underlying category
+    (``power_down``/``sensor_error`` never merge into one row, or into
+    ``battery_alarm``), so no operational distinction is lost — only the
+    row's displayed ``notification_type`` text follows BR009's two-way
+    split for a reportable-alarm type. The event's own detailed name
+    (e.g. "Power Down") is preserved in ``detail`` instead.
     """
 
     @dataclass
@@ -251,12 +320,13 @@ def build_event_notifications(
             if category_key is None:
                 continue          # inert type: persisted, never rendered
             key = f"{category_key}:{event.device_id}"
+            client_label = _client_notification_label(semantics, category_key)
             bucket = _Bucket(
-                label=_category_label(category_key),
+                label=client_label,
                 entity_id=event.device_id,
                 entity_label=event.device_id,
                 href=device_href(event.device_id),
-                notification_type=_category_label(category_key),
+                notification_type=client_label,
                 latest=event,
             )
             entity_type = "Device"
@@ -278,10 +348,16 @@ def build_event_notifications(
     for key in sorted(buckets):
         b = buckets[key]
         latest_ts = b.latest.event_ts
+        latest_semantics = semantics_for(b.latest.event_type)
         detail = (
             f"{b.count} event(s); "
             f"latest {latest_ts.strftime('%Y-%m-%d %H:%M UTC')}"
         )
+        if latest_semantics.is_reportable_alarm:
+            # BR009 collapsed power_down/sensor_error's headline label to
+            # "Comms Alarm" — the event's own specific name still appears
+            # here so no operational detail is lost (task item 4).
+            detail = f"{display_label_for(b.latest.event_type)} — {detail}"
         if b.battery_voltage is not None:
             detail += f"; battery {b.battery_voltage:.2f} V"
         rows.append(
@@ -374,7 +450,7 @@ def alarm_event_projections(
             AlarmEventProjection(
                 transformer_id=event.transformer_id or "",
                 uid=getattr(record, "device_code", None),
-                alarm_label=_category_label(semantics.notification_category_key),
+                alarm_label=alarm_label_for_event_type(event.event_type),
                 alarm_at=event.event_ts,
                 temperature=event.temperature,
                 battery_voltage=event.battery_voltage,
@@ -399,4 +475,5 @@ __all__ = [
     "notification_backed_event_types",
     "reportable_alarm_event_types",
     "semantics_for",
+    "summary_notification_labels",
 ]

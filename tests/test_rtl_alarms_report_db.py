@@ -122,9 +122,9 @@ class TestAlarmInclusionAndHorizon:
 
         rows = _rows()
 
-        assert {r.alarm_label for r in rows} == {
-            "Battery Alarm", "Power Down", "Sensor Error",
-        }
+        # BR009 (FS-ALARM-1): power_down/sensor_error share the "Comms
+        # Alarm" client-facing label; battery_low stays "Battery Alarm".
+        assert {r.alarm_label for r in rows} == {"Battery Alarm", "Comms Alarm"}
         assert len(rows) == 3
 
     def test_thirty_day_horizon_boundary(self):

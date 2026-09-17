@@ -101,7 +101,8 @@ class TestAlarmsExportEndToEnd:
         parsed = _parse(format_csv(doc))
 
         assert len(parsed) == 1 + len(rows)          # header + one per event
-        assert {parsed[1][10], parsed[2][10]} == {"Battery Alarm", "Power Down"}
+        # BR009 (FS-ALARM-1): power_down exports as "Comms Alarm".
+        assert {parsed[1][10], parsed[2][10]} == {"Battery Alarm", "Comms Alarm"}
 
     def test_empty_scope_exports_header_only(self):
         """An unassigned technician sees nothing — and exports exactly a

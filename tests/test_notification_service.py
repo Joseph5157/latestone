@@ -374,9 +374,13 @@ class TestSummaryCategoryOrder:
         from services.notification_service import summary_category_order
 
         order = summary_category_order()
-        assert order == tuple(
-            c.label for c in all_categories()
-        ) + ("Unregistered UID",)
+        # BR009 (FS-ALARM-1): power_down/sensor_error collapse to one
+        # "Comms Alarm" slot — not the raw per-category label list — or a
+        # real row's count would silently vanish from the summary line.
+        assert order == (
+            ">24h No Data", "Battery Alarm", "Comms Alarm",
+            "Startup / Check-In", "Message Forwarding", "Unregistered UID",
+        )
 
     def test_order_does_not_depend_on_counts(self):
         from services.notification_service import summary_category_order
@@ -390,19 +394,26 @@ class TestSummaryCategoryOrder:
 
 class TestCallbackPresentation:
     def test_summary_line_is_text_first_in_config_order(self):
+        """BR009 (FS-ALARM-1): the real pipeline's by_type dict carries
+        "Comms Alarm" (never "Power Down"/"Sensor Error" — those labels no
+        longer appear as any row's notification_type), so the summary must
+        be exercised with that same collapsed key, in config order."""
         from callbacks.notifications import format_summary_line
 
         line = format_summary_line(
-            8,
-            {">24h No Data": 3, "Battery Alarm": 2, "Power Down": 1,
-             "Sensor Error": 1, "Startup / Check-In": 1},
+            7,
+            {">24h No Data": 3, "Battery Alarm": 2, "Comms Alarm": 1,
+             "Startup / Check-In": 1},
         )
-        assert line.startswith("8 current notifications")
-        labels = [c.label for c in all_categories() if c.label in line]
-        assert labels == [c.label for c in all_categories()
-                          if c.label in {">24h No Data", "Battery Alarm",
-                                         "Power Down", "Sensor Error",
-                                         "Startup / Check-In"}]
+        assert line.startswith("7 current notifications")
+        assert "Comms Alarm 1" in line
+        assert "Power Down" not in line
+        assert "Sensor Error" not in line
+        assert (
+            line.index("Battery Alarm")
+            < line.index("Comms Alarm")
+            < line.index("Startup / Check-In")
+        )
 
     def test_summary_line_omits_zero_count_categories(self):
         from callbacks.notifications import format_summary_line

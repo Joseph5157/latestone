@@ -169,6 +169,76 @@ class TestMapping:
 
 
 # ---------------------------------------------------------------------------
+# FS-ALARM-1 / BR009 — the two-way client-facing alarm label split
+# ---------------------------------------------------------------------------
+
+
+class TestBR009AlarmLabels:
+    """BR009: 'Low battery notification is Battery Alarm; other alarms are
+    sent as Comms Alarm.' Exactly two client-facing alarm labels exist."""
+
+    def test_battery_low_is_battery_alarm(self):
+        assert sem.alarm_label_for_event_type(EVENT_TYPE_BATTERY_LOW) == "Battery Alarm"
+
+    def test_power_down_is_comms_alarm(self):
+        assert sem.alarm_label_for_event_type(EVENT_TYPE_POWER_DOWN) == "Comms Alarm"
+
+    def test_sensor_error_is_comms_alarm(self):
+        assert sem.alarm_label_for_event_type(EVENT_TYPE_SENSOR_ERROR) == "Comms Alarm"
+
+    def test_only_two_labels_exist_across_every_reportable_alarm_type(self):
+        labels = {
+            sem.alarm_label_for_event_type(t)
+            for t in sem.reportable_alarm_event_types()
+        }
+        assert labels == {"Battery Alarm", "Comms Alarm"}
+
+    def test_underlying_event_type_remains_distinguishable_from_the_label(self):
+        """BR009 collapses the LABEL, never the underlying persisted fact:
+        power_down and sensor_error still have their own display_label and
+        their own notification_category_key."""
+        assert sem.display_label_for(EVENT_TYPE_POWER_DOWN) == "Power Down"
+        assert sem.display_label_for(EVENT_TYPE_SENSOR_ERROR) == "Sensor Error"
+        assert (
+            sem.semantics_for(EVENT_TYPE_POWER_DOWN).notification_category_key
+            == "power_down"
+        )
+        assert (
+            sem.semantics_for(EVENT_TYPE_SENSOR_ERROR).notification_category_key
+            == "sensor_error"
+        )
+
+    def test_non_alarm_types_raise_rather_than_invent_a_label(self):
+        for event_type in (EVENT_TYPE_STARTUP, EVENT_TYPE_CHECK_IN, EVENT_TYPE_INVALID_UID):
+            with pytest.raises(ValueError):
+                sem.alarm_label_for_event_type(event_type)
+
+    def test_summary_labels_collapse_power_down_and_sensor_error(self):
+        """Regression: the summary line must walk the SAME collapsed label
+        each row's notification_type actually carries, or a power_down/
+        sensor_error row's count silently vanishes from the summary while
+        still appearing in the table (caught in browser verification)."""
+        labels = sem.summary_notification_labels()
+        assert "Comms Alarm" in labels
+        assert "Power Down" not in labels
+        assert "Sensor Error" not in labels
+        assert labels.count("Comms Alarm") == 1   # never duplicated
+        assert "Battery Alarm" in labels
+        assert "Startup / Check-In" in labels      # non-alarm label untouched
+
+    def test_summary_labels_preserve_config_category_order(self):
+        from config.notifications import all_categories
+
+        labels = sem.summary_notification_labels()
+        # >24h No Data, then Battery Alarm, then Comms Alarm (power_down's
+        # slot — sensor_error's later slot is where the dedupe drops out).
+        config_order = [c.label for c in all_categories()]
+        assert labels[0] == config_order[0]
+        assert labels[1] == "Battery Alarm"
+        assert labels[2] == "Comms Alarm"
+
+
+# ---------------------------------------------------------------------------
 # EVT-D8/D9 — notification derivation and collapsing
 # ---------------------------------------------------------------------------
 
@@ -213,6 +283,63 @@ class TestBuildEventNotifications:
         assert len(rows) == 1
         assert rows[0].key == "startup_checkin:d1"
         assert rows[0].notification_type == "Startup / Check-In"
+
+    def test_startup_checkin_is_never_relabelled_as_an_alarm(self):
+        """Task item 6: BR009 governs alarms only — a check-in is never a
+        'Comms Alarm' regardless of how the alarm-label collapse works."""
+        rows = sem.build_event_notifications(
+            [FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_CHECK_IN)]
+        )
+        assert rows[0].notification_type not in ("Battery Alarm", "Comms Alarm")
+        assert rows[0].event_id is None            # non-alarm: no ack lifecycle
+        assert rows[0].acknowledgement_state is None
+
+    def test_power_down_notification_type_is_comms_alarm_per_br009(self):
+        rows = sem.build_event_notifications(
+            [FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_POWER_DOWN)]
+        )
+        assert rows[0].notification_type == "Comms Alarm"
+
+    def test_sensor_error_notification_type_is_comms_alarm_per_br009(self):
+        rows = sem.build_event_notifications(
+            [FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_SENSOR_ERROR)]
+        )
+        assert rows[0].notification_type == "Comms Alarm"
+
+    def test_battery_low_notification_type_is_battery_alarm(self):
+        rows = sem.build_event_notifications(
+            [FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_BATTERY_LOW)]
+        )
+        assert rows[0].notification_type == "Battery Alarm"
+
+    def test_power_down_and_sensor_error_share_a_label_but_not_a_row(self):
+        """BR009 collapses the LABEL text only; the two alarm types must
+        still produce two distinct, separately-acknowledgeable rows."""
+        events = [
+            FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_POWER_DOWN),
+            FakeEvent(event_id=2, device_id="d1", event_type=EVENT_TYPE_SENSOR_ERROR),
+        ]
+        rows = sem.build_event_notifications(events)
+        assert {r.key for r in rows} == {"power_down:d1", "sensor_error:d1"}
+        assert all(r.notification_type == "Comms Alarm" for r in rows)
+
+    def test_comms_alarm_detail_still_names_the_specific_underlying_event(self):
+        """Task item 4: 'Power Down' must remain visible as detail even
+        though the headline notification label now reads Comms Alarm."""
+        power_down_row = sem.build_event_notifications(
+            [FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_POWER_DOWN)]
+        )[0]
+        sensor_error_row = sem.build_event_notifications(
+            [FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_SENSOR_ERROR)]
+        )[0]
+        assert power_down_row.detail.startswith("Power Down — ")
+        assert sensor_error_row.detail.startswith("Sensor Error — ")
+
+    def test_battery_alarm_detail_also_names_its_specific_event(self):
+        row = sem.build_event_notifications(
+            [FakeEvent(event_id=1, device_id="d1", event_type=EVENT_TYPE_BATTERY_LOW)]
+        )[0]
+        assert row.detail.startswith("Battery Low — ")
 
     def test_battery_voltage_displayed_but_never_classifies(self):
         """EVT-D4: voltage is display payload; the row exists because the
@@ -335,12 +462,13 @@ class TestAlarmEventProjections:
 
     def test_payload_measurements_carry_no_classification_power(self):
         """A sensor_error with a perfectly normal temperature still
-        projects as Sensor Error — the type IS the classification."""
+        projects as an alarm — the type IS the classification, regardless
+        of the reading. BR009: its client-facing label is Comms Alarm."""
         p = sem.alarm_event_projections(
             [FakeEvent(event_id=1, device_id="d1", transformer_id="t1",
                        event_type=EVENT_TYPE_SENSOR_ERROR, temperature=21.0)]
         )[0]
-        assert p.alarm_label == "Sensor Error"
+        assert p.alarm_label == "Comms Alarm"
 
     def test_projection_is_bounded_by_the_rep01_thirty_day_horizon(self):
         """EVT-D6: the ONLY 30-day bound lives here — the alarm report."""

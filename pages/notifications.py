@@ -125,6 +125,15 @@ def layout() -> html.Div:
                         "backend integration.",
                         className="notification-section__desc",
                     ),
+                    html.P(
+                        "Per BR009, Power Down and Sensor Error alarms both appear "
+                        "in the table above under the client-facing label "
+                        "“Comms Alarm”; only Battery Alarm keeps its own "
+                        "label. The two conditions below remain listed separately "
+                        "here because their underlying business rules (BR002/BR011 "
+                        "and BR013) and data sources differ.",
+                        className="notification-section__desc",
+                    ),
                     # Supported types table
                     html.Div(
                         id="supported-types-container",

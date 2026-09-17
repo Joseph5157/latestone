@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from config.notifications import CATEGORIES, all_categories, derivable_categories
+from config.notifications import CATEGORIES, derivable_categories
 from services.monitoring_service import Freshness, evaluate_freshness
 from routes import device_href
 
@@ -228,9 +228,17 @@ def summary_category_order() -> tuple[str, ...]:
     (ENT-4 gate decision): the sequence is the spec-frozen category order
     from config, and the admin-only quarantine surface reads last when
     present.
-    """
-    from services.event_semantics import UNREGISTERED_NOTIFICATION_TYPE
 
-    return tuple(c.label for c in all_categories()) + (
+    FS-ALARM-1 / BR009: delegates to ``event_semantics.summary_notification_
+    labels`` rather than reading category labels directly, because a
+    ``power_down``/``sensor_error`` row's actual ``notification_type`` is
+    now the collapsed "Comms Alarm" label (BR009) — walking the raw
+    per-category label list here would silently drop those counts from the
+    summary line while the table still shows the rows.
+    """
+    from services.event_semantics import (
         UNREGISTERED_NOTIFICATION_TYPE,
+        summary_notification_labels,
     )
+
+    return summary_notification_labels() + (UNREGISTERED_NOTIFICATION_TYPE,)
