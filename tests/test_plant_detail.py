@@ -299,7 +299,7 @@ class TestBuildPlantDetailViewQueryCounts:
 
 
 class TestBuildPlantDetailViewContent:
-    def test_context_carries_country_fuel_capacity_and_counts(self, monkeypatch):
+    def test_context_carries_operational_fields_without_generation_metadata(self, monkeypatch):
         from repositories import plant_monitoring_repository as repo
 
         _stub_hierarchy(
@@ -314,11 +314,12 @@ class TestBuildPlantDetailViewContent:
         result = build_plant_detail_view("p1", NOW, scope=UNRESTRICTED)
         assert result["context_fields"] == [
             ("Country", "Brazil"),
-            ("Primary fuel", "Hydro"),
-            ("Capacity", "450 MW"),
             ("Transformers", 2),
             ("Devices", 3),
         ]
+        labels = {label for label, _value in result["context_fields"]}
+        assert "Primary fuel" not in labels
+        assert "Capacity" not in labels
 
     def test_metric_health_covers_all_eight_configured_metrics(self, monkeypatch):
         from repositories import plant_monitoring_repository as repo
@@ -329,29 +330,6 @@ class TestBuildPlantDetailViewContent:
 
         result = build_plant_detail_view("p1", NOW, scope=UNRESTRICTED)
         assert len(result["metric_health_items"]) == 8
-
-    def test_capacity_formats_a_decimal_column_value_without_a_trailing_zero(self, monkeypatch):
-        """`capacity_mw` is a NUMERIC column: psycopg2 hands back a
-        `decimal.Decimal`, not a `float`. `f"{Decimal('5805.0'):g}"` renders
-        "5805.0" (it preserves the column's stored scale); the Fleet table's
-        own numeric cell for this same value renders "5805" — this must
-        match that, not the Decimal's raw scale. Caught live in the browser,
-        not just reasoned about."""
-        from decimal import Decimal
-
-        from repositories import plant_monitoring_repository as repo
-
-        _stub_hierarchy(
-            monkeypatch,
-            plant=_PlantRecord("p1", "Az Zour South CCGT", capacity_mw=Decimal("5805.0")),
-            transformers=[],
-        )
-        monkeypatch.setattr(repo, "latest_reading_times", lambda metrics, *, allowed_device_ids=None, include_inactive=False: [])
-        monkeypatch.setattr(repo, "latest_metric_readings", lambda metric, **kw: [])
-
-        result = build_plant_detail_view("p1", NOW, scope=UNRESTRICTED)
-        capacity_field = dict(result["context_fields"])["Capacity"]
-        assert capacity_field == "5805 MW"
 
     def test_existing_transformer_table_rows_still_populate(self, monkeypatch):
         from repositories import plant_monitoring_repository as repo

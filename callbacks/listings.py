@@ -46,10 +46,6 @@ DEVICE_LINK_COLUMN = "device"
 PLANT_COLUMNS = [
     {"name": "Plant", "id": "plant"},
     {"name": "Country", "id": "country"},
-    {"name": "Fuel", "id": "fuel"},
-    # Numeric so native sorting orders 900 < 1,000 < 12,000 instead of sorting
-    # the formatted strings lexically. The unit lives in the header.
-    {"name": "Capacity (MW)", "id": "capacity_mw", "type": "numeric"},
     {"name": "Transformers", "id": "transformers", "type": "numeric"},
     {"name": "Devices", "id": "devices", "type": "numeric"},
     # Data-delivery freshness only, never an electrical condition (§21).
@@ -105,8 +101,6 @@ def build_plant_rows(plants, counts: dict, health) -> list[dict]:
             "id": p.plant_id,
             "plant": p.name,
             "country": p.country,
-            "fuel": p.primary_fuel or "",
-            "capacity_mw": p.capacity_mw,
             "transformers": t_count,
             "devices": d_count,
             "freshness": rollup.label("devices"),
@@ -622,23 +616,6 @@ def administration_section(rendered_at: datetime):
 # depend on becomes directly testable without the Dash callback machinery.
 # --------------------------------------------------------------------------
 
-def _format_capacity_mw(value) -> str | None:
-    """Same raw figure the Fleet/Plant table's numeric "Capacity (MW)" column
-    carries, with the unit restated — Entity Context has no column header to
-    carry it.
-
-    `value` arrives as `decimal.Decimal` (the column is NUMERIC), not
-    `float`: `f"{Decimal('5805.0'):g}"` renders "5805.0", preserving the
-    column's stored scale, while `f"{5805.0:g}"` renders "5805" — the exact
-    trailing-zero-free form dash_table's own numeric renderer already shows
-    for this same value one screen away. Coercing to float first is what
-    "consistent with the existing Fleet table" actually requires.
-    """
-    if value is None:
-        return None
-    return f"{float(value):g} MW"
-
-
 def build_plant_detail_view(plant_id: str, rendered_at: datetime, *, scope: DeviceScope) -> dict:
     """Everything the Plant page needs, from one `latest_reading_rows()` fetch
     and one `latest_metric_readings()` fetch — never one query per section.
@@ -678,8 +655,6 @@ def build_plant_detail_view(plant_id: str, rendered_at: datetime, *, scope: Devi
 
     context_fields = [
         ("Country", plant.country if plant else None),
-        ("Primary fuel", plant.primary_fuel if plant else None),
-        ("Capacity", _format_capacity_mw(plant.capacity_mw) if plant else None),
         ("Transformers", len(transformers)),
         ("Devices", total_devices),
     ]
@@ -879,7 +854,7 @@ def register(app) -> None:
         # router's own scope check (callbacks/routing.py) only ever ran for
         # the render that BUILT page-context, not for this one. Without this,
         # a Technician who fabricates {"route": "plant", "plant_id": "<not
-        # theirs>"} gets that plant's country/fuel/capacity and transformer
+        # theirs>"} gets that plant's context and transformer
         # rows — the same class of bypass P0-3 closed for device telemetry.
         # Checked BEFORE build(), so an out-of-scope plant never even reaches
         # get_plant_or_none()/list_transformers().

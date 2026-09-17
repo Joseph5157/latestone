@@ -437,11 +437,10 @@ class TestNeedsAttentionComponent:
 # --------------------------------------------------------------------------
 
 class TestNoRegressionToOverviewTable:
-    def test_plant_columns_unchanged(self):
+    def test_plant_columns_keep_operational_fields_only(self):
         from callbacks.listings import PLANT_COLUMNS
         assert [c["id"] for c in PLANT_COLUMNS] == [
-            "plant", "country", "fuel", "capacity_mw",
-            "transformers", "devices", "freshness",
+            "plant", "country", "transformers", "devices", "freshness",
         ]
 
     def test_build_plant_rows_unaffected(self):

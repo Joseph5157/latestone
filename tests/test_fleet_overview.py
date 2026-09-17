@@ -308,15 +308,16 @@ class TestSingleSourceOfFreshness:
         assert len(calls) == 1
 
 
-class TestFleetTableUnaffectedByTheDistributionBlock:
-    """The distribution bar is new; the table beside it must render exactly
-    as it did before, using the same PLANT_COLUMNS and the same exception-
-    first ordering."""
+class TestFleetTablePresentation:
+    """The fleet table keeps operational columns and navigation."""
 
-    def test_plant_columns_are_unchanged(self):
+    def test_plant_columns_exclude_generic_generation_fields(self):
         assert [c["id"] for c in PLANT_COLUMNS] == [
-            "plant", "country", "fuel", "capacity_mw", "transformers", "devices", "freshness",
+            "plant", "country", "transformers", "devices", "freshness",
         ]
+        labels = {c["name"] for c in PLANT_COLUMNS}
+        assert "Fuel" not in labels
+        assert "Capacity (MW)" not in labels
 
     def test_row_building_and_sorting_are_unaffected(self):
         health = _health([
@@ -328,6 +329,7 @@ class TestFleetTableUnaffectedByTheDistributionBlock:
         counts = {"p_fresh": (1, 1), "p_stale": (1, 1), "p_none": (1, 1)}
         rows = sort_plant_rows_exception_first(build_plant_rows(plants, counts, health))
         assert [r["id"] for r in rows] == ["p_none", "p_stale", "p_fresh"]
+        assert all("fuel" not in row and "capacity_mw" not in row for row in rows)
 
 
 class TestTableOverflow:

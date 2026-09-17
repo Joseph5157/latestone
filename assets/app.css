@@ -143,7 +143,6 @@ td.dash-cell:focus-visible,
 .metric-cell__value,
 .equipment-context__value,
 .readings-table-container .dash-spreadsheet-inner td,
-.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="capacity_mw"],
 .entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="transformers"],
 .entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="devices"],
 .entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="battery_voltage"],
@@ -2454,8 +2453,6 @@ body {
 
   .entity-table-wrapper--responsive tbody td[data-dash-column="plant"]::before { content: "Plant"; }
   .entity-table-wrapper--responsive tbody td[data-dash-column="country"]::before { content: "Country"; }
-  .entity-table-wrapper--responsive tbody td[data-dash-column="fuel"]::before { content: "Fuel"; }
-  .entity-table-wrapper--responsive tbody td[data-dash-column="capacity_mw"]::before { content: "Capacity (MW)"; }
   .entity-table-wrapper--responsive tbody td[data-dash-column="transformers"]::before { content: "Transformers"; }
   .entity-table-wrapper--responsive tbody td[data-dash-column="devices"]::before { content: "Devices"; }
   .entity-table-wrapper--responsive tbody td[data-dash-column="device"]::before { content: "RTL UID"; }
@@ -2525,13 +2522,9 @@ body {
     background: transparent !important;
   }
 
-  /* Fleet mobile records are operational summaries, not miniature copies of
-     the seven-column desktop inventory. Country, fuel and capacity remain in
-     the desktop table; narrow screens lead with identity, equipment counts
-     and data freshness. */
-  #plants-table tbody td[data-dash-column="country"],
-  #plants-table tbody td[data-dash-column="fuel"],
-  #plants-table tbody td[data-dash-column="capacity_mw"] {
+  /* Fleet mobile records lead with identity, equipment counts and data
+     freshness; country remains available in the wider desktop table. */
+  #plants-table tbody td[data-dash-column="country"] {
     display: none !important;
   }
 
@@ -2605,8 +2598,6 @@ body {
    added. Confirmed live in the browser, not just read from the stylesheet. */
 .entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="country"]:hover,
 .entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="country"]:focus-within,
-.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="fuel"]:hover,
-.entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="fuel"]:focus-within,
 .entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="freshness"]:hover,
 .entity-table-wrapper .dash-spreadsheet-inner td[data-dash-column="freshness"]:focus-within {
   white-space: normal;

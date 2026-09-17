@@ -11,7 +11,7 @@ against the CURRENT trusted scope first:
      callback directly, not only someone who navigated through the
      (administrator-only) route.
   2. Plant/transformer detail (callbacks/listings.py) resolved
-     country/fuel/capacity and transformer/device counts for whatever
+     context and transformer/device counts for whatever
      plant_id/transformer_id `page-context` named, without checking that id
      against `current_device_scope()` — the same class of bypass P0-3 closed
      for device telemetry, just not applied here too.

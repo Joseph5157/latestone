@@ -84,8 +84,6 @@ def layout() -> html.Div:
                 columns=[
                     {"name": "Plant", "id": "plant"},
                     {"name": "Country", "id": "country"},
-                    {"name": "Fuel", "id": "fuel"},
-                    {"name": "Capacity (MW)", "id": "capacity_mw", "type": "numeric"},
                     {"name": "Transformers", "id": "transformers", "type": "numeric"},
                     {"name": "Devices", "id": "devices", "type": "numeric"},
                     {"name": "Data", "id": "freshness"},

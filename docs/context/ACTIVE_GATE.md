@@ -1,80 +1,57 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-17
-Gate: NONE
-Commit/push permission: **GRANTED and exercised** (implementation commit,
-closure-doc commit, push, and remote verification required by this gate).
+Gate: CLIENT-FEEDBACK-DOMAIN-CLEANUP-1
+Commit/push permission: **GRANTED** (implementation commit, closure-doc commit,
+push, and remote verification required by this gate).
 
 ## Task
 
-Reduce No Data from a primary Command Center headline to supporting
-investigation information. Preserve the existing freshness classification,
-Stale + No Data attention total, ADR-009 investigation population/order,
-BR008 notification rule, DeviceScope and condition drill-down behavior.
+Remove Fuel and Capacity from visible Fleet Overview and Plant detail
+presentation while preserving the underlying schema/data contract, Plant
+terminology, hierarchy navigation, report taxonomy and authorization.
 
 ## Relevant files
 
-- `components/command_center/situation_summary.py`
-- `components/command_center/priority.py`
+- `pages/plants_overview.py`
+- `callbacks/listings.py`
 - `assets/app.css`
-- `tests/test_command_center_priority.py`
-- `tests/test_command_center_priority_panel.py`
-- `tests/test_command_center_situation_summary.py`
-- `tests/test_command_center_condition_drilldown.py`
-- `tests/test_monitoring_service.py`
-- `tests/test_notification_service.py`
+- `tests/test_fleet_overview.py`
+- `tests/test_plant_detail.py`
+- `tests/test_table_navigation.py`
+- `tests/test_auth_harden_repair.py`
+- `tests/test_fleet_naming.py`
+- `tests/test_detail_hierarchy.py`
 - `docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md`
 - `docs/context/CURRENT_STATE.md`
 
 ## Decisions this gate depends on
 
-- ADR-002: Requires Attention remains Stale + No Data only.
-- ADR-004: `DeviceScope` remains the sole device-visibility authority.
-- ADR-008: reuse the existing freshness and hierarchy read paths.
-- ADR-009: Priority Investigation remains freshness-only, with No Data before
-  Stale; this gate changes visual weighting, not the approved service order.
+- The RTL Functional Specification remains formal requirements authority and
+  does not require Fuel or generation Capacity on monitoring screens.
+- The client-feedback audit identifies both as visible generic power-generation
+  remnants and recommends presentation-only removal.
 
 ## Non-goals (explicit)
 
-- No monitoring-state, freshness threshold, BR008, notification, alarm,
-  terminology, route-policy, report, or cadence-aware change.
-- No Command Center redesign and no Mobbin-derived requirement.
-- No removal or hiding of No Data from Fleet Health or Priority Investigation.
-- No Priority Investigation service-ranking change.
-- No weakening of Administrator/Technician scoping; General User remains denied.
+- No database column, migration, repository record, seed-data, hierarchy ID,
+  route, report taxonomy or authorization change.
+- No Plant-to-Feeder/Network rename and no invented replacement fields.
+- No product-brand rename without an authoritative replacement name.
 - No Functional Specification tracker status change.
 
 ## Known ambiguities
 
-The meeting preference to reduce No Data prominence does not override
-ADR-009's approved queue order. This gate therefore preserves that order and
-changes only headline hierarchy, explanatory copy and visual emphasis.
+The current product copy still contains “Power Plant Monitoring” and
+“Powerplant Dashboard.” These are reported as generic branding remnants but
+remain unchanged because no approved replacement name exists.
 
 ## Implementation and verification
 
-Implementation: `40b755e09325855f326facb5117c52bba1c5f83a`.
+In progress.
 
-- Communication now headlines complete metric coverage; its unchanged No Data
-  count, share and affected-Plant count sit under explicit supporting detail.
-- Needs Attention remains Stale + No Data and exposes that unchanged split as
-  supporting freshness detail. Fleet Health retains every state/count.
-- Priority Investigation retains ADR-009's service population and No
-  Data-before-Stale order. Its subtitle and No Data colour no longer make that
-  state a primary headline; textual badges/reasons remain explicit.
-- The monitoring service, command-center service, notification service,
-  thresholds, DeviceScope and drill-down callbacks were not modified.
-- Focused Command Center/freshness/notification suite: 231 passed.
-- Full non-DB suite: 3133 passed, 699 deselected.
-- Browser: Administrator retained 120 RTLs; assigned Technician retained 24.
-  Both displayed No Data supporting detail and freshness investigation links.
-  Administrator Power Down/Battery Low showed 3 scoped RTLs each; Technician
-  showed scoped zero-result Power Down and Battery Low RTL `29005`.
-- `python scripts/build_context_pack.py --check` and `git diff --check` clean.
-
-No Functional Specification tracker status changed.
-
-## Next implementation gate: NONE
+## Next implementation gate: CLIENT-FEEDBACK-DOMAIN-CLEANUP-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
