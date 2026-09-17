@@ -3,26 +3,30 @@
 Status: **CLOSED / PASS**
 Date: 2026-09-17
 Gate: NONE
-Commit/push permission: **GRANTED.**
+Commit/push permission: **GRANTED** (per this gate's own explicit VERIFY/REPORT
+instructions: commit implementation, update tracker/context, commit closure
+docs, push `main`, remote-verify).
 
 ## Task
 
-Align BR016 with the Functional Specification: the RTL Master automatically
-disables message forwarding at 18:30 daily. Remove the dashboard's active
-scheduler and unsupported Administrator same-day override without changing
-manual message-forwarding controls or their authorization.
+FS-PROG-1: align Program RTL application-side fields and validation with the
+authoritative RTL Functional Specification (§4.4.1) — RTL Master MSISDN, a
+5-digit RTL UID, and a transformer name of at most 10 characters — without
+implementing real SMS/RTL Master transport.
 
 ## Relevant files
 
-- `services/message_forwarding_service.py`
-- `services/authorization.py`
+- `services/rtl_programming_service.py`
+- `repositories/plant_monitoring_repository.py`
 - `callbacks/device_manage.py`
 - `components/device_manage_drawer.py`
-- `app.py`
-- `repositories/plant_monitoring_repository.py`
-- `alembic/versions/010_forwarding_auto_disable.py`
-- `tests/test_br016_ownership.py`
-- `tests/test_authorization.py`
+- `alembic/versions/001_baseline.py`
+- `tests/test_rtl_programming.py`
+- `tests/test_rtl_programming_execution.py`
+- `tests/test_rtl_command_dispatch.py`
+- `tests/test_rtl_command_service_lifecycle.py`
+- `tests/test_rtl_commands.py`
+- `tests/test_rtl_programming_simulation.py`
 - `tests/test_action_guard.py`
 - `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md`
 - `docs/context/CURRENT_STATE.md`
@@ -30,14 +34,100 @@ manual message-forwarding controls or their authorization.
 ## Non-goals (explicit)
 
 - No real SMS or RTL Master transport/API is added or modified.
-- The retained migration table is compatibility-only and is not a client
-  production feature.
+- No "29" prefix rule invented — the Functional Specification extract shows
+  `29xxx` only as one worked example of a 5-digit UID.
+- No stricter phone-format validation for the Master MSISDN than the
+  schema already proves (non-empty, `VARCHAR(20)`).
+- No rewrite of registered device/transformer data; no change to the
+  device-registration boundary's own (looser) validation.
 
 ## Next implementation gate: NONE
 
 ## Known ambiguities
 
 None.
+
+## FS-PROG-1 — CLOSED / PASS
+
+Implementation: `176dc49` (services/tests). Closure/docs: this commit.
+
+`services/rtl_programming_service.py::record_request` now re-reads the
+target device's OWN `device_code`/`transformer_code` from PostgreSQL —
+never a value the browser sent, since the drawer's RTL UID / Transformer
+Name fields are read-only, pre-filled display copies — and rejects the
+request before any row is written unless the UID is exactly 5 digits
+(`UID_PATTERN = ^\d{5}$`, no "29" prefix invented) and the transformer name
+is at most 10 characters. The Master MSISDN's existing validation (manual
+entry, non-empty, ≤20 chars — the schema's own `VARCHAR(20)` limit) is
+unchanged. `transformer_code` is already `VARCHAR(10)` at the schema level
+(`alembic/versions/001_baseline.py`), so the transformer-name check is
+defense-in-depth; the UID check is the genuinely new constraint, since
+`device_code` allows up to 10 characters today.
+
+Existing behaviour preserved unchanged: Administrator may program any RTL,
+an assigned Technician may program only their assigned RTL, an unassigned
+Technician and General User are refused (`services/authorization.py`,
+`services/action_guard.py` — neither file was touched), the trusted-session
+guard runs before any write, and the existing request/command/audit
+lifecycle (`rtl_programming_requests` → `rtl_commands` QUEUED → audit row,
+one transaction) is unchanged. The UI copy already distinguished "request
+recorded/queued" from "RTL programmed" before this gate
+(`components/device_manage_drawer.py`, `callbacks/device_manage.py`) and
+needed no wording change.
+
+Data-conflict check (task step 9): queried the real local dev database
+directly — all 120 devices have 5-digit numeric `device_code` values and
+all 71 transformers have `transformer_code` values well under 10
+characters. Zero conflicts; nothing was rewritten.
+
+Six pre-existing test fixtures (`tests/test_rtl_programming.py`,
+`tests/test_rtl_programming_execution.py`, `tests/test_rtl_command_dispatch.py`,
+`tests/test_rtl_command_service_lifecycle.py`, `tests/test_rtl_commands.py`,
+`tests/test_rtl_programming_simulation.py`) seeded a non-conforming
+`device_code` (`'d1'`/`'d2'`) that predates this rule; updated to 5-digit
+codes so they continue to exercise `record_request()` unchanged. This is a
+test-fixture change only — no seed/production-shaped data was touched.
+
+### Verification
+
+- New/focused: `tests/test_rtl_programming.py` (added
+  `TestUidPatternValidation`, `TestTransformerNameLengthDefenseInDepth`,
+  `TestUidAndTransformerNameServiceValidation` — 15 new tests covering
+  valid/invalid-length/non-numeric UID, exactly-10-char transformer name,
+  missing MSISDN, and command-lifecycle-still-created on success).
+- Regression, run together in one invocation: `tests/test_rtl_programming.py`
+  + `tests/test_rtl_programming_execution.py` + `tests/test_rtl_command_dispatch.py`
+  + `tests/test_rtl_command_service_lifecycle.py` + `tests/test_rtl_commands.py`
+  + `tests/test_rtl_programming_simulation.py` + `tests/test_programming_activity.py`
+  + `tests/test_action_guard.py` + `tests/test_action_guard_callbacks.py`
+  + `tests/test_authorization.py` — all passed.
+- `python -m pytest -m "not db"` (full non-DB suite) — all passed, exit 0.
+- `python -m pytest -q` (full suite, DB included, against the real reset dev
+  DB) — all passed, exit 0.
+- `git diff --check` — clean. `python scripts/build_context_pack.py --check`
+  — CLEAN at gate open and close.
+- Browser verification (Playwright; Chrome extension was not connected this
+  session): logged in as Administrator, opened device `plant-01-t3-d2`
+  (Three Gorges Dam / transformer `ch03` / UID `29005`), Manage RTL →
+  Program RTL showed UID/Transformer pre-filled and read-only, submitted
+  with a Master MSISDN, got "Programming request recorded... queued...
+  not confirmed programmed"; confirmed in PostgreSQL (`rtl_programming_requests`
+  status `queued`, matching `rtl_commands` row `PROGRAM_RTL`/`QUEUED`).
+  Logged in as `demo.tech01` (assigned to this device), repeated the same
+  flow successfully as the assigned Technician; then navigated directly to
+  an unassigned device (`plant-01-t1-d1`) and confirmed "No access" —
+  authorization scoping intact.
+
+### Known ambiguity
+
+- PROG-02's tracker note "Align UID validation at programming/registration
+  boundary" only names the programming boundary as in scope for this gate.
+  `callbacks/device_register.py` still only enforces "≤10 characters" for a
+  newly-registered device code, not exactly-5-digit — left unchanged
+  deliberately, since tightening it would be new policy invented without a
+  client-confirmed answer on whether registration should be stricter than
+  today. Recorded in the tracker as PROG-02's remaining work, not silently
+  resolved.
 
 ## FS-BR016-1 — CLOSED / PASS
 

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-17T06:46:12Z
+Date: 2026-09-17T07:17:19Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `eadf854` "fix(forwarding): assign BR016 cutoff to RTL Master"
-- Working tree: 10 entries — see below
+- `main` = `176dc49` "feat(programming): validate RTL UID and transformer name at the FS-PROG-1 service boundary"
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3069 passed, 692 deselected, 1 warning in 32.19s
+- `python -m pytest -m "not db"` → 3083 passed, 698 deselected in 26.48s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 305 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 155 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 305 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 307 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 157 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 307 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -85,13 +85,12 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ```
 M docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md
  M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
-?? .pytest-fs-br016-final/
-?? .pytest-fs-scope-context-guard/
-?? .pytest-fs-scope-nondb-final/
-?? .pytest-fs-scope-nondb-rerun/
-?? .pytest-fs-scope-nondb/
-?? .pytest-fs-tracker-context/
+?? .pytest-alarm-ack-check/
+?? .pytest-alarm-ack-failure/
+?? .pytest-alarm-ack-full/
+?? .pytest-alarm-ack-suite/
+?? .pytest-alarm-ack/
+?? .pytest-command-dispatch-suite/
 ?? debug.log
 ```
 
