@@ -79,10 +79,10 @@ class TestCommandCenterLayout:
         available" card would understate a finished cockpit."""
         assert "Not yet available in this build." not in text_of(layout())
 
-    def test_panels_do_not_claim_no_data_or_unavailable(self):
-        """These panels are not built yet - a different fact from evaluated
-        No Data (ADR-002) or Unavailable (ADR-001) states. Conflating them
-        would misrepresent real data-availability semantics as a build gap."""
+    def test_initial_shell_uses_unavailable_only_for_electrical_current_state(self):
+        """The interactive controls mount with ADR-001's honest current-state
+        result; the new affected-RTL panel starts as a selection prompt."""
         text = text_of(layout()).lower()
         assert "no data" not in text
-        assert "unavailable" not in text
+        assert text.count("unavailable") == 2
+        assert "select power down or battery low" in text

@@ -61,6 +61,14 @@ RECENT_EVENTS_LIMIT = 500
 #: alarm list; the Notification Center stays the deeper destination.
 RECENT_EVENT_ROWS = 10
 
+#: Maximum persisted occurrences inspected for an explicit condition
+#: investigation. This is the existing repository ceiling, not a new product
+#: retention rule. The result is reduced to the latest occurrence per RTL.
+CONDITION_INVESTIGATION_LIMIT = RECENT_EVENTS_LIMIT
+CONDITION_EVENT_TYPES = frozenset(
+    {EVENT_TYPE_POWER_DOWN, EVENT_TYPE_BATTERY_LOW}
+)
+
 #: The neutral presentation every event that is NOT one of the two
 #: device-classified conditions takes. A word, not an absence: colour never
 #: carries meaning alone, so a neutral marker still needs a label beside it.
@@ -362,6 +370,50 @@ def _recent_events(events, reference: datetime, paths: dict) -> tuple[RecentEven
     is the alarm-management system this panel is explicitly not.
     """
     return tuple(_recent_event(event, paths, reference) for event in events)
+
+
+def get_condition_affected_rtls(
+    event_type: str,
+    *,
+    scope: DeviceScope,
+    now: datetime | None = None,
+) -> tuple[RecentEvent, ...]:
+    """Latest persisted occurrence per visible RTL for one condition.
+
+    This is an interaction read, invoked only when the operator selects Power
+    Down or Battery Low. It reuses ADR-008's approved event and hierarchy-label
+    entry points and applies ``DeviceScope`` in the repository query. Rows are
+    occurrences, never a current-state projection (ADR-001).
+
+    Unregistered/unattributed events are deliberately excluded: this panel is
+    an *affected RTL* list and can offer investigation only for a real device.
+    """
+    if event_type not in CONDITION_EVENT_TYPES:
+        raise ValueError("Unsupported Command Center condition")
+
+    reference = now or datetime.now(timezone.utc)
+    events = list_recent_device_events(
+        event_types=(event_type,),
+        allowed_device_ids=scope.device_ids,
+        include_unattributed=False,
+        limit=CONDITION_INVESTIGATION_LIMIT,
+    )
+
+    # Repository order is newest first. Keeping the first row per device gives
+    # the latest relevant occurrence without inventing event closure/state.
+    latest_by_device = []
+    seen: set[str] = set()
+    for event in events:
+        if event.device_id is None or event.device_id in seen:
+            continue
+        seen.add(event.device_id)
+        latest_by_device.append(event)
+
+    paths = {
+        path.device_id: path
+        for path in list_device_paths(sorted(seen), scope=scope)
+    } if seen else {}
+    return _recent_events(latest_by_device, reference, paths)
 
 
 #: CSS tone keys for the two attention states. Deliberately the freshness

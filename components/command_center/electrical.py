@@ -40,7 +40,27 @@ UNAVAILABLE_TEXT = "Unavailable"
 UNAVAILABLE_DASH = "—"
 
 
-def _condition_block(condition) -> html.Div:
+POWER_DOWN_BUTTON_ID = "command-center-condition-power-down"
+BATTERY_LOW_BUTTON_ID = "command-center-condition-battery-low"
+
+_BUTTON_ID_BY_EVENT_TYPE = {
+    "power_down": POWER_DOWN_BUTTON_ID,
+    "battery_low": BATTERY_LOW_BUTTON_ID,
+}
+
+
+def condition_button_class(condition, selected_event_type: str | None = None) -> str:
+    classes = [
+        "command-center__condition",
+        "command-center__condition-button",
+        f"command-center__condition-button--{condition.severity_key}",
+    ]
+    if condition.event_type == selected_event_type:
+        classes.append("command-center__condition-button--active")
+    return " ".join(classes)
+
+
+def _condition_block(condition, selected_event_type: str | None = None) -> html.Button:
     """One classified condition: category, then what is and isn't known.
 
     The severity tone paints the CATEGORY MARKER and its label only. The
@@ -48,8 +68,18 @@ def _condition_block(condition) -> html.Div:
     not know" look like "this is critical right now", which is the precise
     misreading this card is built to prevent.
     """
-    return html.Div(
-        className="command-center__condition",
+    return html.Button(
+        id=_BUTTON_ID_BY_EVENT_TYPE[condition.event_type],
+        type="button",
+        n_clicks=0,
+        className=condition_button_class(condition, selected_event_type),
+        **{
+            "aria-pressed": str(condition.event_type == selected_event_type).lower(),
+            "aria-controls": "command-center-condition-investigation",
+            "aria-label": (
+                f"View affected RTLs with recorded {condition.condition_label} occurrences"
+            ),
+        },
         children=[
             html.Div(
                 className=(
@@ -103,11 +133,16 @@ def _condition_block(condition) -> html.Div:
                     ),
                 ],
             ),
+            html.Span(
+                "View affected RTLs →",
+                className="command-center__condition-action",
+                **{"aria-hidden": "true"},
+            ),
         ],
     )
 
 
-def electrical_conditions_card(snapshot) -> html.Section:
+def electrical_conditions_card(snapshot_or_conditions) -> html.Section:
     """The Electrical Conditions card.
 
     Renders exactly the conditions it is handed — it never adds a category
@@ -116,6 +151,11 @@ def electrical_conditions_card(snapshot) -> html.Section:
     `services/event_semantics.py`; that absence must survive all the way to
     the screen.
     """
+    conditions = getattr(
+        snapshot_or_conditions,
+        "electrical_conditions",
+        snapshot_or_conditions,
+    )
     return cc_card(
         "Electrical Conditions",
         [
@@ -123,7 +163,7 @@ def electrical_conditions_card(snapshot) -> html.Section:
                 className="command-center__conditions",
                 children=[
                     _condition_block(condition)
-                    for condition in snapshot.electrical_conditions
+                    for condition in conditions
                 ],
             ),
             html.P(

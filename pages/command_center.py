@@ -13,6 +13,12 @@ from __future__ import annotations
 from dash import dcc, html
 
 from components.command_center import refresh, theme
+from components.command_center.condition_investigation import (
+    PANEL_ID as CONDITION_INVESTIGATION_ID,
+    investigation_prompt,
+)
+from components.command_center.electrical import electrical_conditions_card
+from services.command_center_service import ELECTRICAL_CONDITIONS
 
 #: Situation Summary (Phase 5) is live: an empty region the callback fills
 #: with the four real cards. It sits in its own full-width row above the
@@ -71,6 +77,11 @@ def layout() -> html.Div:
             # `apply_theme` already reads a missing value as DEFAULT_THEME,
             # so a genuinely first visit still opens dark.
             dcc.Store(id=theme.STORE_ID, storage_type="session"),
+            dcc.Store(
+                id="command-center-selected-condition",
+                data={"event_type": None},
+                storage_type="memory",
+            ),
             # Page-owned, so leaving the route destroys it (ADR-005). There
             # is no app-wide interval and adding one would change Fleet
             # Overview's deliberately-tested absence of refresh.
@@ -124,11 +135,18 @@ def layout() -> html.Div:
                     html.Div(
                         id=ELECTRICAL_CONDITIONS_ID,
                         children=[
+                            electrical_conditions_card(ELECTRICAL_CONDITIONS),
                             html.P(
                                 "Loading electrical conditions…",
                                 className="command-center__loading",
+                                style={"display": "none"},
                             )
                         ],
+                    ),
+                    html.Div(
+                        id=CONDITION_INVESTIGATION_ID,
+                        className="command-center__panel--wide",
+                        children=[investigation_prompt()],
                     ),
                     html.Div(
                         id=AFFECTED_LOCATIONS_ID,

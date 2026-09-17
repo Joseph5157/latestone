@@ -14,7 +14,7 @@ words may appear here.
 """
 from __future__ import annotations
 
-from dash import html
+from dash import dcc, html
 
 from components.command_center.primitives import cc_card
 from services.command_center_service import NO_DATA_EXPLANATION
@@ -109,6 +109,13 @@ def needs_attention_card(snapshot) -> html.Section:
     body.append(
         html.P("Stale + No Data", className="command-center__definition")
     )
+    body.append(
+        dcc.Link(
+            "View affected RTLs →",
+            href="#command-center-priority-investigation",
+            className="command-center__card-action",
+        )
+    )
     return cc_card("Needs Attention", body, subtitle="RTLs requiring operator attention")
 
 
@@ -135,6 +142,13 @@ def communication_card(snapshot) -> html.Section:
         )
     )
     body.append(html.P(NO_DATA_EXPLANATION, className="command-center__explanation"))
+    body.append(
+        dcc.Link(
+            "View affected RTLs →",
+            href="#command-center-priority-investigation",
+            className="command-center__card-action",
+        )
+    )
     return cc_card("Communication", body, subtitle="RTLs with an incomplete data picture")
 
 

@@ -17,7 +17,16 @@ from components.command_center.affected_locations import (
     affected_locations_card,
     ranked_locations_list,
 )
-from components.command_center.electrical import electrical_conditions_card
+from components.command_center.electrical import (
+    BATTERY_LOW_BUTTON_ID,
+    POWER_DOWN_BUTTON_ID,
+    condition_button_class,
+    electrical_conditions_card,
+)
+from components.command_center.condition_investigation import (
+    PANEL_ID as CONDITION_INVESTIGATION_ID,
+    condition_investigation_card,
+)
 from components.command_center.primitives import scope_indicator_text
 from components.command_center import refresh, theme
 from components.command_center.priority import priority_investigation_card
@@ -27,7 +36,11 @@ from components.command_center.situation_summary import situation_summary_panels
 from components.status_panels import error_panel
 from services.auth_service import current_identity
 from services.authorization import ADMINISTRATOR
-from services.command_center_service import get_command_center_snapshot
+from services.command_center_service import (
+    ELECTRICAL_CONDITIONS,
+    get_command_center_snapshot,
+    get_condition_affected_rtls,
+)
 from services.device_scope import current_device_scope
 
 logger = logging.getLogger(__name__)
@@ -65,7 +78,27 @@ def _last_success(refresh_state):
         return None
 
 
+def condition_selection_outputs(pressed: str | None, scope):
+    """Purely compose the six outputs for one condition activation."""
+    by_button = {
+        POWER_DOWN_BUTTON_ID: ELECTRICAL_CONDITIONS[0],
+        BATTERY_LOW_BUTTON_ID: ELECTRICAL_CONDITIONS[1],
+    }
+    condition = by_button.get(pressed)
+    if condition is None:
+        return (no_update,) * 6
 
+    rows = get_condition_affected_rtls(condition.event_type, scope=scope)
+    selected = condition.event_type
+    power, battery = ELECTRICAL_CONDITIONS
+    return (
+        {"event_type": selected},
+        condition_investigation_card(condition.condition_label, rows),
+        condition_button_class(power, selected),
+        condition_button_class(battery, selected),
+        str(power.event_type == selected).lower(),
+        str(battery.event_type == selected).lower(),
+    )
 def register(app) -> None:
     """Register Command Center callbacks on the Dash app."""
 
@@ -173,6 +206,24 @@ def register(app) -> None:
                 {"last_success_at": refresh_state["last_success_at"], "failed": True},
             )
 
+
+    @app.callback(
+        Output("command-center-selected-condition", "data"),
+        Output(CONDITION_INVESTIGATION_ID, "children"),
+        Output(POWER_DOWN_BUTTON_ID, "className"),
+        Output(BATTERY_LOW_BUTTON_ID, "className"),
+        Output(POWER_DOWN_BUTTON_ID, "aria-pressed"),
+        Output(BATTERY_LOW_BUTTON_ID, "aria-pressed"),
+        Input(POWER_DOWN_BUTTON_ID, "n_clicks"),
+        Input(BATTERY_LOW_BUTTON_ID, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def select_condition(_power_clicks, _battery_clicks):
+        """Populate scoped persisted occurrences for the activated card."""
+        return condition_selection_outputs(
+            ctx.triggered_id,
+            current_device_scope(),
+        )
 
     @app.callback(
         Output(theme.STORE_ID, "data"),

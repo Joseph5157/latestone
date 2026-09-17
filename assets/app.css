@@ -4779,6 +4779,54 @@ body {
   gap: var(--sp-4);
 }
 
+/* The device-classified conditions are real buttons, not clickable divs.
+   Their surface stays visually native to the existing card while hover,
+   keyboard focus and the selected edge make the interaction unmistakable. */
+.command-center__condition-button {
+  appearance: none;
+  width: 100%;
+  padding: var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease,
+              box-shadow 120ms ease;
+}
+
+.command-center__condition-button:hover {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  border-color: var(--color-border);
+}
+
+.command-center__condition-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.command-center__condition-button--active {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: var(--color-accent);
+}
+
+.command-center__condition-action,
+.command-center__card-action {
+  display: inline-block;
+  margin-top: var(--sp-3);
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.command-center__card-action:hover,
+.command-center__card-action:focus-visible {
+  text-decoration: underline;
+}
+
 .command-center__condition + .command-center__condition {
   padding-top: var(--sp-4);
   border-top: 1px solid var(--color-border);
@@ -5293,6 +5341,15 @@ body {
 
 .command-center__priority-badge--no-data { color: var(--state-none-text); }
 .command-center__priority-badge--stale   { color: var(--state-stale-text); }
+.command-center__condition-badge--critical { color: var(--state-error-text); }
+.command-center__condition-badge--warning  { color: var(--state-stale-text); }
+
+.command-center__condition-time {
+  margin-left: auto;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
 
 .command-center__priority-identity {
   display: flex;
