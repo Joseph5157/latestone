@@ -19,6 +19,7 @@ from services.authorization import AuthorizationError, EXPORT_DATA
 from services.device_scope import DeviceScope
 from services.report_export import (
     format_csv,
+    format_xlsx,
     installed_rtls_document,
     rtl_alarms_document,
 )
@@ -130,6 +131,29 @@ class TestAlarmsExportEndToEnd:
 
         assert "29601" in content                     # own device's UID
         assert "29602" not in content                 # never the other's
+
+    def test_xlsx_export_matches_the_same_scoped_rows_as_csv(self):
+        """FS-EXPORT-1: XLSX consumes the identical ExportDocument CSV
+        does — real end-to-end proof against real device/event rows, not
+        just hand-built fakes."""
+        import io as _io
+
+        from openpyxl import load_workbook
+
+        _event(EVENT_TYPE_BATTERY_LOW, D1)
+        _event(EVENT_TYPE_POWER_DOWN, D2)
+
+        rows = rtl_alarms_30d_rows(device_scope=DeviceScope(None), now=NOW)
+        doc = rtl_alarms_document(rows, scope_label="fleet", now=NOW)
+
+        wb = load_workbook(_io.BytesIO(format_xlsx(doc)))
+        sheet = wb.active
+        assert sheet.title == "rtl_alarms_30d"
+        assert sheet.max_row == 1 + len(rows)
+        alarm_labels = {sheet.cell(row=r, column=11).value for r in (2, 3)}
+        assert alarm_labels == {"Battery Alarm", "Comms Alarm"}
+        uids = {sheet.cell(row=r, column=7).value for r in (2, 3)}
+        assert uids == {"29601", "29602"}
 
 
 @pytest.mark.db

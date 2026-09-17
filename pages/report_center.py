@@ -1,11 +1,13 @@
 """Report Center page — layout only, no queries.
 
-Frontend shell for report generation, CSV/PDF export (both development
-default, C-04 baseline), and history. Report types are confirmed by the
-RTL Functional Specification (§11). The client-approved production
-delivery mechanism remains unresolved (REQ-1A §16); all three reports —
+Frontend shell for report generation, CSV/PDF/XLSX export, and history.
+Report types are confirmed by the RTL Functional Specification (§11).
+XLSX matches the Functional Specification's own "Export to Excel" UI
+(FS-EXPORT-1); CSV/PDF remain additional development-convenience formats
+(C-04 baseline). The client-approved production delivery MECHANISM
+remains unresolved (REQ-1A §16) regardless of format; all three reports —
 Installed RTLs, RTL Alarms (30 Days), and Maximum Temperature — are
-data-backed and exportable as of REPORT-EXPORT-1.
+data-backed and exportable as of REPORT-EXPORT-1/FS-EXPORT-1.
 """
 from __future__ import annotations
 
@@ -15,6 +17,7 @@ from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.entity_table import entity_table
 from config.reports import report_options
+from services.report_export import EXPORT_FORMAT_LABEL
 
 
 def layout() -> html.Div:
@@ -29,19 +32,18 @@ def layout() -> html.Div:
                 "Generate and view monitoring reports.",
                 className="page__subtitle",
             ),
-            # Honesty notice — all three reports are data-backed and
-            # exportable as CSV or PDF (REPORT-EXPORT-1); the client-
-            # approved production delivery mechanism remains pending.
+            # Honesty notice — single-sourced from EXPORT_FORMAT_LABEL
+            # (services/report_export.py) so this banner and the post-
+            # export status panel can never drift apart about which
+            # formats exist or their status (R4-D1).
             html.Div(
                 className="status-panel status-panel--inactive",
                 children=[
                     html.Strong("Export format note. "),
                     html.Span(
-                        "CSV and PDF are the current development export "
-                        "formats; the client-approved production delivery "
-                        "mechanism is still pending. No files are emailed "
-                        "or delivered elsewhere — every export is a "
-                        "direct browser download."
+                        EXPORT_FORMAT_LABEL + " No files are emailed or "
+                        "delivered elsewhere — every export is a direct "
+                        "browser download."
                     ),
                 ],
             ),
@@ -234,8 +236,12 @@ def layout() -> html.Div:
                                         className="report-form__btn report-form__btn--primary",
                                     ),
                                     # Format choice sits right next to the
-                                    # Download button it controls — CSV or
-                                    # PDF, both development-default (C-04).
+                                    # Download button it controls — CSV, PDF
+                                    # or native XLSX (FS-EXPORT-1; XLSX is
+                                    # what the Functional Specification's own
+                                    # "Export to Excel" UI calls for; CSV/PDF
+                                    # remain development-convenience formats,
+                                    # C-04).
                                     html.Label(
                                         "Export format",
                                         htmlFor="report-export-format",
@@ -247,6 +253,7 @@ def layout() -> html.Div:
                                         options=[
                                             {"label": " CSV", "value": "csv"},
                                             {"label": " PDF", "value": "pdf"},
+                                            {"label": " XLSX", "value": "xlsx"},
                                         ],
                                         value="csv",
                                         inline=True,

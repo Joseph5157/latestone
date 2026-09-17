@@ -125,10 +125,16 @@ class TestReportCenterLayout:
     def test_layout_has_export_honesty_notice(self):
         """All three reports are now data-backed (REPORT-MAXTEMP-1 was the
         last); the page's honesty notice is about export format/delivery,
-        not a blanket "prototype" claim that no longer describes reality."""
+        not a blanket "prototype" claim that no longer describes reality.
+        FS-EXPORT-1: the banner is single-sourced from EXPORT_FORMAT_LABEL,
+        so it can never drift from what the format selector/export status
+        panel actually say."""
+        from services.report_export import EXPORT_FORMAT_LABEL
+
         lay = layout()
         text = str(lay)
-        assert "development export format" in text
+        assert EXPORT_FORMAT_LABEL in text
+        assert "development-convenience formats" in text
         assert "delivered elsewhere" in text
 
     def test_layout_has_generate_section(self):
@@ -534,13 +540,13 @@ class TestReportLoadingAndActionsLayout:
         assert "report-generate-btn" in ids
         assert "report-download-btn" in ids
 
-    def test_export_format_choice_is_present_and_offers_csv_and_pdf(self):
-        """REPORT-EXPORT-1: the UI must clearly let the user choose CSV or
-        PDF — a dedicated control, not just a note in prose."""
+    def test_export_format_choice_offers_csv_pdf_and_xlsx(self):
+        """REPORT-EXPORT-1/FS-EXPORT-1: the UI must clearly let the user
+        choose CSV, PDF or native XLSX — a dedicated control, not just a
+        note in prose."""
         assert "report-export-format" in _collect_ids(layout())
-        text = str(layout())
-        assert "CSV" in text and "PDF" in text
-        assert "XLSX" not in text.upper()
+        text = str(layout()).upper()
+        assert "CSV" in text and "PDF" in text and "XLSX" in text
 
     def test_demo_status_rendered_muted_not_freshness_green(self):
         tables = [

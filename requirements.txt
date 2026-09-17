@@ -22,3 +22,11 @@ tzdata==2026.3
 # unrelated tool, not this project's own requirements — the same trap
 # already caught once for tzdata (C08-AUTO-DISABLE-1).
 fpdf2==2.7.9
+# openpyxl (services/report_export.py, FS-EXPORT-1) — the standard
+# pure-Python XLSX reader/writer, no system library dependency (unlike
+# xlsxwriter+COM-based alternatives). The Functional Specification's UI
+# shows "Export to Excel"; openpyxl is what makes that a native workbook
+# rather than a CSV file renamed to .xlsx. et-xmlfile is its own only
+# transitive dependency (also pure Python, no system libraries).
+openpyxl==3.1.5
+et-xmlfile==2.0.0

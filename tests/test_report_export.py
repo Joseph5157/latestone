@@ -51,6 +51,7 @@ class TestFormatHonesty:
         assert "development" in label
         assert "csv" in label
         assert "pdf" in label
+        assert "xlsx" in label
         assert "pending" in label or "still" in label
 
     def test_label_never_claims_official_status(self):
@@ -58,15 +59,20 @@ class TestFormatHonesty:
         for forbidden in ("required", "official"):
             assert forbidden not in label
         # The label may honestly SAY approval is pending; it must never
-        # claim either format IS the approved production mechanism.
+        # claim any format IS the approved production mechanism.
         assert "still pending" in label
 
-    def test_both_csv_and_pdf_are_registered(self):
-        """R4-D1/D10: two development formatters, no XLSX."""
-        assert set(ex.FORMATTERS) == {"csv", "pdf"}
+    def test_label_names_xlsx_as_the_functional_specification_format(self):
+        """FS-EXPORT-1: XLSX is not invented — it is what the source's own
+        "Export to Excel" UI calls for; the label must say so honestly."""
+        assert "excel" in ex.EXPORT_FORMAT_LABEL.lower()
 
-    def test_no_xlsx_formatter_exists(self):
-        assert "xlsx" not in ex.FORMATTERS
+    def test_all_three_formats_are_registered(self):
+        """R4-D1/D10/D13: CSV, PDF and native XLSX."""
+        assert set(ex.FORMATTERS) == {"csv", "pdf", "xlsx"}
+
+    def test_xlsx_formatter_is_format_xlsx(self):
+        assert ex.FORMATTERS["xlsx"] is ex.format_xlsx
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +97,7 @@ class TestExportableReports:
     def test_unknown_export_format_is_refused(self):
         doc = ex.installed_rtls_document([], scope_label="fleet", now=NOW)
         with pytest.raises(ValueError):
-            ex.render_export("installed_rtls", doc, "xlsx")
+            ex.render_export("installed_rtls", doc, "ods")
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +246,16 @@ class TestFilename:
         _content, mime, filename = ex.render_export("installed_rtls", doc, "pdf")
         assert mime == "application/pdf"
         assert filename.endswith(".pdf")
+
+    def test_xlsx_filename_and_mime_type(self):
+        doc = ex.installed_rtls_document([], scope_label="fleet", now=NOW)
+        content, mime, filename = ex.render_export("installed_rtls", doc, "xlsx")
+        assert mime == (
+            "application/vnd.openxmlformats-officedocument"
+            ".spreadsheetml.sheet"
+        )
+        assert filename.endswith(".xlsx")
+        assert isinstance(content, bytes)
 
 
 @dataclass(frozen=True)
@@ -498,3 +514,175 @@ class TestPdfFormatter:
         big_pages = ex.format_pdf(doc_big).count(b"/Type /Page")
         assert big_pages > small_pages
         assert big_pages > 2   # more than a trivial 1-page + tree count
+
+
+# ---------------------------------------------------------------------------
+# R4-D13/R4-D14 — the native XLSX formatter (FS-EXPORT-1)
+# ---------------------------------------------------------------------------
+
+
+class TestWorksheetName:
+    def test_every_real_report_key_produces_a_valid_sheet_name(self):
+        for key in ex.EXPORTABLE_REPORTS:
+            name = ex._worksheet_name(key)
+            assert 0 < len(name) <= 31
+            assert not set(name) & ex._INVALID_SHEET_NAME_CHARS
+
+    def test_hostile_report_key_is_sanitized_and_bounded(self):
+        name = ex._worksheet_name("a" * 50 + "[bad]:name/here?")
+        assert len(name) <= 31
+        assert not set(name) & ex._INVALID_SHEET_NAME_CHARS
+
+
+class TestXlsxFormatter:
+    def _load(self, content: bytes):
+        from openpyxl import load_workbook
+        return load_workbook(io.BytesIO(content))
+
+    def test_output_is_bytes_and_a_real_openable_workbook(self):
+        doc = ex.max_temperature_document(
+            [FakeMaxTempRow()], scope_label="Entire Fleet",
+            period_text="2026-08-08 to 2026-09-07 UTC", now=NOW,
+        )
+        content = ex.format_xlsx(doc)
+        assert isinstance(content, bytes)
+        wb = self._load(content)
+        assert wb.sheetnames == ["max_temperature"]
+
+    @pytest.mark.parametrize(
+        "report_key,builder",
+        [
+            ("installed_rtls", ex.installed_rtls_document),
+            ("rtl_alarms_30d", ex.rtl_alarms_document),
+        ],
+    )
+    def test_each_report_exports_a_valid_workbook_with_the_expected_sheet(
+        self, report_key, builder,
+    ):
+        doc = builder([], scope_label="fleet", now=NOW)
+        wb = self._load(ex.format_xlsx(doc))
+        sheet = wb.active
+        assert sheet.title == report_key
+        assert [c.value for c in sheet[1]] == list(get_report(report_key).columns)
+
+    def test_headers_match_the_client_contract_exactly_in_order(self):
+        """R4-D14/task item 4: the exact config/reports.py column order,
+        the same single source of truth CSV/PDF already use."""
+        doc = ex.rtl_alarms_document([], scope_label="fleet", now=NOW)
+        wb = self._load(ex.format_xlsx(doc))
+        sheet = wb.active
+        assert [c.value for c in sheet[1]] == list(
+            get_report("rtl_alarms_30d").columns
+        )
+
+    def test_headers_are_bold(self):
+        doc = ex.rtl_alarms_document([], scope_label="fleet", now=NOW)
+        wb = self._load(ex.format_xlsx(doc))
+        sheet = wb.active
+        assert all(cell.font.bold for cell in sheet[1])
+
+    def test_zero_rows_still_produces_a_valid_header_only_workbook(self):
+        """R4-D5's convention extends to XLSX: a legitimate empty report,
+        never an exception, and still directly openable."""
+        doc = ex.rtl_alarms_document([], scope_label="fleet", now=NOW)
+        wb = self._load(ex.format_xlsx(doc))
+        sheet = wb.active
+        assert sheet.max_row == 1
+        assert [c.value for c in sheet[1]] == list(
+            get_report("rtl_alarms_30d").columns
+        )
+
+    def test_no_metadata_preamble_row_one_is_the_header(self):
+        """R4-D14: mirrors CSV's shape (R4-D11) — the table starts at A1,
+        no title/scope/period block above it, unlike PDF."""
+        doc = ex.max_temperature_document(
+            [FakeMaxTempRow()], scope_label="Entire Fleet",
+            period_text="2026-08-08 to 2026-09-07 UTC", now=NOW,
+        )
+        wb = self._load(ex.format_xlsx(doc))
+        sheet = wb.active
+        assert sheet["A1"].value == "OU"
+        assert sheet.max_row == 2   # header + exactly one data row
+
+    def test_row_count_matches_document_row_count(self):
+        doc = ex.rtl_alarms_document(
+            [FakeAlarmRow(), FakeAlarmRow(transformer="tc2")],
+            scope_label="fleet", now=NOW,
+        )
+        wb = self._load(ex.format_xlsx(doc))
+        assert wb.active.max_row == 1 + 2
+
+    def test_string_cells_are_real_text_not_decorated(self):
+        doc = ex.rtl_alarms_document([FakeAlarmRow()], scope_label="fleet", now=NOW)
+        sheet = self._load(ex.format_xlsx(doc)).active
+        cell = sheet.cell(row=2, column=6)   # Transformer
+        assert cell.value == "tc1"
+        assert isinstance(cell.value, str)
+
+    def test_numeric_cells_are_real_numbers_not_decorated_strings(self):
+        """Task item 5: numeric values -> numeric cells, never str()'d."""
+        doc = ex.rtl_alarms_document([FakeAlarmRow()], scope_label="fleet", now=NOW)
+        sheet = self._load(ex.format_xlsx(doc)).active
+        battery_cell = sheet.cell(row=2, column=8)     # Battery(V)
+        temperature_cell = sheet.cell(row=2, column=10)  # Temperature (C)
+        assert battery_cell.value == pytest.approx(3.52)
+        assert isinstance(battery_cell.value, (int, float))
+        assert temperature_cell.value == pytest.approx(85.25)
+        assert isinstance(temperature_cell.value, (int, float))
+
+    def test_datetime_cells_are_real_excel_datetimes_labelled_utc(self):
+        """Task item 5: a real Excel datetime, not an ISO-8601 string —
+        the cell's own number format documents the UTC representation."""
+        doc = ex.rtl_alarms_document([FakeAlarmRow()], scope_label="fleet", now=NOW)
+        sheet = self._load(ex.format_xlsx(doc)).active
+        cell = sheet.cell(row=2, column=9)   # Alarm Date & Time
+        assert isinstance(cell.value, datetime)
+        assert cell.value == datetime(2026, 8, 20, 6, 30)
+        assert cell.value.tzinfo is None    # Excel datetimes carry no tz
+        assert "UTC" in cell.number_format
+
+    def test_naive_datetime_is_interpreted_as_utc(self):
+        naive = FakeAlarmRow(alarm_at=datetime(2026, 8, 20, 6, 30))
+        doc = ex.rtl_alarms_document([naive], scope_label="fleet", now=NOW)
+        sheet = self._load(ex.format_xlsx(doc)).active
+        assert sheet.cell(row=2, column=9).value == datetime(2026, 8, 20, 6, 30)
+
+    def test_none_cells_are_truly_blank_not_empty_string(self):
+        """Task item 5: None -> a blank cell, never a decorated/empty-
+        string placeholder — a real Excel COUNTA()/SUM() must see nothing."""
+        row = FakeAlarmRow(battery_voltage=None, temperature=None,
+                            firmware_version=None, uid=None)
+        doc = ex.rtl_alarms_document([row], scope_label="fleet", now=NOW)
+        sheet = self._load(ex.format_xlsx(doc)).active
+        for col in (7, 8, 10, 12):   # UID, Battery(V), Temperature, Firmware
+            assert sheet.cell(row=2, column=col).value is None
+
+    def test_taxonomy_cells_are_blank(self):
+        doc = ex.rtl_alarms_document([FakeAlarmRow()], scope_label="fleet", now=NOW)
+        sheet = self._load(ex.format_xlsx(doc)).active
+        for col in range(1, 6):   # OU, Zone, Sector, CNC, Feeder
+            assert sheet.cell(row=2, column=col).value is None
+
+    def test_max_temperature_representative_row_round_trips(self):
+        doc = ex.max_temperature_document(
+            [FakeMaxTempRow()], scope_label="fleet",
+            period_text="2026-08-08 to 2026-09-07 UTC", now=NOW,
+        )
+        sheet = self._load(ex.format_xlsx(doc)).active
+        assert sheet.cell(row=2, column=6).value == "tc1code"     # Transformer
+        assert sheet.cell(row=2, column=7).value == datetime(2025, 1, 1)
+        assert sheet.cell(row=2, column=8).value == datetime(2026, 9, 1)
+        assert sheet.cell(row=2, column=9).value == pytest.approx(91.4)
+
+    def test_period_text_never_appears_in_the_workbook_headers(self):
+        """R4-D14: like CSV (R4-D11), XLSX carries no period preamble —
+        only the header row exists above the data."""
+        period = "2026-08-08 to 2026-09-07 UTC"
+        doc = ex.max_temperature_document(
+            [FakeMaxTempRow()], scope_label="fleet", period_text=period, now=NOW,
+        )
+        sheet = self._load(ex.format_xlsx(doc)).active
+        header_and_first_row = [c.value for c in sheet[1]] + [
+            c.value for c in sheet[2]
+        ]
+        assert period not in [str(v) for v in header_and_first_row]

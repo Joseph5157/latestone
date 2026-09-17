@@ -267,7 +267,10 @@ def test_max_temperature_refusal_happens_before_any_row_work(download):
     assert "not permitted" in str(status)
 
 
-@pytest.mark.parametrize("export_format,expected_extension", [("csv", ".csv"), ("pdf", ".pdf")])
+@pytest.mark.parametrize(
+    "export_format,expected_extension",
+    [("csv", ".csv"), ("pdf", ".pdf"), ("xlsx", ".xlsx")],
+)
 def test_both_export_formats_reach_generation_with_the_right_extension(
     download, monkeypatch, export_format, expected_extension,
 ):

@@ -1,13 +1,20 @@
-"""Report export — format-neutral document model + CSV/PDF formatters
-(REPORT-4, extended by REPORT-EXPORT-1).
+"""Report export — format-neutral document model + CSV/PDF/XLSX formatters
+(REPORT-4, extended by REPORT-EXPORT-1 and FS-EXPORT-1).
 
 Frozen decisions:
 
-- R4-D1  Both CSV and PDF are explicitly DEVELOPMENT-DEFAULT export
-         formats (C-04 baseline: PDF + CSV, no native XLSX). The
-         client-approved production delivery mechanism remains unresolved
-         (REQ-1A §16). Never call either format "required", "official" or
-         "production" — EXPORT_FORMAT_LABEL is the honesty contract.
+- R4-D1  SUPERSEDED IN PART by FS-EXPORT-1: CSV and PDF were the only
+         DEVELOPMENT-DEFAULT export formats (C-04 baseline). A native
+         XLSX formatter now exists too (see R4-D13/R4-D14 below) — the
+         Functional Specification's own UI shows "Export to Excel", so
+         XLSX is not a third development default invented here, it is
+         the format the source itself calls for. CSV and PDF remain, as
+         additional development-convenience formats. The client-approved
+         production delivery MECHANISM (how/where an export reaches a
+         user) remains unresolved (REQ-1A §16) regardless of format —
+         never call any format "required", "official" or "production"
+         for that separate reason. EXPORT_FORMAT_LABEL is the honesty
+         contract.
 - R4-D2  Pipeline: domain rows → ExportDocument → formatter. Report data
          services stay format-ignorant; a future client-approved format
          is a new formatter plus a registry entry, nothing more.
@@ -71,6 +78,27 @@ Frozen decisions:
          pagination via the still-uncompressed `/Type /Page` object
          markers, and the exact header/row values actually handed to
          fpdf2's `Table.row`) rather than grepping decompressed bytes.
+- R4-D13 (FS-EXPORT-1) `format_xlsx` is a THIRD registered formatter, on
+         `openpyxl`. It shares `ExportDocument`/`_cell()`'s meaning but
+         not `_cell()`'s STRINGS: a domain value keeps its native openpyxl
+         type instead of being rendered to text first, so Excel gets a
+         real numeric cell, a real (UTC, tz-naive) datetime cell, or a
+         genuinely empty cell for `None` — never a decorated string. This
+         is `_xlsx_value()`, the XLSX-specific sibling of `_cell()`; the
+         two must never be allowed to disagree about what a domain value
+         MEANS, only about what typed shape it takes.
+- R4-D14 The XLSX worksheet is a plain rectangular table starting at A1 —
+         headers in row 1 (bold), data from row 2, NO metadata preamble
+         (title/scope/period/generated) anywhere in the sheet body. This
+         deliberately mirrors CSV's R4-D11 shape, not PDF's: XLSX and CSV
+         serve the same "open this directly as a table" use case PDF does
+         not, and a preamble above row 1 would shift the header away from
+         where naive tooling (e.g. `pandas.read_excel` with its default
+         `header=0`) expects it — the exact "damage machine-readable
+         tabular output" the gate's own instructions warn against. Scope/
+         period/generated-time remain available via the export-status
+         panel and (for Maximum Temperature) the filename, exactly as for
+         CSV — never added to the workbook body.
 """
 from __future__ import annotations
 
@@ -85,9 +113,11 @@ from config.reports import get_report
 #: R4-D1 honesty contract. Rendered verbatim near the download control and
 #: asserted by tests so the distinction can never silently disappear.
 EXPORT_FORMAT_LABEL = (
-    "CSV and PDF are the current development export formats "
-    "(C-04 baseline); the client-approved production delivery "
-    "mechanism is still pending."
+    "CSV, PDF and native XLSX are available export formats. XLSX matches "
+    "the \"Export to Excel\" control shown in the Functional Specification "
+    "UI; CSV and PDF remain additional development-convenience formats "
+    "(C-04 baseline). The client-approved production delivery mechanism "
+    "is still pending."
 )
 
 #: R4-D9 — all three real reports now have a download path.
@@ -319,10 +349,100 @@ def format_pdf(document: ExportDocument) -> bytes:
     return bytes(pdf.output())
 
 
-#: R4-D2/R4-D10 registry: the only place a format name meets a renderer.
-FORMATTERS = {"csv": format_csv, "pdf": format_pdf}
+#: A conservative worksheet name is capped at 31 characters and forbids
+#: : \ / ? * [ ] (Excel's own limits, not a client requirement).
+_INVALID_SHEET_NAME_CHARS = set(':\\/?*[]')
 
-_MIME_TYPES = {"csv": "text/csv", "pdf": "application/pdf"}
+
+def _worksheet_name(report_key: str) -> str:
+    """A conservative, always-valid worksheet name (R4-D14).
+
+    ``report_key`` (config/reports.py) is always ASCII lowercase and
+    underscores today — e.g. "rtl_alarms_30d" — well under the 31-character
+    cap and containing none of Excel's forbidden characters, so this never
+    actually rewrites anything yet. It exists so a future report key can
+    never silently produce an unopenable workbook.
+    """
+    cleaned = "".join(
+        ch for ch in report_key if ch not in _INVALID_SHEET_NAME_CHARS
+    )
+    return cleaned[:31] or "Report"
+
+
+def _xlsx_value(value):
+    """One domain value → one openpyxl-native cell payload (R4-D13).
+
+    The typed sibling of ``_cell()``: a ``None`` stays ``None`` (openpyxl
+    writes a genuinely empty cell, never an empty STRING — a real Excel
+    formula like ``COUNTA()`` must see nothing there, not a zero-length
+    text value); a ``datetime`` is converted to UTC and stripped of
+    tzinfo, since Excel's own datetime type carries no timezone — the
+    cell's ``number_format`` (set by the caller) then labels it "UTC" so
+    the wall-clock meaning stays as unambiguous as ``_cell()``'s ISO-8601
+    "Z" suffix; every other value (str, int, float) passes through
+    unchanged as its own native openpyxl-recognized type — never
+    ``str()``'d, so a temperature stays a real numeric cell a spreadsheet
+    can sum or chart, not decorated text.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(timezone.utc)
+        return value.replace(tzinfo=None)
+    return value
+
+
+#: R4-D14: labels a real Excel datetime cell as UTC without altering the
+#: stored value — the visual sibling of ISO-8601's "Z" suffix in `_cell()`.
+_XLSX_DATETIME_FORMAT = 'yyyy-mm-dd hh:mm:ss "UTC"'
+
+
+def format_xlsx(document: ExportDocument) -> bytes:
+    """Render an ExportDocument as a native XLSX workbook (R4-D13/R4-D14,
+    FS-EXPORT-1).
+
+    A single worksheet, a plain rectangular table starting at A1 — bold
+    headers in row 1, one data row per document row, no metadata preamble
+    (R4-D14). Consumes the SAME ``ExportDocument`` CSV/PDF do; no report
+    query is rebuilt here. A zero-row document still produces a valid,
+    openable workbook — header row only, the same "legitimate empty
+    report" convention as CSV/PDF (R4-D5).
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = _worksheet_name(document.report_key)
+
+    sheet.append(list(document.headers))
+    for header_cell in sheet[1]:
+        header_cell.font = Font(bold=True)
+
+    for row in document.rows:
+        sheet.append([_xlsx_value(value) for value in row])
+        row_index = sheet.max_row
+        for column_index, original in enumerate(row, start=1):
+            if isinstance(original, datetime):
+                sheet.cell(
+                    row=row_index, column=column_index
+                ).number_format = _XLSX_DATETIME_FORMAT
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+#: R4-D2/R4-D10/R4-D13 registry: the only place a format name meets a
+#: renderer.
+FORMATTERS = {"csv": format_csv, "pdf": format_pdf, "xlsx": format_xlsx}
+
+_MIME_TYPES = {
+    "csv": "text/csv",
+    "pdf": "application/pdf",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
 
 
 def export_filename(
@@ -383,6 +503,7 @@ __all__ = [
     "export_filename",
     "format_csv",
     "format_pdf",
+    "format_xlsx",
     "installed_rtls_document",
     "max_temperature_document",
     "render_export",
