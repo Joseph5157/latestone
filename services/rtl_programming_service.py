@@ -48,10 +48,27 @@ Frozen semantics:
            enforces single-pending semantics.
 - PROG-D5  Audit entity is ("device", device_id); request-specific fields
            travel in new_values under the approved allowlist.
+- PROG-D8  (FS-PROG-1) The RTL UID and transformer name the Functional
+           Specification's §4.4.1 programming upload names are this
+           device's OWN, already-persisted ``device_code``/
+           ``transformer_code`` — never a value freshly typed in the
+           drawer. The UID/Transformer Name form fields are read-only,
+           pre-filled display copies; nothing served from the browser can
+           override them. Validation therefore re-reads the authoritative
+           row from PostgreSQL (never trusts a browser-echoed value) and
+           checks it against the Functional Specification's two proven
+           rules: the UID is exactly 5 digits, and the transformer name is
+           at most 10 characters. The source extract shows ``29xxx`` only
+           as one worked example of a 5-digit UID, not a required prefix —
+           no "starts with 29" rule is enforced. A device that fails this
+           check is a data-quality problem with that device's registration,
+           not a malformed request; the message says so and does not
+           blame the operator's input.
 """
 from __future__ import annotations
 
 import logging
+import re
 
 from config import audit as audit_cfg
 from config import commands as command_cfg
@@ -70,6 +87,15 @@ REQUEST_METHOD_DASHBOARD = "dashboard"
 #: The only MSISDN limit proven by the schema (varchar(20)). Anything
 #: stricter would be invented policy (PROG-D1).
 MAX_MASTER_MSISDN_LENGTH = 20
+
+#: PROG-D8 / FS-PROG-1 — Functional Specification §4.4.1: "5-digit RTL UID,
+#: e.g. 29xxx". Exactly 5 digits, proven by the source. No "29" prefix is
+#: required — the source labels that digit string an example, not a rule.
+UID_PATTERN = re.compile(r"^\d{5}$")
+
+#: PROG-D8 / FS-PROG-1 — Functional Specification §4.4.1: transformer name
+#: "maximum 10 characters".
+MAX_TRANSFORMER_NAME_LENGTH = 10
 
 
 class ProgrammingError(Exception):
@@ -95,6 +121,45 @@ def _validate_master_msisdn(master_msisdn) -> str:
     return trimmed
 
 
+def _validate_programming_identity(device_id: str) -> None:
+    """PROG-D8: verify the device's OWN UID/transformer name, from PostgreSQL.
+
+    Reads ``repo.get_device_breadcrumb`` — never a value the browser sent —
+    so an operator cannot widen or bypass this check by editing the
+    read-only form fields' underlying request payload. An unknown
+    ``device_id`` is left for ``create_programming_request`` to reject with
+    its existing, already-tested "Unknown device_id" error; duplicating
+    that check here would just be a second source of truth for it.
+    """
+    try:
+        breadcrumb = repo.get_device_breadcrumb(device_id)
+    except Exception as exc:
+        logger.exception(
+            "Failed to look up device %s for programming request", device_id
+        )
+        raise ProgrammingError(
+            "The programming request could not be recorded. Please try again."
+        ) from exc
+
+    if breadcrumb is None:
+        return
+
+    if not UID_PATTERN.fullmatch(breadcrumb.device_code):
+        raise ProgrammingError(
+            "This RTL's UID is not in the Functional Specification's "
+            "5-digit format and cannot be programmed yet. Update the "
+            "device's registered code before retrying."
+        )
+
+    if len(breadcrumb.transformer_code) > MAX_TRANSFORMER_NAME_LENGTH:
+        raise ProgrammingError(
+            "This transformer's name is longer than the Functional "
+            f"Specification's {MAX_TRANSFORMER_NAME_LENGTH}-character limit "
+            "and cannot be programmed yet. Update the transformer's "
+            "registered name before retrying."
+        )
+
+
 def record_request(
     *, device_id: str, master_msisdn: str, actor_user_id: int
 ) -> ProgrammingRequestRecord:
@@ -112,6 +177,7 @@ def record_request(
         )
 
     msisdn = _validate_master_msisdn(master_msisdn)
+    _validate_programming_identity(device_id)
 
     try:
         with session_scope() as session:
@@ -178,8 +244,10 @@ def recent_requests(device_id: str, *, limit: int = 5):
 
 __all__ = [
     "MAX_MASTER_MSISDN_LENGTH",
+    "MAX_TRANSFORMER_NAME_LENGTH",
     "ProgrammingError",
     "REQUEST_METHOD_DASHBOARD",
+    "UID_PATTERN",
     "recent_requests",
     "record_request",
 ]

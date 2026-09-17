@@ -602,7 +602,7 @@ def _seed_hierarchy() -> None:
                 f"VALUES ('{DB_TRANSFORMER_ID}', 'simx-p1', 't1')"
             )
         )
-        for device_id, code in ((DB_DEVICE_ID, "d1"), (DB_OTHER_DEVICE_ID, "d2")):
+        for device_id, code in ((DB_DEVICE_ID, "29001"), (DB_OTHER_DEVICE_ID, "29002")):
             session.execute(
                 text(
                     f"INSERT INTO {repo._SCHEMA}.devices "

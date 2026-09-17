@@ -51,7 +51,7 @@ def _seed_hierarchy() -> None:
             text(
                 f"INSERT INTO {repo._SCHEMA}.devices "
                 f"(device_id, transformer_id, device_code) "
-                f"VALUES ('{DEVICE_ID}', '{TRANSFORMER_ID}', 'd1')"
+                f"VALUES ('{DEVICE_ID}', '{TRANSFORMER_ID}', '29001')"
             )
         )
 

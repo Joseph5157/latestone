@@ -79,6 +79,57 @@ class TestMasterMsisdnValidation:
             prog._validate_master_msisdn("1" * 21)
 
 
+class TestUidPatternValidation:
+    """PROG-D8 / FS-PROG-1 §4.4.1: exactly 5 digits. No "29" prefix rule —
+    the source labels ``29xxx`` an example, not a requirement."""
+
+    @pytest.mark.parametrize("uid", ["00000", "29017", "99999", "01234"])
+    def test_five_digit_uid_matches(self, uid):
+        assert prog.UID_PATTERN.fullmatch(uid)
+
+    @pytest.mark.parametrize(
+        "uid", ["2901", "290177", "2901a", "29-17", "", "  29017", "29017 "]
+    )
+    def test_non_conforming_uid_does_not_match(self, uid):
+        assert not prog.UID_PATTERN.fullmatch(uid)
+
+    def test_uid_need_not_start_with_29(self):
+        """No invented prefix rule: any 5 digits are a valid UID shape."""
+        assert prog.UID_PATTERN.fullmatch("10000")
+
+
+class TestTransformerNameLengthDefenseInDepth:
+    """PROG-D8: ``transformer_code`` is already ``VARCHAR(10)``
+    (alembic/versions/001_baseline.py), so no real row can ever exceed 10
+    characters — this branch can never fire against genuine data. It stays
+    as defense-in-depth against a future schema change and is exercised
+    here with a mocked breadcrumb, since the database itself refuses to
+    store the over-length value this test needs to seed."""
+
+    def test_over_ten_character_transformer_name_rejected(self, monkeypatch):
+        fake_breadcrumb = repo.DevicePath(
+            plant_id="p1", plant_name="P1", transformer_id="p1-t1",
+            transformer_code="12345678901", device_id="p1-t1-d1",
+            device_code="29001", device_status="active",
+        )
+        monkeypatch.setattr(
+            repo, "get_device_breadcrumb", lambda device_id: fake_breadcrumb
+        )
+        with pytest.raises(prog.ProgrammingError):
+            prog._validate_programming_identity("p1-t1-d1")
+
+    def test_exactly_ten_character_transformer_name_accepted(self, monkeypatch):
+        fake_breadcrumb = repo.DevicePath(
+            plant_id="p1", plant_name="P1", transformer_id="p1-t1",
+            transformer_code="1234567890", device_id="p1-t1-d1",
+            device_code="29001", device_status="active",
+        )
+        monkeypatch.setattr(
+            repo, "get_device_breadcrumb", lambda device_id: fake_breadcrumb
+        )
+        prog._validate_programming_identity("p1-t1-d1")  # must not raise
+
+
 # ---------------------------------------------------------------------------
 # Database-backed — persisted behaviour on isolated schema
 # ---------------------------------------------------------------------------
@@ -124,7 +175,7 @@ def _seed_hierarchy() -> None:
             text(
                 f"INSERT INTO {repo._SCHEMA}.devices "
                 f"(device_id, transformer_id, device_code) "
-                f"VALUES ('{DEVICE_ID}', '{TRANSFORMER_ID}', 'd1')"
+                f"VALUES ('{DEVICE_ID}', '{TRANSFORMER_ID}', '29001')"
             )
         )
 
@@ -241,6 +292,95 @@ class TestProgrammingRequestPersistence:
 
         assert _request_rows() == []
         assert _audit_rows() == []
+
+
+@pytest.mark.db
+@pytest.mark.usefixtures("isolated_schema")
+class TestUidAndTransformerNameServiceValidation:
+    """PROG-D8 / FS-PROG-1: the service re-reads the device's OWN persisted
+    UID/transformer name from PostgreSQL — never a browser-supplied value —
+    and enforces the Functional Specification's two proven §4.4.1 rules
+    before a programming request is recorded."""
+
+    def setup_method(self):
+        _wipe()
+        _seed_hierarchy()
+        self.admin = repo.create_or_update_user(
+            username="prog-admin", full_name="Prog Admin",
+            role="administrator", status="active",
+        ).user_id
+
+    def _seed_device(
+        self, device_id, device_code, *,
+        transformer_code="t1", transformer_id=TRANSFORMER_ID,
+    ):
+        with session_scope() as session:
+            if transformer_id != TRANSFORMER_ID:
+                session.execute(
+                    text(
+                        f"INSERT INTO {repo._SCHEMA}.transformers "
+                        f"(transformer_id, plant_id, transformer_code) "
+                        f"VALUES ('{transformer_id}', 'prog-p1', "
+                        f"'{transformer_code}')"
+                    )
+                )
+            session.execute(
+                text(
+                    f"INSERT INTO {repo._SCHEMA}.devices "
+                    f"(device_id, transformer_id, device_code) "
+                    f"VALUES ('{device_id}', '{transformer_id}', "
+                    f"'{device_code}')"
+                )
+            )
+
+    def _record(self, device_id, msisdn="0700000000"):
+        return prog.record_request(
+            device_id=device_id, master_msisdn=msisdn,
+            actor_user_id=self.admin,
+        )
+
+    def test_valid_five_digit_uid_is_accepted(self):
+        """DEVICE_ID is seeded with device_code='29001' by _seed_hierarchy."""
+        record = self._record(DEVICE_ID)
+        assert record.device_id == DEVICE_ID
+        assert _request_rows()[0]["status"] == "queued"
+
+    def test_four_digit_uid_rejected(self):
+        self._seed_device("prog-p1-t1-d2", "2901")
+        with pytest.raises(prog.ProgrammingError):
+            self._record("prog-p1-t1-d2")
+        assert _request_rows() == []
+        assert _audit_rows() == []
+
+    def test_six_digit_uid_rejected(self):
+        self._seed_device("prog-p1-t1-d3", "290177")
+        with pytest.raises(prog.ProgrammingError):
+            self._record("prog-p1-t1-d3")
+        assert _request_rows() == []
+        assert _audit_rows() == []
+
+    def test_non_numeric_uid_rejected(self):
+        self._seed_device("prog-p1-t1-d4", "2901A")
+        with pytest.raises(prog.ProgrammingError):
+            self._record("prog-p1-t1-d4")
+        assert _request_rows() == []
+        assert _audit_rows() == []
+
+    def test_transformer_name_exactly_ten_characters_accepted(self):
+        self._seed_device(
+            "prog-p1-t2-d1", "29010",
+            transformer_code="1234567890", transformer_id="prog-p1-t2",
+        )
+        record = self._record("prog-p1-t2-d1")
+        assert record.device_id == "prog-p1-t2-d1"
+
+    def test_uid_checked_before_any_row_is_written_regardless_of_msisdn(self):
+        """A malformed UID is refused even with an otherwise-valid MSISDN —
+        server/service boundary enforcement, not merely UI presentation."""
+        self._seed_device("prog-p1-t1-d6", "1")
+        with pytest.raises(prog.ProgrammingError):
+            self._record("prog-p1-t1-d6", msisdn="27821234567")
+        assert _request_rows() == []
 
 
 @pytest.mark.db
