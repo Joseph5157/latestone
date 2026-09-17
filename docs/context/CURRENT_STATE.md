@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-17T10:14:14Z
+Date: 2026-09-17T10:19:29Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `355fee6` "docs(context): close no-data hierarchy gate"
+- `main` = `55e3eeb` "feat(fleet): remove generation metadata from UI"
 - Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3133 passed, 699 deselected in 31.98s
+- `python -m pytest -m "not db"` → 3132 passed, 699 deselected in 32.80s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 318 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 168 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 318 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 319 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 169 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 319 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -78,13 +78,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CLIENT-FEEDBACK-DOMAIN-CLEANUP-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
+M docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md
+ M docs/context/ACTIVE_GATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

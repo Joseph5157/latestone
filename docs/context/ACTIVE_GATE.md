@@ -1,10 +1,10 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-17
-Gate: CLIENT-FEEDBACK-DOMAIN-CLEANUP-1
-Commit/push permission: **GRANTED** (implementation commit, closure-doc commit,
-push, and remote verification required by this gate).
+Gate: NONE
+Commit/push permission: **GRANTED and exercised** (implementation commit,
+closure-doc commit, push, and remote verification required by this gate).
 
 ## Task
 
@@ -49,9 +49,30 @@ remain unchanged because no approved replacement name exists.
 
 ## Implementation and verification
 
-In progress.
+Implementation: `55e3eebea3ea17263338d3cd2387a9cfcc8a0534`.
 
-## Next implementation gate: CLIENT-FEEDBACK-DOMAIN-CLEANUP-1 — OPEN / IN PROGRESS
+- Fleet Overview now renders Plant, Country, Transformers, Devices and Data;
+  Fuel and Capacity were removed from both first-paint and callback columns and
+  from row payloads.
+- Plant detail context now renders Country, Transformers and Devices before its
+  existing operational health content; Fuel and Capacity were not replaced.
+- Obsolete responsive/hover CSS for the removed columns was deleted so the
+  remaining operational columns use the available layout naturally.
+- No schema, migration, repository, seed, hierarchy, route, report or
+  authorization file changed. Plant terminology remains unchanged.
+- Focused Fleet/detail/navigation/role suite: 174 passed.
+- Full non-DB suite: 3132 passed, 699 deselected.
+- Browser: Administrator retained 30 plants/120 RTLs and Technician retained
+  16 plants/24 assigned RTLs. Fleet-to-Plant navigation and four scoped
+  transformer rows passed; neither surface rendered Fuel or Capacity.
+- Generic branding remains: `Power Plant Monitoring` in browser/login copy and
+  `Powerplant Dashboard` in the shell. It was not renamed because no approved
+  replacement name exists. Seeded real-world Plant names also remain unchanged.
+- `python scripts/build_context_pack.py --check` and `git diff --check` clean.
+
+No Functional Specification tracker status changed.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
