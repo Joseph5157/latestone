@@ -77,7 +77,11 @@ def test_registration_marks_only_validated_requirements():
         if "Status" in text_of(label)
     )
     assert not find_by_class(status_label, "required-marker")
-    assert find_by_id(page, "device-register-code").required is True
+    # REGISTER-UX-1: required is marked (the asterisk above) and validated
+    # by the page, but not by the browser. Dash outlines
+    # `input.dash-input:invalid` in red, so browser-`required` drew an empty
+    # field as an error before the operator had done anything.
+    assert not getattr(find_by_id(page, "device-register-code"), "required", None)
 
 
 def test_registration_control_contract_is_unchanged():

@@ -112,6 +112,27 @@ class TestDescription:
         assert find_by_exact_class(f, "field__description") == []
 
 
+class TestHint:
+    def test_hint_sits_directly_after_the_control(self):
+        control = dcc.Input(id="rtl-uid")
+        f = field(
+            "RTL UID", control, control_id="rtl-uid",
+            error_id="rtl-uid-error", hint="5 digits", hint_id="rtl-uid-hint",
+        )
+        assert f.children[1] is control
+        assert f.children[2].id == "rtl-uid-hint"
+        assert f.children[2].children == "5 digits"
+        assert f.children[3].id == "rtl-uid-error"
+
+    def test_hint_is_never_an_alert(self):
+        f = field("RTL UID", dcc.Input(id="u"), control_id="u", hint="x", hint_id="u-hint")
+        assert getattr(f.children[2], "role", None) is None
+
+    def test_hint_is_optional(self):
+        f = field("RTL UID", dcc.Input(id="u"), control_id="u")
+        assert find_by_exact_class(f, "field__hint") == []
+
+
 class TestRegistrationFormMigration:
     def page(self):
         from pages.device_register import layout

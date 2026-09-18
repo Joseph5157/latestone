@@ -574,7 +574,11 @@ class _RegisterSpy:
 
     def __call__(self, *args, **kwargs):
         self.calls.append((args, kwargs))
-        return object()
+        # The success screen links to the new device, so the stand-in
+        # returns the one field of a DeviceRecord the callback reads.
+        from types import SimpleNamespace
+
+        return SimpleNamespace(device_id="plant-01-t1-d99")
 
 
 def _silence_label_lookups(monkeypatch):

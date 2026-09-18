@@ -1,24 +1,32 @@
 """Device Registration callbacks — form validation, review, submit.
 
-Form validation and review are pure frontend logic. Submit persists the
-device via services/device_registration.py (DB-4), backed by
-plant_monitoring.devices. Registration is create-only and attempts exactly
-once per Submit click; a failure (unknown transformer, duplicate device
-code, or a rare concurrent-registration race) is shown as a friendly error
-on the review step rather than a stack trace or raw SQL.
+Field validation is pure logic over the shared UID rule (ADR-022). Review
+also asks the service whether the code is already registered anywhere in
+the fleet. Submit persists the device via services/device_registration.py
+(DB-4), backed by plant_monitoring.devices. Registration is create-only and
+attempts exactly once per Submit click; a failure (unknown transformer,
+duplicate device code, or a rare concurrent-registration race) is shown as
+a friendly error on the review step rather than a stack trace or raw SQL.
 """
 from __future__ import annotations
 
 import logging
 
-from dash import Input, Output, State, no_update, html
+from dash import Input, Output, State, dcc, no_update, html
 
 from components.status_panels import action_refused_notice, error_panel
+from pages.device_register import CODE_HINT_EMPTY, summary_body
+from routes import device_assign_href, device_href
 from services import device_scope, hierarchy_service
 from services.action_guard import require_capability
 from services.auth_service import current_identity
 from services.authorization import AuthorizationError, REGISTER_DEVICE
-from services.device_registration import RegistrationError, register_device
+from services.device_registration import (
+    RegistrationError,
+    device_code_problem,
+    register_device,
+)
+from services.rtl_uid import uid_format_error
 
 logger = logging.getLogger(__name__)
 
@@ -53,25 +61,19 @@ def _transformer_options(plant_id: str) -> list[dict]:
 
 
 def _validate_code(code: str | None) -> str | None:
-    """The RTL UID / Device Code field-level rule: required, trimmed <= 10
-    characters. The one place this rule is written (MOBBIN-UX-6) — both
-    Review-time validation and the live inline hint call this, so the two
-    can never drift apart. Returns an error message, or None when `code`
-    passes.
+    """The RTL UID / Device Code field-level rule: the shared 5-digit UID
+    format (ADR-022, `services/rtl_uid.py`). Both Review-time validation and
+    the live inline hint call this, so the two can never drift apart
+    (MOBBIN-UX-6). Returns an error message, or None when `code` passes.
     """
-    if not code or not code.strip():
-        return "Device code is required."
-    if len(code.strip()) > 10:
-        return "Device code must be 10 characters or fewer."
-    return None
+    return uid_format_error(code)
 
 
 def _code_field_guidance(raw_value: str | None) -> str:
     """Live, inline guidance for the device code input, before Review.
 
-    Uses only the rule `_validate_code` already enforces — no 5-digit or
-    numeric-only assumption, no uniqueness check, nothing this application
-    does not already validate:
+    Uses only the format rule `_validate_code` enforces. No uniqueness
+    check: that needs the database, and runs at Review.
 
     - nothing typed yet (pristine/emptied): neutral guidance stating the
       rule, not phrased as an error.
@@ -84,11 +86,37 @@ def _code_field_guidance(raw_value: str | None) -> str:
       "registered", since nothing here reaches the database.
     """
     if not raw_value:
-        return "Required · maximum 10 characters."
+        return CODE_HINT_EMPTY
     error = _validate_code(raw_value)
     if error:
         return error
-    return "Meets the device code format (10 characters or fewer)."
+    return "Meets the device code format (5 digits)."
+
+
+def _option_label(options: list[dict] | None, value) -> str | None:
+    """The label a dropdown shows for `value`, from options already on screen."""
+    if not options or value is None:
+        return None
+    return next((o.get("label") for o in options if o.get("value") == value), None)
+
+
+def _success_actions(device_id: str) -> html.Div:
+    """Links for the device just registered: assign it, or open it."""
+    return html.Div(
+        className="device-register-success__links",
+        children=[
+            dcc.Link(
+                "Assign a technician",
+                href=device_assign_href(device_id),
+                className="device-register-form__btn device-register-form__btn--primary",
+            ),
+            dcc.Link(
+                "Open the device",
+                href=device_href(device_id),
+                className="device-register-form__btn device-register-form__btn--secondary",
+            ),
+        ],
+    )
 
 
 def _validate_form(code: str, plant_id: str, transformer_id: str) -> dict[str, str]:
@@ -204,6 +232,29 @@ def register(app) -> None:
         return _code_field_guidance(value)
 
     @app.callback(
+        Output("device-register-summary-body", "children"),
+        Input("device-register-code", "value"),
+        Input("device-register-plant", "value"),
+        Input("device-register-transformer", "value"),
+        Input("device-register-status", "value"),
+        Input("device-register-transformer", "options"),
+        State("device-register-plant", "options"),
+    )
+    def _live_summary(code, plant_id, transformer_id, status, transformer_options, plant_options):
+        """Echo the form into the summary card (REGISTER-UX-1).
+
+        Labels come from the dropdown options already on the operator's
+        screen, which were authorized when they loaded. No read here, so
+        this callback discloses nothing new and needs no capability check.
+        """
+        return summary_body(
+            code,
+            _option_label(plant_options, plant_id),
+            _option_label(transformer_options, transformer_id),
+            status,
+        )
+
+    @app.callback(
         Output("device-register-code-error", "children"),
         Output("device-register-plant-error", "children"),
         Output("device-register-transformer-error", "children"),
@@ -252,6 +303,25 @@ def register(app) -> None:
                 no_update,
                 no_update,
             )
+
+        # ADR-022: a code registered anywhere in the fleet is refused here,
+        # before the operator reaches Submit. The service repeats this check
+        # inside its own transaction; this one is for early, specific feedback.
+        try:
+            code_problem = device_code_problem(code)
+        except Exception:
+            logger.exception("Device code availability check failed")
+            code_problem = "The device code could not be checked. Please try again."
+        if code_problem:
+            return (
+                code_problem, "", "",
+                no_update,  # form stays visible
+                no_update,  # review stays hidden
+                no_update,
+                no_update,
+                no_update,
+            )
+
         # Look up labels for review. Administration surface: fleet-wide, like
         # list_all_devices (spec §4.6) — see _plant_options() above.
         plant_label = next(
@@ -301,6 +371,7 @@ def register(app) -> None:
         Output("device-register-success-detail", "children"),
         Output("device-register-error", "style", allow_duplicate=True),
         Output("device-register-error", "children", allow_duplicate=True),
+        Output("device-register-success-actions", "children"),
         Input("device-register-submit-btn", "n_clicks"),
         State("device-register-code", "value"),
         State("device-register-plant", "value"),
@@ -314,7 +385,7 @@ def register(app) -> None:
     ):
         """Submit — exactly one registration attempt per click."""
         if not n_clicks:
-            return (no_update,) * 6
+            return (no_update,) * 7
 
         # BEFORE ANY DATABASE ACCESS, including the label reads below. The
         # route is administrator-only, but this callback answers whoever
@@ -332,6 +403,7 @@ def register(app) -> None:
                 no_update,
                 {"display": "block"},    # error visible
                 action_refused_notice(),
+                no_update,
             )
 
         # Administration surface: fleet-wide, like list_all_devices (spec
@@ -355,7 +427,7 @@ def register(app) -> None:
         )
 
         try:
-            register_device(
+            device = register_device(
                 transformer_id,
                 code.strip(),
                 status or "active",
@@ -370,6 +442,7 @@ def register(app) -> None:
                 no_update,
                 {"display": "block"},    # error visible
                 error_panel(str(exc)),
+                no_update,
             )
         except Exception:
             logger.exception(
@@ -383,6 +456,7 @@ def register(app) -> None:
                 no_update,
                 {"display": "block"},
                 error_panel("Registration failed. Please try again."),
+                no_update,
             )
 
         detail = html.Div(
@@ -402,4 +476,38 @@ def register(app) -> None:
             detail,
             {"display": "none"},   # error hidden
             "",                     # error cleared
+            _success_actions(device.device_id),
+        )
+
+    @app.callback(
+        Output("device-register-code", "value"),
+        Output("device-register-code-error", "children", allow_duplicate=True),
+        Output("device-register-form", "style", allow_duplicate=True),
+        Output("device-register-review", "style", allow_duplicate=True),
+        Output("device-register-success", "style", allow_duplicate=True),
+        Output("device-register-success-detail", "children", allow_duplicate=True),
+        Output("device-register-success-actions", "children", allow_duplicate=True),
+        Output("device-register-error", "style", allow_duplicate=True),
+        Input("device-register-another-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _register_another(n_clicks):
+        """Back to a fresh form for the next RTL on the same site.
+
+        Clears only the code: plant, transformer and status stay selected,
+        since several RTLs are usually registered on one transformer in a
+        row. No read and no write, so no capability check; Review and
+        Submit still check everything again.
+        """
+        if not n_clicks:
+            return (no_update,) * 8
+        return (
+            "",
+            "",
+            {"display": "block"},
+            {"display": "none"},
+            {"display": "none"},
+            [],
+            [],
+            {"display": "none"},
         )

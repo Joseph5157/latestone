@@ -35,6 +35,8 @@ def field(
     error_id: str | None = None,
     required: bool = False,
     labelable: bool = True,
+    hint: str | None = None,
+    hint_id: str | None = None,
 ) -> html.Div:
     """One form field.
 
@@ -45,6 +47,9 @@ def field(
         label cannot target.
     error_id: id of the (initially empty) slot a validation callback writes
         into. Omit for a field with no per-field validation.
+    hint / hint_id: live guidance directly under the control (MOBBIN-UX-6),
+        inside the field so it cannot read as the next field's help. Never
+        role="alert": a callback may rewrite it on every keystroke.
     """
     label_text = [label]
     if required:
@@ -69,6 +74,9 @@ def field(
         )
 
     children = [label_node, control_node]
+    if hint is not None or hint_id:
+        hint_props = {"id": hint_id} if hint_id else {}
+        children.append(html.P(hint, className="field__hint", **hint_props))
     if description:
         children.append(html.P(description, className="field__description"))
     if error_id:

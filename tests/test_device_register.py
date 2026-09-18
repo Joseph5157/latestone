@@ -1,4 +1,4 @@
-﻿"""Tests for device registration â€” layout, validation, review, persistence.
+"""Tests for device registration â€” layout, validation, review, persistence.
 
 Layout/validation/review tests exercise pure logic (no Dash runtime, no
 database). Persistence tests (DB-4) are database-backed and use the
@@ -17,20 +17,24 @@ from sqlalchemy import text
 from callbacks import device_register
 from callbacks.device_register import (
     _code_field_guidance,
+    _option_label,
     _plant_options,
+    _success_actions,
     _transformer_options,
     _validate_code,
     _validate_form,
     _review_summary,
 )
-from pages.device_register import layout
+from pages.device_register import layout, summary_body as _summary_body
 from db.engine import session_scope
 from repositories import plant_monitoring_repository as repo
 from services.device_registration import (
     RegistrationError,
+    device_code_problem,
     register_device,
     update_device_metadata,
 )
+from services.rtl_uid import UID_FORMAT_MESSAGE, UID_REQUIRED_MESSAGE, uid_format_error
 from tests.dash_tree import find_by_id
 
 
@@ -95,12 +99,16 @@ class TestValidateForm:
         assert "code" in errors
 
     def test_code_too_long_fails(self):
-        errors = _validate_form("a" * 11, "plant-1", "tx-1")
+        errors = _validate_form("290171", "plant-1", "tx-1")
         assert "code" in errors
 
-    def test_code_exactly_10_chars_passes(self):
-        errors = _validate_form("a" * 10, "plant-1", "tx-1")
-        assert "code" not in errors
+    def test_code_too_short_fails(self):
+        errors = _validate_form("2901", "plant-1", "tx-1")
+        assert "code" in errors
+
+    def test_non_numeric_code_fails(self):
+        errors = _validate_form("AB-12", "plant-1", "tx-1")
+        assert "code" in errors
 
     def test_missing_plant_fails(self):
         errors = _validate_form("29017", "", "tx-1")
@@ -130,69 +138,39 @@ class TestValidateForm:
 
 class TestCodeFieldGuidance:
     def test_empty_value_is_neutral_initial_guidance(self):
-        """1. Initial (nothing typed) state is neutral, not an error."""
-        assert _code_field_guidance("") == "Required · maximum 10 characters."
-        assert _code_field_guidance(None) == "Required · maximum 10 characters."
+        """Nothing typed yet: neutral guidance, not an error."""
+        assert _code_field_guidance("") == "Required · 5 digits, e.g. 29017."
+        assert _code_field_guidance(None) == "Required · 5 digits, e.g. 29017."
 
     def test_whitespace_only_is_invalid_guidance_matching_review(self):
-        """2. Whitespace-only entered -> invalid guidance, identical to
-        what Review would show for the same input."""
         guidance = _code_field_guidance("   ")
-        assert guidance == _validate_code("   ") == "Device code is required."
+        assert guidance == _validate_code("   ") == UID_REQUIRED_MESSAGE
 
-    def test_valid_current_rule_value_is_positive_guidance(self):
-        """3. A nonblank value within the current length rule -> positive
-        guidance that claims only "passes this field's rule right now",
-        never that the device is confirmed or registered."""
+    def test_valid_value_is_positive_guidance(self):
+        """Claims only "passes the format", never that the device is
+        confirmed or registered: no database is consulted while typing."""
         guidance = _code_field_guidance("29017")
-        assert guidance == "Meets the device code format (10 characters or fewer)."
+        assert guidance == "Meets the device code format (5 digits)."
         assert "confirmed" not in guidance.lower()
         assert "registered" not in guidance.lower()
 
-    def test_over_length_value_is_invalid_guidance_matching_review(self):
-        """6. Max-length behaviour is unchanged; the live hint says the
-        identical thing Review would for the same over-length input."""
-        guidance = _code_field_guidance("a" * 11)
-        assert guidance == _validate_code("a" * 11) == (
-            "Device code must be 10 characters or fewer."
-        )
-
-    def test_exactly_ten_characters_is_positive_guidance(self):
-        """6 (cont'd). The boundary itself is unchanged: 10 passes, 11 fails."""
-        assert _validate_code("a" * 10) is None
-        assert "10 characters or fewer" in _code_field_guidance("a" * 10)
+    @pytest.mark.parametrize("value", ["2901", "290171", "AB-12", "A" * 10])
+    def test_invalid_value_matches_review(self, value):
+        """The live hint and Review say the identical thing for the same input."""
+        assert _code_field_guidance(value) == _validate_code(value) == UID_FORMAT_MESSAGE
 
 
-class TestReviewAcceptsCurrentContractIdentifiers:
-    """No 5-digit-only, numeric-only, or pattern rule exists. Proven
-    directly so a future edit cannot silently tighten the field beyond
-    what this tranche's brief authorizes."""
+class TestReviewEnforcesTheSharedUidRule:
+    """ADR-022 reverses the old "no 5-digit rule at registration" contract:
+    registration now uses the same rule as RTL programming."""
 
-    @pytest.mark.parametrize("code", [
-        "29017",   # the reserved numeric identifier form
-        "AB-12c",  # non-numeric, non-5-digit
-        "rtl_9",   # short, mixed case, underscore
-        "A" * 10,  # exactly at the length limit, all letters
-    ])
-    def test_non_numeric_and_non_five_digit_codes_pass(self, code):
-        """5. Review still accepts identifiers the current contract
-        allows, beyond the reserved 5-digit numeric example."""
-        errors = _validate_form(code, "plant-1", "tx-1")
-        assert "code" not in errors
+    def test_validate_code_is_the_shared_rule(self):
+        for value in (None, "", "  ", "29017", "2901", "AB-12", "290171"):
+            assert _validate_code(value) == uid_format_error(value)
 
     def test_blank_still_rejected(self):
-        """4. Review validation still rejects a blank code."""
         errors = _validate_form("", "plant-1", "tx-1")
-        assert errors["code"] == "Device code is required."
-
-    def test_whitespace_only_still_rejected(self):
-        """4 (cont'd). ...and a whitespace-only code."""
-        errors = _validate_form("   ", "plant-1", "tx-1")
-        assert errors["code"] == "Device code is required."
-
-    def test_eleven_characters_still_rejected(self):
-        errors = _validate_form("a" * 11, "plant-1", "tx-1")
-        assert errors["code"] == "Device code must be 10 characters or fewer."
+        assert errors["code"] == UID_REQUIRED_MESSAGE
 
 
 class _CapturingApp:
@@ -212,9 +190,7 @@ class TestCodeHintLayoutAndWiring:
         lay = layout()
         node = find_by_id(lay, "device-register-code-hint")
         assert node is not None
-        rendered = str(node.children)
-        assert "Required" in rendered
-        assert "10 characters" in rendered
+        assert node.children == _code_field_guidance(None)
 
     def test_hint_slot_is_a_separate_output_from_the_alert_error_slot(self):
         """Prefer a separate guidance slot rather than a second writer for
@@ -266,6 +242,188 @@ class TestCodeHintLayoutAndWiring:
         ):
             source = inspect.getsource(app.functions[name])
             assert "require_capability" in source
+
+
+# ---------------------------------------------------------------------------
+# REGISTER-UX-1 — layout, live summary, duplicate refusal, success actions
+# ---------------------------------------------------------------------------
+
+def _parent_of(root, target_id):
+    """The component whose direct children include the node with target_id."""
+    children = getattr(root, "children", None)
+    if children is None or isinstance(children, str):
+        return None
+    kids = children if isinstance(children, list) else [children]
+    for kid in kids:
+        if getattr(kid, "id", None) == target_id:
+            return root
+        found = _parent_of(kid, target_id)
+        if found is not None:
+            return found
+    return None
+
+
+class TestCodeInputLayout:
+    def test_input_is_not_browser_required(self):
+        """Dash styles `input.dash-input:invalid` with a red outline, so an
+        empty browser-`required` input is drawn as an error on first load.
+        The page validates the field itself; the asterisk stays."""
+        node = find_by_id(layout(), "device-register-code")
+        assert not getattr(node, "required", None)
+
+    def test_input_is_five_digit_numeric(self):
+        node = find_by_id(layout(), "device-register-code")
+        assert node.maxLength == 5
+        assert node.inputMode == "numeric"
+        assert node.placeholder == "e.g. 29017"
+
+    def test_hint_sits_directly_under_the_input_inside_its_field(self):
+        """The hint used to follow the whole field, so it sat against the
+        next field's label and read as that field's help."""
+        lay = layout()
+        field_node = _parent_of(lay, "device-register-code-hint")
+        kids = field_node.children
+        ids = [getattr(k, "id", None) for k in kids]
+        assert ids.index("device-register-code-hint") == ids.index("device-register-code") + 1
+        assert "device-register-code-error" in ids
+
+
+class TestSummaryCard:
+    def test_layout_has_summary_card_beside_the_form(self):
+        lay = layout()
+        ids = _collect_ids(lay)
+        assert "device-register-summary" in ids
+        assert "device-register-summary-body" in ids
+        columns = _parent_of(lay, "device-register-summary")
+        assert "device-register-layout" in columns.className
+
+    def test_summary_names_what_happens_next(self):
+        text = str(find_by_id(layout(), "device-register-summary"))
+        assert "What happens next" in text
+        assert "unassigned" in text
+
+    def test_empty_summary_uses_placeholders(self):
+        text = str(_summary_body(None, None, None, "active"))
+        assert "Not entered" in text
+        assert "Not selected" in text
+        assert "Active" in text
+
+    def test_filled_summary_shows_values(self):
+        text = str(_summary_body("29017", "Plant A", "T1", "inactive"))
+        for expected in ("29017", "Plant A", "T1", "Inactive"):
+            assert expected in text
+
+    def test_option_label_resolves_from_options_on_screen(self):
+        options = [{"label": "Plant A", "value": "p-a"}, {"label": "Plant B", "value": "p-b"}]
+        assert _option_label(options, "p-b") == "Plant B"
+        assert _option_label(options, "missing") is None
+        assert _option_label(None, "p-a") is None
+        assert _option_label(options, None) is None
+
+    def test_live_summary_callback_makes_no_privileged_read(self):
+        """It only echoes what the operator already has on screen."""
+        import inspect
+
+        app = _CapturingApp()
+        device_register.register(app)
+        source = inspect.getsource(app.functions["_live_summary"])
+        assert "hierarchy_service" not in source
+        assert "device_code_problem" not in source
+
+
+class TestSuccessActions:
+    def test_success_actions_link_to_assign_and_device(self):
+        from routes import device_assign_href, device_href
+
+        actions = _success_actions("p1-t1-d9")
+        hrefs = [getattr(a, "href", None) for a in actions.children]
+        assert device_assign_href("p1-t1-d9") in hrefs
+        assert device_href("p1-t1-d9") in hrefs
+        text = str(actions)
+        assert "Assign a technician" in text
+        assert "Open the device" in text
+
+    def test_layout_has_register_another_and_back(self):
+        lay = layout()
+        another = find_by_id(lay, "device-register-another-btn")
+        assert another is not None
+        assert "Register another" in str(another.children)
+        success_text = str(find_by_id(lay, "device-register-success"))
+        assert "Back to Device Management" in success_text
+        assert find_by_id(lay, "device-register-success-actions") is not None
+
+    def test_register_another_clears_code_and_keeps_placement(self):
+        app = _CapturingApp()
+        device_register.register(app)
+        out = app.functions["_register_another"](1)
+        (code, code_error, form_style, review_style, success_style,
+         success_detail, success_actions, error_style) = out
+        assert code == ""
+        assert code_error == ""
+        assert form_style == {"display": "block"}
+        assert review_style == {"display": "none"}
+        assert success_style == {"display": "none"}
+        assert success_detail == [] and success_actions == []
+        assert error_style == {"display": "none"}
+
+    def test_register_another_ignores_zero_clicks(self):
+        from dash import no_update
+
+        app = _CapturingApp()
+        device_register.register(app)
+        out = app.functions["_register_another"](0)
+        assert all(v is no_update for v in out)
+
+
+class TestReviewRefusesTakenCode:
+    """Review consults the service for fleet-wide duplicates (ADR-022)."""
+
+    def _review(self, monkeypatch, problem):
+        from types import SimpleNamespace
+
+        monkeypatch.setattr(device_register, "current_identity", lambda: SimpleNamespace(user_id=1))
+        monkeypatch.setattr(device_register, "require_capability", lambda *a, **k: None)
+        monkeypatch.setattr(device_register, "device_code_problem", lambda code: problem)
+        monkeypatch.setattr(
+            device_register.hierarchy_service, "list_plants",
+            lambda scope: [SimpleNamespace(plant_id="p1", name="Plant A")],
+        )
+        monkeypatch.setattr(
+            device_register.hierarchy_service, "list_transformers",
+            lambda plant_id, scope: [SimpleNamespace(transformer_id="t1", transformer_code="T1")],
+        )
+        app = _CapturingApp()
+        device_register.register(app)
+        return app.functions["_show_review"](1, "29017", "p1", "t1", "active")
+
+    def test_taken_code_stays_on_the_form_with_the_message(self, monkeypatch):
+        from dash import no_update
+
+        message = "Device code 29017 is already registered at Plant B, transformer T2."
+        out = self._review(monkeypatch, message)
+        assert out[0] == message
+        assert out[3] is no_update   # form stays visible
+        assert out[4] is no_update   # review stays hidden
+
+    def test_free_code_moves_to_review(self, monkeypatch):
+        out = self._review(monkeypatch, None)
+        assert out[0] == ""
+        assert out[3] == {"display": "none"}
+        assert out[4] == {"display": "block"}
+
+    def test_lookup_failure_is_a_safe_message(self, monkeypatch):
+        def boom(code):
+            raise RuntimeError("connection refused on 10.0.0.5")
+
+        from types import SimpleNamespace
+        monkeypatch.setattr(device_register, "current_identity", lambda: SimpleNamespace(user_id=1))
+        monkeypatch.setattr(device_register, "require_capability", lambda *a, **k: None)
+        monkeypatch.setattr(device_register, "device_code_problem", boom)
+        app = _CapturingApp()
+        device_register.register(app)
+        out = app.functions["_show_review"](1, "29017", "p1", "t1", "active")
+        assert "could not be checked" in out[0]
+        assert "10.0.0.5" not in out[0]
 
 
 # ---------------------------------------------------------------------------
@@ -384,11 +542,56 @@ class TestDeviceRegistrationPersistence:
         with pytest.raises(RegistrationError):
             register_device("test-p1-t1", "29105", actor_user_id=self.admin_id)
 
-    def test_same_device_code_in_different_transformers_succeeds(self):
-        d1 = register_device("test-p1-t1", "29106", actor_user_id=self.admin_id)
-        d2 = register_device("test-p1-t2", "29106", actor_user_id=self.admin_id)
-        assert d1.device_id != d2.device_id
-        assert d1.device_code == d2.device_code == "29106"
+    def test_same_device_code_in_different_transformers_is_refused(self):
+        """ADR-022: a UID is unique across the fleet, enforced in the
+        application (the schema still only guarantees per-transformer)."""
+        register_device("test-p1-t1", "29106", actor_user_id=self.admin_id)
+        with pytest.raises(RegistrationError) as exc:
+            register_device("test-p1-t2", "29106", actor_user_id=self.admin_id)
+        assert str(exc.value) == (
+            "Device code 29106 is already registered at Test Plant, "
+            "transformer test-p1-t1."
+        )
+        assert repo.find_device_ids_by_code("29106") == ["test-p1-t1-d1"]
+
+    @pytest.mark.parametrize("code", ["AB-12", "2901", "290171"])
+    def test_service_refuses_a_non_five_digit_code(self, code):
+        """The callback's check is not the only one: a direct call is refused too."""
+        with pytest.raises(RegistrationError) as exc:
+            register_device("test-p1-t1", code, actor_user_id=self.admin_id)
+        assert str(exc.value) == UID_FORMAT_MESSAGE
+        assert repo.find_device_ids_by_code(code) == []
+
+    def test_service_trims_the_code_before_storing(self):
+        device = register_device("test-p1-t1", " 29117 ", actor_user_id=self.admin_id)
+        assert device.device_code == "29117"
+
+    def test_refused_registration_writes_no_audit_row(self):
+        register_device("test-p1-t1", "29118", actor_user_id=self.admin_id)
+        with session_scope() as session:
+            before = session.execute(
+                text(f"SELECT COUNT(*) FROM {repo._SCHEMA}.audit_log")
+            ).scalar_one()
+        with pytest.raises(RegistrationError):
+            register_device("test-p1-t2", "29118", actor_user_id=self.admin_id)
+        with session_scope() as session:
+            after = session.execute(
+                text(f"SELECT COUNT(*) FROM {repo._SCHEMA}.audit_log")
+            ).scalar_one()
+        assert after == before
+
+    def test_device_code_problem_is_none_for_a_free_code(self):
+        assert device_code_problem("29119") is None
+
+    def test_device_code_problem_names_where_a_taken_code_lives(self):
+        register_device("test-p1-t2", "29120", actor_user_id=self.admin_id)
+        assert device_code_problem(" 29120 ") == (
+            "Device code 29120 is already registered at Test Plant, "
+            "transformer test-p1-t2."
+        )
+
+    def test_device_code_problem_reports_format_before_querying(self):
+        assert device_code_problem("AB-12") == UID_FORMAT_MESSAGE
 
     def test_generated_device_id_follows_transformer_dn_pattern(self):
         device = register_device("test-p1-t1", "29107", actor_user_id=self.admin_id)

@@ -291,9 +291,12 @@ class TestRegistrationLoaders:
     def test_r13c_administrator_review_still_works_and_names_the_real_plant(
         self, monkeypatch, fake_hierarchy
     ):
+        # A 5-digit code (ADR-022), and no database for the fleet-wide
+        # duplicate check: this test is about the label lookup's scope.
+        monkeypatch.setattr(device_register, "device_code_problem", lambda code: None)
         with trusted_session(monkeypatch, user_id=1, role="administrator"):
             result = self._review_handler()(
-                1, "dv-new", PLANT_B, TRANSFORMER_B, "active"
+                1, "29017", PLANT_B, TRANSFORMER_B, "active"
             )
         summary_text = str(result[5])
         assert PLANT_B_NAME in summary_text

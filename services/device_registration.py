@@ -27,12 +27,41 @@ from db.engine import session_scope
 from repositories import plant_monitoring_repository as repo
 from repositories.plant_monitoring_repository import UNSET, DeviceRecord, _Unset
 from services import audit_service
+from services.rtl_uid import uid_format_error
 
 logger = logging.getLogger(__name__)
 
 
 class RegistrationError(Exception):
     """A registration attempt failed for a reason safe to show the user."""
+
+
+def device_code_problem(device_code: str | None, *, session=None) -> str | None:
+    """Why `device_code` cannot be registered, or None if it can (ADR-022).
+
+    Checks the shared 5-digit UID format first, then whether the code is
+    already registered anywhere in the fleet. The RTL Master addresses a
+    device by UID alone, and event ingestion attributes an ambiguous UID to
+    no device, so a second registration would silence both. The message
+    names where the existing device is, so the operator can go and look.
+
+    Application-level only: the schema guarantees uniqueness per transformer,
+    not fleet-wide, until the client confirms the rule.
+    """
+    format_error = uid_format_error(device_code)
+    if format_error:
+        return format_error
+    code = device_code.strip()
+    existing = repo.find_device_ids_by_code(code, session=session)
+    if not existing:
+        return None
+    path = repo.get_device_breadcrumb(existing[0])
+    if path is None:
+        return f"Device code {code} is already registered."
+    return (
+        f"Device code {code} is already registered at {path.plant_name}, "
+        f"transformer {path.transformer_code}."
+    )
 
 
 def register_device(
@@ -43,13 +72,18 @@ def register_device(
     actor_user_id: int,
 ) -> DeviceRecord:
     """Register a new device and record who did it. Raises RegistrationError
-    with a friendly message on an unknown transformer, a duplicate device
-    code under the same transformer, a rare concurrent-registration race
-    caught by the database's own constraints, or an audit failure — never
-    lets SQL or a stack trace surface.
+    with a friendly message on a code that is not 5 digits or is already
+    registered anywhere in the fleet (ADR-022), an unknown transformer, a
+    rare concurrent-registration race caught by the database's own
+    constraints, or an audit failure — never lets SQL or a stack trace
+    surface.
     """
     try:
         with session_scope() as session:
+            problem = device_code_problem(device_code, session=session)
+            if problem:
+                raise RegistrationError(problem)
+            device_code = device_code.strip()
             device = repo.create_device(
                 transformer_id, device_code, status, session=session
             )

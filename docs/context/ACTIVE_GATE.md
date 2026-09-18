@@ -1,10 +1,126 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-18
-Gate: NONE
-Commit/push permission: **GRANTED and exercised** 2026-09-18 (`6388003`
-+ closure docs, pushed with FRESHNESS-CONFIG-1's `08acb6e`/`b5d8a36`).
+Gate: REGISTER-UX-1
+Commit/push permission: **NOT GRANTED**. The user reviews the result
+before any commit.
+
+## REGISTER-UX-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `4765806`.
+
+## Task
+
+Improve Administration → Register Device (`/admin/devices/new`). Design
+agreed in chat on 2026-09-18, in three parts:
+
+1. **Layout.** No red "invalid" border before the operator has done
+   anything. Each hint sits under its own field, with even spacing between
+   fields. On wide screens a live "Registration summary" card sits beside
+   the form, with a "What happens next" note; it stacks below on narrow
+   screens. The Review → Submit confirmation step is kept.
+2. **Device code rule (ADR-022).** Exactly 5 digits, one rule shared with
+   RTL programming. The form checks it live and at Review, and the service
+   checks it again. A code already registered anywhere in the fleet is
+   refused, and the message names where it is registered.
+3. **Success screen.** Four actions: Assign a technician (the existing
+   `?assign=` deep link), Open the device, Register another (clears the
+   code, keeps plant and transformer), Back to Device Management.
+
+## Relevant files
+
+- `pages/device_register.py`
+- `callbacks/device_register.py`
+- `services/device_registration.py`
+- `services/rtl_programming_service.py`
+- `services/device_event_service.py` (read only: identity rule 3)
+- `repositories/plant_monitoring_repository.py` (read only:
+  `find_device_ids_by_code`, `get_device_breadcrumb`)
+- `routes.py` (read only: `?assign=` and device paths)
+- `assets/app.css`
+- `tests/test_device_register.py`
+- `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md` (PROG-02 row)
+
+## Decisions this gate depends on
+
+- [ADR-022](../decisions/ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md):
+  5-digit UID at registration and fleet-wide uniqueness, application-level
+  only. **Development baseline, pending client confirmation.**
+- ADR-016: registration stays behind `REGISTER_DEVICE`; every
+  registration callback re-verifies it.
+
+## Non-goals (explicit)
+
+- No database migration and no `UNIQUE (device_code)` constraint.
+- No new fields (MSISDN, hardware/firmware version, install date).
+- No change to authorization, audit, or device_id generation.
+
+## Required tests
+
+- `python -m pytest -m "not db"`
+- `python -m pytest` (full suite, DB included)
+- Browser check as Administrator: form, Review, duplicate-code refusal,
+  success actions.
+
+## Known ambiguity
+
+- Whether an RTL UID is unique across the client's whole network. It is
+  enforced here in the application only (ADR-022), and the client question
+  is open.
+
+## Implementation (uncommitted, awaiting review)
+
+- `services/rtl_uid.py` (new): `UID_PATTERN` `^[0-9]{5}$` and
+  `uid_format_error()`. `rtl_programming_service.UID_PATTERN` now points at
+  it. It uses `[0-9]` instead of `\d`, which also matched full-width digits,
+  so programming is marginally stricter too.
+- `services/device_registration.py`: `device_code_problem()` (format, then
+  fleet-wide duplicate, naming plant and transformer); `register_device`
+  calls it inside its transaction and stores the trimmed code.
+- `callbacks/device_register.py`: the code rule is the shared one; Review
+  refuses a taken code (a failed lookup gives a safe message);
+  `_live_summary` echoes the form from on-screen options (no read);
+  submit fills Assign / Open links; `_register_another` clears only the
+  code.
+- `pages/device_register.py`: two-column layout with summary card; the code
+  input is `maxLength=5`, `inputMode="numeric"`, controlled (`value=""`),
+  and has no browser `required`. Dash's `input.dash-input:invalid { outline:
+  red }` caused the red border on load, confirmed in the browser.
+- `components/field.py`: optional `hint`/`hint_id`, rendered directly under
+  the control.
+- `assets/app.css`: layout grid (stacks under 900px), summary card, success
+  action row, and empty error slots that reserve no space on this page.
+
+### Tests
+
+- New: `tests/test_rtl_uid.py`, plus layout, summary, success-action,
+  Review-refusal and persistence tests in `tests/test_device_register.py`,
+  and hint tests in `tests/test_field.py`.
+- Deliberately changed: the "no 5-digit rule at registration" and "same
+  code under two transformers succeeds" tests are reversed per ADR-022; the
+  browser-`required` assertion in `tests/test_admin_workflow_hierarchy.py`
+  is reversed; the registration spy in `tests/test_action_guard_callbacks.py`
+  now returns an object with `device_id`; `tests/test_auth_harden_repair.py`
+  R13c uses a 5-digit code and stubs the duplicate lookup.
+
+### Verification (2026-09-18)
+
+- `python -m pytest -m "not db"`: all passed, exit 0.
+- `python -m pytest` (DB included): all passed, exit 0.
+- Browser (Playwright, local, Administrator, 1440px): no red border on
+  load; hint directly under the code box; summary card fills live; empty
+  Review shows per-field errors; `29017` at Surgutskaya GRES-2 is refused
+  with "Device code 29017 is already registered at Three Gorges Dam,
+  transformer aa12."; `2a9` shows the format message; `29999` reaches
+  Review and Submit; success shows all four actions; Register another
+  clears only the code; Assign a technician opens the Assign drawer on the
+  new device. No console errors after the controlled-input fix.
+- Dev DB: the browser test device (`plant-02-t1-d2` / `29999`) was deleted
+  afterwards (back to 120 devices, 120 distinct codes). Its
+  `DEVICE_REGISTERED` audit row was left in place as a true record.
+
+## Prior gate record
 
 ## SETTINGS-PAGE-1 — CLOSED / PASS
 
@@ -107,7 +223,7 @@ comment says so), and three settings panels had accumulated at its foot.
 
 None.
 
-## Next implementation gate: NONE
+## Next implementation gate: REGISTER-UX-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

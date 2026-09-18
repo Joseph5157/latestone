@@ -68,14 +68,13 @@ Frozen semantics:
 from __future__ import annotations
 
 import logging
-import re
 
 from config import audit as audit_cfg
 from config import commands as command_cfg
 from db.engine import session_scope
 from repositories import plant_monitoring_repository as repo
 from repositories.plant_monitoring_repository import ProgrammingRequestRecord
-from services import audit_service
+from services import audit_service, rtl_uid
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +88,9 @@ REQUEST_METHOD_DASHBOARD = "dashboard"
 MAX_MASTER_MSISDN_LENGTH = 20
 
 #: PROG-D8 / FS-PROG-1 — Functional Specification §4.4.1: "5-digit RTL UID,
-#: e.g. 29xxx". Exactly 5 digits, proven by the source. No "29" prefix is
-#: required — the source labels that digit string an example, not a rule.
-UID_PATTERN = re.compile(r"^\d{5}$")
+#: e.g. 29xxx". Owned by services/rtl_uid.py since ADR-022, so registration
+#: enforces the identical rule.
+UID_PATTERN = rtl_uid.UID_PATTERN
 
 #: PROG-D8 / FS-PROG-1 — Functional Specification §4.4.1: transformer name
 #: "maximum 10 characters".
