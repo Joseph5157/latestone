@@ -95,7 +95,7 @@ class TestPanelRenderAuthorization:
     def test_administrator_renders_the_panel(self, handlers, monkeypatch):
         render, get_config, _set, _clear = handlers
         with trusted_session(monkeypatch, user_id=1, role=ADMINISTRATOR):
-            result = render["_render_panel"]({"route": "overview"})
+            result = render["_render_panel"]({"route": "admin_settings"})
         assert get_config.calls, "an authorized render must query the config"
         assert result is not None
 
@@ -103,14 +103,14 @@ class TestPanelRenderAuthorization:
     def test_denied_roles_never_query_and_render_nothing(self, handlers, monkeypatch, role):
         render, get_config, _set, _clear = handlers
         with trusted_session(monkeypatch, user_id=1, role=role):
-            result = render["_render_panel"]({"route": "overview"})
+            result = render["_render_panel"]({"route": "admin_settings"})
         assert get_config.calls == [], f"{role} must not reach the config query"
         assert result is None
 
     def test_no_trusted_session_never_queries(self, handlers):
         render, get_config, _set, _clear = handlers
         with no_trusted_session():
-            result = render["_render_panel"]({"route": "overview"})
+            result = render["_render_panel"]({"route": "admin_settings"})
         assert get_config.calls == []
         assert result is None
 

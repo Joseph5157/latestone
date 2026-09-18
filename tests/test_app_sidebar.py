@@ -86,7 +86,7 @@ class TestSidebarItems:
             # tests and tests/test_authorization.py), never both rendered
             # to the same signed-in session.
             "Devices", "Devices", "Assignments", "Registration",
-            "Notifications", "Reports", "Users", "Audit Log",
+            "Notifications", "Reports", "Users", "Audit Log", "Settings",
         ]
 
     def test_the_two_devices_entries_have_distinct_keys_and_hrefs(self):

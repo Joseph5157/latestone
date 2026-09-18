@@ -993,6 +993,7 @@ body {
 .app-sidebar__icon--notifications { -webkit-mask-image: url("/assets/icons/nav-notifications.svg"); mask-image: url("/assets/icons/nav-notifications.svg"); }
 .app-sidebar__icon--reports       { -webkit-mask-image: url("/assets/icons/nav-reports.svg");       mask-image: url("/assets/icons/nav-reports.svg"); }
 .app-sidebar__icon--audit-log     { -webkit-mask-image: url("/assets/icons/nav-audit-log.svg");     mask-image: url("/assets/icons/nav-audit-log.svg"); }
+.app-sidebar__icon--settings      { -webkit-mask-image: url("/assets/icons/nav-settings.svg");      mask-image: url("/assets/icons/nav-settings.svg"); }
 .app-sidebar__icon--users         { -webkit-mask-image: url("/assets/icons/nav-users.svg");         mask-image: url("/assets/icons/nav-users.svg"); }
 .app-sidebar__icon--command-center { -webkit-mask-image: url("/assets/icons/nav-command-center.svg"); mask-image: url("/assets/icons/nav-command-center.svg"); }
 .app-sidebar__icon--logout        { -webkit-mask-image: url("/assets/icons/nav-logout.svg");         mask-image: url("/assets/icons/nav-logout.svg"); }
@@ -6333,4 +6334,166 @@ body {
   .page--device-dashboard .programming-activity__details {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===========================================================================
+   Settings (SETTINGS-PAGE-1) — Administrator configuration panels.
+   Page-scoped: the panels render only on /admin/settings.
+   ========================================================================== */
+.page--admin-settings .admin-page-heading {
+  margin: var(--sp-3) 0 var(--sp-2);
+}
+
+.page--admin-settings .admin-page-heading h1 {
+  color: var(--color-text);
+  font-size: clamp(25px, 2.3vw, 32px);
+  line-height: 1.15;
+  margin: 2px 0 3px;
+}
+
+.page--admin-settings .admin-settings__section {
+  margin-top: var(--sp-8);
+}
+
+.page--admin-settings .fleet-administration {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin-top: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.page--admin-settings .fleet-administration:empty {
+  display: none;
+}
+
+.page--admin-settings .temperature-threshold-panel__heading,
+.page--admin-settings .vibration-contract-panel__heading {
+  color: var(--color-text);
+  font-size: 16px;
+  margin: 0 0 var(--sp-1);
+}
+
+.page--admin-settings .temperature-threshold-panel__status,
+.page--admin-settings .vibration-contract-panel__status {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 var(--sp-2);
+}
+
+.page--admin-settings .temperature-threshold-panel__note,
+.page--admin-settings .vibration-contract-panel__note {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 var(--sp-4);
+  max-width: 72ch;
+}
+
+.page--admin-settings .temperature-threshold-panel__form,
+.page--admin-settings .vibration-contract-panel__form {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.page--admin-settings .temperature-threshold-panel__form label,
+.page--admin-settings .vibration-contract-panel__form label {
+  color: var(--color-text);
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: -4px;
+}
+
+.page--admin-settings .temperature-threshold-panel__form input,
+.page--admin-settings .vibration-contract-panel__form textarea {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+  min-height: 36px;
+  padding: 6px 10px;
+  width: 220px;
+}
+
+.page--admin-settings .vibration-contract-panel__form textarea {
+  min-height: 64px;
+  width: 100%;
+}
+
+.page--admin-settings .vibration-contract-panel__form .dash-dropdown {
+  flex-basis: 100%;
+}
+
+.page--admin-settings .temperature-threshold-panel__form input:focus-visible,
+.page--admin-settings .vibration-contract-panel__form textarea:focus-visible,
+.page--admin-settings .fleet-administration button:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.page--admin-settings .freshness-threshold-panel__hint {
+  color: var(--color-muted);
+  font-size: 12px;
+  flex-basis: 100%;
+  order: 2;
+}
+
+.page--admin-settings .temperature-threshold-panel__actions,
+.page--admin-settings .vibration-contract-panel__actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.page--admin-settings .fleet-administration button {
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 0 var(--sp-4);
+}
+
+.page--admin-settings .temperature-threshold-panel__set-btn,
+.page--admin-settings .vibration-contract-panel__set-btn {
+  background: var(--color-brand);
+  border: 1px solid var(--color-brand);
+  color: #fff;
+}
+
+.page--admin-settings .temperature-threshold-panel__clear-btn,
+.page--admin-settings .vibration-contract-panel__clear-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.page--admin-settings .fleet-administration button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.page--admin-settings .vibration-contract-panel__summary {
+  columns: 2;
+  column-gap: var(--sp-6);
+  font-size: 13px;
+  margin: 0 0 var(--sp-4);
+  padding-left: var(--sp-4);
+}
+
+.page--admin-settings .listing-error:not(:empty) {
+  margin-top: var(--sp-3);
+}
+
+@media (max-width: 700px) {
+  .page--admin-settings .fleet-administration { padding: var(--sp-4); }
+  .page--admin-settings .temperature-threshold-panel__form input { width: 100%; }
+  .page--admin-settings .vibration-contract-panel__summary { columns: 1; }
+  .page--admin-settings .admin-section-heading { display: block; }
 }

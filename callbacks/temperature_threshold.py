@@ -51,7 +51,7 @@ def register(app) -> None:
         # AUTH-HARDEN-1R shape: authorize before any query, and fire no
         # query at all for a denied role — same reasoning as
         # callbacks.forwarding_schedule._render_panel.
-        if not context or context.get("route") != "overview":
+        if not context or context.get("route") != "admin_settings":
             return no_update
 
         try:
@@ -77,6 +77,10 @@ def register(app) -> None:
         triggered = callback_context.triggered
         trigger_id = triggered[0]["prop_id"].split(".")[0] if triggered else None
         if trigger_id not in (SET_BTN_ID, CLEAR_BTN_ID):
+            return no_update
+        # Dash fires this when the panel is (re)inserted, with n_clicks=0;
+        # only a real click may reach validation or a write.
+        if not triggered[0].get("value"):
             return no_update
 
         user = current_identity()

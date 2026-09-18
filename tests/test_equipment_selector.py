@@ -26,7 +26,7 @@ from components.needs_attention import needs_attention
 from components.freshness_threshold_panel import freshness_threshold_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
-from pages import audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
+from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
 from services.device_scope import UNRESTRICTED
 from tests.auth_test_support import trusted_session
 
@@ -156,6 +156,7 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(needs_attention(*_needs_attention_example()))
     | collect_ids(user_admin.layout())
     | collect_ids(audit_log.layout())
+    | collect_ids(admin_settings.layout())
     | collect_ids(user_form_drawer())
     | collect_ids(report_center.layout())
     | collect_ids(notifications.layout())

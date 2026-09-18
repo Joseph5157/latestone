@@ -86,6 +86,7 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
         ("reports", "Reports", "/reports", "reports"),
         ("users", "Users", "/admin/users", "users"),
         ("audit_log", "Audit Log", "/admin/audit-log", "audit-log"),
+        ("settings", "Settings", "/admin/settings", "settings"),
     )),
 )
 

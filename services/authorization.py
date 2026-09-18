@@ -88,6 +88,7 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "device_register": _ADMIN_ONLY,
     "admin_users": _ADMIN_ONLY,
     "audit_log": _ADMIN_ONLY,
+    "admin_settings": _ADMIN_ONLY,
 }
 
 

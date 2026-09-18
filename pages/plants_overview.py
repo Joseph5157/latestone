@@ -111,22 +111,7 @@ def layout() -> html.Div:
             # the fleet inventory by design: an operator opens this page for
             # state, exceptions and plants — never for administration.
             html.Div(id="admin-summary", className="fleet-administration"),
-            # C08-AUTO-DISABLE-1: independent of the block above — its own
-            # callback (callbacks/forwarding_schedule.py), its own capability
-            # check, no shared query. See that module's docstring for why it
-            # is deliberately not folded into administration_section.
-            html.Div(id="auto-disable-override-panel", className="fleet-administration"),
-            # FRESHNESS-CONFIG-1: same independent shape (callbacks/freshness_threshold.py).
-            # Placed before the framework-only panels below because, unlike
-            # them, this value changes live monitoring state.
-            html.Div(id="freshness-threshold-panel", className="fleet-administration"),
-            # THRESH-CONFIG-1: same independent shape as the panel above —
-            # its own callback (callbacks/temperature_threshold.py), its own
-            # capability check, no shared query.
-            html.Div(id="temperature-threshold-panel", className="fleet-administration"),
-            # VIB-CONFIG-1: same independent shape as the two panels above —
-            # its own callback (callbacks/vibration_contract.py), its own
-            # capability check, no shared query.
-            html.Div(id="vibration-contract-panel", className="fleet-administration"),
+            # Configuration panels (freshness, temperature, vibration) live on
+            # the Administrator Settings page (pages/admin_settings.py).
         ],
     )

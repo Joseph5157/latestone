@@ -44,6 +44,7 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "reports": "reports",
     "admin_users": "users",
     "audit_log": "audit_log",
+    "admin_settings": "settings",
     "command_center": "command_center",
     # The full locations view is the same destination one level deeper,
     # so the sidebar keeps Command Center highlighted rather than losing
@@ -136,6 +137,8 @@ def parse_pathname(pathname: str | None) -> Route:
             return Route(name="admin_users")
         if parts[1] == "audit-log":
             return Route(name="audit_log")
+        if parts[1] == "settings":
+            return Route(name="admin_settings")
 
     if len(parts) == 3 and parts[0] == "admin" and parts[1] == "devices" and parts[2] == "new":
         return Route(name="device_register")

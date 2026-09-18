@@ -43,7 +43,7 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def _render_panel(context):
-        if not context or context.get("route") != "overview":
+        if not context or context.get("route") != "admin_settings":
             return no_update
         try:
             require_capability(current_identity(), MANAGE_FRESHNESS_THRESHOLD)
