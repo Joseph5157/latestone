@@ -2,6 +2,7 @@
 
 Status: Approved
 Date: 2026-08-29
+Last updated: 2026-09-18 — added ADR-021
 
 Every ADR in `docs/decisions/`, one line each. This file is the map; the ADR
 is the territory — read the ADR before acting on a decision, don't act on
@@ -35,6 +36,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-018](../decisions/ADR-018-simulator-transport-is-not-the-eskom-protocol.md) | `SimulatorTransport` is a deterministic, in-process test contract (SUCCESS/FAILURE/TIMEOUT), not the Eskom protocol; the six-state `rtl_commands` lifecycle (`QUEUED→SENT→ACKNOWLEDGED→SUCCEEDED`, or `SENT→FAILED`/`TIMED_OUT`) is enforced by `rtl_command_service`'s transition map, never the database; `dispatch_command()` is explicit-caller-only, never automatic | Approved | `bb7fea3` |
 | [ADR-019](../decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md) | `simulated_event_source.py` is a thin front end onto the existing `ingest_event()` boundary, not a second event pipeline; its `SUPPORTED_EVENT_TYPES` allowlist is a simulator-only restriction layered on top of (never instead of) `ingest_event()`'s open-vocabulary policy; distinct from `SimulatorTransport` (outgoing) by direction, not merged | Approved | `a89fbf9` |
 | [ADR-020](../decisions/ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md) | `notification_delivery.py`/`mock_notification_delivery.py` are a provider-neutral outgoing-delivery boundary, structurally uncoupled from the existing Notification Center (`notification_service.py`, unmodified); `DeliveryRequest.recipient_endpoint` is always caller-supplied — no recipient-resolution policy is implemented; no `notification_deliveries` table, since delivery lifecycle/retention/escalation are still client-undecided | Approved | `0b2a4d5` |
+| [ADR-021](../decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md) | The global freshness threshold is an Administrator-configurable singleton, read live by `evaluate_freshness` once per request; no row = environment default; BR008 unaffected | Approved | `08acb6e` |
 
 ## Reading this table
 

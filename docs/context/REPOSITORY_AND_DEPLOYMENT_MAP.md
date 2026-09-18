@@ -2,6 +2,7 @@
 
 Status: **AGREED WORKING BASELINE**
 Date recorded: 2026-09-14
+Last updated: 2026-09-18 — added the Railway demo deployment (§4a)
 
 This document records the agreed repository, machine, and delivery boundaries for the RTL project so future work does not confuse development, client delivery, and the client's Azure integration area.
 
@@ -64,6 +65,36 @@ Important ownership boundary:
 - Our responsibility is to provide or copy the accepted WebApp application code into the client-provided WebApp area when requested.
 - We must not infer or redesign the client's Azure infrastructure unless explicitly asked.
 - We currently do not know whether the deployed Azure WebApp will use PostgreSQL or SQL Server; this remains a client-side integration decision.
+
+## 4a. Railway demo deployment
+
+A hosted showcase of the development application for the client, separate
+from both the client laptop and the client's Azure area. It is a demo
+environment, not the client's production system.
+
+- Railway project `powerplant-monitoring`, environment `production`, with
+  three services: `dashboard` (this application), `live-simulator`
+  (`db/live_simulator.py`, appends synthetic readings on a timer so data
+  stays fresh) and `Postgres`.
+- `dashboard` deploys automatically on every push to `main` of the
+  development repository, using the checked-in `railway.json`.
+- Every deploy runs `python -m alembic upgrade head` as Railway's
+  `preDeployCommand` before new instances go live (added 2026-09-18,
+  `ce42a36`). Before that, the Railway database silently stayed at
+  `007_audit_log` while code moved on, and Command Center returned HTTP 500.
+  A failing migration now fails the deploy instead of shipping mismatched
+  code.
+- The Railway database host (`postgres.railway.internal`) resolves only
+  inside Railway. One-off database commands run through
+  `railway ssh` into the `dashboard` service, not from a development machine.
+- The live simulator writes readings only, never `device_events`, so the
+  Railway demo shows all RTLs Fresh and an empty Recent Operational Events
+  list. That differs from local development data (older readings plus seeded
+  events) by design, not because of a code difference.
+- Credentials live in Railway service variables and are never committed.
+
+This automatic migration applies to Railway only. It does not change the
+§6 rule for the client's Azure deployment.
 
 ## 5. Agreed delivery flow
 

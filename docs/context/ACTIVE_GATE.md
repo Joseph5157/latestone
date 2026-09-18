@@ -1,12 +1,180 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-18
-Gate: ADMIN-ASSIGN-1
-Commit/push permission: **NOT YET CONFIRMED** — implementation and local
-verification complete; ask the user before committing/pushing.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** 2026-09-18
+(`08acb6e` + closure docs); push not yet requested.
+
+## FRESHNESS-CONFIG-1 — CLOSED / PASS
+
+Implementation: `08acb6e`. Next queued work (not opened): Tier 2
+per-device override; ADMIN-PANEL-LOAD-ERROR-1 (`docs/context/KNOWN_DEFECTS.md`).
 
 ## Task
+
+Tier 1 of the admin-editable freshness plan: let an Administrator set the
+one global freshness (Stale-after) threshold from the Fleet Overview
+Administration area, taking effect live, instead of it being fixed by the
+`FRESHNESS_STALE_AFTER_MINUTES` environment variable (default 1,440 min /
+24 h). Client feedback (2026-09-18 meeting notes): the superior questioned
+whether one uniform threshold reflects real device communication patterns.
+The Functional Specification documents only a 24-hour cadence (BR006,
+BR008), so no better per-device value exists yet; this gate gives the
+client's own Administrator the control without a code change or redeploy.
+Tier 2 (per-device override, user chose per-device over per-model) is a
+separate, later gate.
+
+## Relevant files
+
+- `alembic/versions/015_freshness_threshold_config.py` (new)
+- `repositories/plant_monitoring_repository.py`
+- `services/freshness_threshold_service.py` (new)
+- `services/monitoring_service.py`
+- `services/authorization.py`
+- `config/audit.py`
+- `components/freshness_threshold_panel.py` (new)
+- `components/fleet_condition.py`
+- `callbacks/freshness_threshold.py` (new)
+- `pages/plants_overview.py`
+- `app.py`
+- `tests/conftest.py`
+- `tests/test_freshness_threshold.py` (new)
+- `tests/test_freshness_threshold_callback.py` (new)
+- `tests/test_freshness_threshold_panel.py` (new)
+- `tests/test_migration_freshness_threshold_config.py` (new)
+
+## Decisions this gate depends on
+
+- ADR-021 (`docs/decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md`)
+  records this gate's decision.
+- Explicit user choice in chat: build the fleet-wide default first
+  (this gate), per-device override later; per-device granularity preferred
+  over per-model for Tier 2.
+- Reuse THRESH-CONFIG-1's shape exactly (migration 011, singleton `id = 1`
+  row, UNCONFIGURED IS ABSENCE, audited set/clear, Administrator-only
+  capability, independent Fleet Overview panel/callback) — but unlike that
+  framework-only feature, this value is read back LIVE by
+  `evaluate_freshness`.
+- The override replaces only the environment-derived default. BR008's
+  independent `>24h` no-data notification rule
+  (`services/notification_service.py`) is unchanged and does not read this
+  value (FS §17 rule 4: keep freshness semantics separate from the formal
+  >24-hour notification rule).
+- Input guards are technical, not business thresholds: whole minutes only,
+  minimum 5 minutes (a typo like "0" or "1" would mark the entire fleet
+  Stale), maximum 525,600 minutes / 365 days (a typo guard against extra
+  zeros). Neither bound is a client-confirmed value.
+
+## Non-goals (explicit)
+
+- No per-device, per-model or per-feeder cadence (Tier 2 / FRESHNESS-CADENCE-1).
+- No change to BR008, the Stale/No Data semantics, the strict `>` boundary,
+  metric participation, rollups, or DeviceScope — only where the threshold
+  NUMBER comes from.
+- No removal of the `FRESHNESS_STALE_AFTER_MINUTES` environment variable —
+  it remains the fallback whenever no Administrator value is configured.
+
+## Implementation
+
+- `alembic/versions/015_freshness_threshold_config.py`: singleton
+  `freshness_threshold_config` (`id = 1` CHECK, `stale_after_minutes`
+  INTEGER NOT NULL with `BETWEEN 5 AND 525600` CHECK, FK to `users`,
+  `configured_at`). Classified in `db/seed_plant_monitoring.RESET_PRESERVES`
+  and `tests/test_migration_foundation.EXPECTED_UPGRADE_TABLES`.
+- `repositories/plant_monitoring_repository.py`: get/set/clear with the
+  same `FOR UPDATE`, same-value no-op and changed-flag shape as the
+  temperature threshold.
+- `services/freshness_threshold_service.py`: strict `parse_minutes`,
+  validated `set_config`/`clear_config` with audit in one transaction
+  (`FRESHNESS_THRESHOLD_SET`/`_CLEARED`, entity `freshness_threshold`/
+  `global`), and `effective_stale_after_minutes()` — the override when
+  configured, else `monitoring.stale_after_minutes`. Resolved at most once
+  per Flask request and held on `flask.g` (request-scoped, so no process
+  state and no cross-worker staleness); a save/clear forgets the value
+  already resolved in that request.
+- `services/monitoring_service.evaluate_freshness` and
+  `components/fleet_condition.py` (Freshness target / Data Freshness copy)
+  now read `effective_stale_after_minutes()`. `_threshold_label` became the
+  public `threshold_label`, reused by the new panel so both describe the
+  value identically.
+- `services/authorization.py`: `MANAGE_FRESHNESS_THRESHOLD`, Administrator only.
+- `components/freshness_threshold_panel.py` + `callbacks/freshness_threshold.py`:
+  status line, minutes input, Save / Reset to default, error slot;
+  authorize before any query or write. The action callback ignores a
+  trigger whose `n_clicks` is 0 — Dash fires it when the panel is inserted,
+  which otherwise shows a validation error before anyone clicks. (The
+  existing Temperature Threshold panel shows exactly that symptom —
+  "Warning is required." on load — pre-existing, out of this gate's scope.)
+- `pages/plants_overview.py`: new `freshness-threshold-panel` slot, before
+  the two framework-only panels. `app.py` registers the callbacks.
+- `tests/conftest.py`: non-db tests see the override as unconfigured, so
+  pure-logic freshness tests stay database-free under the existing guard.
+
+### Verification
+
+- New tests: `tests/test_freshness_threshold.py` (parsing, typo guards,
+  live resolution, strict `>` boundary, one read per request, BR008
+  independence, and DB-backed persistence/no-op/audit/rollback/CHECK),
+  `tests/test_freshness_threshold_panel.py`,
+  `tests/test_freshness_threshold_callback.py` (Administrator-only,
+  authorize before query/write, zero-click insertion ignored),
+  `tests/test_migration_freshness_threshold_config.py` (singleton, range
+  CHECK, FK, downgrade/upgrade round trip). Existing tests repointed:
+  `tests/test_freshness_policy.py`, `tests/test_fleet_condition.py`.
+- `python -m pytest -q` (full suite, DB included) — all passed, exit 0.
+  `python -m pytest -m "not db"` — all passed after the zero-click fix.
+- Local dev DB upgraded to `015_freshness_threshold_config`.
+- `git diff --check` clean; `python scripts/build_context_pack.py --check`
+  CLEAN.
+- Browser (Playwright), local dev data (~2 days old), as Administrator:
+  panel read "Using the default: Stale after 24 hours (1,440 minutes)" with
+  no error on load; saved 4320 → "Stale after 3 days (4,320 minutes)";
+  Fleet Overview Data Freshness and Command Center Fleet Health both went
+  from 0 Fresh / 120 Stale to 120 Fresh / 0 Stale, copy read "≤ 3 days".
+  Reset to default → back to 24 hours and 120 Stale. `audit_log` holds
+  exactly one `FRESHNESS_THRESHOLD_SET` and one `FRESHNESS_THRESHOLD_CLEARED`
+  row by user 103; config table left empty. Technician browser check not
+  run (local technician demo password unknown); Technician/General refusal
+  is covered by the callback tests.
+
+### Known ambiguity
+
+- Railway: migration 015 will apply automatically through
+  `preDeployCommand` on the next deploy (RAILWAY-MIGRATE-1).
+- The 5-minute / 365-day bounds are typo guards, not client values.
+
+## Next implementation gate: NONE
+
+## Prior gate record
+
+## NOTIF-BANNER-1 — CLOSED / PASS
+
+Implementation: `c851036` (pushed). Client demo feedback: Notification
+Center read as "only explaining alarm categories". Its honesty banner led
+with "Prototype." although the table shows real BR008 + persisted
+device-event rows. Reworded to "Delivery note." naming the one thing not
+connected (SMS/email delivery). Copy only; `tests/test_notification_service.py`
+now asserts the banner names external delivery and no longer says
+"Prototype". Full non-DB suite green.
+
+## RAILWAY-MIGRATE-1 — CLOSED / PASS
+
+Implementation: `ce42a36` (pushed). Railway's demo database was stuck at
+`007_audit_log` because `railway.json` only ran gunicorn; Command Center
+returned HTTP 500 (`column "acknowledged_at" does not exist`). Migrated
+the Railway database to `014_alarm_ack_fk_no_action` via `railway ssh`
+(`alembic upgrade head` inside the `dashboard` service), then added
+`deploy.preDeployCommand: "python -m alembic upgrade head"` so every
+deploy migrates before new instances go live. Verified on deployment
+`64b43668`: pre-deploy step ran as a no-op, deploy SUCCESS, Command Center
+loads with 0 console errors.
+
+## ADMIN-ASSIGN-1 — CLOSED / PASS
+
+Implementation: `e651534` (pushed).
+
+### Task (as recorded at the time)
 
 Turn the sidebar's disabled "Assignments" placeholder into a real page.
 User's own question ("why is this hidden... what is its purpose") plus a

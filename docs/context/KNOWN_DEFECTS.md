@@ -2,6 +2,7 @@
 
 Status: Approved
 Date: 2026-08-30
+Last updated: 2026-09-18 — added ADMIN-PANEL-LOAD-ERROR-1
 
 Defects found during gated work that were deliberately **not** fixed in the
 tranche that found them. Each carries the evidence that established it and
@@ -14,6 +15,7 @@ leaves when a commit fixes it — not when someone decides it is unimportant.
 | Id | Defect | Found | Fix before |
 |---|---|---|---|
 | ~~SEED-RESET-1~~ | `seed_plant_monitoring --reset` cannot complete: FK dependents of `devices` are not cleared first | CC-1 Phase 10 (2026-08-30) | **RESOLVED 2026-08-30** — ADR-010 |
+| ADMIN-PANEL-LOAD-ERROR-1 | Temperature Threshold panel shows "Warning is required." on page load before any click; Vibration Contract panel has the same code path | FRESHNESS-CONFIG-1 browser check (2026-09-18) | Next client demo or client delivery sync |
 
 ---
 
@@ -97,3 +99,35 @@ and left unapplied.
 Do not fix it by adding `CASCADE`. That would make a reset silently destroy
 audit and assignment history that no other command can rebuild, which is a
 worse defect wearing the fix's clothes.
+
+---
+
+## ADMIN-PANEL-LOAD-ERROR-1 — Admin config panels validate before any click
+
+**Status:** OPEN · **Found:** FRESHNESS-CONFIG-1 browser verification,
+2026-09-18 · **Fix before:** the next client demo or client delivery sync.
+
+### The defect
+
+When Fleet Overview loads for an Administrator, the Temperature Threshold
+panel immediately shows the validation error "Warning is required." Nobody
+has clicked anything.
+
+Cause: the panel is inserted into its slot by a callback. Dash then fires
+the panel's Set/Clear action callback (`callbacks/temperature_threshold.py`
+`_handle_action`) with `n_clicks=0` for the newly inserted button.
+`prevent_initial_call=True` does not stop this for components added after
+the first page load. The handler checks only which button triggered it, not
+whether it was actually clicked, so it validates the empty form.
+
+`callbacks/vibration_contract.py` `_handle_action` has the identical
+trigger check and is expected to behave the same way (not browser-checked).
+
+### The fix (already proven)
+
+`callbacks/freshness_threshold.py` returns `no_update` when the triggering
+value is falsy (`n_clicks` 0/None), with a regression test
+(`tests/test_freshness_threshold_callback.py::
+TestActions::test_panel_insertion_with_zero_clicks_is_not_a_click`). The
+same one-line guard and test apply to both affected callbacks. It was left
+out of FRESHNESS-CONFIG-1 to keep that gate's scope to the freshness panel.
