@@ -1,14 +1,15 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-18
-Gate: USER-FILTERS-1
-Commit/push permission: **NOT GRANTED**. The user reviews the result
-before any commit.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** 2026-09-18
+(`d0343a2` + closure docs); push not requested.
 
-## USER-FILTERS-1 — OPEN / IN PROGRESS
+## USER-FILTERS-1 — CLOSED / PASS
 
-Baseline: `main` at `24fe709`.
+Baseline: `main` at `24fe709`. Implementation: `d0343a2`. Next queued work
+(not opened): a "no users match" empty state for the filtered table.
 
 ## Task
 
@@ -49,7 +50,7 @@ Agreed in chat on 2026-09-18:
 
 None.
 
-## Implementation (uncommitted, awaiting review)
+## Implementation (`d0343a2`)
 
 - `pages/user_admin.py`: `filter_action="none"` on `user-admin-table`; a
   Role dropdown (`user-admin-role-filter`, `ROLE_FILTER_OPTIONS`, values are
@@ -71,6 +72,8 @@ None.
 - Not changed, noted for later: a filter with no matches shows only the
   table header, with no "no users match" message (Device Management has
   one).
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
