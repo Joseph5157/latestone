@@ -50,14 +50,24 @@ class TestPolicyDefaults:
 class TestPolicyIsHonoured:
     def test_threshold_boundary_follows_configuration(self, monkeypatch):
         """Changing config must change behaviour - proving it is not hard-coded."""
-        import services.monitoring_service as svc
+        import services.freshness_threshold_service as threshold_svc
 
         class _Stub:
             stale_after_minutes = 10
 
-        monkeypatch.setattr(svc, "monitoring", _Stub())
+        monkeypatch.setattr(threshold_svc, "monitoring", _Stub())
         assert evaluate_freshness(NOW - timedelta(minutes=5), NOW) is Freshness.FRESH
         assert evaluate_freshness(NOW - timedelta(minutes=15), NOW) is Freshness.STALE
+
+    def test_administrator_override_wins_over_environment_default(self, monkeypatch):
+        """FRESHNESS-CONFIG-1: a configured value replaces the 24h default."""
+        import services.freshness_threshold_service as threshold_svc
+
+        monkeypatch.setattr(threshold_svc, "_read_override_minutes", lambda: 60)
+        assert evaluate_freshness(NOW - timedelta(minutes=59), NOW) is Freshness.FRESH
+        assert evaluate_freshness(NOW - timedelta(minutes=61), NOW) is Freshness.STALE
+        # Under the 24h default the same reading would still be Fresh.
+        assert evaluate_freshness(NOW - timedelta(hours=2), NOW) is Freshness.STALE
 
     def test_monitoring_settings_exposes_no_expected_interval_model(self):
         assert "expected_interval_minutes" not in MonitoringSettings.__dataclass_fields__

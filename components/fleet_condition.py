@@ -11,7 +11,7 @@ from urllib.parse import quote
 from dash import html
 
 from components.card import card_header
-from config.settings import monitoring
+from services.freshness_threshold_service import effective_stale_after_minutes
 from services.monitoring_service import Freshness
 
 
@@ -30,7 +30,7 @@ def _percentage(count: int, total: int) -> float:
     return 100 * count / total if total else 0
 
 
-def _threshold_label(minutes: int) -> str:
+def threshold_label(minutes: int) -> str:
     if minutes % (24 * 60) == 0:
         days = minutes // (24 * 60)
         return "24 hours" if days == 1 else f"{days} days"
@@ -190,7 +190,7 @@ def fresh_data_coverage(counts: dict[Freshness, int]) -> html.Section:
                 ]),
             ]),
             html.Dl(className="fleet-condition__metadata", children=[
-                html.Div(children=[html.Dt("Freshness target"), html.Dd(f"≤ {_threshold_label(monitoring.stale_after_minutes)}")]),
+                html.Div(children=[html.Dt("Freshness target"), html.Dd(f"≤ {threshold_label(effective_stale_after_minutes())}")]),
                 html.Div(children=[html.Dt("Evaluation scope"), html.Dd("All monitored metrics must be fresh")]),
             ]),
             html.P("No monitored RTLs in your current scope." if not total else
@@ -207,7 +207,7 @@ def fleet_condition_panels(counts: dict[Freshness, int]) -> list:
 
 def data_freshness(counts: dict[Freshness, int]) -> html.Section:
     total = _total(counts)
-    threshold = _threshold_label(monitoring.stale_after_minutes)
+    threshold = threshold_label(effective_stale_after_minutes())
     ranges = {
         Freshness.FRESH: f"All metrics ≤ {threshold}",
         Freshness.STALE: f"At least one metric > {threshold}",

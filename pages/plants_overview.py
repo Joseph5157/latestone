@@ -116,6 +116,10 @@ def layout() -> html.Div:
             # check, no shared query. See that module's docstring for why it
             # is deliberately not folded into administration_section.
             html.Div(id="auto-disable-override-panel", className="fleet-administration"),
+            # FRESHNESS-CONFIG-1: same independent shape (callbacks/freshness_threshold.py).
+            # Placed before the framework-only panels below because, unlike
+            # them, this value changes live monitoring state.
+            html.Div(id="freshness-threshold-panel", className="fleet-administration"),
             # THRESH-CONFIG-1: same independent shape as the panel above —
             # its own callback (callbacks/temperature_threshold.py), its own
             # capability check, no shared query.

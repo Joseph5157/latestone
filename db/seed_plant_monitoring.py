@@ -88,6 +88,9 @@ RESET_PRESERVES = (
     "forwarding_auto_disable_override",
     "temperature_threshold_config",
     "vibration_contract_answers",
+    # FRESHNESS-CONFIG-1 (migration 015): an Administrator's configured
+    # Stale-after threshold is configuration, not measurement data.
+    "freshness_threshold_config",
 )
 
 #: FK-safe deletion order for the DESTRUCTIVE teardown only (ADR-010 D3).

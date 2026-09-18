@@ -180,6 +180,9 @@ MANAGE_TEMPERATURE_THRESHOLD = "manage_temperature_threshold"
 # as MANAGE_TEMPERATURE_THRESHOLD — this is contract METADATA, not a
 # per-device reading.
 MANAGE_VIBRATION_CONTRACT = "manage_vibration_contract"
+# FRESHNESS-CONFIG-1: setting/clearing the global Stale-after threshold.
+# Unlike the two above this one changes live monitoring state fleet-wide.
+MANAGE_FRESHNESS_THRESHOLD = "manage_freshness_threshold"
 
 #: capability -> roles. Role-only: no device is involved, so there is no
 #: assignment condition to apply and no database read to make one.
@@ -204,6 +207,7 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     EXPORT_DATA: _EVERY_ROLE,
     MANAGE_TEMPERATURE_THRESHOLD: _ADMIN_ONLY,
     MANAGE_VIBRATION_CONTRACT: _ADMIN_ONLY,
+    MANAGE_FRESHNESS_THRESHOLD: _ADMIN_ONLY,
 }
 
 _NO_ROLE: frozenset[str] = frozenset()

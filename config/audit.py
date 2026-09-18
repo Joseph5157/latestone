@@ -65,6 +65,11 @@ TEMPERATURE_THRESHOLD_CLEARED = "TEMPERATURE_THRESHOLD_CLEARED"
 VIBRATION_CONTRACT_ANSWER_SET = "VIBRATION_CONTRACT_ANSWER_SET"
 VIBRATION_CONTRACT_ANSWER_CLEARED = "VIBRATION_CONTRACT_ANSWER_CLEARED"
 
+#: FRESHNESS-CONFIG-1: an Administrator setting, changing, or clearing the
+#: global Stale-after threshold. Always human-originated.
+FRESHNESS_THRESHOLD_SET = "FRESHNESS_THRESHOLD_SET"
+FRESHNESS_THRESHOLD_CLEARED = "FRESHNESS_THRESHOLD_CLEARED"
+
 #: The complete allowlist of operations that may be audited with a NULL
 #: actor via ``audit_service.record(..., system_originated=True)``.
 #: Deliberately minimal (ACT-D5): each entry must correspond to an actually
@@ -88,3 +93,7 @@ TEMPERATURE_THRESHOLD_ENTITY_ID = "global"
 #: (see the module docstring), NOT a fixed "global" string like the two
 #: single-fact entities above.
 ENTITY_VIBRATION_CONTRACT = "vibration_contract"
+
+#: FRESHNESS-CONFIG-1: one global row, same shape as the temperature threshold.
+ENTITY_FRESHNESS_THRESHOLD = "freshness_threshold"
+FRESHNESS_THRESHOLD_ENTITY_ID = "global"

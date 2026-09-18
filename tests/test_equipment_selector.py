@@ -23,6 +23,7 @@ from components.device_manage_drawer import device_manage_drawer
 from components.device_operations import device_operations_panel
 from components.my_rtls import my_rtls_panel
 from components.needs_attention import needs_attention
+from components.freshness_threshold_panel import freshness_threshold_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
 from pages import audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
@@ -142,6 +143,9 @@ PAGE_LAYOUT_IDS = (
     # THRESH-CONFIG-1: same reasoning — rendered into the Fleet Overview's
     # temperature-threshold-panel slot by callbacks/temperature_threshold.py.
     | collect_ids(temperature_threshold_panel(None))
+    # FRESHNESS-CONFIG-1: rendered into the freshness-threshold-panel slot
+    # by callbacks/freshness_threshold.py.
+    | collect_ids(freshness_threshold_panel(None, default_minutes=1440))
     # VIB-CONFIG-1: same reasoning — rendered into the Fleet Overview's
     # vibration-contract-panel slot by callbacks/vibration_contract.py.
     | collect_ids(vibration_contract_panel({}))

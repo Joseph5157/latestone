@@ -221,7 +221,7 @@ def test_fresh_data_coverage_uses_fresh_only_with_exact_arc(counts, expected):
 
 def test_freshness_threshold_copy_uses_current_configuration(monkeypatch):
     import components.fleet_condition as component
-    monkeypatch.setattr(component, "monitoring", SimpleNamespace(stale_after_minutes=135))
+    monkeypatch.setattr(component, "effective_stale_after_minutes", lambda: 135)
     rendered = text_of(data_freshness({F: 3, S: 1, N: 1}))
     assert "All metrics ≤ 135 min" in rendered
     assert "At least one metric > 135 min" in rendered
@@ -293,7 +293,7 @@ def test_coverage_details_use_same_population_and_include_missing_data(counts):
 
 def test_coverage_metadata_uses_same_config_as_freshness(monkeypatch):
     import components.fleet_condition as component
-    monkeypatch.setattr(component, "monitoring", SimpleNamespace(stale_after_minutes=135))
+    monkeypatch.setattr(component, "effective_stale_after_minutes", lambda: 135)
     metadata = text_of(find_by_exact_class(fresh_data_coverage({F: 2}), "fleet-condition__metadata"))
     assert "Freshness target ≤ 135 min" in metadata
     assert "Evaluation scope All monitored metrics must be fresh" in metadata

@@ -121,6 +121,25 @@ def _no_database_outside_db_marked_tests(request):
         )
 
 
+@pytest.fixture(autouse=True)
+def _freshness_override_unconfigured_outside_db_tests(request, monkeypatch):
+    """Pure-logic tests evaluate freshness against the environment default.
+
+    FRESHNESS-CONFIG-1 made `evaluate_freshness` consult an optional
+    Administrator override stored in PostgreSQL. Every unmarked test that
+    classifies a reading would otherwise reach the database and trip the
+    guard above, so they see "unconfigured" instead — exactly the state of a
+    fresh deployment. Tests of the override itself patch this seam
+    explicitly or are db-marked.
+    """
+    if request.node.get_closest_marker("db"):
+        return
+    monkeypatch.setattr(
+        "services.freshness_threshold_service._read_override_minutes",
+        lambda: None,
+    )
+
+
 @pytest.fixture(scope="module")
 def isolated_schema():
     """A fresh, empty schema — the full DB-1/DB-2 table set via `alembic

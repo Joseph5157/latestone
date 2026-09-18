@@ -113,6 +113,7 @@ EXPECTED_UPGRADE_TABLES = {
     "message_forwarding", "rtl_active_state", "device_events", "audit_log",
     "rtl_commands", "forwarding_auto_disable_override",
     "temperature_threshold_config", "vibration_contract_answers",
+    "freshness_threshold_config",
     "alembic_version",
 }
 
@@ -124,8 +125,8 @@ class TestFreshDatabaseUpgrade:
         result = _run_alembic("upgrade", "head")
         assert result.returncode == 0, result.stderr
         # alembic_version is expected: it lives inside the configured schema
-        # (version_table_schema), alongside the fifteen application tables
-        # (VIB-CONFIG-1 added vibration_contract_answers).
+        # (version_table_schema), alongside the sixteen application tables
+        # (FRESHNESS-CONFIG-1 added freshness_threshold_config).
         assert _table_names(TEST_SCHEMA) == EXPECTED_UPGRADE_TABLES
 
     def test_upgrade_creates_expected_baseline_columns(self):

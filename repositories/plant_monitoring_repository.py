@@ -2061,6 +2061,133 @@ def clear_temperature_threshold_config(
         return _run(s)
 
 
+_FRESHNESS_THRESHOLD_CONFIG_ID = 1
+
+
+@dataclass(frozen=True)
+class FreshnessThresholdConfigRecord:
+    """The one global Stale-after threshold row, if any (FRESHNESS-CONFIG-1).
+    Absence means "use the environment default"."""
+
+    stale_after_minutes: int
+    configured_by_user_id: int
+    configured_at: datetime
+
+
+def _to_freshness_threshold_config(row) -> FreshnessThresholdConfigRecord:
+    return FreshnessThresholdConfigRecord(
+        stale_after_minutes=row[0],
+        configured_by_user_id=row[1],
+        configured_at=row[2],
+    )
+
+
+_FRESHNESS_THRESHOLD_SELECT = (
+    "SELECT stale_after_minutes, configured_by_user_id, configured_at "
+    "FROM {schema}.freshness_threshold_config WHERE id = :id"
+)
+
+
+def get_freshness_threshold_config(
+    *, session=None
+) -> FreshnessThresholdConfigRecord | None:
+    def _run(s):
+        row = s.execute(
+            text(_FRESHNESS_THRESHOLD_SELECT.format(schema=_SCHEMA)),
+            {"id": _FRESHNESS_THRESHOLD_CONFIG_ID},
+        ).first()
+        return _to_freshness_threshold_config(row) if row else None
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+@dataclass(frozen=True)
+class FreshnessThresholdConfigChange:
+    """Same changed-flag shape as ``ThresholdConfigChange``."""
+
+    previous: FreshnessThresholdConfigRecord | None
+    current: FreshnessThresholdConfigRecord
+    changed: bool
+
+
+def set_freshness_threshold_config(
+    *, stale_after_minutes: int, configured_by_user_id: int, session=None
+) -> FreshnessThresholdConfigChange:
+    """Upsert the singleton row. Re-applying the current value is a no-op:
+    nothing is written and the caller must not audit it."""
+
+    def _run(s):
+        before_row = s.execute(
+            text(_FRESHNESS_THRESHOLD_SELECT.format(schema=_SCHEMA) + " FOR UPDATE"),
+            {"id": _FRESHNESS_THRESHOLD_CONFIG_ID},
+        ).first()
+        previous = (
+            _to_freshness_threshold_config(before_row) if before_row is not None else None
+        )
+        if previous is not None and previous.stale_after_minutes == stale_after_minutes:
+            return FreshnessThresholdConfigChange(
+                previous=previous, current=previous, changed=False
+            )
+
+        params = {
+            "id": _FRESHNESS_THRESHOLD_CONFIG_ID,
+            "minutes": stale_after_minutes,
+            "configured_by_user_id": configured_by_user_id,
+        }
+        if before_row is None:
+            statement = f"""
+                INSERT INTO {_SCHEMA}.freshness_threshold_config
+                    (id, stale_after_minutes, configured_by_user_id, configured_at)
+                VALUES (:id, :minutes, :configured_by_user_id, now())
+                RETURNING stale_after_minutes, configured_by_user_id, configured_at
+            """
+        else:
+            statement = f"""
+                UPDATE {_SCHEMA}.freshness_threshold_config
+                SET stale_after_minutes = :minutes,
+                    configured_by_user_id = :configured_by_user_id,
+                    configured_at = now()
+                WHERE id = :id
+                RETURNING stale_after_minutes, configured_by_user_id, configured_at
+            """
+        row = s.execute(text(statement), params).first()
+        return FreshnessThresholdConfigChange(
+            previous=previous, current=_to_freshness_threshold_config(row), changed=True
+        )
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
+def clear_freshness_threshold_config(
+    *, session=None
+) -> FreshnessThresholdConfigRecord | None:
+    """Delete the singleton row, returning what was deleted (None = no-op)."""
+
+    def _run(s):
+        row = s.execute(
+            text(_FRESHNESS_THRESHOLD_SELECT.format(schema=_SCHEMA) + " FOR UPDATE"),
+            {"id": _FRESHNESS_THRESHOLD_CONFIG_ID},
+        ).first()
+        if row is None:
+            return None
+        s.execute(
+            text(f"DELETE FROM {_SCHEMA}.freshness_threshold_config WHERE id = :id"),
+            {"id": _FRESHNESS_THRESHOLD_CONFIG_ID},
+        )
+        return _to_freshness_threshold_config(row)
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as s:
+        return _run(s)
+
+
 @dataclass(frozen=True)
 class VibrationContractAnswerRecord:
     """One answered vibration contract question (VIB-CONFIG-1 / C-02,

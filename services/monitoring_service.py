@@ -23,10 +23,10 @@ from config.metrics import (
     get_metric,
     ordered_metrics,
 )
-from config.settings import monitoring
 from repositories import plant_monitoring_repository as repo
 from repositories.plant_monitoring_repository import DeviceMetricReading, RawReading
 from services.device_scope import DeviceScope
+from services.freshness_threshold_service import effective_stale_after_minutes
 
 
 class Freshness(str, Enum):
@@ -203,7 +203,7 @@ def evaluate_freshness(last_updated: datetime | None, now: datetime | None = Non
     age = reference - _align_tz(last_updated, reference)
     return (
         Freshness.STALE
-        if age > timedelta(minutes=monitoring.stale_after_minutes)
+        if age > timedelta(minutes=effective_stale_after_minutes())
         else Freshness.FRESH
     )
 
