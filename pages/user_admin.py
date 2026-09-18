@@ -12,6 +12,15 @@ from components.breadcrumb import breadcrumb
 from components.entity_table import entity_table
 from components.user_form_drawer import user_form_drawer
 
+#: Values are the stored roles (`services.prototype_users.CONFIRMED_ROLES`);
+#: labels match the table's Role column.
+ROLE_FILTER_OPTIONS = [
+    {"label": "All", "value": "all"},
+    {"label": "Administrator", "value": "administrator"},
+    {"label": "Technician", "value": "technician"},
+    {"label": "General User", "value": "general"},
+]
+
 
 def layout() -> html.Div:
     return html.Div(
@@ -62,7 +71,7 @@ def layout() -> html.Div:
                             html.H2("Application users"),
                         ],
                     ),
-                    html.P("Search by user or identifier, then filter by lifecycle status."),
+                    html.P("Search by user or identifier, then filter by role or account status."),
                 ],
             ),
             # Toolbar — search and status filter. Add User is the page action.
@@ -77,6 +86,33 @@ def layout() -> html.Div:
                                 id="user-admin-search", type="text",
                                 placeholder="User or identifier…",
                                 className="user-admin-toolbar__search", debounce=True,
+                            ),
+                        ],
+                    ),
+                    # Role (USER-FILTERS-1). dcc.Dropdown renders a div,
+                    # which a <label for> cannot reach, so the label names a
+                    # group around it instead.
+                    html.Div(
+                        className="user-admin-toolbar__control user-admin-toolbar__filters",
+                        children=[
+                            html.Label(
+                                "Role",
+                                id="user-admin-role-filter-label",
+                                className="user-admin-toolbar__label",
+                            ),
+                            html.Div(
+                                role="group",
+                                **{"aria-labelledby": "user-admin-role-filter-label"},
+                                children=[
+                                    dcc.Dropdown(
+                                        id="user-admin-role-filter",
+                                        options=ROLE_FILTER_OPTIONS,
+                                        value="all",
+                                        clearable=False,
+                                        searchable=False,
+                                        className="user-admin-toolbar__dropdown",
+                                    ),
+                                ],
                             ),
                         ],
                     ),
@@ -122,6 +158,10 @@ def layout() -> html.Div:
                 administrative_state_column_id="status",
                 responsive=True,
                 markdown_link_target="_self",
+                # The toolbar above is this page's filter surface; the native
+                # row underneath the header would be a second one, and it
+                # rendered badly (USER-FILTERS-1).
+                filter_action="none",
             ),
             # User form drawer (opens on Add/Edit)
             user_form_drawer(),

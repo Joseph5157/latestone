@@ -1,10 +1,78 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-18
-Gate: NONE
-Commit/push permission: **GRANTED and exercised** 2026-09-18 by the user
-after review (`c47cf87` + closure docs, pushed).
+Gate: USER-FILTERS-1
+Commit/push permission: **NOT GRANTED**. The user reviews the result
+before any commit.
+
+## USER-FILTERS-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `24fe709`.
+
+## Task
+
+User Administration (`/admin/users`): the table showed DataTable's native
+filter row under the page's own Search and Account status toolbar. It
+rendered badly (only the User column showed "filter data...", the others
+only a case-sensitivity icon) and offered a filter on the Actions column.
+Reported by the user 2026-09-18.
+
+Agreed in chat on 2026-09-18:
+
+1. Turn the native filter row off (`filter_action="none"`), the same fix
+   already used on Device Management, Assignments and Technician Devices.
+2. Add a Role dropdown to the toolbar (All / Administrator / Technician /
+   General User), because the native row was the only way to filter by
+   role.
+
+## Relevant files
+
+- `pages/user_admin.py`
+- `callbacks/user_admin.py`
+- `components/entity_table.py` (read only: `filter_action`)
+- `services/prototype_users.py` (read only: `CONFIRMED_ROLES`)
+- `tests/test_user_admin.py`
+- `tests/test_auth_harden.py`
+
+## Non-goals (explicit)
+
+- No change to user data, roles, the add/edit drawer, or authorization.
+- The summary line keeps counting all users, as it does today.
+
+## Required tests
+
+- `python -m pytest -m "not db"` and `python -m pytest`
+- Browser check as Administrator.
+
+## Known ambiguity
+
+None.
+
+## Implementation (uncommitted, awaiting review)
+
+- `pages/user_admin.py`: `filter_action="none"` on `user-admin-table`; a
+  Role dropdown (`user-admin-role-filter`, `ROLE_FILTER_OPTIONS`, values are
+  the stored roles) before Account status. It is named by a
+  `role="group"` label, since `<label for>` cannot reach a dropdown. The
+  help text now mentions role.
+- `callbacks/user_admin.py`: `_build_user_rows(..., role_filter="all")`
+  compares the stored role; `populate_user_admin` takes the Role dropdown as
+  a fourth input (defaulted, so direct callers are unchanged).
+- New `TestToolbarFilters` in `tests/test_user_admin.py` (non-DB).
+
+### Verification (2026-09-18)
+
+- `python -m pytest -m "not db"` and `python -m pytest`: all passed, exit 0.
+- Browser (Playwright, local, Administrator): no native filter row;
+  Role = Technician shows the 5 technicians, General User shows 2,
+  General User + Inactive shows none, All/All shows all 8; at 390px the
+  toolbar stacks and the page has no horizontal scroll.
+- Not changed, noted for later: a filter with no matches shows only the
+  table header, with no "no users match" message (Device Management has
+  one).
+
+## Prior gate record
 
 ## REGISTER-UX-1 — CLOSED / PASS
 
@@ -122,7 +190,7 @@ agreed in chat on 2026-09-18, in three parts:
   afterwards (back to 120 devices, 120 distinct codes). Its
   `DEVICE_REGISTERED` audit row was left in place as a true record.
 
-## Next implementation gate: NONE
+## Next implementation gate: USER-FILTERS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

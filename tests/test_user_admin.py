@@ -147,6 +147,120 @@ class TestBuildUserRows:
 
 
 # ---------------------------------------------------------------------------
+# USER-FILTERS-1 — toolbar filters replace the native filter row
+# ---------------------------------------------------------------------------
+
+_ROSTER = [
+    {"username": "ada", "identifier": "ada@x", "role": "administrator", "status": "active"},
+    {"username": "tom", "identifier": "tom@x", "role": "technician", "status": "active"},
+    {"username": "tia", "identifier": "tia@x", "role": "technician", "status": "inactive"},
+    {"username": "gus", "identifier": "gus@x", "role": "general", "status": "active"},
+]
+
+
+class TestToolbarFilters:
+    def test_native_filter_row_is_off(self):
+        """The toolbar is this page's filter surface. The native row rendered
+        badly and offered a filter on the Actions column."""
+        from tests.dash_tree import find_by_id
+
+        table = find_by_id(layout(), "user-admin-table")
+        assert table.filter_action == "none"
+
+    def test_role_filter_offers_all_and_every_confirmed_role(self):
+        from tests.dash_tree import find_by_id
+
+        dropdown = find_by_id(layout(), "user-admin-role-filter")
+        assert dropdown.value == "all"
+        assert dropdown.clearable is False
+        values = [o["value"] for o in dropdown.options]
+        assert values == ["all", *CONFIRMED_ROLES]
+
+    def test_role_filter_labels_match_the_table(self):
+        """The dropdown says what the Role column says."""
+        from tests.dash_tree import find_by_id
+
+        dropdown = find_by_id(layout(), "user-admin-role-filter")
+        for option in dropdown.options[1:]:
+            assert option["label"] == _format_role(option["value"])
+
+    def test_role_filter_is_named_by_a_group_label(self):
+        """dcc.Dropdown renders a div, which a <label for> cannot reach, so
+        the label names a role="group" around it (as on Device Management)."""
+        from tests.dash_tree import find_by_id
+
+        lay = layout()
+        label = find_by_id(lay, "user-admin-role-filter-label")
+        assert label.children == "Role"
+        assert getattr(label, "htmlFor", None) is None
+        group = _parent_of(lay, "user-admin-role-filter")
+        assert group.role == "group"
+        assert getattr(group, "aria-labelledby") == "user-admin-role-filter-label"
+
+    @pytest.mark.parametrize("role, expected", [
+        ("all", ["ada", "tom", "tia", "gus"]),
+        ("administrator", ["ada"]),
+        ("technician", ["tom", "tia"]),
+        ("general", ["gus"]),
+    ])
+    def test_role_filter(self, role, expected):
+        rows = _build_user_rows(_ROSTER, role_filter=role)
+        assert [r["username"] for r in rows] == expected
+
+    def test_role_status_and_search_combine(self):
+        rows = _build_user_rows(
+            _ROSTER, search_term="t", status_filter="active", role_filter="technician"
+        )
+        assert [r["username"] for r in rows] == ["tom"]
+
+    def test_callback_passes_the_role_filter(self, monkeypatch):
+        from callbacks import user_admin as cb
+        from types import SimpleNamespace
+
+        monkeypatch.setattr(cb, "get_all_users", lambda: list(_ROSTER))
+        monkeypatch.setattr(cb, "current_identity", lambda: SimpleNamespace(user_id=1))
+        monkeypatch.setattr(cb, "require_capability", lambda *a, **k: None)
+        app = _CapturingApp()
+        cb.register(app)
+        rows, _cols, error, summary = app.functions["populate_user_admin"](
+            {"route": "admin_users"}, "", "all", "technician"
+        )
+        assert error is None
+        assert [r["username"] for r in rows] == ["tom", "tia"]
+        assert summary == "4 users total — 3 active, 1 inactive"
+
+    def test_help_text_names_the_role_filter(self):
+        assert "role" in str(layout()).lower().split("search by user or identifier")[1][:80]
+
+
+def _parent_of(root, target_id):
+    """The component whose direct children include the node with target_id."""
+    children = getattr(root, "children", None)
+    if children is None or isinstance(children, str):
+        return None
+    kids = children if isinstance(children, list) else [children]
+    for kid in kids:
+        if getattr(kid, "id", None) == target_id:
+            return root
+        found = _parent_of(kid, target_id)
+        if found is not None:
+            return found
+    return None
+
+
+class _CapturingApp:
+    def __init__(self):
+        self.functions = {}
+
+    def callback(self, *args, **kwargs):
+        def decorator(fn):
+            self.functions[fn.__name__] = fn
+            return fn
+
+        return decorator
+
+
+# ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
 

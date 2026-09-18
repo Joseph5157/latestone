@@ -78,8 +78,16 @@ def _format_role(role: str) -> str:
     return role.capitalize()
 
 
-def _build_user_rows(users: list[dict], search_term: str = "", status_filter: str = "all") -> list[dict]:
-    """Build table rows from user list with search/filter applied."""
+def _build_user_rows(
+    users: list[dict],
+    search_term: str = "",
+    status_filter: str = "all",
+    role_filter: str = "all",
+) -> list[dict]:
+    """Build table rows from user list with search/filter applied.
+
+    `role_filter` compares the stored role ("technician"), not its label.
+    """
     rows = []
     search_lower = search_term.lower().strip()
 
@@ -92,6 +100,10 @@ def _build_user_rows(users: list[dict], search_term: str = "", status_filter: st
 
         # Apply status filter
         if status_filter != "all" and u.get("status") != status_filter:
+            continue
+
+        # Apply role filter
+        if role_filter != "all" and u.get("role") != role_filter:
             continue
 
         role_label = _format_role(u.get("role", "tbd"))
@@ -131,9 +143,10 @@ def register(app) -> None:
         Input("page-context", "data"),
         Input("user-admin-search", "value"),
         Input("user-admin-status-filter", "value"),
+        Input("user-admin-role-filter", "value"),
         prevent_initial_call=True,
     )
-    def populate_user_admin(context, search_term, status_filter):
+    def populate_user_admin(context, search_term, status_filter, role_filter="all"):
         if not context or context.get("route") != "admin_users":
             return (no_update,) * 4
 
@@ -150,7 +163,9 @@ def register(app) -> None:
 
         try:
             users = get_all_users()
-            rows = _build_user_rows(users, search_term or "", status_filter or "all")
+            rows = _build_user_rows(
+                users, search_term or "", status_filter or "all", role_filter or "all"
+            )
 
             active_count = sum(1 for u in users if u.get("status") == "active")
             inactive_count = sum(1 for u in users if u.get("status") != "active")
