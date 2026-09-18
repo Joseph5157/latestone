@@ -3,7 +3,7 @@
 ## 1. Authoritative Checkpoint
 
 - **Branch:** `main`
-- **SHA:** `c851036` — "fix(notifications): drop misleading \"Prototype.\" lead on the honesty banner" (`main` = `origin/main`, pushed 2026-09-18). FRESHNESS-CONFIG-1 committed locally on top as `08acb6e` plus its docs commit; not yet pushed (see §10 row 43).
+- **SHA:** `c851036` — "fix(notifications): drop misleading \"Prototype.\" lead on the honesty banner" (`main` = `origin/main`, pushed 2026-09-18). On top, pushed 2026-09-18: FRESHNESS-CONFIG-1 (`08acb6e`, docs `b5d8a36`) and SETTINGS-PAGE-1 (`6388003` + closure docs) — see §10 rows 43–44.
 - **Last updated:** 2026-09-18 (27 commits since the 2026-09-16 reconciliation: Functional Specification alignment gates, client-feedback gates, Railway migration fix and FRESHNESS-CONFIG-1 — see amendment below and §10 rows 26–43)
 - **Client delivery:** branch `cc-1-command-center-progress` @ `983c17169a0cedd2282a0df4731228e0b05feac7` on `powerplant-dashboard-client` (CLIENT-SYNC-3, 2026-09-11 — adds the Technician "My RTLs" work list on top of CLIENT-SYNC-2B's `3f21c3a` milestone). The client repo's `main` remains `aa1dd3c` and the stale local `client-release` (`d89a090`, pre-Command-Center) is **not** the delivery branch — see §7a. Not re-verified as part of `CONTEXT-RECONCILE-1`; none of the dev-side gates below were curated to it.
 - **Working tree expectation:** untracked `.pytest-*` scratch directories only, once FRESHNESS-CONFIG-1 is committed.
@@ -755,7 +755,8 @@ Work that can be implemented without unresolved client/external decisions:
 | 40 | **ADMIN-ASSIGN-1** | 🟢 CLOSED (`e651534`, 2026-09-18) | Assignments became a real Administrator page: technician workload roster plus per-RTL Assign/Manage. |
 | 41 | **RAILWAY-MIGRATE-1** | 🟢 CLOSED (`ce42a36`, 2026-09-18) | Railway DB migrated 007→014 via `railway ssh`; `preDeployCommand` now migrates on every deploy. Fixed Command Center HTTP 500. |
 | 42 | **NOTIF-BANNER-1** | 🟢 CLOSED (`c851036`, 2026-09-18) | Notification Center banner no longer leads with "Prototype."; names only SMS/email delivery as not connected. |
-| 43 | **FRESHNESS-CONFIG-1** | 🟢 CLOSED, COMMITTED NOT PUSHED (`08acb6e`, 2026-09-18) | Administrator-editable global freshness threshold, read live (ADR-021, migration 015). Full suite green; browser-verified. Tier 2 per-device override agreed but not started. |
+| 43 | **FRESHNESS-CONFIG-1** | 🟢 CLOSED / PUSHED (`08acb6e`, 2026-09-18) | Administrator-editable global freshness threshold, read live (ADR-021, migration 015). Full suite green; browser-verified. Tier 2 per-device override agreed but not started. |
+| 44 | **SETTINGS-PAGE-1** | 🟢 CLOSED / PUSHED (`6388003`, 2026-09-18) | Administrator-only Settings page (`/admin/settings`, sidebar System) now holds the Freshness, Temperature and Vibration panels; Fleet Overview no longer does. Fixed ADMIN-PANEL-LOAD-ERROR-1. |
 
 ### Blocked / Waiting for Client or Integration
 

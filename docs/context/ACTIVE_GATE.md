@@ -3,8 +3,113 @@
 Status: **CLOSED / PASS**
 Date: 2026-09-18
 Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** 2026-09-18
-(`08acb6e` + closure docs); push not yet requested.
+Commit/push permission: **GRANTED and exercised** 2026-09-18 (`6388003`
++ closure docs, pushed with FRESHNESS-CONFIG-1's `08acb6e`/`b5d8a36`).
+
+## SETTINGS-PAGE-1 — CLOSED / PASS
+
+Implementation: `6388003`. Next queued work (not opened): Tier 2
+per-device freshness override; Command Center condition click clarity
+(client-feedback audit 5.7).
+
+## Task
+
+Move the Administrator configuration panels off Fleet Overview onto a
+dedicated, Administrator-only Settings page reached from the sidebar
+(System section). User's proposal, confirmed in chat 2026-09-18: Fleet
+Overview is opened for fleet state, not administration (its own layout
+comment says so), and three settings panels had accumulated at its foot.
+
+## Relevant files
+
+- `routes.py`
+- `services/authorization.py`
+- `components/app_sidebar.py`
+- `assets/icons/nav-settings.svg` (new)
+- `pages/admin_settings.py` (new)
+- `pages/plants_overview.py`
+- `callbacks/routing.py`
+- `callbacks/freshness_threshold.py`
+- `callbacks/temperature_threshold.py`
+- `callbacks/vibration_contract.py`
+- `docs/context/KNOWN_DEFECTS.md`
+
+## Decisions this gate depends on
+
+- Route `/admin/settings`, route name `admin_settings`, nav key
+  `settings`, `ROUTE_POLICY` `_ADMIN_ONLY` — same shape as Users and
+  Audit Log.
+- The three panels (Freshness Threshold, Temperature Threshold, Vibration
+  Contract) move unchanged: same components, same capabilities, same
+  services and audit. Only the route their render callback answers to
+  changes (`overview` → `admin_settings`). Each still re-verifies its
+  capability (P0-4 / AUTH-HARDEN-1).
+- The admin summary cards and Unassigned RTLs panel stay on Fleet Overview:
+  they describe the fleet, not settings.
+- The empty `auto-disable-override-panel` slot is removed: its callback was
+  deleted by FS-BR016-1, so it renders nothing.
+- ADMIN-PANEL-LOAD-ERROR-1 is fixed here (the same two callbacks are
+  touched): zero-click triggers are ignored, as already proven in
+  FRESHNESS-CONFIG-1.
+
+## Non-goals (explicit)
+
+- No change to any setting's validation, storage, audit or capability.
+- No new settings.
+
+## Implementation
+
+- `routes.py`: `/admin/settings` → `admin_settings`; nav key `settings`.
+- `services/authorization.py`: `ROUTE_POLICY["admin_settings"] = _ADMIN_ONLY`.
+- `components/app_sidebar.py`: "Settings" in System, after Audit Log;
+  `assets/icons/nav-settings.svg` (gear) + its `.app-sidebar__icon--settings`
+  mask rule in `assets/app.css`.
+- `pages/admin_settings.py` (new): page heading plus two sections — "Data
+  freshness" (live) and "Temperature and vibration" (configuration only) —
+  holding the three existing panel slots.
+- `pages/plants_overview.py`: removed the three panel slots and the dead
+  `auto-disable-override-panel` slot; `admin-summary` stays.
+- `callbacks/freshness_threshold.py`, `callbacks/temperature_threshold.py`,
+  `callbacks/vibration_contract.py`: render callbacks answer to
+  `admin_settings` instead of `overview`. Temperature and Vibration gained
+  the zero-click guard (fixes ADMIN-PANEL-LOAD-ERROR-1).
+- `callbacks/routing.py`: `admin_settings` branch.
+- `assets/app.css`: page-scoped Settings styles — panels as bordered cards,
+  labelled inputs, primary/secondary buttons, two-column vibration list,
+  narrow-screen fallback. Scoped to `.page--admin-settings`, so no other
+  page changes.
+
+### Tests
+
+- `tests/test_admin_settings.py` (new, 17): route parses and is
+  Administrator-only; Settings holds all three slots; Overview holds none
+  (nor the dead slot) and keeps `admin-summary`; each panel stays silent on
+  `overview`, renders on `admin_settings`, and ignores a zero-click trigger.
+- Updated: the three panel callback tests (route), `tests/test_app_sidebar.py`
+  (Settings in the item order), `tests/test_authorization.py` (route listed,
+  Administrator-only), `tests/test_equipment_selector.py` (layout ids).
+
+### Verification
+
+- `python -m pytest -m "not db"` — all passed, exit 0.
+- Browser (Playwright), local, as Administrator: sidebar shows Settings →
+  `/admin/settings` with a gear icon, highlighted when active; all three
+  panels render with no error message on load (the Temperature panel's
+  "Warning is required." on load is gone); clicking Set threshold with
+  empty fields shows that message only after the click, nothing saved; the
+  vibration question dropdown spans the form width; Fleet Overview has none
+  of the panels and still shows the admin summary.
+- The dev DB freshness threshold read 120 minutes during this check — set
+  through the app at 15:19 UTC by user 103 outside this gate's work; left
+  unchanged.
+
+### Known ambiguity
+
+None.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## FRESHNESS-CONFIG-1 — CLOSED / PASS
 
@@ -144,9 +249,6 @@ separate, later gate.
   `preDeployCommand` on the next deploy (RAILWAY-MIGRATE-1).
 - The 5-minute / 365-day bounds are typo guards, not client values.
 
-## Next implementation gate: NONE
-
-## Prior gate record
 
 ## NOTIF-BANNER-1 — CLOSED / PASS
 

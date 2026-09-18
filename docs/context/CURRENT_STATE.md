@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-18T15:31:44Z
+Date: 2026-09-18T15:51:15Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `08acb6e` "feat(freshness): let Administrators set the freshness threshold live"
-- Working tree: 15 entries — see below
+- `main` = `6388003` "feat(admin): move configuration panels to a Settings page"
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3269 passed, 718 deselected in 27.22s
+- `python -m pytest -m "not db"` → 3288 passed, 718 deselected in 27.33s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 328 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 178 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 328 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 330 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 180 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 330 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -84,20 +84,15 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md
- M docs/context/ACTIVE_GATE.md
- M docs/context/CLIENT_QUESTIONS.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M docs/context/DECISION_INDEX.md
  M docs/context/KNOWN_DEFECTS.md
  M docs/context/PROJECT_LEDGER.md
- M docs/context/REPOSITORY_AND_DEPLOYMENT_MAP.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
 ?? .pytest-alarm-ack-suite/
 ?? .pytest-alarm-ack/
 ?? .pytest-command-dispatch-suite/
-?? docs/decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md
 ```
 

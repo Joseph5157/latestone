@@ -2,7 +2,7 @@
 
 Status: Approved
 Date: 2026-08-30
-Last updated: 2026-09-18 — added ADMIN-PANEL-LOAD-ERROR-1
+Last updated: 2026-09-18 — ADMIN-PANEL-LOAD-ERROR-1 added and resolved
 
 Defects found during gated work that were deliberately **not** fixed in the
 tranche that found them. Each carries the evidence that established it and
@@ -15,7 +15,7 @@ leaves when a commit fixes it — not when someone decides it is unimportant.
 | Id | Defect | Found | Fix before |
 |---|---|---|---|
 | ~~SEED-RESET-1~~ | `seed_plant_monitoring --reset` cannot complete: FK dependents of `devices` are not cleared first | CC-1 Phase 10 (2026-08-30) | **RESOLVED 2026-08-30** — ADR-010 |
-| ADMIN-PANEL-LOAD-ERROR-1 | Temperature Threshold panel shows "Warning is required." on page load before any click; Vibration Contract panel has the same code path | FRESHNESS-CONFIG-1 browser check (2026-09-18) | Next client demo or client delivery sync |
+| ~~ADMIN-PANEL-LOAD-ERROR-1~~ | Temperature Threshold panel shows "Warning is required." on page load before any click; Vibration Contract panel has the same code path | FRESHNESS-CONFIG-1 browser check (2026-09-18) | **RESOLVED 2026-09-18** — SETTINGS-PAGE-1 |
 
 ---
 
@@ -104,8 +104,9 @@ worse defect wearing the fix's clothes.
 
 ## ADMIN-PANEL-LOAD-ERROR-1 — Admin config panels validate before any click
 
-**Status:** OPEN · **Found:** FRESHNESS-CONFIG-1 browser verification,
-2026-09-18 · **Fix before:** the next client demo or client delivery sync.
+**Status:** RESOLVED (SETTINGS-PAGE-1, 2026-09-18) — both callbacks now
+ignore zero-click triggers; regression tests in `tests/test_admin_settings.py`.
+**Found:** FRESHNESS-CONFIG-1 browser verification, 2026-09-18.
 
 ### The defect
 
