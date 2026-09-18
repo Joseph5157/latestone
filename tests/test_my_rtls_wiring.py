@@ -34,13 +34,14 @@ class TestPageSlot:
         slot = find_by_id(plants_overview.layout(), "my-rtls")
         assert not slot.children
 
-    def test_slot_sits_above_fleet_condition(self):
-        """Approved UX placement: My RTLs above Fleet Condition."""
+    def test_slot_sits_below_fleet_condition(self):
+        """FLEET-CONDITION-ORDER-1: Fleet Condition above My RTLs (client
+        request), superseding TECH-WORKSPACE-1's original placement."""
         ids = [
             n.id for n in walk(plants_overview.layout())
             if getattr(n, "id", None) in {"my-rtls", "fleet-systemic-state"}
         ]
-        assert ids == ["my-rtls", "fleet-systemic-state"]
+        assert ids == ["fleet-systemic-state", "my-rtls"]
 
     def test_slot_sits_above_needs_attention_too(self):
         ids = [

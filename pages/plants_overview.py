@@ -44,12 +44,10 @@ def layout() -> html.Div:
             # Filled by the listing callback when a query fails, so an
             # unreachable database does not look like an empty result.
             html.Div(id="plants-error", className="listing-error"),
-            # TECH-WORKSPACE-1: a Technician's own assignment work list.
-            # Sits ABOVE Fleet Condition (approved placement). Rendered only
-            # for a restricted scope (ADR-004); absent — not empty — for
-            # Administrator/General, who are UNRESTRICTED and see no panel.
-            html.Div(id="my-rtls"),
             # Layer 2 only: existing output slots, one shared service snapshot.
+            # FLEET-CONDITION-ORDER-1: Fleet Condition now sits above My RTLs
+            # (client request — Fleet Condition should be the immediate
+            # operational view; supersedes TECH-WORKSPACE-1's placement).
             html.Section(
                 className="fleet-monitoring-summary fleet-condition",
                 children=[
@@ -64,6 +62,11 @@ def layout() -> html.Div:
                     html.Div(id="fleet-kpis"),
                 ],
             ),
+            # TECH-WORKSPACE-1: a Technician's own assignment work list.
+            # Rendered only for a restricted scope (ADR-004); absent — not
+            # empty — for Administrator/General, who are UNRESTRICTED and see
+            # no panel.
+            html.Div(id="my-rtls"),
             # Grouped exception queue (Plant -> Transformer -> RTL). The
             # component discloses truthful totals and links to the
             # authoritative inventory below.
