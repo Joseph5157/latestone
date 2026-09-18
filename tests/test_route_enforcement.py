@@ -174,44 +174,74 @@ def section_titles(role: str | None) -> list[str]:
 
 
 class TestSidebarFiltering:
-    def test_administrator_sees_every_item(self):
+    def test_administrator_sees_every_item_except_the_technicians_own_devices(self):
+        """ADR-016's one deliberate exception: "technician_devices" is a
+        second, differently-keyed "Devices" entry the Administrator cannot
+        open (they already have admin_devices) — see
+        tests/test_authorization.py::test_only_the_technician_reaches_their_own_devices."""
         expected = [
             label
             for _title, items in SIDEBAR_SECTIONS
-            for _key, label, _href, _icon in items
+            for key, label, _href, _icon in items
+            if key != "technician_devices"
         ]
         assert rendered_labels(ADMINISTRATOR) == expected
 
-    @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
-    def test_admin_management_items_are_gone(self, role):
-        labels = rendered_labels(role)
+    def test_admin_management_items_are_gone_for_general(self):
+        labels = rendered_labels(GENERAL)
         assert "Devices" not in labels
         assert "Registration" not in labels
         assert "Users" not in labels
 
-    def test_technician_keeps_operational_navigation(self):
+    @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
+    def test_registration_and_users_stay_administrator_only(self, role):
+        labels = rendered_labels(role)
+        assert "Registration" not in labels
+        assert "Users" not in labels
+
+    def test_technician_sees_their_own_devices_item(self):
+        """A Technician now has a "Devices" item too (ADR-016) — their own
+        assigned-devices page at a different route/key from the
+        Administrator's, sharing only the label and icon concept."""
         assert rendered_labels(TECHNICIAN) == [
-            "Overview", "Command Center", "Notifications", "Reports"
+            "Overview", "Command Center", "Devices", "Assignments",
+            "Notifications", "Reports",
         ]
+
+    def test_technicians_devices_item_points_at_their_own_route(self):
+        hrefs = dict(links(sidebar_nav(None, TECHNICIAN)))
+        assert hrefs["Devices"] == "/devices"
 
     def test_general_user_navigation_has_no_operational_surfaces(self):
         assert rendered_labels(GENERAL) == ["Overview", "Reports"]
 
-    @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
-    def test_an_emptied_section_takes_its_heading_with_it(self, role):
-        """Every Operations item is administrator-only, so the heading would
-        otherwise sit over nothing."""
-        assert "Operations" not in section_titles(role)
-        assert "System" in section_titles(role)
+    def test_an_emptied_section_takes_its_heading_with_it_for_general(self):
+        """Every Operations item General may reach is none, so the heading
+        would otherwise sit over nothing."""
+        assert "Operations" not in section_titles(GENERAL)
+        assert "System" in section_titles(GENERAL)
+
+    def test_technician_now_sees_the_operations_heading_too(self):
+        """Unlike General, a Technician has a real Operations item
+        (their own Devices) — the section heading is no longer emptied."""
+        assert "Operations" in section_titles(TECHNICIAN)
+        assert "System" in section_titles(TECHNICIAN)
 
     def test_administrator_keeps_both_section_headings(self):
         assert section_titles(ADMINISTRATOR) == ["Operations", "System"]
 
-    @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
-    def test_the_routeless_assignments_placeholder_hides_with_its_section(self, role):
+    def test_the_routeless_assignments_placeholder_hides_for_general(self):
         """It has no route of its own, so the policy cannot speak about it.
-        It belongs to Operations and goes where Operations goes."""
-        assert "Assignments" not in rendered_labels(role)
+        It belongs to Operations and goes where Operations goes — and
+        Operations goes nowhere for General."""
+        assert "Assignments" not in rendered_labels(GENERAL)
+
+    def test_the_routeless_assignments_placeholder_now_shows_for_technician(self):
+        """Operations is no longer empty for a Technician (their own Devices
+        item lives there), so the routeless placeholder travels with it —
+        the same "kept when anything else in the section is visible" rule
+        that already hid it for General."""
+        assert "Assignments" in rendered_labels(TECHNICIAN)
 
     def test_no_link_points_somewhere_the_role_may_not_go(self):
         for role in (TECHNICIAN, GENERAL):
@@ -232,10 +262,19 @@ class TestSidebarFiltering:
         assert find_by_class(nav, "app-sidebar__link--active")
 
     def test_active_state_cannot_resurrect_a_hidden_item(self):
-        """A technician arriving on a denied route must not light up an item
-        that is not there."""
+        """A technician arriving on a route denied to them (Administrator's
+        "devices" key, distinct from their own "technician_devices") must
+        not light up an item that is not there — but their OWN Devices item
+        is legitimately visible and must not be mistaken for the denied
+        one."""
         nav = sidebar_nav("devices", TECHNICIAN)
-        assert "Devices" not in text_of(nav)
+        assert find_by_class(nav, "app-sidebar__link--active") == []
+
+    def test_technicians_own_devices_item_still_lights_up_on_its_own_key(self):
+        nav = sidebar_nav("technician_devices", TECHNICIAN)
+        active = find_by_class(nav, "app-sidebar__link--active")
+        assert len(active) == 1
+        assert "Devices" in text_of(active[0])
 
 
 class TestNavigationCallbackHelper:

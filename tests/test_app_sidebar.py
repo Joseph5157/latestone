@@ -80,9 +80,26 @@ class TestSidebarItems:
         labels = [label for _key, label, _href, _icon in _all_items()]
         assert labels == [
             "Overview", "Command Center",
-            "Devices", "Assignments", "Registration",
+            # Two "Devices" entries, ADR-016: the Administrator's
+            # admin_devices, then the Technician's own technician_devices —
+            # mutually exclusive by role (see test_app_sidebar's Icons/Items
+            # tests and tests/test_authorization.py), never both rendered
+            # to the same signed-in session.
+            "Devices", "Devices", "Assignments", "Registration",
             "Notifications", "Reports", "Users", "Audit Log",
         ]
+
+    def test_the_two_devices_entries_have_distinct_keys_and_hrefs(self):
+        """The label collision above is intentional; the identity fields
+        that actually distinguish the two entries must never collide."""
+        devices_items = [item for item in _all_items() if item[1] == "Devices"]
+        assert len(devices_items) == 2
+        keys = {item[0] for item in devices_items}
+        hrefs = {item[2] for item in devices_items}
+        icons = {item[3] for item in devices_items}
+        assert keys == {"devices", "technician_devices"}
+        assert hrefs == {"/admin/devices", "/devices"}
+        assert len(icons) == 2
 
     def test_sections_are_grouped_operations_and_system(self):
         titles = [title for title, _items in SIDEBAR_SECTIONS]
@@ -101,14 +118,18 @@ class TestSidebarItems:
         assert items["Assignments"] is None
 
     def test_existing_routes_are_reused_not_reinvented(self):
-        items = {label: href for _key, label, href, _icon in _all_items()}
-        assert items["Overview"] == "/plants"
-        assert items["Devices"] == "/admin/devices"
-        assert items["Registration"] == "/admin/devices/new"
-        assert items["Notifications"] == "/notifications"
-        assert items["Reports"] == "/reports"
-        assert items["Users"] == "/admin/users"
-        assert items["Audit Log"] == "/admin/audit-log"
+        # Keyed by `key`, not `label`: "Devices" now names two entries (see
+        # test_the_two_devices_entries_have_distinct_keys_and_hrefs), and a
+        # label-keyed dict would silently keep only the last one.
+        items = {key: href for key, _label, href, _icon in _all_items()}
+        assert items["overview"] == "/plants"
+        assert items["devices"] == "/admin/devices"
+        assert items["technician_devices"] == "/devices"
+        assert items["registration"] == "/admin/devices/new"
+        assert items["notifications"] == "/notifications"
+        assert items["reports"] == "/reports"
+        assert items["users"] == "/admin/users"
+        assert items["audit_log"] == "/admin/audit-log"
 
 
 class TestActiveNavKey:
@@ -168,6 +189,15 @@ def _admin_sidebar(active_key=None):
     return app_sidebar(active_key, ADMINISTRATOR)
 
 
+def _admin_visible_items():
+    """`_all_items()` minus the one entry ADMINISTRATOR cannot open
+    (technician_devices, ADR-016) — what `_admin_sidebar()` actually
+    renders. These tests describe RENDERING, not role policy, so this
+    exclusion is a fixed fact about the fixture role, not something that
+    should be re-derived from `services.authorization` here."""
+    return [item for item in _all_items() if item[0] != "technician_devices"]
+
+
 class TestSidebarRendering:
     def test_renders_all_routable_destinations_in_order(self):
         """Each link's rendered text carries its label (the icon glyph itself
@@ -178,7 +208,7 @@ class TestSidebarRendering:
         session, not one of the role-filtered destinations SIDEBAR_SECTIONS
         describes — see TestSidebarLogout below."""
         rendered = _admin_sidebar("devices")
-        expected = [(label, href) for _k, label, href, _a in _all_items() if href is not None]
+        expected = [(label, href) for _k, label, href, _a in _admin_visible_items() if href is not None]
         rendered_links = [
             (text, href) for text, href in links(rendered) if href != LOGOUT_PATH
         ]
@@ -302,7 +332,7 @@ class TestSidebarIcons:
 
     def test_rendered_links_carry_an_icon_span(self):
         rendered = _admin_sidebar("devices")
-        for _key, label, href, icon in _all_items():
+        for _key, label, href, icon in _admin_visible_items():
             if href is None:
                 continue
             icon_spans = find_by_exact_class(rendered, f"app-sidebar__icon--{icon}")

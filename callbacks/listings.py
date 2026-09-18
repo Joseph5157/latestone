@@ -276,6 +276,7 @@ def build_exception_queue(
     plants, health, rendered_at,
     device_codes: dict[str, str] | None = None,
     transformer_codes: dict[str, str] | None = None,
+    max_rtls: int | None = NEEDS_ATTENTION_MAX_RTLS,
 ) -> dict:
     """The grouped exception tree, presentation-ready.
 
@@ -284,6 +285,11 @@ def build_exception_queue(
     arrive as plain dicts (resolved once by the caller via one bulk hierarchy
     lookup) and fall back to raw ids when a code is unknown — an identifier is
     truthful where a guessed name would not be.
+
+    `max_rtls` defaults to `NEEDS_ATTENTION_MAX_RTLS`; pass `None` for the
+    uncapped tree (the "Show all" expansion — see `_extra_groups`). No query
+    is re-issued either way: this only ever groups the one `health` snapshot
+    already fetched.
 
     Returns::
 
@@ -399,8 +405,9 @@ def build_exception_queue(
     # Cap on leaves only. A plant with zero leaves (e.g. present in the plant
     # list but absent from the freshness tree — NO_DATA over zero devices) is
     # still an exception and renders as a header-only group without consuming
-    # the cap.
-    remaining = NEEDS_ATTENTION_MAX_RTLS
+    # the cap. max_rtls=None (the "Show all" case) never runs out of budget:
+    # total_rtls is the true sum of every leaf, so nothing is dropped.
+    remaining = max_rtls if max_rtls is not None else total_rtls
     shown_groups: list[dict] = []
     shown_rtls = 0
     for group in plant_groups:
@@ -423,6 +430,47 @@ def build_exception_queue(
         "shown_rtls": shown_rtls,
         "plant_count": len(shown_groups),
     }
+
+
+def extra_groups_beyond_cap(full_groups: list[dict], shown_groups: list[dict]) -> list[dict]:
+    """The "Show all" expansion content: `full_groups` (an uncapped
+    `build_exception_queue(..., max_rtls=None)` tree) with every leaf already
+    present in `shown_groups` filtered out.
+
+    Deliberately a filter over the full tree rather than a second pass of the
+    cap-application loop above: `build_exception_queue` is deterministic and
+    exception-first-ordered, so `shown_groups` is always exactly a prefix of
+    `full_groups` in leaf order, and filtering by "already-shown leaf id" is
+    correct without re-deriving the zero-leaf-plant special case (a zero-leaf
+    plant is always already in `shown_groups`, so it never has an extra leaf
+    to contribute and is naturally dropped here, not specially excluded).
+    """
+    shown_leaf_ids = {
+        leaf["id"]
+        for group in shown_groups
+        for t in group["children"]
+        for leaf in t["children"]
+    }
+    extra: list[dict] = []
+    for group in full_groups:
+        extra_children = []
+        for t in group["children"]:
+            remaining_leaves = [leaf for leaf in t["children"] if leaf["id"] not in shown_leaf_ids]
+            if remaining_leaves:
+                extra_children.append({**t, "children": remaining_leaves})
+        if extra_children:
+            extra.append({**group, "children": extra_children})
+    return extra
+
+
+def needs_attention_toggle_state(n_clicks) -> tuple[str, str, str]:
+    """(card className, button label, aria-expanded) for the current click
+    count. Same parity idiom as `callbacks.auth.password_toggle_state`: one
+    boolean drives every output so they can never disagree with each other."""
+    expanded = bool(n_clicks) and n_clicks % 2 == 1
+    if expanded:
+        return "card needs-attention needs-attention--expanded", "Show less", "true"
+    return "card needs-attention", "Show all", "false"
 
 
 def sort_needs_attention_tree(groups: list[dict]) -> list[dict]:
@@ -786,14 +834,15 @@ def register(app) -> None:
             # for every other role WITHOUT issuing the query, so a denied role
             # does no administration work on the way to seeing nothing.
             admin.append(administration_section(rendered_at))
-            attention.append(
-                needs_attention(
-                    build_exception_queue(
-                        plants, health, rendered_at,
-                        **hierarchy_code_index(plants, health),
-                    )
+            codes = hierarchy_code_index(plants, health)
+            queue = build_exception_queue(plants, health, rendered_at, **codes)
+            extra = []
+            if queue["shown_rtls"] < queue["total_rtls"]:
+                full = build_exception_queue(
+                    plants, health, rendered_at, **codes, max_rtls=None,
                 )
-            )
+                extra = extra_groups_beyond_cap(full["groups"], queue["groups"])
+            attention.append(needs_attention(queue, extra))
             subtitle.append(fleet_subtitle_text(len(plants)))
             return sort_plant_rows_exception_first(
                 build_plant_rows(plants, counts, health)
@@ -1001,3 +1050,16 @@ def register(app) -> None:
         # rather than duplicated, so the two tables cannot drift on what
         # counts as the identity column or how a device_id becomes a URL.
         return device_row_target(active_cell)
+
+    @app.callback(
+        Output("needs-attention-card", "className"),
+        Output("needs-attention-toggle", "children"),
+        Output("needs-attention-toggle", "aria-expanded"),
+        Input("needs-attention-toggle", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def toggle_needs_attention_extra(n_clicks):
+        # suppress_callback_exceptions=True: the toggle button only exists in
+        # the DOM when populate_overview actually rendered extra groups, same
+        # as every other dynamically-inserted control on this page.
+        return needs_attention_toggle_state(n_clicks)

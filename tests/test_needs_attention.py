@@ -17,11 +17,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from dash import Input, Output
 
 from callbacks.listings import (
     NEEDS_ATTENTION_MAX_RTLS,
     build_exception_queue,
+    extra_groups_beyond_cap,
     hierarchy_code_index,
+    needs_attention_toggle_state,
     sort_needs_attention_rows,
 )
 from components.needs_attention import needs_attention
@@ -30,7 +33,7 @@ from services.monitoring_service import (
     fleet_health_from_rows,
     severity_rank,
 )
-from tests.dash_tree import find_by_class, links, text_of
+from tests.dash_tree import find_by_class, find_by_exact_class, find_by_id, links, text_of
 
 NOW = datetime(2026, 8, 18, 12, 0, tzinfo=timezone.utc)
 FRESH_TS = NOW - timedelta(minutes=10)
@@ -334,6 +337,108 @@ class TestHierarchyCodeIndex:
         assert index["transformer_codes"]["p1-t1"] == "T04"
 
 
+def _leaf_ids(groups: list[dict]) -> list[str]:
+    return [leaf["id"] for g in groups for t in g["children"] for leaf in t["children"]]
+
+
+# --------------------------------------------------------------------------
+# extra_groups_beyond_cap — the "Show all" expansion content
+# --------------------------------------------------------------------------
+
+class TestExtraGroupsBeyondCap:
+    def _six_across_three(self):
+        """6 affected RTLs across 3 plants; the cap of 5 spans all three."""
+        plants = [_Plant(f"p{i}", f"Plant {i}") for i in range(3)]
+        triples = [
+            (f"p{i}", f"p{i}-t1", f"{i}-{j}", STALE_TS)
+            for i in range(3) for j in range(2)
+        ]
+        health = _health(triples)
+        return plants, health
+
+    def test_extra_holds_exactly_what_the_cap_dropped(self):
+        plants, health = self._six_across_three()
+        shown = build_exception_queue(plants, health, NOW, **_codes())
+        full = build_exception_queue(plants, health, NOW, **_codes(), max_rtls=None)
+        extra = extra_groups_beyond_cap(full["groups"], shown["groups"])
+        assert len(_leaf_ids(extra)) == 1
+
+    def test_shown_and_extra_together_equal_the_full_tree_with_no_duplicates(self):
+        plants, health = self._six_across_three()
+        shown = build_exception_queue(plants, health, NOW, **_codes())
+        full = build_exception_queue(plants, health, NOW, **_codes(), max_rtls=None)
+        extra = extra_groups_beyond_cap(full["groups"], shown["groups"])
+        shown_ids = _leaf_ids(shown["groups"])
+        extra_ids = _leaf_ids(extra)
+        assert set(shown_ids).isdisjoint(extra_ids)
+        assert sorted(shown_ids + extra_ids) == sorted(_leaf_ids(full["groups"]))
+
+    def test_nothing_extra_when_the_queue_was_never_capped(self):
+        queue = build_exception_queue(
+            [_Plant("p1", "Plant A")],
+            _health([("p1", "t1", "d1", STALE_TS)]),
+            NOW, **_codes(),
+        )
+        full = build_exception_queue(
+            [_Plant("p1", "Plant A")],
+            _health([("p1", "t1", "d1", STALE_TS)]),
+            NOW, **_codes(), max_rtls=None,
+        )
+        assert extra_groups_beyond_cap(full["groups"], queue["groups"]) == []
+
+    def test_a_zero_leaf_ghost_plant_is_never_duplicated_into_extra(self):
+        """A NO_DATA-over-zero-devices plant costs no budget and is always
+        already in `shown_groups` — it must not reappear in `extra`."""
+        plants = [_Plant(f"p{i}", f"Plant {i}") for i in range(3)] + [
+            _Plant("p9", "Ghost")
+        ]
+        triples = [
+            (f"p{i}", f"p{i}-t1", f"{i}-{j}", STALE_TS)
+            for i in range(3) for j in range(2)
+        ]
+        health = _health(triples)
+        shown = build_exception_queue(plants, health, NOW, **_codes())
+        full = build_exception_queue(plants, health, NOW, **_codes(), max_rtls=None)
+        assert "Ghost" in text_of_groups(shown["groups"])
+        extra = extra_groups_beyond_cap(full["groups"], shown["groups"])
+        assert "Ghost" not in text_of_groups(extra)
+
+
+def text_of_groups(groups: list[dict]) -> str:
+    names = []
+    for g in groups:
+        names.append(g["entity"])
+        for t in g["children"]:
+            names.append(t["entity"])
+            for leaf in t["children"]:
+                names.append(leaf["entity"])
+    return " ".join(names)
+
+
+# --------------------------------------------------------------------------
+# needs_attention_toggle_state — the "Show all" / "Show less" click parity
+# --------------------------------------------------------------------------
+
+class TestNeedsAttentionToggleState:
+    def test_no_clicks_is_collapsed(self):
+        assert needs_attention_toggle_state(None) == (
+            "card needs-attention", "Show all", "false",
+        )
+        assert needs_attention_toggle_state(0) == (
+            "card needs-attention", "Show all", "false",
+        )
+
+    def test_odd_clicks_is_expanded(self):
+        assert needs_attention_toggle_state(1) == (
+            "card needs-attention needs-attention--expanded", "Show less", "true",
+        )
+
+    def test_even_clicks_collapses_again(self):
+        assert needs_attention_toggle_state(2) == (
+            "card needs-attention", "Show all", "false",
+        )
+
+
 # --------------------------------------------------------------------------
 # Component rendering
 # --------------------------------------------------------------------------
@@ -371,6 +476,48 @@ class TestNeedsAttentionComponent:
         assert set(badges) <= {"Fresh", "Stale", "No data"}
         for banned in ("Critical", "Warning"):
             assert banned not in text_of(panel)
+
+    def test_badge_renders_only_on_the_plant_row(self):
+        """The redesign's one loud signal per group: transformer/device rows
+        use a quiet dot instead of repeating the full text chip."""
+        panel = needs_attention(self._queue())  # 1 plant, 1 transformer, 2 devices
+        assert len(find_by_exact_class(panel, "needs-attention__badge")) == 1
+        assert len(find_by_exact_class(panel, "needs-attention__dot")) == 3
+
+    def test_dot_carries_a_visually_hidden_state_label(self):
+        """Colour alone never carries the state — a dot's severity stays in
+        the accessibility tree even though nothing shows visually."""
+        panel = needs_attention(self._queue())
+        dots = find_by_exact_class(panel, "needs-attention__dot")
+        for dot in dots:
+            hidden_label = find_by_exact_class(dot, "visually-hidden")
+            assert len(hidden_label) == 1
+            assert text_of(hidden_label[0]) in {"Fresh", "Stale", "No data"}
+
+    def test_leaf_rows_carry_no_issue_text(self):
+        """A device row's state is fully carried by its dot; the old
+        `.needs-attention__detail` on a leaf only ever repeated that dot's
+        word and has been removed."""
+        panel = needs_attention(self._queue())
+        device_rows = find_by_exact_class(panel, "needs-attention__row--device")
+        assert device_rows  # sanity: there really are device rows here
+        for row in device_rows:
+            assert find_by_exact_class(row, "needs-attention__detail") == []
+
+    def test_transformer_detail_drops_the_redundant_state_prefix(self):
+        """"No data · 1 of 2 devices" becomes "1 of 2 devices" next to the
+        dot that already says No data — the dot and the word must never
+        both say it verbatim, the same redundancy leaf rows had entirely
+        removed."""
+        panel = needs_attention(self._queue())
+        transformer_rows = find_by_exact_class(panel, "needs-attention__row--transformer")
+        assert transformer_rows
+        for row in transformer_rows:
+            detail = find_by_exact_class(row, "needs-attention__detail")
+            assert len(detail) == 1
+            assert text_of(detail[0]) == "1 of 2 devices"
+            assert "Stale" not in text_of(detail[0])
+            assert "No data" not in text_of(detail[0])
 
     def test_links_target_transformer_and_device_routes(self):
         panel = needs_attention(self._queue())
@@ -430,6 +577,55 @@ class TestNeedsAttentionComponent:
         panel = needs_attention({"groups": [], "total_rtls": 0,
                                  "shown_rtls": 0, "plant_count": 0})
         assert find_by_class(panel, "needs-attention__row") == []
+
+    def _capped_queue_and_extra(self):
+        plants = [_Plant(f"p{i}", f"Plant {i}") for i in range(3)]
+        triples = [
+            (f"p{i}", f"p{i}-t1", f"{i}-{j}", STALE_TS)
+            for i in range(3) for j in range(2)
+        ]  # 6 affected RTLs across 3 plants; cap 5, so exactly 1 is "extra"
+        health = _health(triples)
+        shown = build_exception_queue(plants, health, NOW, **_codes())
+        full = build_exception_queue(plants, health, NOW, **_codes(), max_rtls=None)
+        extra = extra_groups_beyond_cap(full["groups"], shown["groups"])
+        return shown, extra
+
+    def test_no_toggle_or_extra_content_when_nothing_was_capped(self):
+        panel = needs_attention(self._queue())  # 2 of 2 shown, nothing extra
+        assert find_by_id(panel, "needs-attention-toggle") is None
+        assert find_by_id(panel, "needs-attention-extra") is None
+
+    def test_toggle_and_extra_content_render_when_capped(self):
+        queue, extra = self._capped_queue_and_extra()
+        panel = needs_attention(queue, extra)
+        toggle = find_by_id(panel, "needs-attention-toggle")
+        assert toggle is not None
+        assert text_of(toggle) == "Show all"
+        assert toggle.n_clicks == 0
+        assert find_by_id(panel, "needs-attention-extra") is not None
+
+    def test_extra_content_is_not_duplicated_in_the_visible_list(self):
+        queue, extra = self._capped_queue_and_extra()
+        panel = needs_attention(queue, extra)
+        visible_list = find_by_id(panel, "needs-attention-card").children[1]
+        extra_ids = set(_leaf_ids(extra))
+        assert not extra_ids & set(_leaf_ids(queue["groups"]))
+        assert extra_ids  # sanity: there really is something extra here
+        assert text_of_groups(extra) not in text_of(visible_list)
+
+    def test_card_carries_the_toggle_target_id(self):
+        panel = needs_attention(self._queue())
+        assert panel.id == "needs-attention-card"
+
+    def test_extra_list_is_hidden_by_a_dedicated_css_class_not_inline_style(self):
+        """Hidden by `.needs-attention__list--extra` in app.css, revealed by
+        the toggle callback flipping the card's className — never an inline
+        style the toggle callback would then have to fight."""
+        queue, extra = self._capped_queue_and_extra()
+        panel = needs_attention(queue, extra)
+        extra_node = find_by_id(panel, "needs-attention-extra")
+        assert "needs-attention__list--extra" in extra_node.className
+        assert not getattr(extra_node, "style", None)
 
 
 # --------------------------------------------------------------------------
@@ -519,3 +715,53 @@ class TestPlantLastUpdated:
             ("p1", "t1", "d2", t2),
         ])
         assert health.plant_last_updated["p1"] == t1
+
+
+# --------------------------------------------------------------------------
+# toggle_needs_attention_extra — the "Show all" callback wiring
+# --------------------------------------------------------------------------
+
+@pytest.fixture
+def needs_attention_toggle_callback():
+    """Same Capture pattern as the my-rtls navigation wiring tests, for the
+    "Show all" toggle callback instead."""
+    from callbacks import listings
+
+    class Capture:
+        def __init__(self):
+            self.functions = {}
+            self.specs = {}
+
+        def callback(self, *args, **kwargs):
+            def register(fn):
+                self.functions[fn.__name__] = fn
+                self.specs[fn.__name__] = (args, kwargs)
+                return fn
+            return register
+
+    capture = Capture()
+    listings.register(capture)
+    return (
+        capture.functions["toggle_needs_attention_extra"],
+        capture.specs["toggle_needs_attention_extra"],
+    )
+
+
+class TestNeedsAttentionToggleWiring:
+    def test_the_callback_is_wired_to_the_toggle_button(self, needs_attention_toggle_callback):
+        _fn, (args, kwargs) = needs_attention_toggle_callback
+        assert [(a.component_id, a.component_property) for a in args if isinstance(a, Input)] == [
+            ("needs-attention-toggle", "n_clicks"),
+        ]
+        outputs = [(a.component_id, a.component_property) for a in args if isinstance(a, Output)]
+        assert outputs == [
+            ("needs-attention-card", "className"),
+            ("needs-attention-toggle", "children"),
+            ("needs-attention-toggle", "aria-expanded"),
+        ]
+        assert kwargs == {"prevent_initial_call": True}
+
+    def test_the_callback_delegates_to_the_pure_toggle_function(self, needs_attention_toggle_callback):
+        fn, _spec = needs_attention_toggle_callback
+        assert fn(1) == needs_attention_toggle_state(1)
+        assert fn(None) == needs_attention_toggle_state(None)

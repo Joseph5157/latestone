@@ -2,74 +2,430 @@
 
 Status: **OPEN / IN PROGRESS**
 Date: 2026-09-18
-Gate: FLEET-CONDITION-ORDER-1
+Gate: TECHNICIAN-DEVICES-1
 Commit/push permission: **NOT YET CONFIRMED** — implementation and local
 verification complete; ask the user before committing/pushing.
 
 ## Task
 
-Client request: Fleet Condition should be the immediate operational view
-(client-feedback audit item 1.1). On Fleet Overview, move the Fleet
-Condition section above the Technician-only "My RTLs" panel, superseding
-TECH-WORKSPACE-1's original My-RTLs-above-Fleet-Condition placement.
-Administrator/General User (UNRESTRICTED scope, no My RTLs panel) are
-visually unaffected.
+Give a Technician a sidebar entry to their own assigned devices. Client's
+literal request: "in technician dashboard why no section for managing
+devices" → "i want them in side menu bar". Scoped via an AskUserQuestion
+preview (ASCII mockup of two options) to a genuinely new, Technician-scoped
+page — not the Administrator's `/admin/devices` reused or role-branched,
+per ADR-016's existing "fleet administration and operating equipment you
+are responsible for are different jobs" boundary: a Technician's assigned
+devices only, the same shared `device_manage_drawer()` operate actions
+(Program RTL, Message Forwarding, Deactivate), never Assignment or
+Registration.
 
 ## Relevant files
 
-- `pages/plants_overview.py`
-- `tests/test_my_rtls_wiring.py`
+- `routes.py`
+- `services/authorization.py`
+- `components/app_sidebar.py`
+- `assets/icons/nav-my-devices.svg` (new)
+- `pages/technician_devices.py` (new)
+- `callbacks/technician_devices.py` (new)
+- `callbacks/routing.py`
+- `app.py`
+- `tests/test_technician_devices.py` (new)
+- `tests/test_authorization.py`
+- `tests/test_app_sidebar.py`
+- `tests/test_route_enforcement.py`
+- `tests/test_routing.py`
+- `tests/test_equipment_selector.py`
 
 ## Decisions this gate depends on
 
-- Explicit user confirmation (asked mid-session): Fleet Condition moves
-  above My RTLs for a restricted (Technician) scope, superseding
-  TECH-WORKSPACE-1's independently-reviewed placement.
+- Explicit user confirmation via an AskUserQuestion preview: a genuinely new
+  technician-scoped page/route, not a "jump to My RTLs on Overview" shortcut
+  and not opening `/admin/devices` to Technicians.
+- ADR-016 (existing, unchanged): assignment is what GRANTS technician
+  authority, so a technician who could manage it could grant it to
+  themselves — this gate's page never mounts `assign_device_drawer()` and
+  the route is denied to the Administrator too (they already have
+  `admin_devices`; `technician_devices` grants them nothing new, so ADR-016
+  denies it rather than widening it — the one place this gate makes the
+  Administrator's reach narrower than "every ROUTE_POLICY route", a
+  pre-existing test assumption this gate corrected).
+- P0-4/AUTH-HARDEN-1's lesson (existing precedent, `callbacks/device_admin.py`,
+  `callbacks/user_admin.py`): a route-gated data callback must re-verify
+  authorization itself via `require_capability`, never trust `page-context`
+  alone — a forged `{"route": "technician_devices"}` must not pull data for
+  a role it was never meant for. New capability `VIEW_OWN_DEVICES`
+  (Technician-only) exists for exactly this, mirroring `MANAGE_DEVICES`.
+- The sidebar's existing `SIDEBAR_SECTIONS` tuple gets a SECOND "Devices"
+  entry (own key `technician_devices`, own href `/devices`, own icon)
+  rather than making the Administrator's existing entry's href
+  role-conditional — `_permitted_items()`'s existing per-role filtering by
+  key already guarantees the two are mutually exclusive per signed-in
+  session with zero changes to that filtering logic.
 
 ## Non-goals (explicit)
 
-- No change to My RTLs' position relative to Needs Attention (My RTLs
-  stays above Needs Attention).
-- No change to My RTLs' row data, columns, or the `populate_overview`
-  Output list/order — layout position only.
-- No routing change (item 1.1's other half — General User's inability to
-  reach Command Center — is a separate, larger decision not in scope here).
+- No change to `/admin/devices`, its columns, its Assign/Register controls,
+  or who may reach it (still Administrator-only).
+- No change to ADR-016's operational-action policy (`ACTION_POLICY`,
+  `may_action`/`require_action`) — this gate only adds a second table-based
+  entry point to the SAME shared drawer, the way ADR-016 itself predicted
+  ("two openers, one drawer" becomes three).
+- No Assign column, no Register button, no Status or Technician column on
+  the new page — a Technician already knows these are their own devices,
+  and assignment is never offered here.
+- No change to My RTLs (`components/my_rtls.py`) on the Fleet Overview —
+  it keeps its own no-action-controls design; this page is an additional,
+  separate surface, not a replacement.
 
-## Implementation and verification
+## Implementation
 
-- `pages/plants_overview.py`: swapped the `html.Section` (Fleet Condition)
-  and `html.Div(id="my-rtls")` blocks so Fleet Condition renders first.
-  My RTLs keeps its existing position relative to Needs Attention (still
-  above it) — only its position relative to Fleet Condition changed.
-- `tests/test_my_rtls_wiring.py`: `test_slot_sits_above_fleet_condition`
-  renamed to `test_slot_sits_below_fleet_condition` and its assertion
-  inverted (`["fleet-systemic-state", "my-rtls"]`); the docstring now cites
-  FLEET-CONDITION-ORDER-1 superseding TECH-WORKSPACE-1.
-  `test_slot_sits_above_needs_attention_too` unchanged (still true).
+### Route, authorization, sidebar
+
+- `routes.py`: `parse_pathname("/devices")` (no id — distinct from
+  `/devices/<id>`, the existing device dashboard route) now returns
+  `Route(name="technician_devices")` instead of falling through to
+  `"unknown"`. `NAV_KEY_BY_ROUTE` gained
+  `"technician_devices": "technician_devices"` — its OWN nav key, not a
+  reuse of `admin_devices`'s `"devices"` key (reusing it would have made
+  `_permitted_items()` render BOTH sidebar entries for any role that could
+  reach either route, since that filter matches by key only).
+- `services/authorization.py`: `ROUTE_POLICY["technician_devices"] =
+  _TECHNICIAN_ONLY` (new constant, `frozenset({TECHNICIAN})`) — denied to
+  the Administrator too, not just General (see Decisions above). New
+  capability `VIEW_OWN_DEVICES` in `CAPABILITY_POLICY`, same
+  `_TECHNICIAN_ONLY` set, for the data callback's own independent P0-4
+  guard.
+- `components/app_sidebar.py`: `SIDEBAR_SECTIONS`'s Operations section
+  gained `("technician_devices", "Devices", "/devices", "my-devices")`
+  immediately after the Administrator's existing Devices entry — same
+  label, same icon CONCEPT, deliberately: `_permitted_items()`'s existing
+  per-role key filter already makes them mutually exclusive, so nothing in
+  that filtering logic needed to change.
+- `assets/icons/nav-my-devices.svg` (new): the identical glyph to
+  `nav-devices.svg`, under its own filename only because
+  `TestSidebarIcons::test_icon_slugs_are_unique_per_destination` requires
+  unique slugs per entry and the two entries are never visible to the same
+  session.
+- `callbacks/routing.py`: new `if route.name == "technician_devices":`
+  branch, same shape as the `admin_devices` branch immediately above it.
+- `app.py`: `technician_devices.register(app)` added to the registration
+  list, alongside `device_manage.register(app)`.
+
+### The new page and its callbacks
+
+- `pages/technician_devices.py` (new): `layout()` — header, a summary
+  line, an `entity_table` (id `technician-devices-table`), and the SAME
+  `device_manage_drawer()` `pages/device_admin.py` and
+  `pages/device_dashboard.py` mount — not a copy. `TECHNICIAN_DEVICE_COLUMNS`
+  uses the "RTL" vocabulary `components/my_rtls.py` already established for
+  technician-facing tables (`pages/device_admin.py`'s own table says
+  "Device" — administrator-facing convention, left alone), plus a "Manage"
+  markdown column neither existing table combination has.
+- `callbacks/technician_devices.py` (new): `populate_technician_devices` —
+  gated on `page_context.route == "technician_devices"`, then re-verifies
+  with `require_capability(current_identity(), VIEW_OWN_DEVICES)` (P0-4).
+  Rows come from `callbacks.listings.build_my_rtls_rows(scope, health)` —
+  reused verbatim, the SAME function My RTLs already calls, each row
+  getting one added `"manage": "[Manage](#)"` key. Truthful empty state
+  ("No RTLs are currently assigned to you.", matching My RTLs' own wording)
+  when a Technician has zero active assignments, distinct from a query
+  failure (`error_panel()`). Two more callbacks: row-click navigation
+  (reuses `callbacks.listings.device_row_target` verbatim, the same way
+  `navigate_from_my_rtls_table` does) and
+  `open_manage_drawer_from_technician_devices` — a THIRD opener for the one
+  shared drawer (ADR-016's "two openers, one drawer" — `open_manage_drawer`
+  keyed to `device-admin-table`, `open_manage_drawer_from_device` keyed to
+  the device page's button — becomes three), identical in shape to
+  `open_manage_drawer` but keyed to this table's own id; the existing
+  callback could not be reused directly because it is hardcoded to
+  `"device-admin-table"`.
+
+### Tests
+
+- `tests/test_technician_devices.py` (new): page layout (table + shared
+  drawer mounted, no assign drawer, correct column set); the P0-4
+  direct-invocation guard (Administrator denied, General denied, Technician
+  succeeds — mirroring `TestAdminDeviceListDirectInvocation` exactly, real
+  `trusted_session`, no hand-built identity); row shape with assignments
+  (real rows, correct summary, no empty notice) and without (truthful empty
+  panel); the Manage column's placeholder link on every row; the row-click
+  navigation callback's wiring and decline behaviour; the Manage-column
+  opener's 12-Output shape, its Input/State keyed to this table only, and
+  its decline/open behaviour on non-manage clicks, unknown rows, and a real
+  row; `VIEW_OWN_DEVICES` held by Technician only.
+- `tests/test_authorization.py`: new `TECHNICIAN_ONLY_ROUTES` category and
+  `test_only_the_technician_reaches_their_own_devices`; `ROUTE_PATHS`
+  gained the new route/path pair; `test_administrator_reaches_every_policied_route`
+  renamed/corrected to `..._except_technicians_own` (the Administrator no
+  longer reaches literally every `ROUTE_POLICY` route — see Decisions
+  above); `test_general_user_has_only_the_functional_specification_route_set`
+  and the navigation-derivation tests updated for the new route/key.
+- `tests/test_app_sidebar.py`: the exact-label-list test now expects
+  "Devices" twice, with a new
+  `test_the_two_devices_entries_have_distinct_keys_and_hrefs` proving the
+  label collision is cosmetic only; the label-keyed-dict test rewritten to
+  key by nav key instead (a label-keyed dict silently kept only the last
+  "Devices" entry); the admin-rendering tests (`_admin_visible_items()`,
+  a new fixture helper) now correctly exclude the Technician-only entry
+  from what an Administrator-rendered sidebar is asserted to contain.
+- `tests/test_route_enforcement.py`: rewritten per-role sidebar-filtering
+  tests — General's assertions unchanged in substance; Technician's split
+  out to prove the NEW, opposite behaviour (Operations section and the
+  Assignments placeholder both now show for Technician, since Operations
+  is no longer empty for them); a new
+  `test_technicians_own_devices_item_still_lights_up_on_its_own_key` proves
+  active-state correctness between the two same-labelled entries.
+- `tests/test_routing.py`: `test_device_path_without_id_is_unknown` renamed
+  and corrected — `/devices` is now a real route, not a malformed
+  `/devices/<id>`.
+- `tests/test_equipment_selector.py`: `PAGE_LAYOUT_IDS` gained
+  `technician_devices.layout()`, extending the same
+  every-callback-id-exists-in-some-layout guard this gate's own new ids
+  (`technician-devices-table`/`-error`/`-summary`/`-empty`) needed.
 
 ### Verification
 
-- Focused: `tests/test_my_rtls_wiring.py` + `tests/test_my_rtls.py` +
-  `tests/test_fleet_overview.py` + `tests/test_fleet_condition.py` +
-  `tests/test_admin_summary_wiring.py` — **170 passed**.
-- `python -m pytest -m "not db"` — **3138 passed, 699 deselected**, exit 0
-  (same count as before — one test renamed, none added/removed).
+- `tests/test_technician_devices.py` — 18 passed.
+- `python -m pytest -m "not db"` — 3180 passed, 699 deselected (was 3156;
+  +24 new, zero regressions).
 - `python scripts/build_context_pack.py --check` and `git diff --check` —
   clean.
 - Browser verification (Playwright), against real local dev data: logged in
-  as `demo.tech01` (assigned Technician) — Fleet Condition Summary/Fresh
-  Data Coverage/Data Freshness cards and the Fleet Inventory KPI row now
-  render before My RTLs, which still renders above Needs Attention.
-  Logged in as Administrator — page visually unchanged (no My RTLs panel
-  for UNRESTRICTED scope; Fleet Condition already led the page).
+  as `demo.tech01` (assigned Technician) — sidebar showed "Devices" →
+  `/devices`; the page listed all 24 assigned RTLs (RTL/Plant/Transformer/
+  Data/Manage, no Assign/Status/Technician column); clicking "Manage" on
+  device 29005 opened the shared drawer with the correct Device/Transformer/
+  Plant context (29005/ch03/Three Gorges Dam) and Program RTL/Message
+  Forwarding/Deactivate RTL options, no Assign option. Logged in as
+  Administrator — sidebar's own "Devices" item unchanged, still pointing at
+  `/admin/devices`; navigating directly to `/devices` (typed URL, not a
+  sidebar click) returned "No access" — the route-level ADR-016 boundary
+  holds even though it never reaches the sidebar-hiding layer. One console
+  error observed was a pre-existing, unrelated React dev-mode warning
+  ("changing an uncontrolled input... to be controlled") already noted in
+  prior gates (LOCAL-DB-CATCHUP-2) — not investigated further.
 
 ### Known ambiguity
 
 None.
 
-## Next implementation gate: FLEET-CONDITION-ORDER-1 — OPEN / IN PROGRESS
+## Next implementation gate: TECHNICIAN-DEVICES-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
+
+## NEEDS-ATTENTION-SHOW-ALL-1 — IMPLEMENTATION COMPLETE, NOT YET COMMITTED
+
+Two related, sequential user requests against the same panel, both landed in
+this one gate since neither was committed before the second began:
+
+1. Turn the Needs Attention disclosure line into an in-place "Show all"
+   expand control instead of only linking away to the full fleet table. The
+   panel's leaf cap (`NEEDS_ATTENTION_MAX_RTLS = 5`, ENT-2) made the
+   "immediate operational investigation view" (client-feedback audit item
+   1.1) feel thin whenever most of the fleet is flagged, since only 5 of
+   what could be dozens of affected RTLs were ever visible without
+   navigating away.
+2. Visual redesign of the row hierarchy itself: the user flagged the
+   rendered panel as "looks like code" — every level (plant, transformer,
+   device) repeated a full text badge, and a device leaf's "issue" text was
+   always the identical word to its own badge. Mobbin research
+   ([Better Stack](https://mobbin.com/screens/0b5e5938-af64-48ef-bca5-b8620a041f7d),
+   [OpenAI Platform](https://mobbin.com/screens/d605f83d-3869-4ecc-8874-b913e09e2930))
+   grounded the fix: one loud text badge per plant group, a quiet coloured
+   dot for nested rows, entity name + muted description instead of repeated
+   severity words.
+
+### Relevant files
+
+- `callbacks/listings.py`
+- `components/needs_attention.py`
+- `assets/app.css`
+- `tests/test_needs_attention.py`
+- `tests/test_equipment_selector.py`
+
+### Decisions this gate depends on
+
+- Explicit user confirmation (asked mid-session, recommendation accepted
+  verbatim): expand in place, not just raise the cap number or keep
+  link-out-only.
+- ENT-2's leaf cap (`NEEDS_ATTENTION_MAX_RTLS = 5`) is unchanged — it still
+  governs what's shown *before* expansion; this gate only adds a way to see
+  the rest without leaving the page.
+- Explicit user confirmation via an AskUserQuestion preview (ASCII mockup
+  of the dot+quiet-text row treatment vs. keeping every level's badge chip):
+  the user picked "dot + quiet text" — plant rows keep the full badge, only
+  transformer/device rows change.
+
+### Non-goals (explicit)
+
+- No change to the cap value, the hierarchy-aware capping logic in
+  `build_exception_queue`, or "View full fleet"'s existing link-out
+  behaviour (kept as a secondary route to the full, unfiltered Fleet/Plants
+  table, which includes Fresh RTLs the exception queue never lists).
+- No new database query — the expansion content comes from grouping the
+  SAME already-fetched `FleetHealth` a second time in memory, never a
+  second telemetry/hierarchy fetch.
+- No change to ENT-2's ordering, badge vocabulary, severity computation, or
+  link targets — the redesign is presentation-only, same `FreshnessRollup`
+  data, same routes.
+- No change to the plant row's own badge/copy — only transformer and device
+  rows changed.
+
+### Implementation
+
+- `callbacks/listings.py`: `build_exception_queue` gained a `max_rtls: int
+  | None = NEEDS_ATTENTION_MAX_RTLS` parameter (default preserves every
+  existing call site unchanged); `max_rtls=None` builds the uncapped tree.
+  New `extra_groups_beyond_cap(full_groups, shown_groups)`: filters the
+  uncapped tree down to leaves not already in the capped tree — a filter,
+  not a second pass of the cap-application loop, so it does not have to
+  re-derive the zero-leaf-plant special case (a zero-leaf "ghost" plant is
+  always already in `shown_groups`, so it naturally never has an extra leaf
+  to contribute). `populate_overview` calls `build_exception_queue` twice
+  (capped, then uncapped only when `shown_rtls < total_rtls`) from the same
+  `plants`/`health`/`rendered_at`/`codes` already in scope — no new query.
+  New `needs_attention_toggle_state(n_clicks)`: same `n_clicks % 2 == 1`
+  parity idiom as `callbacks.auth.password_toggle_state`. New callback
+  `toggle_needs_attention_extra` wires it to `needs-attention-toggle`
+  (Input) and `needs-attention-card`/`needs-attention-toggle` (Outputs);
+  safe under `suppress_callback_exceptions=True` (app.py) even though those
+  ids only exist once `populate_overview` has actually rendered them, the
+  same pattern every other dynamically-inserted panel on this page uses.
+- `components/needs_attention.py`: `needs_attention(queue, extra_groups,
+  empty_message)` — `extra_groups` is new, optional, defaults to `None`
+  (no behaviour change for any existing caller). When non-empty, renders a
+  hidden `needs-attention-extra` list and a `needs-attention-toggle`
+  button ("Show all"/"Show less") after the always-visible capped list; the
+  outer card gained `id="needs-attention-card"` as the toggle's className
+  target. Nothing renders when the queue was never capped.
+- `assets/app.css`: `.needs-attention__list--extra` hidden by default,
+  revealed by `.needs-attention--expanded`; `.needs-attention__toggle`
+  styled as a full-width text button matching the row/border rhythm
+  already established by `.needs-attention__link`/`.needs-attention__all`.
+
+### Row hierarchy redesign
+
+- `components/needs_attention.py`: new `_dot(state_value)` — a small solid
+  circle (`--state-*-text` tokens, the same colours already proven on the
+  surface, no new colour invented) plus a `.visually-hidden` text label, so
+  severity never depends on colour alone for a screen reader. `_badge`
+  (the full text chip) now renders on the plant/group row only. New
+  `_without_state_prefix(issue)` strips a `FreshnessRollup.label()`-style
+  "State · " prefix for transformer rows using a dot instead of a badge —
+  a plain `str.partition`, not a new service method, since it is a
+  presentation-only trim of an already-opaque display string.
+  `_rtl_leaf` dropped its `.needs-attention__detail` entirely: a single
+  device's "issue" was always the identical word to its own badge/dot.
+  `_plant_group` gained a `.needs-attention__row-main` wrapper (entity +
+  detail on one line, age dropped to its own muted line below) so the
+  group row's five pieces of information (badge, name, count, age, Open
+  link) stop competing for one flex line.
+- `assets/app.css`: `.needs-attention__dot`/`--stale`/`--no_data`;
+  `.needs-attention__row-main` (wrapping flex, `flex-basis: 100%` on the
+  group-row age forces it to its own line without JS); `.needs-attention__row--group
+  { align-items: flex-start }` for the new two-line layout. No new colour
+  tokens — dots reuse the same `--state-stale-text`/`--state-none-text`
+  already used by badges and rollup text elsewhere on this page.
+
+### Tests
+
+- `tests/test_needs_attention.py`: `TestExtraGroupsBeyondCap` (extra holds
+  exactly what the cap dropped; shown+extra reconstruct the full tree with
+  no duplicate leaf ids; nothing extra when never capped; a zero-leaf ghost
+  plant is never duplicated into extra), `TestNeedsAttentionToggleState`
+  (click-parity truth table), `TestNeedsAttentionToggleWiring` (the
+  callback's Input/Output/prevent_initial_call shape, and that it delegates
+  to the pure toggle function), plus new cases in `TestNeedsAttentionComponent`
+  (no toggle/extra content when nothing was capped; toggle+extra render
+  when capped; extra content is not duplicated in the always-visible list;
+  the card carries the toggle's target id; extra is hidden by a CSS class,
+  never an inline style the toggle would have to fight).
+- `tests/test_equipment_selector.py`: `PAGE_LAYOUT_IDS` gained a
+  `needs_attention(...)` call with a capped example (mirroring the existing
+  `my_rtls_panel(...)` entry) so `TestCallbackLayoutWiring`'s
+  every-callback-id-exists-in-some-layout guard covers the new dynamically
+  rendered `needs-attention-card`/`needs-attention-toggle` ids — this is
+  the guard that would have caught the previously-missing wiring test at
+  the whole-app level, not just this component's own test file.
+- `tests/test_needs_attention.py` (redesign): `test_badge_renders_only_on_the_plant_row`
+  (exactly 1 badge, 3 dots for the 1-plant/1-transformer/2-device fixture);
+  `test_dot_carries_a_visually_hidden_state_label` (every dot has exactly
+  one `.visually-hidden` child naming a real freshness state);
+  `test_leaf_rows_carry_no_issue_text` (structural — no `.needs-attention__detail`
+  under any device row); `test_transformer_detail_drops_the_redundant_state_prefix`
+  (the rendered text is `"1 of 2 devices"`, not `"No data · 1 of 2 devices"`,
+  and the word "Stale"/"No data" is absent from it).
+
+### Verification
+
+- `tests/test_needs_attention.py` + `tests/test_equipment_selector.py` —
+  120 passed.
+- `python -m pytest -m "not db"` — 3156 passed, 699 deselected (was 3138;
+  +18 new, zero regressions).
+- `python scripts/build_context_pack.py --check` and `git diff --check` —
+  clean.
+- Browser verification (Playwright), against real local dev data: logged in
+  as `demo.tech01` (assigned Technician, 24 of 24 RTLs affected, cap 5) —
+  "Show all" expanded the panel in place to all 24 RTLs across both
+  affected plants with no duplicate rows, button relabelled "Show less",
+  clicking again collapsed back to 5 and relabelled "Show all". Logged in
+  as Administrator (120 of 120 RTLs affected) — same expand/collapse cycle
+  verified at full fleet scale: exactly 115 rows in the hidden "extra"
+  wrapper (120 total − 5 shown), matching the true total with no
+  duplication or gaps. The redesigned rows were verified both collapsed
+  and expanded at full 120-row scale: one badge per plant, quiet dots on
+  every nested row, "N of M devices" text with no restated severity word,
+  a two-line plant header (name/count/Open on one line, age on the next).
+  Re-verified the page-wide layout at 800×900 (below the app's 899px
+  sidebar-collapse breakpoint) via the accessibility tree — structurally
+  correct row hierarchy, badge only on the plant row. A pre-existing,
+  unrelated page-wide layout problem below ~640px (sidebar does not
+  collapse, Asset Navigator overlaps content) was also reproduced on
+  Fleet Condition, a section this gate never touched — confirmed not a
+  regression from this work and out of scope to fix here.
+
+### Known ambiguity
+
+None beyond the pre-existing sub-640px page-wide layout issue noted above,
+which predates this gate and was not introduced by it.
+
+**Status when superseded as the current gate:** implementation and local
+verification complete; commit/push was never confirmed with the user before
+TECHNICIAN-DEVICES-1 began. Still uncommitted — the file/test diff this
+record describes is carried in the working tree alongside TECHNICIAN-DEVICES-1's
+own changes until both are committed.
+
+## FLEET-CONDITION-ORDER-1 — CLOSED / PASS
+
+Implementation: `44c0ed7` (committed; push deferred — see that gate's own
+record below for the status at commit time).
+
+Client request (client-feedback audit item 1.1): Fleet Condition should be
+the immediate operational view. `pages/plants_overview.py` now renders the
+Fleet Condition section (the three summary cards + Fleet Inventory KPI row)
+before the Technician-only "My RTLs" panel, superseding TECH-WORKSPACE-1's
+original My-RTLs-above-Fleet-Condition placement (explicit user
+confirmation, asked mid-session). My RTLs keeps its existing position
+above Needs Attention — only its position relative to Fleet Condition
+changed. Administrator/General User (UNRESTRICTED scope, no My RTLs panel)
+are visually unaffected.
+
+### Verification
+
+- Focused: `tests/test_my_rtls_wiring.py` + `tests/test_my_rtls.py` +
+  `tests/test_fleet_overview.py` + `tests/test_fleet_condition.py` +
+  `tests/test_admin_summary_wiring.py` — 170 passed.
+- `python -m pytest -m "not db"` — 3138 passed, 699 deselected (one test
+  renamed, none added/removed).
+- `python scripts/build_context_pack.py --check` and `git diff --check` —
+  clean.
+- Browser verification (Playwright): `demo.tech01` (assigned Technician) —
+  Fleet Condition now renders before My RTLs, which still renders above
+  Needs Attention. Administrator — page visually unchanged.
+
+### Known ambiguity
+
+None.
 
 ## CLIENT-FEEDBACK-FRESHNESS-1 — CLOSED / PASS
 

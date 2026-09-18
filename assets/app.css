@@ -1844,14 +1844,48 @@ body {
   border-top: 0;
 }
 
+.needs-attention__row--group {
+  align-items: flex-start;
+}
 .needs-attention__row--group .needs-attention__entity {
   font-weight: 600;
+}
+
+/* Entity, detail and (group-level) age share one wrapping line so the age
+   can drop to its own line without the badge/link either side reflowing. */
+.needs-attention__row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+}
+.needs-attention__age--group {
+  flex-basis: 100%;
+  margin-left: 0;
+  font-size: var(--fs-meta);
 }
 
 .needs-attention__row--transformer,
 .needs-attention__row--device {
   padding: calc(var(--sp-1) + 1px) 0;
 }
+
+/* Quiet severity indicator for transformer/device rows (the plant row's
+   badge already carries the loud signal once per group). Solid fill, not
+   the badge's pale background — a dot has no text to lean on for contrast,
+   so it uses the same --state-*-text tokens already proven readable on the
+   surface colour. */
+.needs-attention__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.needs-attention__dot--no_data { background: var(--state-none-text); }
+.needs-attention__dot--stale { background: var(--state-stale-text); }
 
 .needs-attention__entity-link {
   color: var(--color-text);
@@ -1934,6 +1968,37 @@ body {
 }
 .needs-attention__link:hover { text-decoration: underline; }
 .needs-attention__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* "Show all" in-place expansion. Hidden by default; the toggle callback
+   (callbacks/listings.py::toggle_needs_attention_extra) flips the card's
+   className to reveal it — no second page, no re-fetch. */
+.needs-attention__list--extra {
+  display: none;
+}
+.needs-attention--expanded .needs-attention__list--extra {
+  display: block;
+}
+
+.needs-attention__toggle {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-accent);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.needs-attention__toggle:hover { text-decoration: underline; }
+.needs-attention__toggle:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);

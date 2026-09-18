@@ -9,7 +9,7 @@ from __future__ import annotations
 import dash
 from dash import dcc, html
 
-from callbacks import audit_log, auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, programming_activity, user_admin, report_center, notifications, command_center, temperature_threshold, vibration_contract, rtl_programming_simulation
+from callbacks import audit_log, auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, technician_devices, programming_activity, user_admin, report_center, notifications, command_center, temperature_threshold, vibration_contract, rtl_programming_simulation
 from components.app_shell import app_shell
 from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
@@ -114,6 +114,7 @@ device_admin.register(app)
 device_register.register(app)
 device_assign.register(app)
 device_manage.register(app)
+technician_devices.register(app)
 programming_activity.register(app)
 user_admin.register(app)
 audit_log.register(app)

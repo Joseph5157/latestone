@@ -75,8 +75,10 @@ class TestParsePathname:
     def test_unrecognised_path_is_unknown(self):
         assert parse_pathname("/nope/nope/nope/nope").name == "unknown"
 
-    def test_device_path_without_id_is_unknown(self):
-        assert parse_pathname("/devices").name == "unknown"
+    def test_device_path_without_id_is_the_technician_devices_page(self):
+        """"/devices" (no id) is a real, distinct route — a Technician's own
+        assigned-devices page — not a malformed "/devices/<id>"."""
+        assert parse_pathname("/devices").name == "technician_devices"
 
 
 class TestParseQuery:

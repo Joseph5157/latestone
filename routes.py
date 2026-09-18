@@ -37,6 +37,7 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "transformer": "overview",
     "device": "overview",
     "admin_devices": "devices",
+    "technician_devices": "technician_devices",
     "device_register": "registration",
     "notifications": "notifications",
     "reports": "reports",
@@ -73,7 +74,8 @@ PLANT_PARAM = "plant"
 @dataclass(frozen=True)
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
-               # "admin_devices" | "admin_users" | "reports" | "notifications" |
+               # "admin_devices" | "technician_devices" | "admin_users" |
+               # "reports" | "notifications" |
                # "command_center" | "command_center_locations" | "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
@@ -116,6 +118,13 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 2 and parts[0] == "devices":
         return Route(name="device", device_id=parts[1])
+
+    # A Technician's own assigned-devices page — deliberately a different
+    # path from ADMIN_DEVICES_PATH ("/admin/devices"), not a role-conditional
+    # rendering of it (ADR-016: fleet administration and operating equipment
+    # you are responsible for are different jobs, kept at different paths).
+    if len(parts) == 1 and parts[0] == "devices":
+        return Route(name="technician_devices")
 
     if len(parts) == 2 and parts[0] == "admin":
         if parts[1] == "devices":

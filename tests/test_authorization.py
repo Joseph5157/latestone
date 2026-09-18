@@ -54,6 +54,7 @@ ROUTE_PATHS = {
     "notifications": "/notifications",
     "reports": "/reports",
     "admin_devices": "/admin/devices",
+    "technician_devices": "/devices",
     "device_register": "/admin/devices/new",
     "admin_users": "/admin/users",
     "audit_log": "/admin/audit-log",
@@ -67,6 +68,11 @@ ROUTE_PATHS = {
 ADMIN_ONLY = ("admin_devices", "device_register", "admin_users", "audit_log")
 GENERAL_READ_ROUTES = ("overview", "plant", "transformer", "device", "reports")
 OPERATIONAL_ROUTES = ("notifications", "command_center", "command_center_locations")
+#: ADR-016: a Technician's own assigned-devices surface. Deliberately NOT in
+#: ADMIN_ONLY (the Administrator cannot reach it — it names no fleet-wide
+#: administration Administrator already has via admin_devices) and NOT in
+#: OPERATIONAL_ROUTES (Administrator does not share this one).
+TECHNICIAN_ONLY_ROUTES = ("technician_devices",)
 
 
 class TestRoleConstants:
@@ -94,15 +100,29 @@ class TestTheMatrix:
         assert may_access_route(TECHNICIAN, route) is False
         assert may_access_route(GENERAL, route) is False
 
+    @pytest.mark.parametrize("route", TECHNICIAN_ONLY_ROUTES)
+    def test_only_the_technician_reaches_their_own_devices(self, route):
+        """ADR-016: the Administrator has admin_devices for this already —
+        technician_devices names no capability the Administrator lacks, so
+        it is correctly denied to them too, not just to General."""
+        assert may_access_route(ADMINISTRATOR, route) is False
+        assert may_access_route(TECHNICIAN, route) is True
+        assert may_access_route(GENERAL, route) is False
+
     def test_general_user_has_only_the_functional_specification_route_set(self):
         """The General User set is exactly the §5.9 read-only route set."""
         technician = {r for r in ROUTE_POLICY if may_access_route(TECHNICIAN, r)}
         general = {r for r in ROUTE_POLICY if may_access_route(GENERAL, r)}
         assert general == set(GENERAL_READ_ROUTES)
-        assert technician - general == set(OPERATIONAL_ROUTES)
+        assert technician - general == set(OPERATIONAL_ROUTES) | set(TECHNICIAN_ONLY_ROUTES)
 
-    def test_administrator_reaches_every_policied_route(self):
-        assert all(may_access_route(ADMINISTRATOR, r) for r in ROUTE_POLICY)
+    def test_administrator_reaches_every_policied_route_except_technicians_own(self):
+        """The one deliberate exception: technician_devices names no
+        capability the Administrator lacks (they already have admin_devices),
+        so ADR-016 denies them this specific route rather than widening it."""
+        non_admin_routes = set(ROUTE_POLICY) - set(TECHNICIAN_ONLY_ROUTES)
+        assert all(may_access_route(ADMINISTRATOR, r) for r in non_admin_routes)
+        assert not any(may_access_route(ADMINISTRATOR, r) for r in TECHNICIAN_ONLY_ROUTES)
 
     def test_the_policy_covers_every_application_route(self):
         """A route the router can produce but the policy never mentions would
@@ -165,11 +185,15 @@ class TestNavigationIsDerivedFromThePolicy:
                 assert key in visible
 
     def test_administrator_keeps_the_current_navigation(self):
-        assert visible_nav_keys(ADMINISTRATOR) == self._sidebar_keys()
+        """One deliberate exception: "technician_devices" is in the sidebar
+        tuple (Technician sees it) but not in the Administrator's set — see
+        test_only_the_technician_reaches_their_own_devices."""
+        assert visible_nav_keys(ADMINISTRATOR) == self._sidebar_keys() - {"technician_devices"}
 
     def test_technician_keeps_operational_navigation(self):
         assert visible_nav_keys(TECHNICIAN) == {
-            "overview", "notifications", "reports", "command_center"
+            "overview", "notifications", "reports", "command_center",
+            "technician_devices",
         }
 
     def test_general_user_sees_only_read_only_navigation(self):

@@ -52,6 +52,7 @@ assert {ADMINISTRATOR, TECHNICIAN, GENERAL} == set(CONFIRMED_ROLES)
 _EVERY_ROLE = frozenset(CONFIRMED_ROLES)
 _ADMIN_ONLY = frozenset({ADMINISTRATOR})
 _OPERATIONAL_ROLES = frozenset({ADMINISTRATOR, TECHNICIAN})
+_TECHNICIAN_ONLY = frozenset({TECHNICIAN})
 
 #: `routes.Route.name` -> the roles allowed to open it.
 #:
@@ -74,6 +75,11 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "command_center_locations": _OPERATIONAL_ROLES,
     # Administration: managing what exists and who exists.
     "admin_devices": _ADMIN_ONLY,
+    # A Technician's own operate-equipment surface (ADR-016): assigned
+    # devices only, the shared device_manage_drawer(), never assignment or
+    # registration. Deliberately its own route, not a role branch inside
+    # "admin_devices" — see that ADR's "boundary by meaning, not location".
+    "technician_devices": _TECHNICIAN_ONLY,
     "device_register": _ADMIN_ONLY,
     "admin_users": _ADMIN_ONLY,
     "audit_log": _ADMIN_ONLY,
@@ -141,6 +147,13 @@ REGISTER_DEVICE = "register_device"
 # REGISTER_DEVICE's own comment gives: a page that becomes reachable to more
 # roles must not silently widen who may read or write its data.
 MANAGE_DEVICES = "manage_devices"
+# Mirrors ROUTE_POLICY["technician_devices"] the same way MANAGE_DEVICES
+# mirrors ROUTE_POLICY["admin_devices"] — the route answers "may you open
+# the page", this answers "may you pull the data", and the callback that
+# builds the table re-checks this independently of page-context (P0-4,
+# AUTH-HARDEN-1's own lesson: a forged page-context must not be trusted to
+# gate a data read on its own).
+VIEW_OWN_DEVICES = "view_own_devices"
 MANAGE_USERS = "manage_users"
 VIEW_AUDIT_LOG = "view_audit_log"
 # ADR-013: device-less because a report spans zero, one or many devices —
@@ -175,6 +188,7 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     VIEW_ADMINISTRATION_OVERVIEW: _ADMIN_ONLY,
     REGISTER_DEVICE: _ADMIN_ONLY,
     MANAGE_DEVICES: _ADMIN_ONLY,
+    VIEW_OWN_DEVICES: _TECHNICIAN_ONLY,
     MANAGE_USERS: _ADMIN_ONLY,
     VIEW_AUDIT_LOG: _ADMIN_ONLY,
     # ADR-013, moved from ACTION_POLICY where it read

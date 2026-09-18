@@ -66,6 +66,12 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
     )),
     ("Operations", (
         ("devices", "Devices", "/admin/devices", "devices"),
+        # A Technician's own assigned-devices page (ADR-016). Same label and
+        # icon concept as the Administrator's "Devices" above, deliberately:
+        # ROUTE_POLICY makes the two routes mutually exclusive per role, so
+        # exactly one of these two items is ever visible to a given session
+        # — never both, never neither, for anyone with device access at all.
+        ("technician_devices", "Devices", "/devices", "my-devices"),
         (None, "Assignments", None, "assignments"),
         ("registration", "Registration", "/admin/devices/new", "registration"),
     )),
