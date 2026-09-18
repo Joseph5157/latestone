@@ -73,6 +73,22 @@ CREATE INDEX IF NOT EXISTS ix_readings_device_metric_ts ON plant_monitoring.read
 ### Reserved Identifiers
 - `plant-01-t1-d1` maps to transformer `aa12` / device `29017` (the client-known example).
 
+### Device code (RTL UID) rules
+The schema allows any `device_code` up to 10 characters and only requires it
+to be unique per transformer. The application is stricter
+([ADR-022](docs/decisions/ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md)):
+
+- Registration and RTL programming accept exactly 5 digits (`0-9`), e.g.
+  `29017`. The rule lives in `services/rtl_uid.py`.
+- Registration refuses a code already registered anywhere in the fleet,
+  because the RTL Master addresses a device by UID alone.
+
+Neither rule is a database constraint. Both are a development baseline
+pending client confirmation. Data written outside the application (seeds,
+direct SQL) is not checked, so keep seeded codes 5-digit and fleet-unique.
+If the client confirms fleet-wide uniqueness, add `UNIQUE (device_code)`;
+the current data already satisfies it (120 devices, 120 distinct codes).
+
 ## Hierarchy
 
 | Entity     | Count | Source                   |
