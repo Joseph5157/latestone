@@ -24,7 +24,9 @@ def device(device_id="plant-01-t1-d1", code="29017", status="active"):
     return SimpleNamespace(
         device_id=device_id,
         device_code=code,
+        plant_id="plant-01",
         plant_name="Az Zour South CCGT",
+        transformer_id="plant-01-t1",
         transformer_code="ku01",
         status=status,
     )

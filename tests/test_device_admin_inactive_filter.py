@@ -38,6 +38,7 @@ def _device(device_id, code, status):
         status=status,
         transformer_id="t1",
         transformer_code="T1",
+        plant_id="p1",
         plant_name="Plant One",
     )
 

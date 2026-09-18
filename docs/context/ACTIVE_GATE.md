@@ -1,10 +1,97 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-18
-Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** 2026-09-18
-(`d0343a2` + closure docs); push not requested.
+Gate: DEVICE-FILTERS-1
+Commit/push permission: **NOT GRANTED**. The user reviews the result
+before any commit.
+
+## DEVICE-FILTERS-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `16852fa` (local; 2 commits ahead of `origin/main`).
+
+## Task
+
+Device Management (`/admin/devices`) has only a free-text Search and a
+Status dropdown; its native filter row was turned off deliberately (it
+rendered badly). The user asked for column filters, agreed in chat on
+2026-09-18:
+
+- **Plant** (all 30, searchable), then **Transformer** (only the chosen
+  plant's; disabled until a plant is picked; reset when Plant changes).
+- **Data**: All / Fresh / Stale / No data (the row's freshness state).
+- **Technician**: All / Unassigned / each technician who holds devices.
+- **Last reading**: All / Under 1 hour / 1–24 hours / Over 24 hours /
+  No readings. 24 h matches BR008's ">24 h no data" rule.
+- **Clear filters** button. Search and Status stay.
+
+## Relevant files
+
+- `pages/device_admin.py`
+- `callbacks/device_admin.py`
+- `assets/app.css`
+- `services/hierarchy_service.py` (read only: `list_plants`,
+  `list_transformers`, `list_all_devices`)
+- `services/prototype_assignments.py` (read only: `assigned_technicians`)
+- `tests/test_device_admin_column_filters.py` (new),
+  `tests/test_device_admin_toolbar.py`
+
+## Non-goals (explicit)
+
+- No new queries on the table render and no schema change. Filtering stays
+  in memory over the rows already built.
+- The native filter row stays off. No change to columns, actions, or
+  authorization.
+
+## Required tests
+
+- `python -m pytest -m "not db"` and `python -m pytest`
+- Browser check as Administrator, including narrow width.
+
+## Known ambiguity
+
+None.
+
+## Implementation (uncommitted, awaiting review)
+
+- `callbacks/device_admin.py`: rows carry `_plant_id`, `_transformer_id`
+  and `_reading_band` (`last_reading_band()`: under 1 h / 1–24 h
+  inclusive / over 24 h / none). `filter_device_rows()` takes the five
+  column filters as keyword arguments and ignores a Transformer left over
+  from another plant, so the table does not flash empty while Plant resets
+  it. New callbacks: `_load_filter_options` (Plant + Technician options,
+  once per render), `_load_transformer_options` (the chosen plant's
+  transformers; clears the value), and `_clear_filters`. Each loader
+  re-checks `MANAGE_DEVICES`. The table callback gets the five filters as
+  extra inputs, with defaults, so its outputs are unchanged.
+- `pages/device_admin.py`: a filter row (Plant, Transformer, Data,
+  Technician, Last reading, Clear filters), each dropdown named by a
+  `role="group"` label. The Search input is controlled (`value=""`),
+  because Clear filters writes it.
+- `assets/app.css`: `.device-admin-filters` grid (auto-fit, 170px
+  minimum), labels, and the Clear button.
+- Tests: new `tests/test_device_admin_column_filters.py`. The fake devices
+  in `test_device_admin.py`, `test_device_admin_columns.py` and
+  `test_device_admin_inactive_filter.py` gained `plant_id`/`transformer_id`
+  to match `AdminDeviceRow`. `test_device_admin_toolbar.py`'s exact
+  input-set assertion is now a subset; the new file pins the full set.
+
+### Verification (2026-09-18)
+
+- `python -m pytest -m "not db"` and `python -m pytest`: all passed, exit 0.
+- Browser (Playwright, local, Administrator, 1440px): Plant = Bang Pakong
+  shows 3, then Transformer = th02 shows 2; changing Plant clears
+  Transformer; Technician = Unassigned shows 23 and demo.tech02 shows 23,
+  both matching a direct DB count; Data = Stale and Last reading = Over
+  24 hours show all 120, and Under 1 hour shows none. That is true of the
+  current dev data (newest readings about 2 days old, live simulator not
+  running), not a filter defect. Search "bang" shows 3; Clear filters
+  restores 120 and empties Search. At 390px the filters stack with no
+  horizontal scroll. No console errors on this page; the one
+  uncontrolled-input warning seen during the session comes from the login
+  page, is pre-existing, and is out of scope.
+
+## Prior gate record
 
 ## USER-FILTERS-1 — CLOSED / PASS
 
@@ -73,7 +160,7 @@ None.
   table header, with no "no users match" message (Device Management has
   one).
 
-## Next implementation gate: NONE
+## Next implementation gate: DEVICE-FILTERS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

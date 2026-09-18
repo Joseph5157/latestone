@@ -35,6 +35,96 @@ DEVICE_ADMIN_COLUMN_WIDTHS = {
 }
 
 
+DATA_FILTER_OPTIONS = [
+    {"label": "All", "value": "all"},
+    {"label": "Fresh", "value": "fresh"},
+    {"label": "Stale", "value": "stale"},
+    {"label": "No data", "value": "no_data"},
+]
+
+#: Values are `callbacks.device_admin.last_reading_band` results.
+READING_FILTER_OPTIONS = [
+    {"label": "All", "value": "all"},
+    {"label": "Under 1 hour", "value": "lt1h"},
+    {"label": "1–24 hours", "value": "1to24h"},
+    {"label": "Over 24 hours", "value": "gt24h"},
+    {"label": "No readings", "value": "none"},
+]
+
+
+def _column_filter(label: str, dropdown: dcc.Dropdown) -> html.Div:
+    """One labelled column filter (DEVICE-FILTERS-1).
+
+    dcc.Dropdown renders a div, which a <label for> cannot reach, so the
+    label names a role="group" around it, as the Status filter does.
+    """
+    label_id = f"{dropdown.id}-label"
+    return html.Div(
+        className="device-admin-filters__item",
+        children=[
+            html.Label(label, id=label_id, className="device-admin-filters__label"),
+            html.Div(
+                role="group",
+                **{"aria-labelledby": label_id},
+                children=[dropdown],
+            ),
+        ],
+    )
+
+
+def _column_filters() -> html.Div:
+    return html.Div(
+        className="device-admin-filters",
+        children=[
+            _column_filter("Plant", dcc.Dropdown(
+                id="device-admin-plant-filter",
+                options=[],
+                placeholder="All plants",
+                searchable=True,
+                className="device-admin-toolbar__dropdown",
+            )),
+            _column_filter("Transformer", dcc.Dropdown(
+                id="device-admin-transformer-filter",
+                options=[],
+                placeholder="All transformers",
+                searchable=True,
+                disabled=True,
+                className="device-admin-toolbar__dropdown",
+            )),
+            _column_filter("Data", dcc.Dropdown(
+                id="device-admin-data-filter",
+                options=DATA_FILTER_OPTIONS,
+                value="all",
+                clearable=False,
+                searchable=False,
+                className="device-admin-toolbar__dropdown",
+            )),
+            _column_filter("Technician", dcc.Dropdown(
+                id="device-admin-technician-filter",
+                options=[{"label": "All", "value": "all"}],
+                value="all",
+                clearable=False,
+                searchable=True,
+                className="device-admin-toolbar__dropdown",
+            )),
+            _column_filter("Last reading", dcc.Dropdown(
+                id="device-admin-reading-filter",
+                options=READING_FILTER_OPTIONS,
+                value="all",
+                clearable=False,
+                searchable=False,
+                className="device-admin-toolbar__dropdown",
+            )),
+            html.Button(
+                "Clear filters",
+                id="device-admin-clear-filters",
+                n_clicks=0,
+                className="device-admin-filters__clear",
+            ),
+        ],
+    )
+
+
 def layout() -> html.Div:
     return html.Div(
         className="page page--monitoring page--device-admin",
@@ -58,6 +148,10 @@ def layout() -> html.Div:
                     ),
                     dcc.Input(
                         id="device-admin-search",
+                        # Controlled from first paint: Clear filters sets
+                        # this value, and React warns when an input switches
+                        # from uncontrolled to controlled.
+                        value="",
                         type="text",
                         placeholder="Search devices...",
                         className="device-admin-toolbar__search",
@@ -100,6 +194,10 @@ def layout() -> html.Div:
                     ),
                 ],
             ),
+            # Column filters (DEVICE-FILTERS-1). The native filter row stays
+            # off: this row is the table's only filter surface besides Search
+            # and Status above.
+            _column_filters(),
             # Error slot
             html.Div(id="device-admin-error", className="listing-error"),
             # Summary line

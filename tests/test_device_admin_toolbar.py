@@ -48,7 +48,9 @@ class TestPageWiring:
         populate = next(
             c for c in callbacks if "device-admin-table.data" in c["output"]
         )
-        assert {(i["id"], i["property"]) for i in populate["inputs"]} == {
+        # DEVICE-FILTERS-1 added the column filters; the full set is pinned
+        # in tests/test_device_admin_column_filters.py.
+        assert {(i["id"], i["property"]) for i in populate["inputs"]} >= {
             ("page-context", "data"),
             ("device-admin-search", "value"),
             ("device-admin-status-filter", "value"),

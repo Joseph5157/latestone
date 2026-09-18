@@ -46,6 +46,10 @@ class _Device:
         self.status = status
         self.transformer_code = transformer_code
         self.plant_name = plant_name
+        # AdminDeviceRow carries both ids; the row builder uses them as
+        # filter keys (DEVICE-FILTERS-1).
+        self.transformer_id = f"t-{transformer_code}"
+        self.plant_id = f"p-{plant_name}"
 
 
 def _row(plant, device, metric, ts):

@@ -6,6 +6,7 @@ and handling navigation targets; `register()` wires them up.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 
 from dash import Input, Output, html, no_update
 
@@ -59,6 +60,27 @@ def _format_status(status: str) -> str:
     return status.capitalize() if status else "—"
 
 
+#: The Technician filter's value for "no technician". Leading underscore so
+#: it can never collide with a real username.
+UNASSIGNED = "_unassigned"
+
+
+def last_reading_band(age) -> str:
+    """The Last reading filter band for a reading age (DEVICE-FILTERS-1).
+
+    Readings arrive about every 30 minutes, so under an hour means reporting
+    normally. The 24-hour edge matches BR008's ">24 h no data" rule: exactly
+    24 hours is still "1–24 hours".
+    """
+    if age is None:
+        return "none"
+    if age < timedelta(hours=1):
+        return "lt1h"
+    if age <= timedelta(hours=24):
+        return "1to24h"
+    return "gt24h"
+
+
 def build_device_admin_rows(
     devices, health, assignments: dict[str, str] | None = None, *, now=None
 ) -> list[dict]:
@@ -83,11 +105,10 @@ def build_device_admin_rows(
     for d in devices:
         rollup = health.devices.get(d.device_id)
         last_updated = health.device_last_updated.get(d.device_id)
+        age = reading_age(last_updated, now) if last_updated else None
         # No readings at all is an administrative fact, not a missing value:
         # an em dash here would read as a rendering gap.
-        last_reading = (
-            format_age(reading_age(last_updated, now)) if last_updated else "No readings"
-        )
+        last_reading = format_age(age) if age is not None else "No readings"
         freshness_label = rollup.label("metrics") if rollup else "No data"
         state_value = rollup.state.value if rollup else "no_data"
         rows.append({
@@ -106,6 +127,11 @@ def build_device_admin_rows(
             "manage": _MANAGE_LINK,
             "_state": state_value,
             "_severity": severity_rank(rollup.state) if rollup else 2,
+            # Filter keys (DEVICE-FILTERS-1). Ids, not labels: transformer
+            # codes repeat across plants.
+            "_plant_id": d.plant_id,
+            "_transformer_id": d.transformer_id,
+            "_reading_band": last_reading_band(age),
         })
     return rows
 
@@ -119,16 +145,44 @@ def build_device_admin_rows(
 SEARCHABLE_COLUMNS = ("device", "plant", "transformer", "technician")
 
 
-def filter_device_rows(rows: list[dict], search, status) -> list[dict]:
-    """Apply the toolbar's search and Status filter to already-built rows.
+def _chosen(value) -> str | None:
+    """A dropdown value that filters, or None for "All" / cleared."""
+    return None if value in (None, "", "all") else value
+
+
+def filter_device_rows(
+    rows: list[dict],
+    search,
+    status,
+    *,
+    plant=None,
+    transformer=None,
+    freshness=None,
+    technician=None,
+    reading=None,
+) -> list[dict]:
+    """Apply the toolbar's filters to already-built rows.
 
     Filtering happens here rather than in SQL because the rows are already in
     memory for the render — the table is the whole device list, not a page of
     it — and a second query would let the table and its summary line disagree
     about which devices exist.
+
+    Every column filter is optional; None or "all" means no filter.
     """
     term = (search or "").strip().casefold()
     wanted = (status or "all").casefold()
+    plant, transformer = _chosen(plant), _chosen(transformer)
+    freshness, technician, reading = _chosen(freshness), _chosen(technician), _chosen(reading)
+
+    # Changing Plant clears Transformer, but the table can render once with
+    # the previous plant's transformer still selected. A transformer outside
+    # the chosen plant is that leftover, not a request for an empty table.
+    if plant and transformer and not any(
+        r.get("_plant_id") == plant and r.get("_transformer_id") == transformer
+        for r in rows
+    ):
+        transformer = None
 
     def matches(row: dict) -> bool:
         if term and not any(
@@ -137,9 +191,50 @@ def filter_device_rows(rows: list[dict], search, status) -> list[dict]:
             return False
         if wanted != "all" and str(row.get("status", "")).casefold() != wanted:
             return False
+        if plant and row.get("_plant_id") != plant:
+            return False
+        if transformer and row.get("_transformer_id") != transformer:
+            return False
+        if freshness and row.get("_state") != freshness:
+            return False
+        if technician:
+            holder = row.get("technician")
+            if technician == UNASSIGNED:
+                if holder not in (None, "", "Unassigned"):
+                    return False
+            elif holder != technician:
+                return False
+        if reading and row.get("_reading_band") != reading:
+            return False
         return True
 
     return [row for row in rows if matches(row)]
+
+
+def plant_filter_options(plants) -> list[dict]:
+    """Plant filter choices, by name. "All" is the dropdown's cleared state."""
+    return [
+        {"label": p.name, "value": p.plant_id}
+        for p in sorted(plants, key=lambda p: p.name.casefold())
+    ]
+
+
+def transformer_filter_options(transformers) -> list[dict]:
+    """Transformer filter choices for one plant, by code."""
+    return [
+        {"label": t.transformer_code, "value": t.transformer_id}
+        for t in sorted(transformers, key=lambda t: t.transformer_code.casefold())
+    ]
+
+
+def technician_filter_options(assignments: dict[str, str]) -> list[dict]:
+    """All, Unassigned, then every technician who currently holds a device."""
+    technicians = sorted(set(filter(None, assignments.values())), key=str.casefold)
+    return [
+        {"label": "All", "value": "all"},
+        {"label": "Unassigned", "value": UNASSIGNED},
+        *({"label": name, "value": name} for name in technicians),
+    ]
 
 
 def device_admin_summary(shown: int, total: int, active: int, inactive: int) -> str:
@@ -193,9 +288,17 @@ def register(app) -> None:
         Input("page-context", "data"),
         Input("device-admin-search", "value"),
         Input("device-admin-status-filter", "value"),
+        Input("device-admin-plant-filter", "value"),
+        Input("device-admin-transformer-filter", "value"),
+        Input("device-admin-data-filter", "value"),
+        Input("device-admin-technician-filter", "value"),
+        Input("device-admin-reading-filter", "value"),
         prevent_initial_call=True,
     )
-    def populate_device_admin(context, search, status):
+    def populate_device_admin(
+        context, search, status,
+        plant=None, transformer=None, freshness="all", technician="all", reading="all",
+    ):
         if not context or context.get("route") != "admin_devices":
             return (no_update,) * 5
 
@@ -242,6 +345,11 @@ def register(app) -> None:
                 build_device_admin_rows(devices, health, assignments, now=rendered_at),
                 search,
                 status,
+                plant=plant,
+                transformer=transformer,
+                freshness=freshness,
+                technician=technician,
+                reading=reading,
             )
             result["rows"] = rows
             result["total"] = len(devices)
@@ -261,6 +369,75 @@ def register(app) -> None:
             len(rows), result["total"], result["active"], result["inactive"]
         )
         return rows, DEVICE_ADMIN_COLUMNS, None, summary, empty_state(len(rows))
+
+    @app.callback(
+        Output("device-admin-plant-filter", "options"),
+        Output("device-admin-technician-filter", "options"),
+        Input("page-context", "data"),
+        prevent_initial_call=True,
+    )
+    def _load_filter_options(context):
+        """Plant and Technician choices, once per page render.
+
+        Separate from the table so changing a filter does not rebuild its own
+        options. Independently invokable, so it re-checks the capability:
+        plant names and who holds devices are administration data.
+        """
+        if not context or context.get("route") != "admin_devices":
+            return no_update, no_update
+        try:
+            require_capability(current_identity(), MANAGE_DEVICES)
+        except AuthorizationError:
+            return [], technician_filter_options({})
+        try:
+            plants = hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
+            assignments = prototype_assignments.assigned_technicians()
+        except Exception:
+            logger.exception("Failed to load device filter options")
+            return [], technician_filter_options({})
+        return plant_filter_options(plants), technician_filter_options(assignments)
+
+    @app.callback(
+        Output("device-admin-transformer-filter", "options"),
+        Output("device-admin-transformer-filter", "disabled"),
+        Output("device-admin-transformer-filter", "value"),
+        Input("device-admin-plant-filter", "value"),
+        prevent_initial_call=True,
+    )
+    def _load_transformer_options(plant_id):
+        """The chosen plant's transformers; cleared whenever Plant changes."""
+        if not plant_id:
+            return [], True, None
+        try:
+            require_capability(current_identity(), MANAGE_DEVICES)
+        except AuthorizationError:
+            return [], True, None
+        try:
+            transformers = hierarchy_service.list_transformers(
+                plant_id, scope=device_scope.UNRESTRICTED
+            )
+        except Exception:
+            logger.exception("Failed to load transformers for %r", plant_id)
+            return [], True, None
+        options = transformer_filter_options(transformers)
+        return options, not options, None
+
+    @app.callback(
+        Output("device-admin-search", "value"),
+        Output("device-admin-status-filter", "value"),
+        Output("device-admin-plant-filter", "value"),
+        Output("device-admin-data-filter", "value"),
+        Output("device-admin-technician-filter", "value"),
+        Output("device-admin-reading-filter", "value"),
+        Input("device-admin-clear-filters", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _clear_filters(n_clicks):
+        """Every filter back to its default. Clearing Plant clears
+        Transformer through `_load_transformer_options`."""
+        if not n_clicks:
+            return (no_update,) * 6
+        return "", "all", None, "all", "all", "all"
 
     @app.callback(
         Output("url", "pathname", allow_duplicate=True),
