@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-18T15:51:15Z
+Date: 2026-09-18T16:31:12Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `6388003` "feat(admin): move configuration panels to a Settings page"
+- `main` = `c47cf87` "feat(register): redesign Register Device and enforce the 5-digit UID fleet-wide"
 - Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3288 passed, 718 deselected in 27.33s
+- `python -m pytest -m "not db"` → 3320 passed, 726 deselected in 30.66s
 
 ## Branches
 
@@ -45,13 +45,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 330 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 180 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 330 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 332 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 182 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 332 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-21 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+22 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -76,6 +76,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-019-simulated-event-source-reuses-canonical-ingestion.md | Approved | `a89fbf97b523aee6b63f8f6b80d5bda0fd0876e8` (`feat(integration): add simulated RTL event ingestion`) |
 | ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md | Approved | `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` (`feat(integration): add notification delivery abstraction`) |
 | ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md | Approved | `08acb6e` (`feat(freshness): let Administrators set the freshness threshold live`) |
+| ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md | Approved | `c47cf87` (`feat(register): redesign Register Device and enforce the 5-digit UID fleet-wide`) |
 
 ## Active gate
 
@@ -84,10 +85,10 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
- M docs/context/KNOWN_DEFECTS.md
- M docs/context/PROJECT_LEDGER.md
+M docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/DECISION_INDEX.md
+ M docs/decisions/ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

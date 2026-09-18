@@ -9,7 +9,7 @@ Evidence: `services/rtl_uid.py` (`UID_PATTERN`, `uid_format_error`);
 `repositories/plant_monitoring_repository.py` (`find_device_ids_by_code`);
 `alembic/versions/001_baseline.py` (`UNIQUE (transformer_id, device_code)`);
 `tests/test_device_register.py`
-Implemented-by: not yet
+Implemented-by: `c47cf87` (`feat(register): redesign Register Device and enforce the 5-digit UID fleet-wide`)
 Supersedes: nothing. Closes the registration half of tracker row PROG-02,
 which FS-PROG-1 (`176dc49`) left open.
 

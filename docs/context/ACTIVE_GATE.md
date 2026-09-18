@@ -1,14 +1,16 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-18
-Gate: REGISTER-UX-1
-Commit/push permission: **NOT GRANTED**. The user reviews the result
-before any commit.
+Gate: NONE
+Commit/push permission: **GRANTED and exercised** 2026-09-18 by the user
+after review (`c47cf87` + closure docs, pushed).
 
-## REGISTER-UX-1 — OPEN / IN PROGRESS
+## REGISTER-UX-1 — CLOSED / PASS
 
-Baseline: `main` at `4765806`.
+Baseline: `main` at `4765806`. Implementation: `c47cf87`. Next queued work
+(not opened): client confirmation of ADR-022's two baselines; Tier 2
+per-device freshness override.
 
 ## Task
 
@@ -69,7 +71,7 @@ agreed in chat on 2026-09-18, in three parts:
   enforced here in the application only (ADR-022), and the client question
   is open.
 
-## Implementation (uncommitted, awaiting review)
+## Implementation (`c47cf87`)
 
 - `services/rtl_uid.py` (new): `UID_PATTERN` `^[0-9]{5}$` and
   `uid_format_error()`. `rtl_programming_service.UID_PATTERN` now points at
@@ -119,6 +121,8 @@ agreed in chat on 2026-09-18, in three parts:
 - Dev DB: the browser test device (`plant-02-t1-d2` / `29999`) was deleted
   afterwards (back to 120 devices, 120 distinct codes). Its
   `DEVICE_REGISTERED` audit row was left in place as a true record.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
