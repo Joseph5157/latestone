@@ -538,10 +538,14 @@ class TestNotificationsPageLayout:
         lay = layout()
         assert "breadcrumb" in str(lay).lower() or "Notification Center" in str(lay)
 
-    def test_layout_has_prototype_notice(self):
+    def test_layout_names_external_delivery_as_the_thing_not_connected(self):
+        """The banner must be honest about what's NOT connected (external
+        delivery) without implying the notifications themselves are fake —
+        "Prototype" as the lead word did exactly that in a live client demo."""
         lay = layout()
         text = str(lay)
-        assert "Prototype" in text or "prototype" in text
+        assert "External delivery" in text
+        assert "Prototype" not in text
 
     def test_layout_has_formal_notifications_section(self):
         lay = layout()

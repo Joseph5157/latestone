@@ -43,14 +43,18 @@ def layout() -> html.Div:
             dcc.Store(id="notification-refresh", data={"event_id": None}),
             # Honesty banner. The distinction is display vs delivery: the rows
             # in this table are real (BR008 + persisted device events), but
-            # nothing is sent anywhere.
+            # nothing is sent anywhere. "Prototype" previously led this
+            # banner and read, in a live demo, as "this isn't real data" —
+            # corrected to name the one thing that's actually not connected.
             html.Div(
                 className="status-panel status-panel--inactive",
                 children=[
-                    html.Strong("Prototype. "),
+                    html.Strong("Delivery note. "),
                     html.Span(
-                        "Notification display is implemented; external "
-                        "delivery such as SMS/email is not connected."
+                        "These notifications are real, derived from "
+                        "persisted device events and freshness rules. "
+                        "External delivery such as SMS or email is not "
+                        "connected."
                     ),
                 ],
             ),
