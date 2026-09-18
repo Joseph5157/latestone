@@ -202,9 +202,10 @@ class TestSidebarFiltering:
     def test_technician_sees_their_own_devices_item(self):
         """A Technician now has a "Devices" item too (ADR-016) — their own
         assigned-devices page at a different route/key from the
-        Administrator's, sharing only the label and icon concept."""
+        Administrator's, sharing only the label and icon concept. No
+        Assignments: that route is Administrator-only (ADMIN-ASSIGN-1)."""
         assert rendered_labels(TECHNICIAN) == [
-            "Overview", "Command Center", "Devices", "Assignments",
+            "Overview", "Command Center", "Devices",
             "Notifications", "Reports",
         ]
 
@@ -222,8 +223,9 @@ class TestSidebarFiltering:
         assert "System" in section_titles(GENERAL)
 
     def test_technician_now_sees_the_operations_heading_too(self):
-        """Unlike General, a Technician has a real Operations item
-        (their own Devices) — the section heading is no longer emptied."""
+        """Unlike General, a Technician has a real Operations item — their
+        own Devices — so the section heading is no longer emptied, even
+        though Assignments and Registration both stay Administrator-only."""
         assert "Operations" in section_titles(TECHNICIAN)
         assert "System" in section_titles(TECHNICIAN)
 
@@ -236,12 +238,12 @@ class TestSidebarFiltering:
         Operations goes nowhere for General."""
         assert "Assignments" not in rendered_labels(GENERAL)
 
-    def test_the_routeless_assignments_placeholder_now_shows_for_technician(self):
-        """Operations is no longer empty for a Technician (their own Devices
-        item lives there), so the routeless placeholder travels with it —
-        the same "kept when anything else in the section is visible" rule
-        that already hid it for General."""
-        assert "Assignments" in rendered_labels(TECHNICIAN)
+    def test_assignments_stays_administrator_only_for_technician_too(self):
+        """ADMIN-ASSIGN-1: Assignments is a real, Administrator-only route
+        now (like admin_devices), not a routeless placeholder that travels
+        with an otherwise-visible Operations section — a Technician having
+        their own Devices item does not also grant them Assignments."""
+        assert "Assignments" not in rendered_labels(TECHNICIAN)
 
     def test_no_link_points_somewhere_the_role_may_not_go(self):
         for role in (TECHNICIAN, GENERAL):

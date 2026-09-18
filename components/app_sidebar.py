@@ -12,10 +12,12 @@ Fleet -> Plant -> Transformer -> Device hierarchy and the equipment selector
 are the workflow. The drill-down pages render under Overview, so the
 Overview item stays highlighted while an operator works through them.
 
-Assignments has no standalone route yet (ADMIN-0 explicitly does not build
-one — see routes.NAV_KEY_BY_ROUTE and the ADMIN-0 report for the reasoning).
-It renders as a disabled, non-destructive item rather than a dead link or an
-invented page.
+Assignments (ADMIN-ASSIGN-1) now has a real route, `/admin/assignments` — a
+technician workload roster (who has how many RTLs) plus the same
+Assign/Manage table Device Management offers, reusing the shared
+assign/manage drawers rather than a third copy of that workflow. It was
+routeless from ADMIN-0 until this gate specifically because no page existed
+yet to point it at.
 
 ROLE-2: the item set is filtered by the signed-in role, derived from the route
 policy in services.authorization. Hiding is not enforcement — callbacks.routing
@@ -53,9 +55,13 @@ COLLAPSE_STORE_ID = "sidebar-collapse-store"
 HIDDEN_STYLE = {"display": "none"}
 
 #: (key, label, href, icon). `key` is the identity the active-state logic
-#: joins on (None for items with no route of their own); `icon` is the
-#: assets/icons/nav-{icon}.svg slug rendered before `label` in every state.
-SidebarItem = tuple[str | None, str, str | None, str]
+#: joins on; `icon` is the assets/icons/nav-{icon}.svg slug rendered before
+#: `label` in every state. Every current item has a real route — the
+#: `key is None`/`href is None` routeless-placeholder shape this type used
+#: to also describe (Assignments, before ADMIN-ASSIGN-1) is gone now that
+#: nothing uses it; re-add it here and in `_permitted_items`/`sidebar_nav`
+#: if a future item genuinely has no page of its own again.
+SidebarItem = tuple[str, str, str, str]
 
 #: (section_title, items). The first section has no title (Overview stands
 #: alone, matching the fleet overview's status as the operator landing page).
@@ -72,7 +78,7 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
         # exactly one of these two items is ever visible to a given session
         # — never both, never neither, for anyone with device access at all.
         ("technician_devices", "Devices", "/devices", "my-devices"),
-        (None, "Assignments", None, "assignments"),
+        ("assignments", "Assignments", "/admin/assignments", "assignments"),
         ("registration", "Registration", "/admin/devices/new", "registration"),
     )),
     ("System", (
@@ -100,20 +106,9 @@ def _permitted_items(section_items, role: str | None) -> tuple[SidebarItem, ...]
     Visibility is derived from the route policy, never restated here — an item
     shows exactly when the role may open the route behind it, so a visible
     item that refuses to open is not expressible.
-
-    The routeless placeholder (Assignments, `key is None`) has no route for
-    the policy to speak about. It travels with its section: kept when anything
-    else in that section is visible, dropped with it otherwise. It describes
-    an Operations concept, and showing it alone to someone who can reach none
-    of Operations would advertise a capability they do not have.
     """
     visible = visible_nav_keys(role)
-    keyed = tuple(item for item in section_items if item[0] in visible)
-    if not keyed:
-        return ()
-    return tuple(
-        item for item in section_items if item[0] is None or item[0] in visible
-    )
+    return tuple(item for item in section_items if item[0] in visible)
 
 
 def sidebar_nav(active_key: str | None, role: str | None = None) -> html.Ul:
@@ -145,20 +140,6 @@ def sidebar_nav(active_key: str | None, role: str | None = None) -> html.Ul:
                 html.Li(section_title, className="app-sidebar__section-label")
             )
         for key, label, href, icon in section_items:
-            if href is None:
-                items.append(
-                    html.Li(
-                        html.Span(
-                            _item_content(label, icon),
-                            className="app-sidebar__link app-sidebar__link--disabled",
-                            title=f"{label} — manage from Devices",
-                            **{"aria-disabled": "true"},
-                        ),
-                        className="app-sidebar__item",
-                    )
-                )
-                continue
-
             is_active = key == active_key
             className = "app-sidebar__link"
             item_props = {}

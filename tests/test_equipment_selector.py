@@ -25,7 +25,7 @@ from components.my_rtls import my_rtls_panel
 from components.needs_attention import needs_attention
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
-from pages import audit_log, device_dashboard, device_admin, device_register, technician_devices, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
+from pages import audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
 from services.device_scope import UNRESTRICTED
 from tests.auth_test_support import trusted_session
 
@@ -122,6 +122,7 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(device_dashboard.layout("Plant", "T1", "D1"))
     | collect_ids(device_admin.layout())
     | collect_ids(technician_devices.layout())
+    | collect_ids(admin_assignments.layout())
     | collect_ids(device_register.layout())
     | collect_ids(assign_device_drawer())
     | collect_ids(device_manage_drawer())

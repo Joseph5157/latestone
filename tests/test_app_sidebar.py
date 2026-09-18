@@ -112,10 +112,10 @@ class TestSidebarItems:
                 continue
             assert nav.active_nav_key(href) == key, href
 
-    def test_assignments_has_no_standalone_route(self):
-        """ADMIN-0 explicitly does not build an Assignments page."""
-        items = {label: href for _key, label, href, _icon in _all_items()}
-        assert items["Assignments"] is None
+    def test_assignments_has_a_real_route(self):
+        """ADMIN-ASSIGN-1: no longer a routeless placeholder (ADMIN-0)."""
+        items = {key: href for key, _label, href, _icon in _all_items()}
+        assert items["assignments"] == "/admin/assignments"
 
     def test_existing_routes_are_reused_not_reinvented(self):
         # Keyed by `key`, not `label`: "Devices" now names two entries (see
@@ -125,6 +125,7 @@ class TestSidebarItems:
         assert items["overview"] == "/plants"
         assert items["devices"] == "/admin/devices"
         assert items["technician_devices"] == "/devices"
+        assert items["assignments"] == "/admin/assignments"
         assert items["registration"] == "/admin/devices/new"
         assert items["notifications"] == "/notifications"
         assert items["reports"] == "/reports"
@@ -145,6 +146,7 @@ class TestActiveNavKey:
 
     def test_each_destination_maps_to_its_own_item(self):
         assert nav.active_nav_key("/admin/devices") == "devices"
+        assert nav.active_nav_key("/admin/assignments") == "assignments"
         assert nav.active_nav_key("/admin/devices/new") == "registration"
         assert nav.active_nav_key("/reports") == "reports"
         assert nav.active_nav_key("/notifications") == "notifications"
@@ -275,25 +277,18 @@ class TestSidebarLogout:
         for item in inactive_items:
             assert getattr(item, "aria-current", None) is None
 
-    def test_disabled_assignments_never_carries_aria_current(self):
-        """Assignments has no route and can never be the active key — it must
-        never pick up `aria-current` regardless of which real item is active."""
-        for active_key in (None, "overview", "devices", "registration", "reports"):
-            rendered = _admin_sidebar(active_key)
-            disabled = find_by_class(rendered, "app-sidebar__link--disabled")
-            assert len(disabled) == 1
-            assert getattr(disabled[0], "aria-current", None) is None
-            wrapping_items = find_by_exact_class(rendered, "app-sidebar__item")
-            assignments_item = next(n for n in wrapping_items if "Assignments" in text_of(n))
-            assert getattr(assignments_item, "aria-current", None) is None
-
-    def test_assignments_renders_disabled_not_as_a_dead_link(self):
+    def test_assignments_is_a_real_link_not_disabled(self):
+        """ADMIN-ASSIGN-1: no more `app-sidebar__link--disabled` anywhere —
+        Assignments was the only item that ever used it."""
         rendered = _admin_sidebar(None)
-        assert "Assignments" in text_of(rendered)
-        disabled = find_by_class(rendered, "app-sidebar__link--disabled")
-        assert len(disabled) == 1
-        assert getattr(disabled[0], "aria-disabled", None) == "true"
-        assert "Assignments" not in [label for label, _href in links(rendered)]
+        assert find_by_class(rendered, "app-sidebar__link--disabled") == []
+        assert "Assignments" in [label for label, _href in links(rendered)]
+
+    def test_assignments_lights_up_like_any_other_item(self):
+        rendered = _admin_sidebar("assignments")
+        active = find_by_class(rendered, "app-sidebar__link--active")
+        assert len(active) == 1
+        assert "Assignments" in text_of(active[0])
 
     def test_section_labels_render(self):
         rendered = _admin_sidebar(None)
@@ -333,17 +328,9 @@ class TestSidebarIcons:
     def test_rendered_links_carry_an_icon_span(self):
         rendered = _admin_sidebar("devices")
         for _key, label, href, icon in _admin_visible_items():
-            if href is None:
-                continue
             icon_spans = find_by_exact_class(rendered, f"app-sidebar__icon--{icon}")
             assert len(icon_spans) == 1, label
             assert "app-sidebar__icon" in icon_spans[0].className.split()
-
-    def test_disabled_item_also_carries_an_icon_span(self):
-        rendered = _admin_sidebar(None)
-        icon_spans = find_by_exact_class(rendered, "app-sidebar__icon--assignments")
-        assert len(icon_spans) == 1
-        assert "app-sidebar__icon" in icon_spans[0].className.split()
 
     def test_icon_span_is_hidden_from_assistive_technology(self):
         """The link's accessible name is its text label; the icon is

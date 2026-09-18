@@ -2,11 +2,176 @@
 
 Status: **OPEN / IN PROGRESS**
 Date: 2026-09-18
-Gate: TECHNICIAN-DEVICES-1
+Gate: ADMIN-ASSIGN-1
 Commit/push permission: **NOT YET CONFIRMED** — implementation and local
 verification complete; ask the user before committing/pushing.
 
 ## Task
+
+Turn the sidebar's disabled "Assignments" placeholder into a real page.
+User's own question ("why is this hidden... what is its purpose") plus a
+follow-up design question ("by implementing is there any use") converged on:
+functionally, assignment already fully works (Device Management's per-row
+Assign action); the missing capability is **workload visibility** — no view
+of "here's everything technician X has", only "here's this one device's
+technician." Built as: a technician roster (who has how many RTLs, most-
+loaded first) above the same per-device Assign/Manage table Device
+Management already offers, reusing the shared drawers rather than a second
+assignment workflow.
+
+## Relevant files
+
+- `routes.py`
+- `services/authorization.py`
+- `components/app_sidebar.py`
+- `pages/admin_assignments.py` (new)
+- `callbacks/admin_assignments.py` (new)
+- `callbacks/routing.py`
+- `app.py`
+- `tests/test_admin_assignments.py` (new)
+- `tests/test_app_sidebar.py`
+- `tests/test_authorization.py`
+- `tests/test_route_enforcement.py`
+- `tests/test_equipment_selector.py`
+
+## Decisions this gate depends on
+
+- Explicit user confirmation ("implement it") of the recommendation given
+  in chat: a workload roster + the existing per-device table, not a new
+  bulk-reassignment mutation (that would be new mutation semantics —
+  confirmation flow, audit shape — genuinely undecided, out of scope here).
+- Assignments becomes a real, `_ADMIN_ONLY` route — the SAME role set
+  `admin_devices` already uses — rather than staying a routeless sidebar
+  placeholder. Since Assignments was the ONLY routeless item, the generic
+  "disabled placeholder" rendering path in `components/app_sidebar.py`
+  (`sidebar_nav`'s `href is None` branch, `_permitted_items`'s "kept when
+  anything else in the section is visible" special case) is now genuinely
+  dead code with zero current users — removed rather than left untested,
+  per this codebase's own "no half-finished implementations" standard; a
+  comment marks where to re-add it if a future item needs it again.
+- Row-building is reused verbatim from `callbacks.device_admin`
+  (`build_device_admin_rows`, `DEVICE_ADMIN_COLUMNS`) — this gate adds a
+  roster view and a sort order on top, never a second row-building
+  implementation. The Assign opener reuses
+  `callbacks.device_assign.assign_drawer_open_state`/`find_device_row`
+  verbatim — one assignment workflow, not two.
+- P0-4/AUTH-HARDEN-1's lesson, same as `admin_devices`/`technician_devices`:
+  the populate callback re-verifies with `require_capability(...,
+  MANAGE_DEVICES)` — reusing that existing capability rather than adding a
+  new one, since `admin_assignments`'s ROUTE_POLICY set is identical to
+  `admin_devices`'s.
+
+## Non-goals (explicit)
+
+- No bulk reassignment, no new mutation/confirmation flow — every Assign/
+  Manage action here is the existing single-device workflow, unchanged.
+- No change to `/admin/devices` itself, its columns, or its own
+  Assign/Manage callbacks (`open_assign_drawer`, `open_manage_drawer`,
+  `confirm_assignment`) — all untouched, all still keyed to
+  `device-admin-table` exactly as before.
+- No change to what `MANAGE_ASSIGNMENT`/`ACTION_POLICY` allow — a
+  Technician still cannot manage assignment anywhere, on this page or any
+  other (ADR-016, unchanged).
+- No change to My RTLs or the Technician Devices page.
+
+## Implementation
+
+### Route, authorization, sidebar
+
+- `routes.py`: `parse_pathname("/admin/assignments")` → `Route(name=
+  "admin_assignments")`. `NAV_KEY_BY_ROUTE["admin_assignments"] =
+  "assignments"`.
+- `services/authorization.py`: `ROUTE_POLICY["admin_assignments"] =
+  _ADMIN_ONLY`. No new capability — the populate callback reuses
+  `MANAGE_DEVICES`.
+- `components/app_sidebar.py`: the Assignments tuple changed from
+  `(None, "Assignments", None, "assignments")` to `("assignments",
+  "Assignments", "/admin/assignments", "assignments")` — same label, same
+  icon, real href. `sidebar_nav`'s disabled-item rendering branch and
+  `_permitted_items`'s routeless-placeholder special case were removed
+  (dead code, zero remaining users); `SidebarItem`'s type narrowed from
+  `tuple[str | None, str, str | None, str]` to `tuple[str, str, str, str]`.
+- `callbacks/routing.py`/`app.py`: new route branch and callback
+  registration, matching `admin_devices`'s precedent.
+
+### The new page and its callbacks
+
+- `pages/admin_assignments.py` (new): `admin_summary_cards()` slot (the
+  SAME 3-card component the Fleet Overview's Administration section
+  renders, from the SAME `AdminOverviewSummary`); a `WORKLOAD_TABLE_ID`
+  table (Technician, Assigned RTLs); a `TABLE_ID` table reusing Device
+  Management's exact 9-column shape (duplicated by value, not imported —
+  same convention `pages/device_admin.py` itself follows, a test asserts
+  the two stay identical); the same `assign_device_drawer()`/
+  `device_manage_drawer()` Device Management mounts.
+- `callbacks/admin_assignments.py` (new): `populate_admin_assignments`
+  (P0-4-guarded) builds `build_technician_workload_rows(technicians,
+  assignments)` — one row per active technician (including zero-count
+  ones — an idle technician is exactly the fact a workload view exists to
+  surface), sorted most-loaded first via `collections.Counter`, no N+1
+  query — plus `build_device_admin_rows(...)` sorted by `_device_sort_key`
+  (unassigned first, then grouped by technician, then by device). Three
+  more callbacks: row-click navigation (reuses `device_row_target` from
+  `callbacks.device_admin`), a new Assign opener (reuses
+  `assign_drawer_open_state`/`find_device_row` from `callbacks.device_assign`
+  verbatim — a second opener for that shared drawer, keyed to this page's
+  own table id, since the original is hardcoded to `device-admin-table`),
+  and a new Manage opener (same shape as Technician Devices' own third
+  opener — this is the fourth across the app).
+
+### Tests
+
+`tests/test_admin_assignments.py` (new, 24 tests): the pure
+`build_technician_workload_rows`/`_device_sort_key` functions (counting,
+most-loaded-first sort, zero-count technicians included, stale/unlisted-
+technician assignments not counted, unassigned-first device ordering); page
+layout (both tables, both drawers, duplicated column-list parity); the
+P0-4 direct-invocation guard (Administrator succeeds, Technician/General
+denied); all three table-driven callbacks' wiring, decline behaviour and
+successful-open behaviour. Plus corrections across
+`tests/test_app_sidebar.py` (the now-real Assignments link, removal of the
+dead disabled-item tests), `tests/test_authorization.py` (`admin_assignments`
+added to `ADMIN_ONLY`/`ROUTE_PATHS`), `tests/test_route_enforcement.py`
+(Assignments no longer routeless — a Technician's own Devices item does
+NOT also grant them Assignments), `tests/test_equipment_selector.py` (the
+new page's ids added to the wiring guard).
+
+### Verification
+
+- `tests/test_admin_assignments.py` — 24 passed.
+- `python -m pytest -m "not db"` — 3205 passed, 699 deselected (was 3180;
+  +25 new, zero regressions).
+- `python scripts/build_context_pack.py --check` and `git diff --check` —
+  clean.
+- Browser verification (Playwright), against real local dev data: logged in
+  as Administrator — sidebar "Assignments" now a real, clickable link;
+  summary cards showed "23 unassigned / 97 of 120 RTLs assigned", "5 Active
+  Technicians", "0 Recently Registered" (matching Fleet Overview's own
+  figures); Technician Workload roster showed all 5 technicians sorted
+  24/23/21/15/14 (most-loaded first); RTL Assignments table showed the 23
+  unassigned devices first, then each technician's devices grouped
+  together. Clicked "Assign" on an unassigned device — the shared drawer
+  opened with the correct device context and a technician dropdown
+  (cancelled rather than confirmed, to avoid mutating dev-DB assignment
+  state during verification — `confirm_assignment` itself is pre-existing,
+  unmodified code). Clicked "Manage" on the same device — the shared drawer
+  opened with Program RTL/Message Forwarding/Deactivate RTL, no Assign
+  option. Logged in as `demo.tech01` (Technician) — sidebar showed no
+  Assignments item at all; navigating directly to `/admin/assignments`
+  returned "No access".
+
+### Known ambiguity
+
+None.
+
+## Next implementation gate: ADMIN-ASSIGN-1 — OPEN / IN PROGRESS
+
+## Prior gate record
+
+## TECHNICIAN-DEVICES-1 — CLOSED / PASS
+
+Implementation: `492110c` (committed together with NEEDS-ATTENTION-SHOW-ALL-1,
+see that record's own note for why).
 
 Give a Technician a sidebar entry to their own assigned devices. Client's
 literal request: "in technician dashboard why no section for managing
@@ -19,24 +184,7 @@ devices only, the same shared `device_manage_drawer()` operate actions
 (Program RTL, Message Forwarding, Deactivate), never Assignment or
 Registration.
 
-## Relevant files
-
-- `routes.py`
-- `services/authorization.py`
-- `components/app_sidebar.py`
-- `assets/icons/nav-my-devices.svg` (new)
-- `pages/technician_devices.py` (new)
-- `callbacks/technician_devices.py` (new)
-- `callbacks/routing.py`
-- `app.py`
-- `tests/test_technician_devices.py` (new)
-- `tests/test_authorization.py`
-- `tests/test_app_sidebar.py`
-- `tests/test_route_enforcement.py`
-- `tests/test_routing.py`
-- `tests/test_equipment_selector.py`
-
-## Decisions this gate depends on
+### Decisions
 
 - Explicit user confirmation via an AskUserQuestion preview: a genuinely new
   technician-scoped page/route, not a "jump to My RTLs on Overview" shortcut
@@ -52,136 +200,47 @@ Registration.
 - P0-4/AUTH-HARDEN-1's lesson (existing precedent, `callbacks/device_admin.py`,
   `callbacks/user_admin.py`): a route-gated data callback must re-verify
   authorization itself via `require_capability`, never trust `page-context`
-  alone — a forged `{"route": "technician_devices"}` must not pull data for
-  a role it was never meant for. New capability `VIEW_OWN_DEVICES`
-  (Technician-only) exists for exactly this, mirroring `MANAGE_DEVICES`.
+  alone. New capability `VIEW_OWN_DEVICES` (Technician-only), mirroring
+  `MANAGE_DEVICES`.
 - The sidebar's existing `SIDEBAR_SECTIONS` tuple gets a SECOND "Devices"
   entry (own key `technician_devices`, own href `/devices`, own icon)
   rather than making the Administrator's existing entry's href
-  role-conditional — `_permitted_items()`'s existing per-role filtering by
-  key already guarantees the two are mutually exclusive per signed-in
-  session with zero changes to that filtering logic.
+  role-conditional.
 
-## Non-goals (explicit)
+### Implementation
 
-- No change to `/admin/devices`, its columns, its Assign/Register controls,
-  or who may reach it (still Administrator-only).
-- No change to ADR-016's operational-action policy (`ACTION_POLICY`,
-  `may_action`/`require_action`) — this gate only adds a second table-based
-  entry point to the SAME shared drawer, the way ADR-016 itself predicted
-  ("two openers, one drawer" becomes three).
-- No Assign column, no Register button, no Status or Technician column on
-  the new page — a Technician already knows these are their own devices,
-  and assignment is never offered here.
-- No change to My RTLs (`components/my_rtls.py`) on the Fleet Overview —
-  it keeps its own no-action-controls design; this page is an additional,
-  separate surface, not a replacement.
-
-## Implementation
-
-### Route, authorization, sidebar
-
-- `routes.py`: `parse_pathname("/devices")` (no id — distinct from
-  `/devices/<id>`, the existing device dashboard route) now returns
-  `Route(name="technician_devices")` instead of falling through to
-  `"unknown"`. `NAV_KEY_BY_ROUTE` gained
-  `"technician_devices": "technician_devices"` — its OWN nav key, not a
-  reuse of `admin_devices`'s `"devices"` key (reusing it would have made
-  `_permitted_items()` render BOTH sidebar entries for any role that could
-  reach either route, since that filter matches by key only).
+- `routes.py`: `parse_pathname("/devices")` (no id) now returns
+  `Route(name="technician_devices")`. `NAV_KEY_BY_ROUTE` gained
+  `"technician_devices": "technician_devices"` — its own nav key.
 - `services/authorization.py`: `ROUTE_POLICY["technician_devices"] =
-  _TECHNICIAN_ONLY` (new constant, `frozenset({TECHNICIAN})`) — denied to
-  the Administrator too, not just General (see Decisions above). New
-  capability `VIEW_OWN_DEVICES` in `CAPABILITY_POLICY`, same
-  `_TECHNICIAN_ONLY` set, for the data callback's own independent P0-4
-  guard.
-- `components/app_sidebar.py`: `SIDEBAR_SECTIONS`'s Operations section
-  gained `("technician_devices", "Devices", "/devices", "my-devices")`
-  immediately after the Administrator's existing Devices entry — same
-  label, same icon CONCEPT, deliberately: `_permitted_items()`'s existing
-  per-role key filter already makes them mutually exclusive, so nothing in
-  that filtering logic needed to change.
+  _TECHNICIAN_ONLY`. New capability `VIEW_OWN_DEVICES` in
+  `CAPABILITY_POLICY`, same `_TECHNICIAN_ONLY` set.
+- `components/app_sidebar.py`: `SIDEBAR_SECTIONS` gained
+  `("technician_devices", "Devices", "/devices", "my-devices")`.
 - `assets/icons/nav-my-devices.svg` (new): the identical glyph to
-  `nav-devices.svg`, under its own filename only because
-  `TestSidebarIcons::test_icon_slugs_are_unique_per_destination` requires
-  unique slugs per entry and the two entries are never visible to the same
-  session.
-- `callbacks/routing.py`: new `if route.name == "technician_devices":`
-  branch, same shape as the `admin_devices` branch immediately above it.
-- `app.py`: `technician_devices.register(app)` added to the registration
-  list, alongside `device_manage.register(app)`.
-
-### The new page and its callbacks
-
-- `pages/technician_devices.py` (new): `layout()` — header, a summary
-  line, an `entity_table` (id `technician-devices-table`), and the SAME
-  `device_manage_drawer()` `pages/device_admin.py` and
-  `pages/device_dashboard.py` mount — not a copy. `TECHNICIAN_DEVICE_COLUMNS`
-  uses the "RTL" vocabulary `components/my_rtls.py` already established for
-  technician-facing tables (`pages/device_admin.py`'s own table says
-  "Device" — administrator-facing convention, left alone), plus a "Manage"
-  markdown column neither existing table combination has.
-- `callbacks/technician_devices.py` (new): `populate_technician_devices` —
-  gated on `page_context.route == "technician_devices"`, then re-verifies
-  with `require_capability(current_identity(), VIEW_OWN_DEVICES)` (P0-4).
-  Rows come from `callbacks.listings.build_my_rtls_rows(scope, health)` —
-  reused verbatim, the SAME function My RTLs already calls, each row
-  getting one added `"manage": "[Manage](#)"` key. Truthful empty state
-  ("No RTLs are currently assigned to you.", matching My RTLs' own wording)
-  when a Technician has zero active assignments, distinct from a query
-  failure (`error_panel()`). Two more callbacks: row-click navigation
-  (reuses `callbacks.listings.device_row_target` verbatim, the same way
-  `navigate_from_my_rtls_table` does) and
-  `open_manage_drawer_from_technician_devices` — a THIRD opener for the one
-  shared drawer (ADR-016's "two openers, one drawer" — `open_manage_drawer`
-  keyed to `device-admin-table`, `open_manage_drawer_from_device` keyed to
-  the device page's button — becomes three), identical in shape to
-  `open_manage_drawer` but keyed to this table's own id; the existing
-  callback could not be reused directly because it is hardcoded to
-  `"device-admin-table"`.
+  `nav-devices.svg`, under its own filename for icon-slug uniqueness.
+- `callbacks/routing.py`/`app.py`: new route branch and callback
+  registration, matching the `admin_devices` precedent exactly.
+- `pages/technician_devices.py` (new): header, summary line, `entity_table`
+  (`technician-devices-table`), and the same `device_manage_drawer()`
+  `pages/device_admin.py` mounts. "RTL" column vocabulary, matching
+  `components/my_rtls.py`.
+- `callbacks/technician_devices.py` (new): `populate_technician_devices`
+  (P0-4-guarded, reuses `callbacks.listings.build_my_rtls_rows` verbatim),
+  row-click navigation (reuses `device_row_target` verbatim), and
+  `open_manage_drawer_from_technician_devices` — a third opener for the
+  one shared drawer (ADR-016's "two openers, one drawer" becomes three).
 
 ### Tests
 
-- `tests/test_technician_devices.py` (new): page layout (table + shared
-  drawer mounted, no assign drawer, correct column set); the P0-4
-  direct-invocation guard (Administrator denied, General denied, Technician
-  succeeds — mirroring `TestAdminDeviceListDirectInvocation` exactly, real
-  `trusted_session`, no hand-built identity); row shape with assignments
-  (real rows, correct summary, no empty notice) and without (truthful empty
-  panel); the Manage column's placeholder link on every row; the row-click
-  navigation callback's wiring and decline behaviour; the Manage-column
-  opener's 12-Output shape, its Input/State keyed to this table only, and
-  its decline/open behaviour on non-manage clicks, unknown rows, and a real
-  row; `VIEW_OWN_DEVICES` held by Technician only.
-- `tests/test_authorization.py`: new `TECHNICIAN_ONLY_ROUTES` category and
-  `test_only_the_technician_reaches_their_own_devices`; `ROUTE_PATHS`
-  gained the new route/path pair; `test_administrator_reaches_every_policied_route`
-  renamed/corrected to `..._except_technicians_own` (the Administrator no
-  longer reaches literally every `ROUTE_POLICY` route — see Decisions
-  above); `test_general_user_has_only_the_functional_specification_route_set`
-  and the navigation-derivation tests updated for the new route/key.
-- `tests/test_app_sidebar.py`: the exact-label-list test now expects
-  "Devices" twice, with a new
-  `test_the_two_devices_entries_have_distinct_keys_and_hrefs` proving the
-  label collision is cosmetic only; the label-keyed-dict test rewritten to
-  key by nav key instead (a label-keyed dict silently kept only the last
-  "Devices" entry); the admin-rendering tests (`_admin_visible_items()`,
-  a new fixture helper) now correctly exclude the Technician-only entry
-  from what an Administrator-rendered sidebar is asserted to contain.
-- `tests/test_route_enforcement.py`: rewritten per-role sidebar-filtering
-  tests — General's assertions unchanged in substance; Technician's split
-  out to prove the NEW, opposite behaviour (Operations section and the
-  Assignments placeholder both now show for Technician, since Operations
-  is no longer empty for them); a new
-  `test_technicians_own_devices_item_still_lights_up_on_its_own_key` proves
-  active-state correctness between the two same-labelled entries.
-- `tests/test_routing.py`: `test_device_path_without_id_is_unknown` renamed
-  and corrected — `/devices` is now a real route, not a malformed
-  `/devices/<id>`.
-- `tests/test_equipment_selector.py`: `PAGE_LAYOUT_IDS` gained
-  `technician_devices.layout()`, extending the same
-  every-callback-id-exists-in-some-layout guard this gate's own new ids
-  (`technician-devices-table`/`-error`/`-summary`/`-empty`) needed.
+`tests/test_technician_devices.py` (new, 18 tests): layout, the P0-4
+direct-invocation guard (Administrator/General denied, Technician
+succeeds), row shape with/without assignments, the Manage column's
+placeholder link, both table-driven callbacks' wiring and decline
+behaviour, `VIEW_OWN_DEVICES` held by Technician only. Plus corrections
+across `tests/test_authorization.py`, `tests/test_app_sidebar.py`,
+`tests/test_route_enforcement.py`, `tests/test_routing.py`,
+`tests/test_equipment_selector.py` for the new route/nav-key/id.
 
 ### Verification
 
@@ -190,30 +249,21 @@ Registration.
   +24 new, zero regressions).
 - `python scripts/build_context_pack.py --check` and `git diff --check` —
   clean.
-- Browser verification (Playwright), against real local dev data: logged in
-  as `demo.tech01` (assigned Technician) — sidebar showed "Devices" →
-  `/devices`; the page listed all 24 assigned RTLs (RTL/Plant/Transformer/
-  Data/Manage, no Assign/Status/Technician column); clicking "Manage" on
-  device 29005 opened the shared drawer with the correct Device/Transformer/
-  Plant context (29005/ch03/Three Gorges Dam) and Program RTL/Message
-  Forwarding/Deactivate RTL options, no Assign option. Logged in as
-  Administrator — sidebar's own "Devices" item unchanged, still pointing at
-  `/admin/devices`; navigating directly to `/devices` (typed URL, not a
-  sidebar click) returned "No access" — the route-level ADR-016 boundary
-  holds even though it never reaches the sidebar-hiding layer. One console
-  error observed was a pre-existing, unrelated React dev-mode warning
-  ("changing an uncontrolled input... to be controlled") already noted in
-  prior gates (LOCAL-DB-CATCHUP-2) — not investigated further.
+- Browser verification (Playwright): logged in as `demo.tech01` — sidebar
+  showed "Devices" → `/devices`; the page listed all 24 assigned RTLs, no
+  Assign/Status/Technician column; clicking "Manage" on device 29005 opened
+  the shared drawer with the correct Device/Transformer/Plant context and
+  Program RTL/Message Forwarding/Deactivate RTL options, no Assign option.
+  Logged in as Administrator — sidebar's own "Devices" item unchanged;
+  navigating directly to `/devices` returned "No access". One console error
+  observed was a pre-existing, unrelated React dev-mode warning already
+  noted in prior gates (LOCAL-DB-CATCHUP-2) — not investigated further.
 
 ### Known ambiguity
 
 None.
 
-## Next implementation gate: TECHNICIAN-DEVICES-1 — OPEN / IN PROGRESS
-
-## Prior gate record
-
-## NEEDS-ATTENTION-SHOW-ALL-1 — IMPLEMENTATION COMPLETE, NOT YET COMMITTED
+## NEEDS-ATTENTION-SHOW-ALL-1 — CLOSED / PASS
 
 Two related, sequential user requests against the same panel, both landed in
 this one gate since neither was committed before the second began:
@@ -389,11 +439,12 @@ this one gate since neither was committed before the second began:
 None beyond the pre-existing sub-640px page-wide layout issue noted above,
 which predates this gate and was not introduced by it.
 
-**Status when superseded as the current gate:** implementation and local
-verification complete; commit/push was never confirmed with the user before
-TECHNICIAN-DEVICES-1 began. Still uncommitted — the file/test diff this
-record describes is carried in the working tree alongside TECHNICIAN-DEVICES-1's
-own changes until both are committed.
+Implementation: `492110c` (committed together with TECHNICIAN-DEVICES-1 —
+the user's next request began before this gate was committed, and the two
+share a touched file (`tests/test_equipment_selector.py`) in a way that
+made a clean hunk-level split not worth the fragility, so both were
+committed as one combined change; see that commit's own message for the
+full split of what belongs to which piece).
 
 ## FLEET-CONDITION-ORDER-1 — CLOSED / PASS
 

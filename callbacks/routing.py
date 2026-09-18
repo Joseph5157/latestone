@@ -10,7 +10,7 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, notifications, user_admin, report_center, command_center, command_center_locations
+from pages import audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, command_center_locations
 from pages.placeholder import placeholder_layout
 from routes import (
     Route,
@@ -279,6 +279,10 @@ def register(app) -> None:
             if route.name == "technician_devices":
                 ctx = {"route": "technician_devices"}
                 return technician_devices.layout(), ctx
+
+            if route.name == "admin_assignments":
+                ctx = {"route": "admin_assignments"}
+                return admin_assignments.layout(), ctx
 
             if route.name == "device_register":
                 ctx = {"route": "device_register"}

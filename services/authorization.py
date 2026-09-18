@@ -80,6 +80,11 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     # registration. Deliberately its own route, not a role branch inside
     # "admin_devices" — see that ADR's "boundary by meaning, not location".
     "technician_devices": _TECHNICIAN_ONLY,
+    # The technician workload roster + reassignment surface — a real route
+    # replacing the sidebar's former routeless "Assignments" placeholder.
+    # Admin-only, same as admin_devices: it reads/reassigns the whole fleet's
+    # technician assignments, never a technician's own scope.
+    "admin_assignments": _ADMIN_ONLY,
     "device_register": _ADMIN_ONLY,
     "admin_users": _ADMIN_ONLY,
     "audit_log": _ADMIN_ONLY,

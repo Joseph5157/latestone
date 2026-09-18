@@ -55,6 +55,7 @@ ROUTE_PATHS = {
     "reports": "/reports",
     "admin_devices": "/admin/devices",
     "technician_devices": "/devices",
+    "admin_assignments": "/admin/assignments",
     "device_register": "/admin/devices/new",
     "admin_users": "/admin/users",
     "audit_log": "/admin/audit-log",
@@ -65,7 +66,7 @@ ROUTE_PATHS = {
 #: Functional Specification §5.9 retains the monitoring hierarchy and report
 #: export for General Users, while reserving operational surfaces for the
 #: Administrator and Technician roles.
-ADMIN_ONLY = ("admin_devices", "device_register", "admin_users", "audit_log")
+ADMIN_ONLY = ("admin_devices", "admin_assignments", "device_register", "admin_users", "audit_log")
 GENERAL_READ_ROUTES = ("overview", "plant", "transformer", "device", "reports")
 OPERATIONAL_ROUTES = ("notifications", "command_center", "command_center_locations")
 #: ADR-016: a Technician's own assigned-devices surface. Deliberately NOT in

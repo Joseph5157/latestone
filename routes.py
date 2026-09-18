@@ -38,6 +38,7 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "device": "overview",
     "admin_devices": "devices",
     "technician_devices": "technician_devices",
+    "admin_assignments": "assignments",
     "device_register": "registration",
     "notifications": "notifications",
     "reports": "reports",
@@ -74,8 +75,8 @@ PLANT_PARAM = "plant"
 @dataclass(frozen=True)
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
-               # "admin_devices" | "technician_devices" | "admin_users" |
-               # "reports" | "notifications" |
+               # "admin_devices" | "technician_devices" | "admin_assignments" |
+               # "admin_users" | "reports" | "notifications" |
                # "command_center" | "command_center_locations" | "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
@@ -129,6 +130,8 @@ def parse_pathname(pathname: str | None) -> Route:
     if len(parts) == 2 and parts[0] == "admin":
         if parts[1] == "devices":
             return Route(name="admin_devices")
+        if parts[1] == "assignments":
+            return Route(name="admin_assignments")
         if parts[1] == "users":
             return Route(name="admin_users")
         if parts[1] == "audit-log":
