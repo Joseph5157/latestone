@@ -56,7 +56,8 @@ Support sensible ordering with newest readings first.
 ### FR-08 Data Freshness
 - Evaluate freshness based on the last reading timestamp.
 - Display fresh / stale / no_data status.
-- Freshness threshold is configurable (default: 90 minutes = 3 × 30-minute intervals).
+- Freshness threshold is globally configurable (default: 1,440 minutes / 24
+  hours). This is an interim operational policy, not a per-RTL cadence.
 - No production warning/critical thresholds — monitoring condition is always `UNKNOWN`.
 
 ### FR-09 Data Generation

@@ -22,8 +22,8 @@ from services.monitoring_service import Freshness, fleet_health_from_rows
 
 NOW = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
 FRESH_TS = NOW - timedelta(minutes=5)
-STALE_2H = NOW - timedelta(hours=2)
-STALE_9H = NOW - timedelta(hours=9)
+STALE_25H = NOW - timedelta(hours=25)
+STALE_33H = NOW - timedelta(hours=33)
 STALE_3D = NOW - timedelta(days=3)
 
 #: The eight metrics a real RTL carries (AGENTS.md scope).
@@ -97,7 +97,7 @@ class TestPopulation:
     def test_only_stale_and_no_data_enter_the_list(self, monkeypatch):
         rows = (
             _all("fresh", FRESH_TS)
-            + _all("stale", STALE_2H)
+            + _all("stale", STALE_25H)
             + _rows("blind", plant_id="p1", transformer_id="t1",
                     timestamps=[FRESH_TS] * 7 + [None])
         )
@@ -121,8 +121,8 @@ class TestPopulation:
         """Priority is a lens on Needs Attention, never a second definition."""
         rows = (
             _all("f", FRESH_TS)
-            + _all("s1", STALE_2H)
-            + _all("s2", STALE_9H)
+            + _all("s1", STALE_25H)
+            + _all("s2", STALE_33H)
             + _rows("n1", plant_id="p1", transformer_id="t1",
                     timestamps=[None] * len(METRICS))
         )
@@ -144,7 +144,7 @@ class TestOrdering:
         assert _ids(snapshot) == ["blind", "stale-3d"]
 
     def test_within_stale_the_oldest_lagging_metric_comes_first(self, monkeypatch):
-        rows = _all("recent", STALE_2H) + _all("old", STALE_9H) + _all("oldest", STALE_3D)
+        rows = _all("recent", STALE_25H) + _all("old", STALE_33H) + _all("oldest", STALE_3D)
         snapshot = _snapshot(monkeypatch, rows)
         assert _ids(snapshot) == ["oldest", "old", "recent"]
 
@@ -158,7 +158,7 @@ class TestOrdering:
         rows = (
             _rows("lagging", plant_id="p1", transformer_id="t1",
                   timestamps=[FRESH_TS] * 7 + [STALE_3D])
-            + _all("steady", STALE_2H)
+            + _all("steady", STALE_25H)
         )
         snapshot = _snapshot(monkeypatch, rows)
         assert _ids(snapshot) == ["lagging", "steady"]
@@ -196,7 +196,7 @@ class TestOrdering:
 
     def test_ordering_is_fully_determined(self, monkeypatch):
         """Identical on every key but the id — still one stable order."""
-        rows = _all("d2", STALE_2H) + _all("d1", STALE_2H) + _all("d3", STALE_2H)
+        rows = _all("d2", STALE_25H) + _all("d1", STALE_25H) + _all("d3", STALE_25H)
         first = _ids(_snapshot(monkeypatch, rows))
         second = _ids(_snapshot(monkeypatch, list(reversed(rows))))
         assert first == second == ["d1", "d2", "d3"]
@@ -204,7 +204,7 @@ class TestOrdering:
     def test_the_list_is_capped_at_eight(self, monkeypatch):
         rows = []
         for i in range(12):
-            rows += _all(f"d{i:02d}", NOW - timedelta(hours=i + 2))
+            rows += _all(f"d{i:02d}", NOW - timedelta(hours=i + 25))
         snapshot = _snapshot(monkeypatch, rows)
         assert len(snapshot.priority_rtls) == svc.PRIORITY_ROWS == 8
         # The cap trims the least urgent, never the most.
@@ -213,7 +213,7 @@ class TestOrdering:
     def test_the_total_is_carried_even_when_capped(self, monkeypatch):
         rows = []
         for i in range(12):
-            rows += _all(f"d{i:02d}", NOW - timedelta(hours=i + 2))
+            rows += _all(f"d{i:02d}", NOW - timedelta(hours=i + 25))
         snapshot = _snapshot(monkeypatch, rows)
         assert snapshot.priority_total == 12
 
@@ -234,7 +234,7 @@ class TestEventsDoNotParticipate:
         )
 
     def test_a_storm_of_critical_events_changes_no_position(self, monkeypatch):
-        rows = _all("quiet", STALE_9H) + _all("noisy", STALE_2H)
+        rows = _all("quiet", STALE_33H) + _all("noisy", STALE_25H)
         baseline = _ids(_snapshot(monkeypatch, rows))
 
         storm = [self._event(i, "noisy", "power_down") for i in range(20)]
@@ -243,7 +243,7 @@ class TestEventsDoNotParticipate:
         assert baseline == after == ["quiet", "noisy"]
 
     def test_an_event_cannot_add_a_fresh_rtl_to_the_list(self, monkeypatch):
-        rows = _all("fresh", FRESH_TS) + _all("stale", STALE_2H)
+        rows = _all("fresh", FRESH_TS) + _all("stale", STALE_25H)
         storm = [self._event(1, "fresh", "power_down")]
         snapshot = _snapshot(monkeypatch, rows, events=storm)
         assert _ids(snapshot) == ["stale"]
@@ -276,21 +276,21 @@ class TestRowCopy:
         assert bad not in row.reason
 
     def test_stale_reports_the_oldest_metric_age(self, monkeypatch):
-        rows = _all("d1", NOW - timedelta(hours=3, minutes=41))
+        rows = _all("d1", NOW - timedelta(hours=27, minutes=41))
         row = _snapshot(monkeypatch, rows).priority_rtls[0]
-        assert row.age_label == "3h 41m"
-        assert row.reason == "Oldest monitored metric last reported 3h 41m ago"
+        assert row.age_label == "1d 3h"
+        assert row.reason == "Oldest monitored metric last reported 1d 3h ago"
 
     def test_the_stale_age_is_the_lagging_metric_not_the_freshest(self, monkeypatch):
         """A max-based age would print "5 min" beside a STALE badge."""
         rows = _rows("mixed", plant_id="p1", transformer_id="t1",
-                     timestamps=[FRESH_TS] * 7 + [NOW - timedelta(hours=9)])
+                     timestamps=[FRESH_TS] * 7 + [NOW - timedelta(hours=33)])
         row = _snapshot(monkeypatch, rows).priority_rtls[0]
         assert row.state is Freshness.STALE
-        assert row.age_label == "9h 00m"
+        assert row.age_label == "1d 9h"
 
     def test_the_badge_label_is_the_state_not_an_alarm_word(self, monkeypatch):
-        rows = _all("s", STALE_2H) + _rows(
+        rows = _all("s", STALE_25H) + _rows(
             "n", plant_id="p1", transformer_id="t1", timestamps=[None] * len(METRICS)
         )
         labels = {row.device_id: row.badge_label for row in
@@ -301,7 +301,7 @@ class TestRowCopy:
 
 class TestLabelsAndLinks:
     def test_the_hierarchy_label_is_plant_then_transformer(self, monkeypatch):
-        rows = _all("d1", STALE_2H)
+        rows = _all("d1", STALE_25H)
         paths = [_path("d1", plant_name="Three Gorges Dam",
                        transformer_code="aa12", device_code="29017")]
         row = _snapshot(monkeypatch, rows, paths=paths).priority_rtls[0]
@@ -311,7 +311,7 @@ class TestLabelsAndLinks:
     def test_a_missing_label_falls_back_to_the_stable_id(self, monkeypatch):
         """It must NOT drop out: it is by definition a device the operator
         was just told to investigate first."""
-        rows = _all("plant-01-t1-d1", STALE_2H)
+        rows = _all("plant-01-t1-d1", STALE_25H)
         snapshot = _snapshot(monkeypatch, rows, paths=[])
         row = snapshot.priority_rtls[0]
         assert row.device_label == "plant-01-t1-d1"
@@ -320,14 +320,14 @@ class TestLabelsAndLinks:
     def test_the_link_uses_the_existing_route_contract(self, monkeypatch):
         from routes import device_href
 
-        rows = _all("plant-01-t1-d1", STALE_2H)
+        rows = _all("plant-01-t1-d1", STALE_25H)
         row = _snapshot(monkeypatch, rows).priority_rtls[0]
         assert row.asset_href == device_href("plant-01-t1-d1")
 
     def test_an_unlabelled_device_still_gets_its_link(self, monkeypatch):
         """Unlike an event's unregistered UID, this device is REGISTERED — it
         came out of the monitored population. Only its name is missing."""
-        rows = _all("plant-01-t1-d1", STALE_2H)
+        rows = _all("plant-01-t1-d1", STALE_25H)
         row = _snapshot(monkeypatch, rows, paths=[]).priority_rtls[0]
         assert row.asset_href is not None
 
@@ -342,7 +342,7 @@ class TestLabelsAndLinks:
         calls = []
         rows = []
         for i in range(12):
-            rows += _all(f"d{i:02d}", NOW - timedelta(hours=i + 2))
+            rows += _all(f"d{i:02d}", NOW - timedelta(hours=i + 25))
         monkeypatch.setattr(
             svc, "get_fleet_health",
             lambda now, *, scope: fleet_health_from_rows(rows, NOW),
@@ -400,7 +400,7 @@ class TestPhase5To9AreUnchanged:
     def test_the_situation_summary_figures_are_untouched(self, monkeypatch):
         rows = (
             _all("f", FRESH_TS)
-            + _all("s", STALE_2H)
+            + _all("s", STALE_25H)
             + _rows("n", plant_id="p1", transformer_id="t1",
                     timestamps=[None] * len(METRICS))
         )
@@ -412,14 +412,14 @@ class TestPhase5To9AreUnchanged:
         assert snapshot.attention_rtls == 2
 
     def test_the_affected_locations_ranking_is_untouched(self, monkeypatch):
-        rows = _all("s", STALE_2H) + _all("f", FRESH_TS)
+        rows = _all("s", STALE_25H) + _all("f", FRESH_TS)
         snapshot = _snapshot(monkeypatch, rows)
         assert [loc.plant_id for loc in snapshot.affected_locations] == ["p1"]
         assert snapshot.affected_locations[0].affected_rtls == 1
 
     def test_the_electrical_conditions_stay_unavailable(self, monkeypatch):
         """Phase 6's contract: no current count exists (ADR-001)."""
-        snapshot = _snapshot(monkeypatch, _all("s", STALE_2H))
+        snapshot = _snapshot(monkeypatch, _all("s", STALE_25H))
         assert all(c.current_count is None for c in snapshot.electrical_conditions)
 
 
@@ -463,13 +463,13 @@ class TestOneSharedLabelLookup:
         return calls
 
     def test_events_and_priority_share_one_call(self, monkeypatch):
-        rows = _all("stale-rtl", STALE_2H) + _all("fresh-rtl", FRESH_TS)
+        rows = _all("stale-rtl", STALE_25H) + _all("fresh-rtl", FRESH_TS)
         calls = self._run(monkeypatch, rows, [self._event("fresh-rtl")])
         assert len(calls) == 1
 
     def test_the_one_call_covers_both_populations(self, monkeypatch):
         """The union, deduplicated — an event on a stale RTL is one id."""
-        rows = _all("stale-rtl", STALE_2H) + _all("fresh-rtl", FRESH_TS)
+        rows = _all("stale-rtl", STALE_25H) + _all("fresh-rtl", FRESH_TS)
         calls = self._run(
             monkeypatch, rows,
             [self._event("fresh-rtl"), self._event("stale-rtl")],
@@ -483,7 +483,7 @@ class TestOneSharedLabelLookup:
             raise RuntimeError("event read down")
 
         calls = []
-        rows = _all("stale-rtl", STALE_2H)
+        rows = _all("stale-rtl", STALE_25H)
         monkeypatch.setattr(
             svc, "get_fleet_health",
             lambda now, *, scope: fleet_health_from_rows(rows, NOW),
@@ -521,7 +521,7 @@ class TestTheCopyDoesNotNameAMetric:
 
     def test_no_metric_name_appears_in_a_stale_reason(self, monkeypatch):
         rows = _rows("mixed", plant_id="p1", transformer_id="t1",
-                     timestamps=[FRESH_TS] * 7 + [STALE_9H])
+                     timestamps=[FRESH_TS] * 7 + [STALE_33H])
         row = _snapshot(monkeypatch, rows).priority_rtls[0]
         for metric in METRICS:
             assert metric not in row.reason.lower()
@@ -540,6 +540,6 @@ class TestTheCopyDoesNotNameAMetric:
         )
 
     def test_the_generic_wording_is_what_ships(self, monkeypatch):
-        rows = _all("d1", NOW - timedelta(hours=3, minutes=41))
+        rows = _all("d1", NOW - timedelta(hours=27, minutes=41))
         row = _snapshot(monkeypatch, rows).priority_rtls[0]
-        assert row.reason == "Oldest monitored metric last reported 3h 41m ago"
+        assert row.reason == "Oldest monitored metric last reported 1d 3h ago"

@@ -88,12 +88,12 @@ CAPTURE_PATH = pathlib.Path(".freshness-demo-capture.json")
 #: How far past the staleness threshold the "plain stale" RTL is pushed.
 #: Comfortably past it, so the fixture does not sit on the boundary and
 #: flip state while someone is looking at the screen.
-STALE_MARGIN = timedelta(hours=4)
+STALE_MARGIN = timedelta(hours=28)
 
 #: The lagging metric on the mixed STALE target. Deliberately much older
 #: than STALE_MARGIN so the two stale RTLs rank in a stated order and the
-#: browser shows a legible "Xh Ym", not two rows that look identical.
-LAGGING_AGE = timedelta(hours=9, minutes=17)
+#: browser shows a legible different age, not two rows that look identical.
+LAGGING_AGE = timedelta(hours=33, minutes=17)
 
 
 @dataclass(frozen=True)

@@ -409,14 +409,53 @@ class DashSettings:
     port: int = _get_int("DASH_PORT", 8050)
 
 
+DEFAULT_FRESHNESS_STALE_AFTER_MINUTES = 24 * 60
+
+
+def resolve_freshness_stale_after_minutes(
+    direct: str | None,
+    legacy_expected_interval: str | None,
+    legacy_stale_intervals: str | None,
+) -> int:
+    """Resolve the one global freshness threshold.
+
+    The legacy pair is deliberately never multiplied here. Those variables
+    encoded an expected-device-cadence claim the application cannot support.
+    A direct value wins; otherwise the interim 24-hour default applies.
+    """
+    legacy_present = any(
+        value is not None and value.strip() != ""
+        for value in (legacy_expected_interval, legacy_stale_intervals)
+    )
+    if legacy_present:
+        # Intentionally no compatibility calculation: these variables claimed
+        # a per-device cadence the application does not possess. Their names
+        # remain accepted only as explicit ignored inputs during transition.
+        pass
+
+    if direct is None or direct.strip() == "":
+        return DEFAULT_FRESHNESS_STALE_AFTER_MINUTES
+    try:
+        value = int(direct)
+    except ValueError:
+        return DEFAULT_FRESHNESS_STALE_AFTER_MINUTES
+    return value if value > 0 else DEFAULT_FRESHNESS_STALE_AFTER_MINUTES
+
+
+def freshness_stale_after_minutes_from_environment() -> int:
+    return resolve_freshness_stale_after_minutes(
+        os.getenv("FRESHNESS_STALE_AFTER_MINUTES"),
+        os.getenv("EXPECTED_INTERVAL_MINUTES"),
+        os.getenv("STALE_AFTER_INTERVALS"),
+    )
+
+
 @dataclass(frozen=True)
 class MonitoringSettings:
     """Freshness policy and refresh cadence.
 
-    expected_interval_minutes: current project/client-known requirement
-        (readings arrive roughly every 30 minutes).
-    stale_after_intervals: DEVELOPMENT APPLICATION POLICY. Requires client
-        confirmation before production use.
+    stale_after_minutes: interim global operational threshold. It does not
+        claim or configure any individual RTL's reporting cadence.
     refresh_interval_seconds: UI polling cadence. Short by default for local
         development convenience; production polling should be aligned to
         actual ingestion behaviour.
@@ -425,13 +464,8 @@ class MonitoringSettings:
         os.getenv("PLANT_MONITORING_SCHEMA", "plant_monitoring"),
         "PLANT_MONITORING_SCHEMA",
     )
-    expected_interval_minutes: int = _get_int("EXPECTED_INTERVAL_MINUTES", 30)
-    stale_after_intervals: int = _get_int("STALE_AFTER_INTERVALS", 3)
+    stale_after_minutes: int = freshness_stale_after_minutes_from_environment()
     refresh_interval_seconds: int = _get_int("UI_REFRESH_INTERVAL_SECONDS", 60)
-
-    @property
-    def stale_after_minutes(self) -> int:
-        return self.expected_interval_minutes * self.stale_after_intervals
 
 
 @dataclass(frozen=True)

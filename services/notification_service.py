@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from config.notifications import CATEGORIES, derivable_categories
-from services.monitoring_service import Freshness, evaluate_freshness
 from routes import device_href
 
 #: Formal business rule: RTL failed to send data for more than 24 hours (BR008).

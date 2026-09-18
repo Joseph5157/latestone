@@ -30,6 +30,16 @@ def _percentage(count: int, total: int) -> float:
     return 100 * count / total if total else 0
 
 
+def _threshold_label(minutes: int) -> str:
+    if minutes % (24 * 60) == 0:
+        days = minutes // (24 * 60)
+        return "24 hours" if days == 1 else f"{days} days"
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        return f"{hours} hour" if hours == 1 else f"{hours} hours"
+    return f"{minutes} min"
+
+
 def _freshness_breakdown(counts: dict[Freshness, int]) -> list[tuple]:
     """Shared display rows, not a second classification of metric readings."""
     total = _total(counts)
@@ -180,7 +190,7 @@ def fresh_data_coverage(counts: dict[Freshness, int]) -> html.Section:
                 ]),
             ]),
             html.Dl(className="fleet-condition__metadata", children=[
-                html.Div(children=[html.Dt("Freshness target"), html.Dd(f"≤ {monitoring.stale_after_minutes} min")]),
+                html.Div(children=[html.Dt("Freshness target"), html.Dd(f"≤ {_threshold_label(monitoring.stale_after_minutes)}")]),
                 html.Div(children=[html.Dt("Evaluation scope"), html.Dd("All monitored metrics must be fresh")]),
             ]),
             html.P("No monitored RTLs in your current scope." if not total else
@@ -197,14 +207,14 @@ def fleet_condition_panels(counts: dict[Freshness, int]) -> list:
 
 def data_freshness(counts: dict[Freshness, int]) -> html.Section:
     total = _total(counts)
-    threshold = monitoring.stale_after_minutes
+    threshold = _threshold_label(monitoring.stale_after_minutes)
     ranges = {
-        Freshness.FRESH: f"All metrics ≤ {threshold} min",
-        Freshness.STALE: f"At least one metric > {threshold} min",
+        Freshness.FRESH: f"All metrics ≤ {threshold}",
+        Freshness.STALE: f"At least one metric > {threshold}",
         Freshness.NO_DATA: "At least one metric has no reading",
     }
     return html.Section(className="card fleet-condition__card fleet-condition__freshness", children=[
-        _heading("Data Freshness", "Recency of latest RTL data"),
+        _heading("Data Freshness", f"Recency of latest RTL data · global {threshold} operational threshold"),
         html.Div(className="fleet-condition__freshness-rows", children=[
             html.Div(className=f"fleet-condition__freshness-row fleet-condition__tone--{token}", children=[
                 html.Div(className="fleet-condition__freshness-labels", children=[

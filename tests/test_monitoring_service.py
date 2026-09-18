@@ -40,14 +40,18 @@ class TestEvaluateFreshness:
     def test_no_timestamp_is_no_data(self):
         assert svc.evaluate_freshness(None, NOW) is Freshness.NO_DATA
 
-    def test_recent_reading_is_fresh(self):
-        assert svc.evaluate_freshness(NOW - timedelta(minutes=20), NOW) is Freshness.FRESH
+    def test_23h_59m_59s_is_fresh(self):
+        assert svc.evaluate_freshness(
+            NOW - timedelta(hours=23, minutes=59, seconds=59), NOW
+        ) is Freshness.FRESH
 
-    def test_just_inside_threshold_is_fresh(self):
-        assert svc.evaluate_freshness(NOW - timedelta(minutes=89), NOW) is Freshness.FRESH
+    def test_exactly_24h_is_fresh(self):
+        assert svc.evaluate_freshness(NOW - timedelta(hours=24), NOW) is Freshness.FRESH
 
-    def test_beyond_three_intervals_is_stale(self):
-        assert svc.evaluate_freshness(NOW - timedelta(minutes=91), NOW) is Freshness.STALE
+    def test_beyond_24h_is_stale(self):
+        assert svc.evaluate_freshness(
+            NOW - timedelta(hours=24, seconds=1), NOW
+        ) is Freshness.STALE
 
     def test_far_past_is_stale_not_no_data(self):
         """Stale means late data; no_data means no reading ever."""
@@ -252,8 +256,8 @@ class TestGetDeviceFullView:
             svc.repo,
             "get_latest_readings_for_device",
             lambda device_id, metrics=None: {
-                # temperature is 2h behind the newest metric on this device
-                "temperature": RawReading(DEVICE, "temperature", NOW - timedelta(hours=2), 31.4),
+                # temperature is 25h behind the newest metric on this device
+                "temperature": RawReading(DEVICE, "temperature", NOW - timedelta(hours=25), 31.4),
                 "voltage": RawReading(DEVICE, "voltage", NOW, 11.02),
             },
         )
@@ -294,7 +298,7 @@ class TestGetDeviceFullView:
 
     def test_each_metric_keeps_its_own_last_updated(self):
         views = svc.get_device_full_view(DEVICE, Period.LAST_24H)
-        assert views["temperature"].last_updated == NOW - timedelta(hours=2)
+        assert views["temperature"].last_updated == NOW - timedelta(hours=25)
         assert views["voltage"].last_updated == NOW
 
     def test_freshness_evaluated_per_metric_independently(self):

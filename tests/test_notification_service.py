@@ -624,11 +624,11 @@ class TestArchitecture:
         assert "database" not in source.lower()
         assert "sql" not in source.lower()
 
-    def test_notification_service_uses_existing_freshness(self):
+    def test_notification_service_does_not_import_configurable_freshness(self):
         import services.notification_service as mod
         import inspect
         source = inspect.getsource(mod)
-        assert "from services.monitoring_service import" in source
+        assert "services.monitoring_service" not in source
 
     def test_stale_threshold_not_reused(self):
         """The 24h rule uses its own constant, not the STALE threshold."""

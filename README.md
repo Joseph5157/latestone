@@ -245,8 +245,10 @@ powerplant-dashboard/
 
 - **Reserved identifiers**: `plant-01-t1-d1` maps to `aa12`/`29017` (the
   client-known example). All other IDs are synthetically generated.
-- **Freshness policy**: 30-minute expected interval, 3 missed intervals
-  = stale. This is a development policy, not a client-confirmed threshold.
+- **Freshness policy**: one configurable global operational threshold,
+  `FRESHNESS_STALE_AFTER_MINUTES`, defaults to 1,440 minutes (24 hours).
+  This interim policy is not an RTL-specific reporting cadence. The legacy
+  `EXPECTED_INTERVAL_MINUTES` / `STALE_AFTER_INTERVALS` pair is ignored.
 
 ## Architecture rule (do not violate)
 

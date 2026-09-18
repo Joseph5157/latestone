@@ -228,6 +228,14 @@ def test_freshness_threshold_copy_uses_current_configuration(monkeypatch):
     assert "At least one metric has no reading" in rendered
 
 
+def test_default_copy_names_global_24_hour_operational_threshold():
+    rendered = text_of(data_freshness({F: 3, S: 1, N: 1}))
+    assert "global 24 hours operational threshold" in rendered
+    assert "All metrics ≤ 24 hours" in rendered
+    assert "At least one metric > 24 hours" in rendered
+    assert "expected interval" not in rendered.lower()
+
+
 def test_four_sections_are_composed_from_existing_slots():
     page = layout()
     find_by_id(page, "fleet-systemic-state").children = fleet_condition_panels({F: 3, S: 2, N: 1})
