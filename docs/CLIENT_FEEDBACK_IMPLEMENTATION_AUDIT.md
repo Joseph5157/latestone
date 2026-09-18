@@ -76,10 +76,10 @@ that it violates the Functional Specification.
 | 1.1 | Fleet Condition / RTLs Requiring Attention should be the immediate operational view | EXPLICIT CLIENT MEETING REQUEST | `/` and `/plants` resolve to Fleet Overview; Command Center is separate at `/command-center` | CONFLICTS WITH CLIENT FEEDBACK | `routes.py:84-105`; `callbacks/routing.py:166-168,299-312`; `components/app_sidebar.py:61-65` | High: operators do not land in the requested workflow; General Users cannot access Command Center | Confirm which role-specific page is meant, then change default route/navigation in a focused gate | Yes |
 | 1.2 | Fleet Overview should support investigation | EXPLICIT CLIENT MEETING REQUEST | Fleet Overview contains Fleet Condition, fresh coverage, data freshness, a grouped attention queue and Plant table drill-downs | ALREADY IMPLEMENTED | `pages/plants_overview.py:18-88`; `callbacks/listings.py:780-830`; `components/needs_attention.py:53-110` | Low | Retain; avoid duplicating these panels in a redesign | No |
 | 1.3 | Operational view must be functional, not merely visual | CLIENT QUESTION / OBSERVATION | Overview panels are callback-populated from one scoped freshness chain; the queue and tables link into hierarchy/device routes | ALREADY IMPLEMENTED | `callbacks/listings.py:780-830,995-1000`; `services/monitoring_service.py:376-490`; `tests/test_fleet_overview.py:242-318` | Low | Preserve the shared query and structural tests | No |
-| 2.1 | Reconsider the roughly 90-minute freshness threshold for hourly/6-hourly/daily RTLs | CLIENT QUESTION / OBSERVATION | Global default is 30-minute expected interval × 3 = 90 minutes; environment-configurable, not per device | NEEDS CLIENT CLARIFICATION | `config/settings.py:414-434`; `services/monitoring_service.py:198-207`; `tests/test_freshness_policy.py:14-34` | High: false stale classification if real cadences vary | Obtain cadence ownership/default/grace policy before changing the value or shape | Yes |
-| 2.2 | Distinguish UI freshness from BR008 | FUNCTIONAL SPEC REQUIREMENT | Fresh/Stale uses 90 minutes; BR008 uses a separate strict `age > 24h` constant | ALREADY IMPLEMENTED | `services/notification_service.py:4-21,50-109`; `tests/test_notification_service.py:113-200,633-639` | Low if kept separate; high if merged | Preserve two independent concepts and name them explicitly in UI/copy | No |
-| 2.3 | Support reporting interval per RTL if cadence varies | CLIENT QUESTION / OBSERVATION | No per-device reporting interval exists in schema, repository record or configuration; only one global setting exists | MISSING | `alembic/versions/001_baseline.py:44-114`; `repositories/plant_monitoring_repository.py:31-43`; `config/settings.py:414-434` | High: a global threshold cannot truthfully classify mixed cadences | Ask whether cadence belongs to RTL, model, feeder, or integration source; then design migration/policy | Yes |
-| 2.4 | Changing freshness must not alter >24h notification semantics | FUNCTIONAL SPEC REQUIREMENT | BR008 does not read `stale_after_minutes`; tests assert this separation | ALREADY IMPLEMENTED | `services/notification_service.py:19-21,94-109`; `tests/test_notification_service.py:188-200,633-639` | High regression risk if future work reuses freshness | Add this invariant to any cadence gate acceptance criteria | No |
+| 2.1 | Reconsider the roughly 90-minute freshness threshold for hourly/6-hourly/daily RTLs | CLIENT QUESTION / OBSERVATION | RESOLVED (CLIENT-FEEDBACK-FRESHNESS-1): global default replaced with a single configurable `FRESHNESS_STALE_AFTER_MINUTES` threshold, defaulting to 1,440 minutes (24 hours) — the client-suggested interim baseline. Legacy `EXPECTED_INTERVAL_MINUTES`/`STALE_AFTER_INTERVALS` are explicitly ignored, never combined | ALREADY IMPLEMENTED (INTERIM POLICY) | `config/settings.py:409-462`; `services/monitoring_service.py:198-207`; `tests/test_freshness_policy.py` | Medium: interim policy, not a per-RTL cadence — see 2.3 | Treat 24 hours as the current baseline; revisit only when 2.3's per-RTL cadence source is answered | No for the interim 24-hour value itself; Yes still applies to 2.3's per-device cadence |
+| 2.2 | Distinguish UI freshness from BR008 | FUNCTIONAL SPEC REQUIREMENT | Fresh/Stale now uses the 24-hour interim threshold; BR008 uses its own separate, unchanged strict `age > 24h` constant | ALREADY IMPLEMENTED | `services/notification_service.py:4-21,50-109`; `tests/test_notification_service.py:113-200,633-639` | Low if kept separate; high if merged | Preserve two independent concepts and name them explicitly in UI/copy | No |
+| 2.3 | Support reporting interval per RTL if cadence varies | CLIENT QUESTION / OBSERVATION | Still no per-device reporting interval in schema, repository record or configuration; only one global setting exists (now 24h, previously 90 min) — CLIENT-FEEDBACK-FRESHNESS-1 deliberately did not add this | MISSING | `alembic/versions/001_baseline.py:44-114`; `repositories/plant_monitoring_repository.py:31-43`; `config/settings.py:409-462` | High: a global threshold still cannot truthfully classify mixed cadences | Ask whether cadence belongs to RTL, model, feeder, or integration source; then design migration/policy. The authoritative reporting-interval source remains client/integration dependent | Yes |
+| 2.4 | Changing freshness must not alter >24h notification semantics | FUNCTIONAL SPEC REQUIREMENT | BR008 does not read `stale_after_minutes` and no longer even imports `services.monitoring_service`; CLIENT-FEEDBACK-FRESHNESS-1 changed the UI threshold value and confirmed BR008 was unaffected, with a regression test asserting the import boundary | ALREADY IMPLEMENTED | `services/notification_service.py:1-21,94-109`; `tests/test_notification_service.py:188-200,626-639` | High regression risk if future work reuses freshness | Add this invariant to any cadence gate acceptance criteria | No |
 | 3.1 | Prefer Feeder Name / Network Name to Plant | EXPLICIT CLIENT MEETING REQUEST | Visible hierarchy, routes and internal entity model use Plant throughout | CONFLICTS WITH CLIENT FEEDBACK | `routes.py:84-118`; `pages/plants_overview.py:18-88`; `pages/plant_detail.py:12-69`; `repositories/plant_monitoring_repository.py:31-38` | High: a blind rename may misrepresent Plant as the formal Feeder field | Confirm whether current Plant rows are feeders, networks, or another level | Yes |
 | 3.2 | Functional Specification taxonomy includes OU, Zone, Sector, CNC, Feeder/Feeder Name | FUNCTIONAL SPEC REQUIREMENT | Report headers exist, but values are deliberately `None` pending authoritative mapping | PARTIALLY IMPLEMENTED | `config/reports.py:25-90`; `callbacks/report_center.py:221-259`; tracker `:122-125,163` | High: presentation rename alone would not populate required taxonomy | Obtain production taxonomy mapping and implement it independently of cosmetic naming | Yes |
 | 3.3 | Determine whether terminology can be presentation-only | INTERNAL DESIGN PROPOSAL | A label-only change is technically possible, but unsafe as a semantic assertion: schema/FKs/routes/API fields/tests remain Plant, and FS Feeder is a currently unmapped report field | NEEDS CLIENT CLARIFICATION | `alembic/versions/001_baseline.py:44-77`; `routes.py:70-118`; `callbacks/report_center.py:147-183` | High: conflates a current development grouping with an authoritative taxonomy level | Permit presentation-only aliasing only after client confirms Plant ≡ Feeder/Network for this application | Yes |
@@ -131,37 +131,55 @@ keep a universally accessible condition-first overview.
 
 ### Freshness / Stale Semantics
 
-There are two independent clocks:
+**Resolved by CLIENT-FEEDBACK-FRESHNESS-1.** The client's superior stated field
+RTLs may report hourly, every 6 hours, or daily, so the previous ~90-minute
+threshold could produce false stale conditions. The interim baseline is now a
+24-hour global operational threshold. Per-RTL cadence-aware freshness remains
+a separate, unresolved future design/integration item (see 2.3) — the
+authoritative reporting-interval source is still client/integration dependent.
 
-- UI freshness defaults to `EXPECTED_INTERVAL_MINUTES=30` and
-  `STALE_AFTER_INTERVALS=3`, yielding 90 minutes
-  (`config/settings.py:414-434`). A timestamp is Stale only when age is strictly
-  greater than that threshold (`services/monitoring_service.py:198-207`). A
-  missing metric reading is No Data, and device/Transformer/Plant rollups take
-  the worst metric state (`services/monitoring_service.py:249-264,376-490`).
+There remain two independent clocks:
+
+- UI freshness now defaults to `FRESHNESS_STALE_AFTER_MINUTES=1440` (24 hours)
+  (`config/settings.py:409-462`). A timestamp is Stale only when age is
+  strictly greater than that threshold (`services/monitoring_service.py:
+  198-207`) — the boundary itself is unchanged, only the value moved from 90
+  minutes to 24 hours. A missing metric reading is No Data, and
+  device/Transformer/Plant rollups take the worst metric state
+  (`services/monitoring_service.py:249-264,376-490`). The legacy
+  `EXPECTED_INTERVAL_MINUTES`/`STALE_AFTER_INTERVALS` pair is still accepted
+  as explicit, named, ignored input — never silently combined with the new
+  setting (`config/settings.py::resolve_freshness_stale_after_minutes`).
 - BR008 uses `NO_DATA_NOTIFICATION_AFTER = timedelta(hours=24)` and emits only
   when age is strictly greater than 24 hours. Exactly 24 hours does not trigger
-  (`services/notification_service.py:19-21,89-109`;
+  (`services/notification_service.py:18-21,89-109`;
   `tests/test_notification_service.py:131-142`). A never-reported device is
   excluded because the system cannot prove it has been active for more than 24
-  hours (`services/notification_service.py:61-65,89-93`).
+  hours (`services/notification_service.py:61-65,89-93`). This gate did not
+  change BR008's value or boundary; it did remove `notification_service.py`'s
+  now-dead import of `services.monitoring_service`, with a regression test
+  proving the module no longer references it at all
+  (`tests/test_notification_service.py::TestArchitecture::
+  test_notification_service_does_not_import_configurable_freshness`).
 
 The UI threshold is consumed across Fleet Overview, Plant/Transformer/device
 freshness displays and Command Center through the central monitoring service.
-The rendered Fleet Overview explicitly shows the configured threshold
-(`components/fleet_condition.py:177-204`). Command Center consumes the same
-`FleetHealth`, not a separate threshold (`services/command_center_service.py:
+The rendered Fleet Overview explicitly shows the configured threshold, worded
+as an operational threshold rather than a per-RTL cadence
+(`components/fleet_condition.py:33-42,177-220`). Command Center consumes the
+same `FleetHealth`, not a separate threshold (`services/command_center_service.py:
 877-917`). Notifications intentionally use the separate BR008 constant. Reports
 do not calculate freshness: their data services are separate, and report code
 explicitly avoids owning that axis (`repositories/plant_monitoring_repository.py:
 2583-2584`).
 
-There is no per-device expected cadence column in the baseline device schema or
-`PlantRecord`/device records, and no repository API for one. Changing the
-global freshness value would change visible Fresh/Stale classification and all
-freshness-derived attention rankings, but it would **not** change BR008 unless
-someone separately altered `NO_DATA_NOTIFICATION_AFTER` or incorrectly coupled
-the two. That separation is already tested.
+There is still no per-device expected cadence column in the baseline device
+schema or `PlantRecord`/device records, and no repository API for one — this
+gate deliberately did not add one (see 2.3, still MISSING). Changing the
+global freshness value changed visible Fresh/Stale classification and all
+freshness-derived attention rankings, but it did **not** change BR008; the
+separation is tested both ways (BR008 independence, and rollup/attention-count
+tests updated for the new 24-hour threshold).
 
 ### Terminology
 

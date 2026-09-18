@@ -1,76 +1,166 @@
 # Active Gate
 
 Status: **CLOSED / PASS**
-Date: 2026-09-17
+Date: 2026-09-18
 Gate: NONE
 Commit/push permission: **GRANTED and exercised** (implementation commit,
 closure-doc commit, push, and remote verification required by this gate).
 
 ## Task
 
-Remove Fuel and Capacity from visible Fleet Overview and Plant detail
-presentation while preserving the underlying schema/data contract, Plant
-terminology, hierarchy navigation, report taxonomy and authorization.
+Replace the 30-minute × 3 freshness assumption with one configurable global
+stale threshold defaulting to 1440 minutes. Preserve the strict boundary,
+No Data/metric rollups, DeviceScope, and BR008's independent strict >24h rule.
 
 ## Relevant files
 
-- `pages/plants_overview.py`
-- `callbacks/listings.py`
-- `assets/app.css`
+- `config/settings.py`
+- `.env.example`
+- `services/monitoring_service.py`
+- `services/notification_service.py`
+- `components/fleet_condition.py`
+- `README.md`
+- `REQUIREMENTS.md`
+- `tests/test_freshness_policy.py`
+- `tests/test_monitoring_service.py`
+- `tests/test_fleet_condition.py`
 - `tests/test_fleet_overview.py`
-- `tests/test_plant_detail.py`
-- `tests/test_table_navigation.py`
+- `tests/test_command_center_priority.py`
+- `tests/test_notification_service.py`
 - `tests/test_auth_harden_repair.py`
-- `tests/test_fleet_naming.py`
-- `tests/test_detail_hierarchy.py`
 - `docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md`
 - `docs/context/CURRENT_STATE.md`
 
 ## Decisions this gate depends on
 
-- The RTL Functional Specification remains formal requirements authority and
-  does not require Fuel or generation Capacity on monitoring screens.
-- The client-feedback audit identifies both as visible generic power-generation
-  remnants and recommends presentation-only removal.
+- ADR-002: Requires Attention remains Stale + No Data and rollups retain the
+  worst freshness state across every monitored metric.
+- ADR-004: DeviceScope remains the sole device-visibility authority.
+- BR008 remains a separate formal rule: active RTL with last data strictly
+  older than 24 hours generates the existing notification projection.
 
 ## Non-goals (explicit)
 
-- No database column, migration, repository record, seed-data, hierarchy ID,
-  route, report taxonomy or authorization change.
-- No Plant-to-Feeder/Network rename and no invented replacement fields.
-- No product-brand rename without an authoritative replacement name.
+- No per-device cadence model, schema/migration, metric-participation,
+  No Data, alarm, notification-delivery or report-taxonomy change.
+- No BR008 threshold, boundary or notification-generation change.
+- No DeviceScope or authorization change.
 - No Functional Specification tracker status change.
 
 ## Known ambiguities
 
-The current product copy still contains “Power Plant Monitoring” and
-“Powerplant Dashboard.” These are reported as generic branding remnants but
-remain unchanged because no approved replacement name exists.
+The 24-hour threshold is an interim global operational policy, not evidence of
+an RTL-specific configured reporting cadence. The authoritative per-RTL
+cadence source and future cadence-aware policy remain unresolved.
 
 ## Implementation and verification
 
-Implementation: `55e3eebea3ea17263338d3cd2387a9cfcc8a0534`.
+Implementation: `2764e60`.
 
-- Fleet Overview now renders Plant, Country, Transformers, Devices and Data;
-  Fuel and Capacity were removed from both first-paint and callback columns and
-  from row payloads.
-- Plant detail context now renders Country, Transformers and Devices before its
-  existing operational health content; Fuel and Capacity were not replaced.
-- Obsolete responsive/hover CSS for the removed columns was deleted so the
-  remaining operational columns use the available layout naturally.
-- No schema, migration, repository, seed, hierarchy, route, report or
-  authorization file changed. Plant terminology remains unchanged.
-- Focused Fleet/detail/navigation/role suite: 174 passed.
-- Full non-DB suite: 3132 passed, 699 deselected.
-- Browser: Administrator retained 30 plants/120 RTLs and Technician retained
-  16 plants/24 assigned RTLs. Fleet-to-Plant navigation and four scoped
-  transformer rows passed; neither surface rendered Fuel or Capacity.
-- Generic branding remains: `Power Plant Monitoring` in browser/login copy and
-  `Powerplant Dashboard` in the shell. It was not renamed because no approved
-  replacement name exists. Seeded real-world Plant names also remain unchanged.
-- `python scripts/build_context_pack.py --check` and `git diff --check` clean.
+- `config/settings.py`: `MonitoringSettings.stale_after_minutes` is now a
+  direct field (`freshness_stale_after_minutes_from_environment()`), no
+  longer a property computed from `expected_interval_minutes *
+  stale_after_intervals`. `DEFAULT_FRESHNESS_STALE_AFTER_MINUTES = 1440`.
+  `resolve_freshness_stale_after_minutes(direct, legacy_expected_interval,
+  legacy_stale_intervals)` is the single resolution function: a direct
+  `FRESHNESS_STALE_AFTER_MINUTES` value wins outright; the legacy
+  `EXPECTED_INTERVAL_MINUTES`/`STALE_AFTER_INTERVALS` pair is explicitly
+  read and explicitly ignored (never multiplied or combined with the new
+  setting); an invalid or non-positive direct value falls back to the
+  1440-minute default rather than raising. Because the field kept the same
+  name (`stale_after_minutes`), `services/monitoring_service.py` (the only
+  other consumer) needed no change at all.
+- `services/notification_service.py`: dropped its now-dead `from
+  services.monitoring_service import Freshness, evaluate_freshness` line
+  (BR008's own `NO_DATA_NOTIFICATION_AFTER = timedelta(hours=24)` was
+  already independent and untouched). A regression test now asserts the
+  module contains no reference to `services.monitoring_service` at all.
+- `components/fleet_condition.py`: new `_threshold_label()` renders the
+  configured minutes as "24 hours" / "N days" / "N hours" / "N min" instead
+  of a raw minute count; freshness copy now reads "global 24 hours
+  operational threshold" and "All metrics ≤ 24 hours" / "At least one
+  metric > 24 hours" — no wording claims an RTL-specific cadence.
+- `.env.example`, `README.md`, `REQUIREMENTS.md`: legacy 30-minute/90-minute
+  wording replaced with `FRESHNESS_STALE_AFTER_MINUTES=1440`, documented as
+  an interim global operational policy, with the legacy pair named as
+  explicitly ignored (not silently combined).
+- `db/seed_freshness_demo.py`: `STALE_MARGIN` raised 4h→28h and
+  `LAGGING_AGE` raised 9h17m→33h17m so the demo fixture's Stale targets
+  stay comfortably past the new 24h boundary instead of sitting inside it.
+- No schema/migration, No Data semantics, metric participation, DeviceScope,
+  alarm, notification-delivery or report-taxonomy change. No Functional
+  Specification tracker status changed.
 
-No Functional Specification tracker status changed.
+### Tests
+
+- Boundary proofs (`tests/test_monitoring_service.py`): no reading →
+  `NO_DATA`; `23h59m59s` → `FRESH`; exactly `24h` → `FRESH`; `24h + 1s` →
+  `STALE` (strict `>`, unchanged boundary semantics, only the value moved).
+- `tests/test_freshness_policy.py`: default is 1440; a direct setting wins
+  without interval math; the legacy pair does not restore 90 minutes;
+  invalid/non-positive direct values fall back safely; environment
+  resolution prefers the direct setting over the legacy pair;
+  `MonitoringSettings` no longer exposes `expected_interval_minutes`/
+  `stale_after_intervals` at all.
+- `tests/test_fleet_condition.py`: default copy names "global 24 hours
+  operational threshold" and contains no "expected interval" wording.
+- `tests/test_command_center_priority.py`, `tests/test_fleet_overview.py`:
+  fleet/device/plant rollups, Needs Attention counts and Priority
+  Investigation re-verified against the new 24h threshold (fixture ages
+  moved from 2h/9h to 25h/33h so they remain genuinely Stale under the new
+  boundary).
+- `tests/test_notification_service.py`: BR008 still uses its own
+  `>24h` constant (`test_stale_threshold_not_reused`);
+  `test_notification_service_does_not_import_configurable_freshness`
+  (renamed/inverted from the old "must import" assertion) proves the module
+  contains no reference to `services.monitoring_service` — the strongest
+  form of "does not depend on configurable freshness" available.
+- `tests/test_auth_harden_repair.py`: unaffected, re-run as part of the full
+  suite; DeviceScope/authorization untouched by this gate.
+
+### Verification
+
+- Focused: `tests/test_freshness_policy.py` + `tests/test_monitoring_service.py`
+  + `tests/test_fleet_condition.py` + `tests/test_fleet_overview.py` +
+  `tests/test_command_center_priority.py` + `tests/test_notification_service.py`
+  — **284 passed**.
+- `python -m pytest -m "not db"` (full non-DB suite) — **3138 passed, 699
+  deselected**, exit 0.
+- `python scripts/build_context_pack.py --check` — CLEAN at gate open and
+  close. `git diff --check` — clean.
+- Browser verification (Playwright; Chrome extension was not connected this
+  session), against real local dev data (`plant_monitoring_postgres`,
+  `alembic current` = `014_alarm_ack_fk_no_action`, unchanged by this gate):
+  logged in as Administrator — Fleet Overview and Command Center both read
+  "global 24 hours operational threshold" / "≤ 24 hours" / "> 24 hours"
+  copy, with no "90 minutes" or "expected interval" wording anywhere.
+  Real seed readings are currently ~1d19h stale (last generated
+  2026-09-16, untouched by this gate — a pre-existing seed-freshness
+  condition, not a regression), so the fleet showed 119 Stale / 0 Fresh
+  under both the old and new threshold; to exercise the No Data path
+  specifically, `python -m db.seed_freshness_demo --apply` was used
+  (reversible: captures rows before deleting, `--restore` after) to give
+  device `plant-05-t1-d1` a genuinely missing metric. Fleet Overview then
+  correctly showed 1 No Data / 119 Stale / 0 Fresh; Command Center's
+  Needs Attention, Communication and Priority Investigation panels all
+  reflected the same 1 No Data, with the No Data row ranked first in
+  Priority Investigation (ADR-002 worst-state ordering). The Power
+  Down/Battery Low condition-button drill-down on Command Center still
+  switches correctly (`aria-pressed` moved to Battery Low, the affected-RTL
+  panel heading changed to "Affected RTLs · Battery Low") — unaffected by
+  this gate, verified as regression. `python -m db.seed_freshness_demo
+  --restore` afterward returned the database to its pre-demo state
+  (1441/1441 rows restored; `--status` confirmed no residual capture).
+  Logged in as `demo.tech01` (assigned Technician) — scope unchanged (16
+  plants, 24 assigned RTLs), freshness rendering ("Stale · 8 of 8 metrics")
+  correct under the new threshold, no Administrator-only nav visible.
+
+### Known ambiguity
+
+Carried forward, not resolved by this gate: the 24-hour threshold is an
+interim global operational policy, not an RTL-specific configured
+reporting cadence. The authoritative per-RTL cadence source and a future
+cadence-aware policy remain unanswered (client-feedback audit item 2.3).
 
 ## Next implementation gate: NONE
 

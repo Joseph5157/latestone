@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-17T10:19:29Z
+Date: 2026-09-18T05:00:45Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `55e3eeb` "feat(fleet): remove generation metadata from UI"
-- Working tree: 9 entries — see below
+- `main` = `2764e60` "feat(freshness): replace 90-minute default with 24-hour interim policy"
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3132 passed, 699 deselected in 32.80s
+- `python -m pytest -m "not db"` → 3138 passed, 699 deselected in 25.74s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 319 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 169 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 319 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 321 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 171 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 321 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -85,6 +85,7 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ```
 M docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md
  M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
