@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-18T16:53:20Z
+Date: 2026-09-18T17:09:39Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `d0343a2` "fix(users): replace the broken table filter row with a Role filter"
+- `main` = `003b9b6` "feat(devices): add column filters to Device Management"
 - Working tree: 7 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3331 passed, 726 deselected in 33.67s
+- `python -m pytest -m "not db"` → 3370 passed, 726 deselected in 30.09s
 
 ## Branches
 
@@ -45,9 +45,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 335 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 185 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 335 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 337 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 187 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 337 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 

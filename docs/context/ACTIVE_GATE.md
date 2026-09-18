@@ -1,14 +1,16 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-18
-Gate: DEVICE-FILTERS-1
-Commit/push permission: **NOT GRANTED**. The user reviews the result
-before any commit.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** 2026-09-18
+(`003b9b6` + closure docs); push not requested.
 
-## DEVICE-FILTERS-1 — OPEN / IN PROGRESS
+## DEVICE-FILTERS-1 — CLOSED / PASS
 
 Baseline: `main` at `16852fa` (local; 2 commits ahead of `origin/main`).
+Implementation: `003b9b6`. Next queued work (not opened): a "no users
+match" empty state on User Administration.
 
 ## Task
 
@@ -52,7 +54,7 @@ rendered badly). The user asked for column filters, agreed in chat on
 
 None.
 
-## Implementation (uncommitted, awaiting review)
+## Implementation (`003b9b6`)
 
 - `callbacks/device_admin.py`: rows carry `_plant_id`, `_transformer_id`
   and `_reading_band` (`last_reading_band()`: under 1 h / 1–24 h
@@ -90,6 +92,8 @@ None.
   horizontal scroll. No console errors on this page; the one
   uncontrolled-input warning seen during the session comes from the login
   page, is pre-existing, and is out of scope.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
