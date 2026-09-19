@@ -6723,7 +6723,7 @@ body {
 }
 .attention-problem {
   display: grid;
-  grid-template-columns: 8.5rem minmax(0, 1fr) minmax(0, 1fr) 4.5rem;
+  grid-template-columns: 8.5rem minmax(0, 1fr) minmax(0, 1fr) 4.5rem max-content;
   gap: var(--sp-3);
   align-items: center;
   padding: var(--sp-2) 0;
@@ -6739,11 +6739,31 @@ body {
 @media (max-width: 700px) {
   .attention-problem { grid-template-columns: auto minmax(0, 1fr); row-gap: var(--sp-1); }
   .attention-problem__detail,
-  .attention-problem__since { grid-column: 1 / -1; text-align: left; }
+  .attention-problem__since,
+  .attention-problem__actions { grid-column: 1 / -1; text-align: left; }
   .attention-page .command-center__titlebar { flex-wrap: wrap; gap: var(--sp-3); }
   .attention-page .command-center__titlebar-controls { flex-wrap: wrap; }
   .attention-page .command-center__titlebar-text { flex: 1 1 100%; }
 }
+
+.attention-problem__actions { display: flex; gap: var(--sp-2); justify-content: flex-end; }
+.attention-problem__actions:empty { display: none; }
+.attention-action {
+  padding: 4px var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.attention-action:hover { border-color: var(--color-accent); }
+.attention-action:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.attention-action--primary { color: var(--color-accent); border-color: var(--color-accent); }
+
+.attention-notice { margin: 0 0 var(--sp-3); }
 
 .attention-hottest, .attention-activity { list-style: none; margin: 0; padding: 0; }
 .attention-hottest__row, .attention-activity__row {

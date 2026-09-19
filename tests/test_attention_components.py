@@ -132,3 +132,31 @@ class TestTrend:
         bars = [n for n in _walk(card) if "attention-trend__bar" in (getattr(n, "className", "") or "")]
         assert len(bars) == 7
         assert "6" in text(card) and "Sat 19" in text(card)
+
+
+def _ids_of(node, type_):
+    return [n.id for n in _walk(node) if isinstance(getattr(n, "id", None), dict)
+            and n.id.get("type") == type_]
+
+
+class TestProblemActions:
+    def test_no_actions_by_default(self):
+        card = ui.problem_list([_problem()], NOW)
+        assert _ids_of(card, ui.ACK_BUTTON) == [] and _ids_of(card, ui.MANAGE_BUTTON) == []
+
+    def test_acknowledge_only_for_alarm_kinds_the_user_may_act_on(self):
+        problems = [_problem(K.POWER_DOWN), _problem(K.NO_DATA_24H)]
+        card = ui.problem_list(problems, NOW, may_ack=frozenset({"plant-01-t1-d1"}))
+        assert _ids_of(card, ui.ACK_BUTTON) == [
+            {"type": ui.ACK_BUTTON, "device": "plant-01-t1-d1", "kind": "power_down"}]
+
+    def test_manage_for_permitted_devices(self):
+        card = ui.problem_list([_problem(K.NO_DATA_24H)], NOW,
+                               may_manage=frozenset({"plant-01-t1-d1"}))
+        assert _ids_of(card, ui.MANAGE_BUTTON) == [
+            {"type": ui.MANAGE_BUTTON, "device": "plant-01-t1-d1"}]
+
+    def test_devices_outside_the_sets_get_no_buttons(self):
+        card = ui.problem_list([_problem(K.POWER_DOWN)], NOW,
+                               may_ack=frozenset({"other"}), may_manage=frozenset({"other"}))
+        assert _ids_of(card, ui.ACK_BUTTON) == [] and _ids_of(card, ui.MANAGE_BUTTON) == []

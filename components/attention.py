@@ -14,6 +14,7 @@ from dash import dcc, html
 from components.command_center.primitives import cc_card
 from routes import device_href
 from services.attention_service import (
+    ACKNOWLEDGEABLE_KINDS,
     ActivityItem,
     AttentionSnapshot,
     DailyAlarms,
@@ -45,6 +46,10 @@ _CONDITION_TONE = {
     TemperatureCondition.NO_RECENT_DATA: "nodata",
 }
 
+
+#: Pattern-matching id types for the per-problem actions (CC-ACTIONS-1).
+ACK_BUTTON = "attention-ack"
+MANAGE_BUTTON = "attention-manage"
 
 _FLAGGED = frozenset({TemperatureCondition.WARNING, TemperatureCondition.CRITICAL})
 
@@ -109,7 +114,34 @@ def status_bar(snapshot: AttentionSnapshot) -> html.Div:
     )
 
 
-def problem_list(problems: Sequence[Problem], now: datetime) -> html.Section:
+def _actions(p: Problem, may_ack: frozenset[str], may_manage: frozenset[str]) -> list:
+    """Buttons only where the policy said yes (visibility, not authority:
+    the callbacks re-check with require_action)."""
+    buttons = []
+    if p.kind in ACKNOWLEDGEABLE_KINDS and p.device_id in may_ack:
+        buttons.append(html.Button(
+            "Acknowledge", type="button", n_clicks=0,
+            id={"type": ACK_BUTTON, "device": p.device_id, "kind": p.kind.value},
+            className="attention-action attention-action--primary",
+            title=f"Acknowledge {p.count} open alarm(s) on {p.device_code}",
+        ))
+    if p.device_id in may_manage:
+        buttons.append(html.Button(
+            "Manage", type="button", n_clicks=0,
+            id={"type": MANAGE_BUTTON, "device": p.device_id},
+            className="attention-action",
+            title=f"Program, forwarding or deactivate {p.device_code}",
+        ))
+    return buttons
+
+
+def problem_list(
+    problems: Sequence[Problem],
+    now: datetime,
+    *,
+    may_ack: frozenset[str] = frozenset(),
+    may_manage: frozenset[str] = frozenset(),
+) -> html.Section:
     if not problems:
         body = [html.P("Nothing needs attention.", className="attention-empty")]
     else:
@@ -126,6 +158,8 @@ def problem_list(problems: Sequence[Problem], now: datetime) -> html.Section:
                     html.Span(p.detail, className="attention-problem__detail"),
                     html.Span(ago(p.since, now), className="attention-problem__since",
                               title=p.since.strftime("%Y-%m-%d %H:%M UTC") if p.since else None),
+                    html.Div(_actions(p, may_ack, may_manage),
+                             className="attention-problem__actions"),
                 ],
             )
             for p in problems
