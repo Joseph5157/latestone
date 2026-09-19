@@ -1,10 +1,49 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (SWITCH-OVER-1, user: "continue 5 and 6"); push **NOT granted**.
+Gate: POLISH-1
+Commit/push permission: commit **GRANTED on branch `overview-cc-polish`**
+and a local merge to `main` once green; push **NOT granted**.
+
+## POLISH-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `d8488b1`, branch `overview-cc-polish`. Two small
+improvements picked by the user from a Mobbin pattern review (2026-09-19).
+
+## Task
+
+- **Fleet Overview:** filter chips with counts above the plant list (All /
+  Hot / No recent data / Normal; Hot and Normal only when limits are set)
+  and a sort switch (Name / Hottest first). Filtering and sorting are pure
+  functions in `services/fleet_overview_service.py`; the one callback
+  re-reads the snapshot on a change (still one snapshot per render).
+- **Command Center:** severity counters in the status bar (Critical /
+  Warning / No data / Sensor, zeros shown) and problem rows whose "since"
+  and action columns line up across rows, with a column header.
+
+## Relevant files
+
+- `services/fleet_overview_service.py`, `components/fleet_overview.py`,
+  `pages/plants_overview.py`, `callbacks/fleet_overview.py`
+- `components/attention.py`, `assets/app.css`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+
+## Non-goals (explicit)
+
+- No new data, no new query, no schema change; no alarm counts on the
+  Overview (ADR-024); ranking of problems unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser at 1440 px and 390 px; three roles.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## SWITCH-OVER-1 — CLOSED / PASS
 
@@ -84,7 +123,7 @@ Overview + Command Center redesign (decision D12).
 - Known leftover: CSS rules for the removed panels remain in
   `assets/app.css` (recorded in ADR-024).
 
-## Next implementation gate: NONE
+## Next implementation gate: POLISH-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

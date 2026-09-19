@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T08:11:25Z
+Date: 2026-09-19T08:38:52Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `overview-cc-redesign` = `7eac1e9` "test(scope): KPI scope check renders the surviving plant cards" (not `main`)
-- Working tree: 9 entries — see below
+- current branch `overview-cc-polish` = `d8488b1` "Merge branch 'overview-cc-redesign': Fleet Overview + Command Center redesign (ADR-023, ADR-024)" (not `main`)
+- Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2898 passed, 731 deselected in 30.60s
+- `python -m pytest -m "not db"` → 2898 passed, 731 deselected in 36.00s
 
 ## Branches
 
@@ -33,6 +33,8 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `nav-1-utility-route-visibility`
 - `nav-2-breadcrumb-placement`
 - `nav-3-remaining-field-labels`
+- `overview-cc-polish`
+- `overview-cc-redesign`
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
@@ -45,10 +47,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 338 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 188 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 338 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `overview-cc-redesign` | 35 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 375 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 225 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 375 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -83,13 +84,12 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+POLISH-1 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
