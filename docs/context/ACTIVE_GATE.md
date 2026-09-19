@@ -4,7 +4,72 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (SEVERITY-PALETTE-1); push **NOT granted**.
+exercised** (THEME-APP-1); push **NOT granted**.
+
+## THEME-APP-1 — CLOSED / PASS
+
+Baseline: `main` at `8746b75`, branch `app-dark-mode`. ADR-025 (supersedes
+ADR-006).
+
+## Task
+
+Step 1: app-wide theme class on `app-root`, local-storage store (Dark by
+default), sidebar toggle, dark tokens for the whole shell and the plain
+pages; login stays light. Step 2: tables, dropdowns, date pickers, drawers
+and Plotly charts in dark, checked page by page.
+
+## Relevant files
+
+- `components/command_center/theme.py`, `callbacks/navigation.py`,
+  `callbacks/command_center.py`, `pages/command_center.py`,
+  `components/app_sidebar.py`, `app.py`, `assets/app.css`
+- `docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md`,
+  `docs/decisions/ADR-006-route-scoped-theming-is-architecture.md`
+
+## Non-goals (explicit)
+
+- No layout or behaviour change; no new colours for states (the
+  SEVERITY-PALETTE-1 tokens are reused).
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px: every signed-in page in dark and light, the toggle
+  remembered across sign-out; the login page light.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `b2a672f` ADR-025 (supersedes ADR-006).
+- `07d1b02` `components/theme.py` (replaces
+  `components/command_center/theme.py`); `app-root` id/class and a
+  `storage_type="local"` store in `app.py`; Dark | Light buttons (moon / sun
+  icons) in the sidebar footer; `choose_theme` / `apply_theme` moved to
+  `callbacks/navigation.py`; every Command Center-scoped dark selector now
+  `.app-root.theme--dark:not(:has(.login-page))`;
+  `tests/test_command_center_theme.py` replaced by `tests/test_app_theme.py`.
+- `0503480` dark rules for dash_table, react-select, react-dates, form
+  fields, Plotly (transparent grounds, themed ink) and the header brand;
+  literal colours tokenised with unchanged light values (`--color-subtle`,
+  `--color-border-strong`, `--color-on-accent`, `--color-text-2/3/4`); the
+  `--state-*` badge tokens restated for dark (not in `:root`).
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed.
+- Browser 1440 px, admin, 13 signed-in pages: a bright-background audit and
+  a text-contrast audit (< 3:1) both clean apart from intended accent fills
+  and colour segments; Manage drawer and an open dropdown checked; login
+  page keeps its own design; Light -> sign out -> sign in stays Light;
+  light mode screenshots unchanged.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## SEVERITY-PALETTE-1 — CLOSED / PASS
 
@@ -58,7 +123,7 @@ None.
   is the one saturated tone; Warning / No data identical on both pages; no
   console errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: THEME-APP-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

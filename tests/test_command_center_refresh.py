@@ -15,7 +15,8 @@ implementation must keep structurally apart:
 
 Since SWITCH-OVER-1 the three distinctions are tested against the current
 page's `populate` in tests/test_command_center_page.py; this file keeps the
-cadence, the status copy, and the theme/poll separation.
+cadence, the status copy, and the theme/poll separation (the theme is
+app-wide since ADR-025; its callbacks are in callbacks/navigation.py).
 
 Callbacks are captured with a fake app (the house pattern from
 tests/test_action_guard_callbacks.py) rather than exercised through a live
@@ -30,7 +31,8 @@ import pytest
 from dash import dcc, html, no_update
 
 from callbacks import command_center as cc
-from components.command_center import refresh, theme
+from components import theme
+from components.command_center import refresh
 from config.settings import monitoring
 from pages import command_center as page
 from pages.command_center import layout
@@ -174,8 +176,11 @@ class TestThemeIsUntouched:
         assert theme.STORE_ID not in targets
         assert theme.ROOT_ID not in targets
 
-    def test_the_theme_callback_does_not_listen_to_the_interval(self, handlers):
-        args, _ = handlers.specs["apply_theme"]
+    def test_the_theme_callback_does_not_listen_to_the_interval(self):
+        from callbacks import navigation
+        app = _CapturingApp()
+        navigation.register(app)
+        args, _ = app.specs["apply_theme"]
         inputs = [a for a in args if a.__class__.__name__ == "Input"]
         assert all(i.component_id != page.INTERVAL_ID for i in inputs)
 

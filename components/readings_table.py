@@ -47,17 +47,19 @@ def readings_table(table_id: str = "readings-table", metric: MetricConfig | None
                 style_cell={
                     "padding": "11px 12px",
                     "textAlign": "left",
+                    "backgroundColor": "var(--color-surface)",
+                    "color": "var(--color-text)",
                 },
                 # Same header and zebra values as entity_table so both table
                 # families read as one system. Header rule colour uses the
                 # border token rather than a second literal grey.
                 style_header={
-                    "backgroundColor": "#f9fafb",
+                    "backgroundColor": "var(--color-subtle)",
                     "fontWeight": "600",
                     "borderBottom": "1px solid var(--color-border)",
                 },
                 style_data_conditional=[
-                    {"if": {"row_index": "odd"}, "backgroundColor": "#f9fafb"},
+                    {"if": {"row_index": "odd"}, "backgroundColor": "var(--color-subtle)"},
                 ],
             )
         ],

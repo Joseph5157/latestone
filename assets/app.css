@@ -3,6 +3,14 @@
    one edit here. Colour is reserved for state and selection (§6.3); normal
    information stays neutral so a healthy screen reads calm. */
 :root {
+  /* THEME-APP-1: the faint panel fill several components used as a literal. */
+  --color-subtle: #f8fafc;
+  --color-border-strong: #cbd2d9;   /* table header rule */
+  --color-on-accent: #ffffff;       /* text on an accent / danger fill */
+  --color-text-2: #374151;
+  --color-text-3: #4b5563;
+  --color-text-4: #5f6b78;
+
   /* SEVERITY-PALETTE-1: one severity palette for Fleet Overview and Command
      Center. Critical is the only strong colour; the others are deliberately
      quieter so the eye goes to Critical first. Re-stated for the Command
@@ -759,7 +767,7 @@ body {
 }
 
 .field__description {
-  color: #5f6b78;
+  color: var(--color-text-4);
   font-size: 11px;
   line-height: 1.4;
   margin: 5px 0 0;
@@ -1261,7 +1269,7 @@ body {
 
 .kpi-card--accent {
   border-color: var(--color-accent);
-  background: #eff6ff;
+  background: var(--color-accent-bg);
 }
 
 .kpi-card__label {
@@ -1330,7 +1338,7 @@ body {
 }
 
 .fleet-administration .kpi-card {
-  background: #f8fafc;
+  background: var(--color-subtle);
   box-shadow: none;
 }
 
@@ -1408,8 +1416,8 @@ body {
   padding: 2px 7px;
   border: 1px solid #cbd2d9;
   border-radius: 3px;
-  background: #f8fafc;
-  color: #374151;
+  background: var(--color-subtle);
+  color: var(--color-text-2);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.025em;
@@ -1773,7 +1781,7 @@ body {
   margin-bottom: var(--sp-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: var(--color-subtle);
 }
 
 .systemic-freshness__marker {
@@ -2375,8 +2383,8 @@ body {
   padding: 2px 7px;
   border: 1px solid #cbd2d9;
   border-radius: 3px;
-  background: #f8fafc;
-  color: #374151;
+  background: var(--color-subtle);
+  color: var(--color-text-2);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.025em;
@@ -2472,8 +2480,8 @@ body {
   padding: 2px 7px;
   border: 1px solid #cbd2d9;
   border-radius: 3px;
-  background: #f8fafc;
-  color: #374151;
+  background: var(--color-subtle);
+  color: var(--color-text-2);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.025em;
@@ -2667,7 +2675,7 @@ body {
     min-height: 54px;
     font-size: 14px;
     font-weight: 600;
-    background: #f8fafc !important;
+    background: var(--color-subtle) !important;
   }
 
   .entity-table-wrapper--responsive tbody td[data-dash-column="freshness"],
@@ -2920,7 +2928,7 @@ body {
   padding: var(--sp-3);
   border-color: #dfe4e9;
   box-shadow: none;
-  background: #f8fafc;
+  background: var(--color-subtle);
 }
 
 .detail-operational-summary .kpi-card__value { font-size: 24px; }
@@ -2931,7 +2939,7 @@ body {
   padding: var(--sp-3);
   border-color: #dfe4e9;
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: var(--color-subtle);
 }
 
 .detail-operational-summary .temperature-attribution__value {
@@ -2997,7 +3005,7 @@ body {
    neutral while freshness retains its dedicated badge/column language. */
 .page--plant-detail .status-panel--inactive,
 .page--transformer-detail .status-panel--inactive {
-  background: #f8fafc;
+  background: var(--color-subtle);
   border-color: var(--color-border);
   color: var(--color-text);
 }
@@ -3339,10 +3347,10 @@ body {
 
 .page--device-dashboard .equipment-context__item--administrative .equipment-context__value {
   align-self: flex-start;
-  background: #f8fafc;
+  background: var(--color-subtle);
   border: 1px solid #cbd2d9;
   border-radius: 3px;
-  color: #374151;
+  color: var(--color-text-2);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.025em;
@@ -3444,7 +3452,7 @@ body {
 .page--device-dashboard .period-radio label:last-child { border-right: 0; }
 .page--device-dashboard .period-radio label:has(input:checked) {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 .page--device-dashboard .period-radio input {
   height: 1px;
@@ -3954,18 +3962,18 @@ body {
 }
 
 .admin-boundary-note {
-  background: #f8fafc;
+  background: var(--color-subtle);
   border: 1px solid #d8dde3;
   border-left: 3px solid #7b8794;
   border-radius: var(--radius-sm);
-  color: #4b5563;
+  color: var(--color-text-3);
   font-size: 12px;
   line-height: 1.45;
   margin-bottom: var(--sp-5);
   padding: 9px 12px;
 }
 
-.admin-boundary-note strong { color: #374151; }
+.admin-boundary-note strong { color: var(--color-text-2); }
 
 .admin-section-heading {
   align-items: end;
@@ -4072,7 +4080,7 @@ body {
 }
 
 .page--user-admin .entity-table-wrapper--administrative-axis td[data-dash-column="role"] .dash-cell-value {
-  color: #374151;
+  color: var(--color-text-2);
   font-weight: 600;
 }
 
@@ -4114,7 +4122,7 @@ body {
 }
 
 .user-form-drawer__role-note {
-  color: #5f6b78;
+  color: var(--color-text-4);
   line-height: 1.45;
   margin: 7px 0 0;
   padding-left: 18px;
@@ -4172,7 +4180,7 @@ body {
 
 .page--device-register .device-register-form__dropdown.is-disabled .Select-control,
 .page--device-register .device-register-form__dropdown .Select-control.is-disabled {
-  background: #eef1f4;
+  background: var(--color-subtle);
   border-color: #d3d9df;
   color: #6b7280;
   cursor: not-allowed;
@@ -4337,7 +4345,7 @@ body {
   }
 
   #user-admin-table tbody td[data-dash-column="username"] {
-    background: #f8fafc !important;
+    background: var(--color-subtle) !important;
     font-size: 14px;
     font-weight: 600;
   }
@@ -4754,7 +4762,7 @@ body {
 .manage-drawer__btn--danger {
   background: var(--state-error-text);
   border-color: var(--state-error-text);
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .manage-drawer__btn--danger:hover {
@@ -4802,7 +4810,7 @@ body {
 .manage-drawer__btn--primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .device-register-form__btn--primary:hover,
@@ -5993,7 +6001,7 @@ body {
    Colour still never carries meaning alone — every one of these tones has a
    word beside it in the markup (Phases 6, 9, 10). These values change what
    the word is painted in, never whether it is there. */
-.app-root:has(.page--command-center) {
+.app-root {
   /* INHERITED text must be themed, not just text that has its own rule.
      `body` sets a hardcoded light `color`, and any element without a colour
      rule of its own inherits it — the page H1 has no such rule, so in dark
@@ -6018,7 +6026,7 @@ body {
    The semantic tones are re-stated at dark-appropriate luminance: the light
    values above are chosen for contrast on white and would sit at roughly
    3:1 on #1a232e, which is below the 4.5:1 these carry on light. */
-.app-root:has(.page--command-center.cc-theme--dark) {
+.app-root.theme--dark:not(:has(.login-page)) {
   --color-bg: #121820;
   --color-surface: #1a232e;
   --color-border: #2b3949;
@@ -6037,6 +6045,22 @@ body {
   --sev-nodata:   #a99bcf;
   --sev-info:     #8ea2b6;
   --sev-normal:   #7fb08c;
+  /* THEME-APP-1: the remaining shared tokens, restated for dark so every
+     page (not only the Command Center) follows. */
+  --color-subtle: #16202a;
+  --color-border-strong: #3b4a5c;
+  --color-on-accent: #0d131a;
+  --color-text-2: #d3dae4;
+  --color-text-3: #b4bfcc;
+  --color-text-4: #98a4b5;
+  --state-fresh-bg: #133022;
+  --state-fresh-text: #8fd6a8;
+  --state-stale-bg: #3a2c0e;
+  --state-stale-text: #f0c46a;
+  --state-error-bg: #3b1619;
+  --state-error-text: #ff8a8a;
+  --state-none-bg: #232d38;
+  --state-none-text: #b4bfcc;
   --cc-no-data:  var(--sev-nodata);
   --cc-warning:  var(--sev-warning);
   --cc-critical: var(--sev-critical);
@@ -6044,19 +6068,19 @@ body {
 
 /* The shell surfaces. They inherit the tokens above; these rules only paint
    the two elements that carry their own background. */
-.app-root:has(.page--command-center.cc-theme--dark),
-.app-shell:has(.page--command-center.cc-theme--dark) {
+.app-root.theme--dark:not(:has(.login-page)),
+.app-root.theme--dark:not(:has(.login-page)) .app-shell {
   background: var(--color-bg);
 }
 
-.app-shell:has(.page--command-center.cc-theme--dark) .app-sidebar-shell {
+.app-root.theme--dark:not(:has(.login-page)) .app-sidebar-shell {
   background: var(--color-brand);
   border-right-color: var(--color-border);
 }
 
 /* The utility column (Asset Navigator) is chrome, not content — it follows
    the shell, and the frozen spec names it explicitly. */
-.app-shell:has(.page--command-center.cc-theme--dark) .app-shell__utility {
+.app-root.theme--dark:not(:has(.login-page)) .app-shell__utility {
   background: var(--color-surface);
   border-left-color: var(--color-border);
 }
@@ -6066,7 +6090,7 @@ body {
    ground and the pill becomes a dark surface: 1.18:1, unreadable. The
    selected state is re-expressed with the accent pair instead of inheriting
    a contrast that only worked in one appearance. */
-.app-shell:has(.page--command-center.cc-theme--dark) .app-sidebar__link--active {
+.app-root.theme--dark:not(:has(.login-page)) .app-sidebar__link--active {
   background: var(--color-accent-bg);
   color: var(--color-text);
 }
@@ -6181,7 +6205,7 @@ body {
   font-weight: 600;
 }
 
-.page--command-center.cc-theme--dark .command-center__refresh-failed {
+.app-root.theme--dark:not(:has(.login-page)) .command-center__refresh-failed {
   color: #ff8085;
 }
 
@@ -6976,7 +7000,7 @@ body {
 .fleet-overview-chip-option:has(input:checked) {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   font-weight: 600;
 }
 .fleet-overview-chip-option:has(input:focus-visible) { box-shadow: var(--focus-ring); }
@@ -7205,3 +7229,110 @@ button.attention-severity-card.attention-counter--critical:not(.attention-counte
 button.attention-severity-card.attention-counter--critical.attention-counter--active {
   background: color-mix(in srgb, var(--sev-critical) 20%, var(--color-surface));
 }
+
+/* ==========================================================================
+   THEME-APP-1 (ADR-025): the app-wide Dark | Light control in the sidebar
+   footer. Sidebar colours, so it reads the same in both appearances.
+   ========================================================================== */
+.app-sidebar__icon--theme-dark  { -webkit-mask-image: url("/assets/icons/theme-dark.svg");  mask-image: url("/assets/icons/theme-dark.svg"); }
+.app-sidebar__icon--theme-light { -webkit-mask-image: url("/assets/icons/theme-light.svg"); mask-image: url("/assets/icons/theme-light.svg"); }
+.app-theme {
+  display: flex;
+  gap: 2px;
+  margin: 0 var(--sp-2) var(--sp-2);
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+}
+.app-theme__option {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-theme__option:hover { color: #fff; }
+.app-theme__option--active { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.app-theme__option:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
+.app-sidebar--collapsed .app-theme { flex-direction: column; margin-inline: var(--sp-1); }
+.app-sidebar--collapsed .app-theme__option { gap: 0; }
+
+
+/* ==========================================================================
+   THEME-APP-1 step 2 (ADR-025): components that paint their own colours.
+   ========================================================================== */
+/* Header brand: --color-brand is the sidebar ground in dark, so the brand
+   name needs the text colour instead. */
+.app-root.theme--dark:not(:has(.login-page)) .header__brand { color: var(--color-text); }
+
+/* dash_table: the vendor stylesheet paints cells and filter inputs white. */
+.app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container .dash-spreadsheet-inner td,
+.app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container .dash-spreadsheet-inner th {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border) !important;
+}
+.app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container .dash-spreadsheet-inner th.dash-filter input,
+.app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container .dash-spreadsheet-inner input:not([type=radio]):not([type=checkbox]) {
+  background-color: var(--color-subtle);
+  color: var(--color-text);
+}
+.app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container .dash-spreadsheet-inner tr:hover td { background-color: var(--color-subtle); }
+.app-root.theme--dark:not(:has(.login-page)) .dash-table-container .previous-next-container,
+.app-root.theme--dark:not(:has(.login-page)) .dash-table-container .page-number { color: var(--color-text); }
+.app-root.theme--dark:not(:has(.login-page)) .dash-table-container .previous-next-container button { color: var(--color-text); background: transparent; }
+
+/* dcc.Dropdown (react-select v1). */
+.app-root.theme--dark:not(:has(.login-page)) .Select-control { background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); }
+.app-root.theme--dark:not(:has(.login-page)) .Select.is-disabled > .Select-control { background-color: var(--color-subtle); }
+.app-root.theme--dark:not(:has(.login-page)) .Select-value-label, .app-root.theme--dark:not(:has(.login-page)) .Select-input > input, .app-root.theme--dark:not(:has(.login-page)) .Select--single > .Select-control .Select-value { color: var(--color-text) !important; }
+.app-root.theme--dark:not(:has(.login-page)) .Select-placeholder { color: var(--color-muted); }
+.app-root.theme--dark:not(:has(.login-page)) .Select-menu-outer { background-color: var(--color-surface); border-color: var(--color-border); }
+.app-root.theme--dark:not(:has(.login-page)) .Select-option { background-color: var(--color-surface); color: var(--color-text); }
+.app-root.theme--dark:not(:has(.login-page)) .Select-option.is-focused { background-color: var(--color-accent-bg); }
+.app-root.theme--dark:not(:has(.login-page)) .Select-option.is-selected { background-color: var(--color-subtle); }
+.app-root.theme--dark:not(:has(.login-page)) .Select--multi .Select-value { background-color: var(--color-accent-bg); border-color: var(--color-border); color: var(--color-text); }
+
+/* dcc.DatePickerSingle / Range (react-dates). */
+.app-root.theme--dark:not(:has(.login-page)) .DateInput, .app-root.theme--dark:not(:has(.login-page)) .DateInput_input, .app-root.theme--dark:not(:has(.login-page)) .DateRangePickerInput, .app-root.theme--dark:not(:has(.login-page)) .SingleDatePickerInput {
+  background-color: var(--color-surface); color: var(--color-text); border-color: var(--color-border);
+}
+.app-root.theme--dark:not(:has(.login-page)) .DayPicker, .app-root.theme--dark:not(:has(.login-page)) .CalendarMonth, .app-root.theme--dark:not(:has(.login-page)) .CalendarMonthGrid, .app-root.theme--dark:not(:has(.login-page)) .DayPicker_transitionContainer { background: var(--color-surface); }
+.app-root.theme--dark:not(:has(.login-page)) .CalendarMonth_caption, .app-root.theme--dark:not(:has(.login-page)) .DayPicker_weekHeader { color: var(--color-text); }
+.app-root.theme--dark:not(:has(.login-page)) .CalendarDay__default { background: var(--color-surface); color: var(--color-text); border-color: var(--color-border); }
+.app-root.theme--dark:not(:has(.login-page)) .CalendarDay__default:hover { background: var(--color-accent-bg); }
+.app-root.theme--dark:not(:has(.login-page)) .CalendarDay__selected, .app-root.theme--dark:not(:has(.login-page)) .CalendarDay__selected_span { background: var(--color-accent); color: var(--color-bg); }
+
+/* Plain form fields that were left to the browser default. */
+.app-root.theme--dark:not(:has(.login-page)) input[type=text], .app-root.theme--dark:not(:has(.login-page)) input[type=number], .app-root.theme--dark:not(:has(.login-page)) input[type=search],
+.app-root.theme--dark:not(:has(.login-page)) input[type=email], .app-root.theme--dark:not(:has(.login-page)) input[type=password], .app-root.theme--dark:not(:has(.login-page)) textarea, .app-root.theme--dark:not(:has(.login-page)) select {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+/* Plotly: transparent grounds and themed ink; !important because plotly
+   writes these as inline styles. */
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .main-svg { background: transparent !important; }
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .bg { fill: transparent !important; }
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .xtick text, .app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .ytick text,
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .g-xtitle text, .app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .g-ytitle text,
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .gtitle, .app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .legendtext,
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .annotation-text { fill: var(--color-muted) !important; }
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .gridlayer path, .app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .zerolinelayer path { stroke: var(--color-border) !important; }
+.app-root.theme--dark:not(:has(.login-page)) .js-plotly-plot .modebar-btn path { fill: var(--color-muted) !important; }
+
+/* Links inside tables (markdown cells) default to the browser's #0000ee. */
+.app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container a { color: var(--color-accent); }
+.app-root.theme--dark:not(:has(.login-page)) button:disabled:not([class*="--primary"]) { color: var(--color-muted); }
+.app-root.theme--dark:not(:has(.login-page)) .Select-input, .app-root.theme--dark:not(:has(.login-page)) .Select-input > input { background: transparent; }

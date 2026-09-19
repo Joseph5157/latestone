@@ -4,14 +4,14 @@
 (redesign D1, D9). Filled by `callbacks/command_center.py` from one
 `attention_service` snapshot per poll.
 
-Theme ids come from `components.command_center.theme`; the theme callbacks
-live beside this page's own in `callbacks/command_center.py` (ADR-006).
+The Dark / Light choice is app-wide (ADR-025): its toggle is in the
+sidebar and its class on `app-root`.
 """
 from __future__ import annotations
 
 from dash import dcc, html
 
-from components.command_center import refresh, theme
+from components.command_center import refresh
 from components.device_manage_drawer import device_manage_drawer
 
 INTERVAL_ID = "attention-refresh-interval"
@@ -29,6 +29,8 @@ TREND_ID = "attention-trend-slot"
 #: callback listens to so an acknowledgement refreshes the list at once.
 ACTION_RESULT_ID = "attention-action-result"
 ACK_STORE_ID = "attention-ack-store"
+ROOT_ID = "command-center-root"
+ROOT_CLASS = "page page--monitoring page--command-center"
 #: CLICK-FILTER-1: the severity tone the problem list is narrowed to, or None.
 SEVERITY_STORE_ID = "attention-severity-store"
 
@@ -39,12 +41,11 @@ def _loading(what: str) -> html.P:
 
 def layout() -> html.Div:
     return html.Div(
-        id=theme.ROOT_ID,
-        # The theme callback REPLACES this className on every theme apply,
-        # so this page's own class lives on the inner wrapper below.
-        className=theme.root_class_name(theme.DEFAULT_THEME),
+        id=ROOT_ID,
+        # The appearance is app-wide now (ADR-025): the theme class lives on
+        # `app-root`, not here.
+        className=ROOT_CLASS,
         children=[html.Div(className="attention-page", children=[
-            dcc.Store(id=theme.STORE_ID, storage_type="session"),
             dcc.Interval(id=INTERVAL_ID, interval=refresh.interval_ms(), n_intervals=0),
             dcc.Store(id=STORE_ID, data={"last_success_at": None, "failed": False},
                       storage_type="memory"),
@@ -66,7 +67,6 @@ def layout() -> html.Div:
                             html.Button("Refresh now", id=REFRESH_NOW_ID, n_clicks=0,
                                         type="button",
                                         className="command-center__refresh-now"),
-                            theme.theme_toggle(theme.DEFAULT_THEME),
                         ],
                     ),
                 ],
