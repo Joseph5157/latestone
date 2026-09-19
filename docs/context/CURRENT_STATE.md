@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T08:38:52Z
+Date: 2026-09-19T08:52:01Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `overview-cc-polish` = `d8488b1` "Merge branch 'overview-cc-redesign': Fleet Overview + Command Center redesign (ADR-023, ADR-024)" (not `main`)
+- current branch `overview-cc-polish` = `eff9adc` "feat(command-center): severity counters in the status bar; aligned problem columns with a header" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2898 passed, 731 deselected in 36.00s
+- `python -m pytest -m "not db"` → 2907 passed, 731 deselected in 35.32s
 
 ## Branches
 
@@ -33,7 +33,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `nav-1-utility-route-visibility`
 - `nav-2-breadcrumb-placement`
 - `nav-3-remaining-field-labels`
-- `overview-cc-polish`
 - `overview-cc-redesign`
 - `role-1-session-identity`
 - `role-2-route-authorization`
@@ -50,6 +49,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 375 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 225 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 375 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `overview-cc-polish` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -84,7 +84,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-POLISH-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 

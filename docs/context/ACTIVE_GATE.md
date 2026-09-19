@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: POLISH-1
-Commit/push permission: commit **GRANTED on branch `overview-cc-polish`**
-and a local merge to `main` once green; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (POLISH-1); push **NOT granted**.
 
-## POLISH-1 — OPEN / IN PROGRESS
+## POLISH-1 — CLOSED / PASS
 
 Baseline: `main` at `d8488b1`, branch `overview-cc-polish`. Two small
 improvements picked by the user from a Mobbin pattern review (2026-09-19).
@@ -42,6 +42,33 @@ improvements picked by the user from a Mobbin pattern review (2026-09-19).
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `5bbaf99` Fleet Overview: `available_filters` / `filter_counts` /
+  `filter_and_sort` (pure, in the service); chips as a `dcc.RadioItems`
+  whose options (with plant counts) come from the same snapshot; Name /
+  Hottest-first sort; "No plants match this filter" distinct from an empty
+  scope.
+- `eff9adc` Command Center: `severity_counts` grouped by the chip tone
+  (Critical / Warning / No data / Sensor, zeros muted); fixed since/actions
+  column widths and a column header on the row grid (hidden on phones).
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed with the live simulator stopped (it was restarted afterwards; a
+  running simulator makes `test_seed_integrity` fail by design).
+- Browser, three roles, 1440 px and 390 px: chips read "All · 30, Hot · 5,
+  No recent data · 1, Normal · 25" for admin (16 plants for demo.tech01);
+  Hottest first and a chip filter apply; checked chip styled; counters read
+  "Critical 8, Warning 27, No data 1, Sensor 9"; "since" and action columns
+  share one x position across rows; no horizontal scroll; no console errors.
+- Found, not fixed (pre-existing, out of scope): below 768 px the Asset
+  Navigator utility column keeps a fixed width on monitoring routes
+  (overview, plant, transformer, device) and squeezes the page content.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
