@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T05:29:31Z
+Date: 2026-09-19T05:33:18Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `overview-cc-redesign` = `a0f1223` "feat(temperature): condition per RTL against administrator limits (ADR-023)" (not `main`)
-- Working tree: 13 entries — see below
+- current branch `overview-cc-redesign` = `3e30fdf` "docs: ADR-023 temperature condition; close TEMP-CONDITION-1" (not `main`)
+- Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3417 passed, 728 deselected in 30.68s
+- `python -m pytest -m "not db"` → 3417 passed, 728 deselected in 30.81s
 
 ## Branches
 
@@ -48,7 +48,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 338 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 188 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 338 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `overview-cc-redesign` | 11 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `overview-cc-redesign` | 12 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -82,16 +82,12 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-NEW-1 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M AGENTS.md
- M docs/context/ACTIVE_GATE.md
- M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-001-event-classification-no-thresholds.md
- M services/temperature_threshold_service.py
+M docs/context/ACTIVE_GATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
@@ -99,6 +95,5 @@ M AGENTS.md
 ?? .pytest-alarm-ack/
 ?? .pytest-command-dispatch-suite/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md
 ```
 

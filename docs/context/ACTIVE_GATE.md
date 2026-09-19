@@ -1,10 +1,71 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** on branch
-`overview-cc-redesign` (TEMP-CONDITION-1); push **NOT granted**.
+Gate: CC-NEW-1
+Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
+(commit after each green task); push **NOT granted**.
+
+## CC-NEW-1 — OPEN / IN PROGRESS
+
+Baseline: branch `overview-cc-redesign` at `3e30fdf`. Phase 3 of the Fleet
+Overview + Command Center redesign (internal design/plan under
+`docs/superpowers/`, gitignored).
+
+## Task
+
+A new Command Center at `/command-center-new`, built beside the old one for
+side-by-side comparison, answering "what needs my attention now?":
+
+1. Status bar ("N of M RTLs reporting · K problems · updated …"; an
+   intentional All clear state).
+2. Problem list ranked Critical temperature → Power down → No data > 24 h
+   (BR008) → Warning temperature → Battery alarm → Sensor error; oldest first
+   within a kind. Event problems are unacknowledged alarms grouped per RTL
+   and type.
+3. Hottest 5 RTLs now (ADR-023 condition).
+4. Recent activity, last 24 h: switch-ons, programming requests,
+   acknowledgements.
+5. Alarms per day, last 7 days.
+
+Plus a role-aware landing: `/` renders the new Command Center for
+Administrators and Technicians and Fleet Overview for General Users;
+`/plants` stays Fleet Overview for everyone. Actions arrive in Phase 4.
+
+## Relevant files
+
+- `routes.py`, `services/authorization.py`, `callbacks/routing.py`,
+  `callbacks/navigation.py`, `app.py`
+- `repositories/plant_monitoring_repository.py`
+- `services/temperature_condition_service.py`, `services/notification_service.py`,
+  `services/event_semantics.py`, `services/monitoring_service.py`,
+  `services/device_scope.py` (read only)
+- `components/command_center/refresh.py`, `components/command_center/theme.py`,
+  `components/command_center/primitives.py` (reused, unchanged)
+- `assets/app.css`
+- `docs/decisions/ADR-001-event-classification-no-thresholds.md`,
+  `docs/decisions/ADR-004-device-scope-is-not-user-selectable.md`,
+  `docs/decisions/ADR-005-auto-refresh-is-page-owned-polling.md`,
+  `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
+- To be created: services/attention_service.py, components/attention.py,
+  pages/command_center_new.py, callbacks/command_center_new.py and tests.
+
+## Non-goals (explicit)
+
+- No change to the old Command Center, Fleet Overview or Device page.
+- No actions on the page (Phase 4). No schema change. No persisted
+  temperature alarms.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: Administrator, Technician and General User at `/`.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## TEMP-CONDITION-1 — CLOSED / PASS
 
@@ -70,7 +131,7 @@ None.
   (plant-03, silenced). With 30/33 degC applied in memory only (nothing
   written): 102 Normal, 13 Warning, 4 Critical, 1 No recent data.
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-NEW-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
