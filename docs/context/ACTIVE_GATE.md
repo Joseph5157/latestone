@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: WORKING-CARD-1
-Commit/push permission: commit and local merge to `main` **GRANTED**; push
-**NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (WORKING-CARD-1); push **NOT granted**.
 
-## WORKING-CARD-1 — OPEN
+## WORKING-CARD-1 — CLOSED / PASS
 
 Baseline: `main` at `2bca30b`, branch `working-card`. ADR-024 (amended).
 
@@ -39,6 +39,24 @@ card replaces).
 
 None. ADR-024 "no panel on both pages" is amended by user request: the
 working count may appear on both pages.
+
+## Implementation
+
+- `aabbc5e` "Working — N of M" card first in the Command Center card row
+  (`reporting_rtls` of `total_rtls`; detail "K not reporting" / "All RTLs
+  reporting"; green edge when all report, No data tone otherwise). The
+  status-bar "RTLs reporting" line is removed. ADR-024 amended.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes.
+- `python -m pytest`: only `tests/test_seed_integrity.py` (3 row-count
+  tests) fails, identically without this change — the local DB is not on
+  the plain seed (refreshed readings). No other failure.
+- Browser 1440 px, dark and light: card reads "Working 119 of 120 · 1 not
+  reporting".
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
@@ -87,7 +105,7 @@ None.
 - Browser 1440 px, dark and light: problem names in red / amber / purple /
   grey-blue; text-contrast audit clean on the Command Center.
 
-## Next implementation gate: WORKING-CARD-1
+## Next implementation gate: WORKING-CARD-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
