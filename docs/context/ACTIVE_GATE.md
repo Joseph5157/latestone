@@ -1,10 +1,55 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** on branch
-`overview-cc-redesign` (DATA-REFRESH-1); push **NOT granted**.
+Gate: TEMP-CONDITION-1
+Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
+(commit after each green task); push **NOT granted**.
+
+## TEMP-CONDITION-1 — OPEN / IN PROGRESS
+
+Baseline: branch `overview-cc-redesign` at `53a8721`. Phase 2 of the Fleet
+Overview + Command Center redesign (internal design/plan under
+`docs/superpowers/`, gitignored).
+
+## Task
+
+One service answering "what is this RTL's temperature condition now?" from
+its latest temperature and the Administrator-configured warning/critical
+limits (migration 011, `c83cf94`): Normal / Warning / Critical / Limits not
+set / No recent data. Approved by the user 2026-09-19 (one global limit
+pair). Lands with ADR-023, which amends ADR-001 and the `AGENTS.md` data
+rule "MonitoringCondition is always UNKNOWN".
+
+## Relevant files
+
+- `repositories/plant_monitoring_repository.py` (`latest_metric_readings`)
+- `services/temperature_threshold_service.py`
+- `services/freshness_threshold_service.py` (read only)
+- `services/device_scope.py` (read only)
+- `services/monitoring_service.py` (read only: `evaluate_freshness`)
+- `docs/decisions/ADR-001-event-classification-no-thresholds.md`
+- `docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md`
+- `docs/decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md`
+- `AGENTS.md`
+- To be created: services/temperature_condition_service.py,
+  tests/test_temperature_condition_service.py, ADR-023.
+
+## Non-goals (explicit)
+
+- No UI change (Phases 3-5). No persisted High Temperature events or
+  notifications. No schema change. No per-transformer limits.
+- Device page `MonitoringCondition` stays `UNKNOWN`.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## DATA-REFRESH-1 — CLOSED / PASS
 
@@ -87,7 +132,7 @@ None.
   and 4 >= 40; at 05:00 UTC the maximum was 35.9, at 00:00 UTC 31.0. Limits
   are NOT set in the DB by this gate (set via Admin Settings when needed).
 
-## Next implementation gate: NONE
+## Next implementation gate: TEMP-CONDITION-1 — OPEN / IN PROGRESS
 
 Phase 2 (temperature condition service + ADR-023) is next per the design;
 not opened.
