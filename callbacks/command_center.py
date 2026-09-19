@@ -88,13 +88,14 @@ def permitted_devices(problems, user, scope, *, allow=may_action) -> tuple[froze
     return may_ack, may_manage
 
 
-def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset(), selected=None) -> tuple:
+def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset(), selected=None,
+                  folded=()) -> tuple:
     now = snapshot.generated_at
     return (
         scope_indicator_text(snapshot.total_rtls),
         ui.status_bar(snapshot, selected),
         ui.problem_list(snapshot.problems, now, may_ack=may_ack, may_manage=may_manage,
-                        selected=selected),
+                        selected=selected, folded=frozenset(folded or ())),
         ui.hottest_card(snapshot.hottest, snapshot.limits),
         ui.activity_card(snapshot.activity, now),
         ui.alarm_trend_card(snapshot.daily_alarms),
@@ -102,7 +103,7 @@ def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset(), selecte
 
 
 def populate(
-    context, refresh_state, selected=None, *,
+    context, refresh_state, selected=None, folded=None, *,
     fetch=get_attention_snapshot, scope_for=current_device_scope,
     identity=current_identity, allow=may_action,
 ):
@@ -116,7 +117,7 @@ def populate(
         may_ack, may_manage = permitted_devices(
             snapshot.problems, identity(), scope, allow=allow
         )
-        return render_panels(snapshot, may_ack, may_manage, selected) + (
+        return render_panels(snapshot, may_ack, may_manage, selected, folded) + (
             None,
             refresh.refresh_status(fetched_at, failed=False),
             {"last_success_at": fetched_at.isoformat(), "failed": False},
@@ -171,6 +172,18 @@ def acknowledge_outputs(
     else:
         message = "Nothing left to acknowledge for this problem."
     return _notice(message), {"at": datetime.now(timezone.utc).isoformat()}
+
+
+def fold_selection(trigger, clicks, current):
+    """PROBLEM-GROUPS-2: the folded kinds after one group-heading click.
+    The browser has already folded or unfolded the <details>; this only
+    records it so the next refresh draws the same. Re-render fires (n_clicks
+    0/None) change nothing."""
+    if not clicks or not isinstance(trigger, dict) or "kind" not in trigger:
+        return no_update
+    kind = trigger["kind"]
+    current = list(current or [])
+    return [k for k in current if k != kind] if kind in current else current + [kind]
 
 
 def severity_selection(trigger, clicks, current):
@@ -236,9 +249,22 @@ def register(app) -> None:
         Input(page.ACK_STORE_ID, "data"),
         Input(page.SEVERITY_STORE_ID, "data"),
         State(page.STORE_ID, "data"),
+        # State, not Input: folding is instant in the browser and must not
+        # refetch the snapshot; the next refresh just draws the same.
+        State(page.FOLDED_STORE_ID, "data"),
     )
-    def populate_attention(context, _ticks, _clicks, _acked, selected, refresh_state):
-        return populate(context, refresh_state, selected)
+    def populate_attention(context, _ticks, _clicks, _acked, selected, refresh_state, folded):
+        return populate(context, refresh_state, selected, folded)
+
+    @app.callback(
+        Output(page.FOLDED_STORE_ID, "data"),
+        Input({"type": ui.GROUP_TOGGLE, "kind": ALL}, "n_clicks"),
+        State(page.FOLDED_STORE_ID, "data"),
+        prevent_initial_call=True,
+    )
+    def fold_group(_clicks, current):
+        value = ctx.triggered[0]["value"] if ctx.triggered else None
+        return fold_selection(ctx.triggered_id, value, current)
 
     @app.callback(
         Output(page.SEVERITY_STORE_ID, "data"),

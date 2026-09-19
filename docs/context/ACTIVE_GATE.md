@@ -1,10 +1,47 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (ALARM-HISTORY-1); push **NOT granted**.
+Gate: PROBLEM-GROUPS-2
+Commit/push permission: commit on branch `problem-groups-fold` and local
+merge to `main` **GRANTED**; push **NOT granted**.
+
+## PROBLEM-GROUPS-2 — OPEN / IN PROGRESS
+
+Baseline: `main` at `70059c9`, branch `problem-groups-fold`. ADR-024
+(amended).
+
+## Task
+
+Command Center Needs-attention groups become an accordion (user request,
+reversing PROBLEM-GROUPS-1's "headings do not fold"): each kind's group
+folds on its heading, independently; all open by default; the folded set
+survives the auto-refresh and navigating away within the browser tab.
+
+## Relevant files
+
+- `components/attention.py`, `callbacks/command_center.py`,
+  `pages/command_center.py`, `assets/app.css`
+- `tests/test_attention_components.py`, `tests/test_command_center_page.py`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+
+## Non-goals (explicit)
+
+- No change to ranking, services or queries; folding never refetches.
+- Not one-open-at-a-time: groups fold independently.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` (seed-integrity row
+  counts known-red on the current local DB).
+- Browser 1440 px, dark and light: fold a group, wait for a refresh, it
+  stays folded.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## ALARM-HISTORY-1 — CLOSED / PASS
 
@@ -64,7 +101,7 @@ median spacing), not the 24 h freshness limit.
   Technician — Battery Low on an assigned RTL, marker on the voltage chart;
   General User — no alarm history.
 
-## Next implementation gate: NONE
+## Next implementation gate: PROBLEM-GROUPS-2 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

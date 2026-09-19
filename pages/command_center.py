@@ -34,6 +34,8 @@ ROOT_ID = "command-center-root"
 ROOT_CLASS = "page page--monitoring page--command-center"
 #: CLICK-FILTER-1: the severity tone the problem list is narrowed to, or None.
 SEVERITY_STORE_ID = "attention-severity-store"
+#: PROBLEM-GROUPS-2: the problem kinds folded away, kept for the browser tab.
+FOLDED_STORE_ID = "attention-folded-store"
 
 
 def _loading(what: str) -> html.P:
@@ -75,6 +77,7 @@ def layout() -> html.Div:
             html.Div(id=ERROR_ID, className="listing-error"),
             dcc.Store(id=ACK_STORE_ID, storage_type="memory"),
             dcc.Store(id=SEVERITY_STORE_ID, data=None, storage_type="memory"),
+            dcc.Store(id=FOLDED_STORE_ID, data=[], storage_type="session"),
             html.Div(id=ACTION_RESULT_ID, className="attention-notice", **{"aria-live": "polite"}),
             html.Div(id=STATUS_SLOT_ID, children=[_loading("status")]),
             colour_key(),
