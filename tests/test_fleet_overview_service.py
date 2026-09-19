@@ -144,3 +144,26 @@ def test_filter_keeps_name_order_and_sort_hottest_puts_no_reading_last():
     assert [p.name for p in svc.filter_and_sort(view, "all", "hottest")] == [
         "Bravo", "Delta", "Alpha", "Charlie",
     ]
+
+
+def test_fleet_stats_count_rtls_and_find_the_hottest_and_the_peak():
+    temps = [
+        _t("d1", value=41.0, cond=C.CRITICAL),
+        _t("d2", value=37.0, cond=C.WARNING),
+        _t("d3", plant="p2", transformer="p2-t1", value=30.0),
+        _t("d4", plant="p2", transformer="p2-t1", value=None, cond=C.NO_RECENT_DATA),
+    ]
+    view = svc.build_overview(
+        [_plant("p1", "Alpha"), _plant("p2", "Bravo")], temps,
+        [_max("p1-t1", 44.5, "d1"), _max("p2-t1", 46.0, "d3")], now=NOW, limits=LIMITS,
+    )
+    s = svc.fleet_stats(view)
+    assert (s.hottest.device_id, s.hottest_plant) == ("d1", "Alpha")
+    assert (s.warning, s.critical) == (1, 1)
+    assert (s.peak_value, s.peak_device_code, s.peak_plant) == (46.0, "D3", "Bravo")
+    assert (s.reporting, s.total) == (3, 4)
+
+
+def test_fleet_stats_on_an_empty_scope():
+    s = svc.fleet_stats(svc.build_overview([], [], [], now=NOW, limits=None))
+    assert s.hottest is None and s.peak_value is None and (s.reporting, s.total) == (0, 0)

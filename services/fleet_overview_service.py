@@ -211,3 +211,43 @@ def filter_and_sort(view: FleetOverview, filter_key: str, sort_key: str) -> tupl
         # Plants with no recent reading go last, still in name order.
         plants.sort(key=lambda p: (p.hottest is None, -(p.hottest.value if p.hottest else 0)))
     return tuple(plants)
+
+
+# --------------------------------------------------------------------------
+# Stat cards (STATS-CARDS-1). Derived from the one snapshot; counts are RTLs,
+# not plants, so they never compete with the filter chips' plant counts.
+# --------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class FleetStats:
+    hottest: DeviceTemperature | None
+    hottest_plant: str | None
+    warning: int
+    critical: int
+    peak_value: float | None
+    peak_at: datetime | None
+    peak_device_code: str | None
+    peak_plant: str | None
+    reporting: int
+    total: int
+
+
+def fleet_stats(view: FleetOverview) -> FleetStats:
+    loggers = [(p, t) for p in view.plants for tv in p.transformers for t in tv.loggers]
+    top = hottest([t for _p, t in loggers], 1)
+    plant_of = {t.device_id: p.name for p, t in loggers}
+    peaks = [(p, tv) for p in view.plants for tv in p.transformers if tv.max_30d is not None]
+    peak_plant, peak = max(peaks, key=lambda pt: pt[1].max_30d, default=(None, None))
+    return FleetStats(
+        hottest=top[0] if top else None,
+        hottest_plant=plant_of.get(top[0].device_id) if top else None,
+        warning=sum(t.condition is TemperatureCondition.WARNING for _p, t in loggers),
+        critical=sum(t.condition is TemperatureCondition.CRITICAL for _p, t in loggers),
+        peak_value=peak.max_30d if peak else None,
+        peak_at=peak.max_30d_at if peak else None,
+        peak_device_code=peak.max_30d_device_code if peak else None,
+        peak_plant=peak_plant.name if peak_plant else None,
+        # Same rule as the Command Center's "N of M RTLs reporting".
+        reporting=sum(t.condition is not TemperatureCondition.NO_RECENT_DATA for _p, t in loggers),
+        total=len(loggers),
+    )
