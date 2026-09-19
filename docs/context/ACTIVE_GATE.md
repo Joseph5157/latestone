@@ -4,7 +4,57 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (CLICK-FILTER-1); push **NOT granted**.
+exercised** (CC-SEVERITY-CARDS-1); push **NOT granted**.
+
+## CC-SEVERITY-CARDS-1 — CLOSED / PASS
+
+Baseline: `main` at `979f86c`, branch `cc-severity-cards`.
+
+## Task
+
+The Command Center's four severity counters (Critical / Warning / No data /
+Sensor) become a row of stat cards like the Fleet Overview's: big number,
+a per-kind breakdown line, a tone edge; still the same filter buttons
+(CLICK-FILTER-1 ids and callbacks unchanged). The status line keeps the
+headline, backlog, reporting and limits; the severity strip stays.
+
+## Relevant files
+
+- `components/attention.py`, `assets/app.css`
+
+## Non-goals (explicit)
+
+- No new data, no callback or store change.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+  Browser 1440 px, dark and light.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `ad0d73d` `severity_breakdown` (per tone, kinds in rank order); the four
+  counters become `attention-severity-card` buttons (label, big number,
+  breakdown, tone edge) in a row under the status box; ids, store and
+  callbacks from CLICK-FILTER-1 unchanged.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed. A first full run failed `test_seed_integrity` (+1 range test)
+  because an orphaned live-simulator process was still appending readings
+  after its background task was reaped; stopped, rerun green.
+- Browser 1440 px dark and light: cards "Critical 11 · Critical temperature
+  3 · Power Down 8", "Warning 35", "No data 1", "Sensor 9"; Critical card ->
+  11 rows, pressed; no horizontal scroll; no console errors.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## CLICK-FILTER-1 — CLOSED / PASS
 
@@ -68,7 +118,7 @@ Baseline: `main` at `bdd5231`, branch `click-to-filter`.
   Show all -> 55; pressing the active counter again -> 55. No console
   errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-SEVERITY-CARDS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

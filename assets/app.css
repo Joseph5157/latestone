@@ -6965,7 +6965,6 @@ body {
 .fleet-overview-sort__label { color: var(--color-muted); font-size: var(--fs-meta); }
 
 /* POLISH-1: Command Center severity counters + problem column header. */
-.attention-status__counts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .attention-counter {
   display: inline-flex;
   align-items: baseline;
@@ -7125,3 +7124,55 @@ button.attention-strip__seg { border: 0; padding: 0; cursor: pointer; }
 }
 .kpi-card--action > span { display: block; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kpi-card--action { min-width: 0; overflow: hidden; }
+
+/* CC-SEVERITY-CARDS-1: severity counters as stat cards (same shape as the
+   Fleet Overview's), tone on the left edge and the number. */
+.attention-overview { margin: var(--sp-3) 0 var(--sp-4); }
+.attention-overview .attention-status { margin: 0 0 var(--sp-3); }
+.attention-severity-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+button.attention-severity-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid currentColor;
+  border-radius: var(--radius);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.attention-severity-card:hover:not(:disabled) { border-color: currentColor; }
+.attention-severity-card .attention-counter__label {
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.attention-severity-card .attention-counter__value {
+  font-size: var(--fs-kpi);
+  font-weight: 600;
+  line-height: 1.1;
+}
+.attention-severity-card__detail {
+  width: 100%;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+button.attention-severity-card.attention-counter--zero { color: var(--color-muted); border-left-color: var(--color-border); }
+button.attention-severity-card.attention-counter--active {
+  background: color-mix(in srgb, currentColor 14%, var(--color-surface));
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px currentColor;
+}

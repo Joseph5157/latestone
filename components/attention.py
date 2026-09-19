@@ -70,6 +70,18 @@ def tone_of(p: Problem) -> str:
     return _KIND_TONE[p.kind]
 
 
+def severity_breakdown(problems: Sequence[Problem]) -> dict[str, str]:
+    """Per tone, "Kind n · Kind n" in rank order ("" when none)."""
+    per_kind: dict[ProblemKind, int] = {}
+    for p in problems:
+        per_kind[p.kind] = per_kind.get(p.kind, 0) + 1
+    out = {tone: [] for _label, tone in SEVERITY_COUNTERS}
+    for kind in ProblemKind:
+        if per_kind.get(kind):
+            out[_KIND_TONE[kind]].append(f"{KIND_LABELS[kind]} {per_kind[kind]}")
+    return {tone: " · ".join(parts) for tone, parts in out.items()}
+
+
 def severity_counts(problems: Sequence[Problem]) -> dict[str, int]:
     counts = {tone: 0 for _label, tone in SEVERITY_COUNTERS}
     for p in problems:
@@ -134,17 +146,25 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
     counts = severity_counts(snapshot.problems)
     # CLICK-FILTER-1: each counter filters the problem list; the active one
     # is pressed, and pressing it again clears the filter.
-    counters = html.Div(className="attention-status__counts", children=[
+    # CC-SEVERITY-CARDS-1: stat cards, same shape as the Fleet Overview's.
+    # Still the CLICK-FILTER-1 filter buttons: the active one is pressed, and
+    # pressing it again clears the filter.
+    breakdown = severity_breakdown(snapshot.problems)
+    counters = html.Div(className="attention-severity-cards", children=[
         html.Button(
             type="button", n_clicks=0, disabled=not counts[tone],
             id={"type": SEVERITY_BUTTON, "tone": tone, "part": "counter"},
-            className=f"attention-counter attention-counter--{tone}"
+            className=f"attention-counter attention-severity-card attention-counter--{tone}"
                       + (" attention-counter--zero" if not counts[tone] else "")
                       + (" attention-counter--active" if selected == tone else ""),
             title=("Show all problems" if selected == tone else f"Show only {label}"),
             **{"aria-pressed": "true" if selected == tone else "false"},
-            children=[html.Span(label, className="attention-counter__label"),
-                      html.Strong(str(counts[tone]), className="attention-counter__value")],
+            children=[
+                html.Span(label, className="attention-counter__label"),
+                html.Strong(str(counts[tone]), className="attention-counter__value"),
+                html.Span(breakdown[tone] or "None right now",
+                          className="attention-severity-card__detail"),
+            ],
         )
         for label, tone in SEVERITY_COUNTERS
     ])
@@ -173,11 +193,10 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
         html.Span(f"{snapshot.acknowledged_24h} acknowledged in the last 24 h",
                   className="attention-status__acked"),
     ])
-    return html.Div(
+    status = html.Div(
         className="attention-status" + (" attention-status--clear" if clear else ""),
         children=[
             *headline,
-            counters,
             backlog,
             html.Span(
                 f"{snapshot.reporting_rtls} of {snapshot.total_rtls} RTLs reporting",
@@ -187,6 +206,7 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
             strip,
         ],
     )
+    return html.Div(className="attention-overview", children=[status, counters])
 
 
 def _actions(p: Problem, may_ack: frozenset[str], may_manage: frozenset[str]) -> list:
