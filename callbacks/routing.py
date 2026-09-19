@@ -10,6 +10,7 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
+from pages import command_center_new
 from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, command_center_locations
 from pages.placeholder import placeholder_layout
 from routes import (
@@ -23,7 +24,12 @@ from routes import (
 from services import hierarchy_service
 from services.hierarchy_service import entity_in_scope
 from services.auth_service import AuthenticatedUser, current_identity
-from services.authorization import ROUTE_POLICY, may_access_route
+from services.authorization import (
+    ADMINISTRATOR,
+    ROUTE_POLICY,
+    TECHNICIAN,
+    may_access_route,
+)
 from services.device_scope import DeviceScope, current_device_scope
 
 #: What the router should do with a request, decided before anything renders.
@@ -120,6 +126,24 @@ def route_decision(user: AuthenticatedUser | None, route_name: str) -> str:
 #: before.
 
 
+#: Roles whose landing page is the Command Center (redesign decision D3).
+_COMMAND_CENTER_LANDING_ROLES = frozenset({ADMINISTRATOR, TECHNICIAN})
+
+
+def landing_route_name(route_name: str, pathname: str | None, role: str | None) -> str:
+    """The route `/` renders for this role (CC-NEW-1, redesign D3).
+
+    Only the bare root changes: Administrators and Technicians land on the
+    Command Center, everyone else on Fleet Overview. `/plants` stays Fleet
+    Overview for every role, so the sidebar's Overview link always works.
+    Login does not redirect (deep links survive), so this is what "after
+    login" means for a user who signs in at `/`.
+    """
+    if pathname in (None, "", "/") and role in _COMMAND_CENTER_LANDING_ROLES:
+        return "command_center_new"
+    return route_name
+
+
 def register(app) -> None:
     """Register the top-level router callback on the Dash app."""
 
@@ -140,6 +164,14 @@ def register(app) -> None:
             # Both the route decision and the scope below reason about this
             # SAME identity, so they cannot disagree about who is asking.
             user = current_identity()
+            route = Route(
+                name=landing_route_name(
+                    route.name, pathname, user.role if user is not None else None
+                ),
+                plant_id=route.plant_id,
+                transformer_id=route.transformer_id,
+                device_id=route.device_id,
+            )
 
             # Authorization runs here, BEFORE any hierarchy lookup below. A
             # refused page must do no data work on the way to being refused:
@@ -318,6 +350,10 @@ def register(app) -> None:
                     "plant_id": parse_plant_selection(search),
                 }
                 return command_center.layout(), ctx
+
+            if route.name == "command_center_new":
+                ctx = {"route": "command_center_new"}
+                return command_center_new.layout(), ctx
 
             if route.name == "command_center_locations":
                 ctx = {"route": "command_center_locations"}

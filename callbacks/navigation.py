@@ -75,14 +75,19 @@ def sidebar_visibility(auth_data) -> dict:
     return VISIBLE_STYLE if _is_authenticated(auth_data) else dict(HIDDEN_STYLE)
 
 
-def active_nav_key(pathname: str | None) -> str | None:
+def active_nav_key(pathname: str | None, role: str | None = None) -> str | None:
     """Which sidebar item is active for this pathname, or None.
 
     Uses the same `parse_pathname` the router calls, so the highlight tracks
     the page that actually rendered rather than a second copy of the URL
     rules.
     """
-    return NAV_KEY_BY_ROUTE.get(parse_pathname(pathname).name)
+    # Deferred: callbacks.routing imports pages, which must not load for a
+    # sidebar-only import of this module.
+    from callbacks.routing import landing_route_name
+
+    route_name = landing_route_name(parse_pathname(pathname).name, pathname, role)
+    return NAV_KEY_BY_ROUTE.get(route_name)
 
 
 def toggle_collapsed(n_clicks, collapse_data) -> dict:
@@ -160,7 +165,8 @@ def register(app) -> None:
         """Re-renders on navigation AND on session change, so the item set
         follows the signed-in role rather than whatever the first render
         happened to see."""
-        return sidebar_nav(active_nav_key(pathname), session_role(auth_data))
+        role = session_role(auth_data)
+        return sidebar_nav(active_nav_key(pathname, role), role)
 
     @app.callback(
         Output(COLLAPSE_STORE_ID, "data"),

@@ -50,6 +50,9 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     # so the sidebar keeps Command Center highlighted rather than losing
     # its active item while the operator is still inside it.
     "command_center_locations": "command_center",
+    # CC-NEW-1: the redesigned Command Center, built beside the old one until
+    # the switch-over (redesign Phase 6).
+    "command_center_new": "command_center",
 }
 
 #: Query parameter naming the device whose assignment drawer should open on
@@ -71,6 +74,10 @@ ASSIGN_PARAM = "assign"
 #: refresh callback added later.
 COMMAND_CENTER_PATH = "/command-center"
 PLANT_PARAM = "plant"
+
+#: The redesigned Command Center (CC-NEW-1). Temporary path: it moves to
+#: COMMAND_CENTER_PATH when the old page is removed (redesign Phase 6).
+COMMAND_CENTER_NEW_PATH = "/command-center-new"
 
 
 @dataclass(frozen=True)
@@ -101,6 +108,9 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 1 and parts[0] == "command-center":
         return Route(name="command_center")
+
+    if len(parts) == 1 and parts[0] == "command-center-new":
+        return Route(name="command_center_new")
 
     # Only "locations" is a child of Command Center; anything else under it
     # falls through to `unknown`, so a typo'd subpath reads as "no such page"
