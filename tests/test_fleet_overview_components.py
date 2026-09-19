@@ -93,3 +93,16 @@ def test_counts_hide_normal_and_hot_when_limits_are_not_set():
 
 def test_empty_scope_says_so():
     assert "No plants" in text(ui.plant_list(_view(plants=())))
+
+
+def test_filter_options_carry_counts_and_hide_hot_without_limits():
+    assert [o["label"] for o in ui.filter_options(_view(limits=None))] == [
+        "All · 1", "No recent data · 1",
+    ]
+    assert [o["value"] for o in ui.filter_options(_view())] == [
+        "all", "hot", "no_recent_data", "normal",
+    ]
+
+
+def test_an_empty_filter_result_says_so_rather_than_no_plants():
+    assert "No plants match" in text(ui.plant_list(_view(), plants=()))

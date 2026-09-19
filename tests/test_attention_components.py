@@ -160,3 +160,19 @@ class TestProblemActions:
         card = ui.problem_list([_problem(K.POWER_DOWN)], NOW,
                                may_ack=frozenset({"other"}), may_manage=frozenset({"other"}))
         assert _ids_of(card, ui.ACK_BUTTON) == [] and _ids_of(card, ui.MANAGE_BUTTON) == []
+
+
+def test_status_bar_counts_problems_by_severity_including_zeros():
+    snap = _snap(problems=[_problem(K.POWER_DOWN), _problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)])
+    counters = [n for n in _walk(ui.status_bar(snap)) if "attention-counter" in (getattr(n, "className", "") or "").split()]
+    assert [text(c) for c in counters] == ["Critical 2", "Warning 1", "No data 0", "Sensor 0"]
+
+
+def test_problem_list_has_a_column_header_on_the_row_grid():
+    card = ui.problem_list([_problem()], NOW)
+    assert "attention-problem--head" in classes(card)
+    assert "Since" in text(card)
+
+
+def test_empty_problem_list_has_no_header():
+    assert "attention-problem--head" not in classes(ui.problem_list([], NOW))

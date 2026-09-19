@@ -164,3 +164,50 @@ def get_fleet_overview(scope: DeviceScope, *, now: datetime | None = None) -> Fl
     return build_overview(
         list_plants(scope=scope), temps, maxima, now=now, limits=current_limits()
     )
+
+
+# --------------------------------------------------------------------------
+# Filter and sort (POLISH-1). Pure: they narrow and order a snapshot the
+# caller already has, so a filter change never means a second definition of
+# "hot" or "no recent data".
+# --------------------------------------------------------------------------
+
+FILTER_ALL = "all"
+FILTER_HOT = "hot"
+FILTER_NO_DATA = "no_recent_data"
+FILTER_NORMAL = "normal"
+SORT_NAME = "name"
+SORT_HOTTEST = "hottest"
+
+_FILTERS = {
+    FILTER_ALL: lambda p: True,
+    FILTER_HOT: lambda p: p.counts.hot > 0,
+    FILTER_NO_DATA: lambda p: p.counts.no_recent_data > 0,
+    FILTER_NORMAL: lambda p: p.counts.normal == p.logger_count,
+}
+
+
+def available_filters(view: FleetOverview) -> tuple[str, ...]:
+    """Hot and Normal need limits: without them no RTL can be either."""
+    if view.limits is None:
+        return (FILTER_ALL, FILTER_NO_DATA)
+    return (FILTER_ALL, FILTER_HOT, FILTER_NO_DATA, FILTER_NORMAL)
+
+
+def filter_counts(view: FleetOverview) -> dict[str, int]:
+    """Plants matching each available filter."""
+    return {
+        key: sum(1 for p in view.plants if _FILTERS[key](p))
+        for key in available_filters(view)
+    }
+
+
+def filter_and_sort(view: FleetOverview, filter_key: str, sort_key: str) -> tuple[PlantView, ...]:
+    """The plants to show. An unknown or unavailable filter shows all."""
+    if filter_key not in available_filters(view):
+        filter_key = FILTER_ALL
+    plants = [p for p in view.plants if _FILTERS[filter_key](p)]
+    if sort_key == SORT_HOTTEST:
+        # Plants with no recent reading go last, still in name order.
+        plants.sort(key=lambda p: (p.hottest is None, -(p.hottest.value if p.hottest else 0)))
+    return tuple(plants)
