@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: DATA-REFRESH-1
-Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
-(commit after each green task); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** on branch
+`overview-cc-redesign` (DATA-REFRESH-1); push **NOT granted**.
 
-## DATA-REFRESH-1 — OPEN / IN PROGRESS
+## DATA-REFRESH-1 — CLOSED / PASS
 
 Baseline: branch `overview-cc-redesign` at `88692c2` (off `main` `78fde0e`).
 Phase 1 of the Fleet Overview + Command Center redesign agreed with the user
@@ -26,7 +26,7 @@ device events (all 2026-08-29) and no temperature limits are set.
   `ingest_event()` only (ADR-019), plus a one-shot 7-day backfill.
 - The live simulator skips the feeds `db/seed_freshness_demo.py --apply`
   removed, while its capture file exists, so the silenced RTLs stay silent.
-- A runbook in `docs/DEMO_RUNSHEET.md` for refreshing local data, including
+- A runbook in `README.md` for refreshing local data, including
   TEST temperature limits (never presented as Eskom values).
 
 ## Relevant files
@@ -38,7 +38,7 @@ device events (all 2026-08-29) and no temperature limits are set.
 - `tests/test_live_simulator.py`, `tests/test_live_sim_settings.py`
 - To be created (cited once they exist): db/live_events.py,
   tests/test_live_events.py
-- `docs/DEMO_RUNSHEET.md`
+- `README.md`
 
 ## Non-goals (explicit)
 
@@ -54,6 +54,43 @@ device events (all 2026-08-29) and no temperature limits are set.
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `a2eade4` `config/settings.py`: `LiveSimSettings.events_per_day`
+  (`LIVE_SIM_EVENTS_PER_DAY`, default 0, read per instance).
+- `2c3dbfa`, `59d6356` `db/live_events.py`: pure `plan_events()` (seeded
+  `random.Random`; expected count per window, fraction decided by one draw)
+  and `emit_planned()` -> `simulated_event_source.emit()`, `source =
+  "live_simulator"`.
+- `4cfa970` `db/seed_freshness_demo.py::silenced_feeds()`;
+  `db/live_simulator.py` skips those feeds while the capture file exists.
+- `849313b` `db/live_simulator.py`: events each tick when enabled;
+  `--backfill-events-days N` one-shot.
+- Runbook: `README.md` "Refreshing development data so it looks live".
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"`: exit 0. `python -m pytest`: exit 0 on
+  the canonical seed. With the refreshed data applied, 7 DB tests fail by
+  design (`tests/test_seed_integrity.py` x5, two range tests in
+  `tests/test_plant_monitoring_repository.py`: they pin exact row counts and
+  30-minute spacing); documented in the README runbook.
+- Real run: `--reset` 1,383,360 rows; freshness demo removed 1,956;
+  backfill 84 events + live ticks = 85 (`check_in` 43, `battery_low` 17,
+  `power_down` 10, `sensor_error` 9, `startup` 6), 6-14 per day over 7
+  days. Live tick wrote 950 readings (960 minus 10 silenced feeds).
+  119 of 120 RTLs have a temperature reading < 1 h old; plant-03 silent,
+  plant-04 voltage > 33 h old, plant-05 no frequency.
+- **Deviation from plan:** suggested test limits changed from 36/39 to
+  **36/40 degC**. Synthetic temperature is diurnal: at 12:00 UTC 19 RTLs >= 36
+  and 4 >= 40; at 05:00 UTC the maximum was 35.9, at 00:00 UTC 31.0. Limits
+  are NOT set in the DB by this gate (set via Admin Settings when needed).
+
+## Next implementation gate: NONE
+
+Phase 2 (temperature condition service + ADR-023) is next per the design;
+not opened.
 
 ## Prior gate record
 
