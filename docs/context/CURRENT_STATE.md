@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T09:40:28Z
+Date: 2026-09-19T09:48:52Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-visuals` = `6e5f0ad` "Merge branch 'overview-stats-cards': Overview stat cards; Command Center acknowledgement backlog" (not `main`)
+- current branch `cc-visuals` = `f4166eb` "fix(command-center): hottest rows on fixed columns so meters line up" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2913 passed, 731 deselected in 39.00s
+- `python -m pytest -m "not db"` → 2918 passed, 731 deselected in 35.56s
 
 ## Branches
 
@@ -27,7 +27,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-dashboard-final`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
-- `cc-visuals`
 - `ctx-1-context-architecture`
 - `ent-6-ui-and-live-simulator`
 - `fix-registration-window-clock-domain`
@@ -50,6 +49,7 @@ Diverged from `main` (has commits `main` doesn't):
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
 | `cc-1-command-center-progress` | 14 | 385 | REVIEW — unexpected divergence |
+| `cc-visuals` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 235 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 385 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -86,7 +86,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CC-VISUALS-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 

@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: CC-VISUALS-1
-Commit/push permission: commit **GRANTED on branch `cc-visuals`** and a
-local merge to `main` once green; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (CC-VISUALS-1); push **NOT granted**.
 
-## CC-VISUALS-1 — OPEN / IN PROGRESS
+## CC-VISUALS-1 — CLOSED / PASS
 
 Baseline: `main` at `6e5f0ad`, branch `cc-visuals`.
 
@@ -40,6 +40,27 @@ query; AGENTS.md forbids gauges, pie charts and animations):
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `50caa10` `DailyAlarms.by_kind` (per-kind split, rank order, sums to
+  `count`); status-bar severity strip (flex-grow per tone, single "normal"
+  segment when clear); `temperature_scale` + per-row meter with warning /
+  critical markers (none when limits are unset); stacked day bars with a
+  legend of the kinds present.
+- `f4166eb` hottest rows on fixed grid columns so every meter spans the same
+  x range.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed with the live simulator stopped (restarted afterwards).
+- Browser 1440 px, dark and light: admin strip segments critical / warning /
+  no data / sensor sized by count; 5 meters with 10 markers, all spanning one
+  x range; 16 stacked segments with legend Power Down / Battery Low / Sensor
+  Error; demo.tech01 own scope. No horizontal scroll, no console errors.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
