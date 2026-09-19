@@ -1,10 +1,65 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** on branch
-`overview-cc-redesign` (CC-ACTIONS-1); push **NOT granted**.
+Gate: FO-NEW-1
+Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
+(commit after each green task); push **NOT granted**.
+
+## FO-NEW-1 — OPEN / IN PROGRESS
+
+Baseline: branch `overview-cc-redesign` at `53d57e3`. Phase 5 of the Fleet
+Overview + Command Center redesign (decisions D1, D2, D6, D8, D11).
+
+## Task
+
+A new Fleet Overview at `/plants-new`, built beside the old one, answering
+"where is everything and how hot is it?" for every role:
+
+- One row per plant in scope: plant, transformer and RTL counts, hottest
+  latest temperature and its condition, and how many RTLs are Normal /
+  Warning or Critical / without recent data.
+- Each plant expands inline (native disclosure, no callback) to its
+  transformers; each transformer shows its 30-day maximum temperature and
+  when it was reached (the C-15 report query, reused), and its RTLs with
+  latest temperature, condition (ADR-023), last reading time and a small
+  "Electrical readings" link to the Device page.
+- Temperature first. No alarm panels, no electrical metrics, no
+  Administration section (Assignments and Device Management hold that).
+
+## Relevant files
+
+- `routes.py`, `services/authorization.py`, `callbacks/routing.py`,
+  `callbacks/navigation.py`, `app.py`, `assets/app.css`
+- `services/temperature_condition_service.py`, `services/hierarchy_service.py`,
+  `services/device_scope.py`, `repositories/plant_monitoring_repository.py`
+  (read only)
+- `pages/plants_overview.py`, `callbacks/listings.py` (read only: the old page)
+- `docs/decisions/ADR-004-device-scope-is-not-user-selectable.md`,
+  `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
+- To be created: services/fleet_overview_service.py,
+  components/fleet_overview.py, pages/plants_overview_new.py,
+  callbacks/plants_overview_new.py
+
+## Non-goals (explicit)
+
+- No schema change, no new SQL, no change to the old Fleet Overview, the
+  Device page or the report. No polling: the page renders on load and has a
+  Refresh link, as the old one does (a poll would collapse open plants).
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: all three roles; a Technician sees only assigned RTLs; no
+  horizontal scroll at 1440 px and 390 px.
+
+## Known ambiguity
+
+- The spec says "30-day maximum" per RTL; the existing read (report C-15) is
+  per transformer and names the RTL that reached it. Shown per transformer —
+  the transformer is what is being protected — rather than adding new SQL.
+
+## Prior gate record
 
 ## CC-ACTIONS-1 — CLOSED / PASS
 
@@ -82,7 +137,7 @@ None.
 - One real acknowledgement was written to the local dev DB (synthetic event
   on 29012) as part of this check.
 
-## Next implementation gate: NONE
+## Next implementation gate: FO-NEW-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
