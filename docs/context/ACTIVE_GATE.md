@@ -1,10 +1,61 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
-Date: 2026-09-18
-Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** 2026-09-18
-(`003b9b6` + closure docs); push not requested.
+Status: **OPEN / IN PROGRESS**
+Date: 2026-09-19
+Gate: DATA-REFRESH-1
+Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
+(commit after each green task); push **NOT granted**.
+
+## DATA-REFRESH-1 — OPEN / IN PROGRESS
+
+Baseline: branch `overview-cc-redesign` at `88692c2` (off `main` `78fde0e`).
+Phase 1 of the Fleet Overview + Command Center redesign agreed with the user
+on 2026-09-19 (design and plan are internal docs under `docs/superpowers/`,
+gitignored: `specs/2026-09-19-overview-command-center-redesign-design.md`,
+`plans/2026-09-19-data-refresh-1.md`).
+
+## Task
+
+Make development data look like a live fleet before any page is redesigned.
+Local data ends 2026-09-16 (all 120 RTLs read > 24 h silent), there are 13
+device events (all 2026-08-29) and no temperature limits are set.
+
+- The live simulator can raise simulated events (startup, check-in, battery
+  low, power down, sensor error) at `LIVE_SIM_EVENTS_PER_DAY` (default 0 =
+  off, so Railway is unchanged), through `simulated_event_source.emit()` ->
+  `ingest_event()` only (ADR-019), plus a one-shot 7-day backfill.
+- The live simulator skips the feeds `db/seed_freshness_demo.py --apply`
+  removed, while its capture file exists, so the silenced RTLs stay silent.
+- A runbook in `docs/DEMO_RUNSHEET.md` for refreshing local data, including
+  TEST temperature limits (never presented as Eskom values).
+
+## Relevant files
+
+- `config/settings.py`, `.env.example`
+- `db/live_simulator.py`, `db/seed_freshness_demo.py`
+- `services/simulated_event_source.py` (read only)
+- `docs/decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md`
+- `tests/test_live_simulator.py`, `tests/test_live_sim_settings.py`
+- To be created (cited once they exist): db/live_events.py,
+  tests/test_live_events.py
+- `docs/DEMO_RUNSHEET.md`
+
+## Non-goals (explicit)
+
+- No page or UI change. No temperature evaluation (that is Phase 2).
+- No schema change. No change to event semantics or ingestion.
+- No Railway change.
+
+## Required tests
+
+- `python -m pytest -m "not db"` and `python -m pytest` (simulator stopped).
+- Real run of the runbook against the local dev DB, with counts recorded.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## DEVICE-FILTERS-1 — CLOSED / PASS
 
@@ -93,7 +144,7 @@ None.
   uncontrolled-input warning seen during the session comes from the login
   page, is pre-existing, and is out of scope.
 
-## Next implementation gate: NONE
+## Next implementation gate: DATA-REFRESH-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
