@@ -26,6 +26,7 @@ from services.fleet_overview_service import (
     TransformerView,
     filter_counts,
     fleet_stats,
+    rtl_condition_counts,
 )
 from services.temperature_condition_service import (
     CONDITION_LABELS,
@@ -193,26 +194,110 @@ def plant_list(view: FleetOverview, plants=None):
     ])
 
 
+#: Pattern-matching id type for anything that sets the chips / sort when
+#: clicked (CLICK-FILTER-1). "" in `filter` or `sort` means "leave it".
+JUMP = "fleet-overview-jump"
+
+#: Which plant chip a condition selects. Chips are per plant, so Warning and
+#: Critical both select Hot (plants with any Warning or Critical RTL).
+_CONDITION_FILTER = {
+    TemperatureCondition.CRITICAL: FILTER_HOT,
+    TemperatureCondition.WARNING: FILTER_HOT,
+    TemperatureCondition.NORMAL: FILTER_NORMAL,
+    TemperatureCondition.NO_RECENT_DATA: FILTER_NO_DATA,
+}
+
+
+def _jump_id(part: str, *, filter_key: str = "", sort_key: str = "") -> dict:
+    return {"type": JUMP, "part": part, "filter": filter_key, "sort": sort_key}
+
+
+def _card_button(label, value, secondary, jump_id, *, hint, accent=False) -> html.Button:
+    """A stat card that is also a filter control. Same classes as `kpi_card`,
+    spans instead of divs so it is valid button content."""
+    return html.Button(
+        type="button", n_clicks=0, id=jump_id, title=f"{secondary} — {hint}",
+        className="kpi-card kpi-card--action" + (" kpi-card--accent" if accent else ""),
+        children=[
+            html.Span(label, className="kpi-card__label"),
+            html.Span(value, className="kpi-card__value"),
+            html.Span(secondary, className="kpi-card__secondary"),
+        ],
+    )
+
+
 def stat_cards(view: FleetOverview) -> html.Div:
-    """Temperature at a glance (STATS-CARDS-1). Every count is RTLs."""
+    """Temperature at a glance (STATS-CARDS-1). Every count is RTLs.
+    Hottest, Hot RTLs and Reporting also set the list below (CLICK-FILTER-1)."""
     s = fleet_stats(view)
     limits_set = view.limits is not None
     if s.hottest is None:
         hottest = kpi_card("Hottest now", "—", "No recent reading")
     else:
-        hottest = kpi_card("Hottest now", temperature(s.hottest.value),
-                           f"RTL {s.hottest.device_code} · {s.hottest_plant}", accent=True)
+        hottest = _card_button(
+            "Hottest now", temperature(s.hottest.value),
+            f"RTL {s.hottest.device_code} · {s.hottest_plant}",
+            _jump_id("hottest", sort_key=SORT_HOTTEST),
+            hint="Sort plants hottest first", accent=True,
+        )
     if limits_set:
-        hot = kpi_card("Hot RTLs", str(s.warning + s.critical),
-                       f"{s.critical} Critical · {s.warning} Warning")
+        hot = _card_button(
+            "Hot RTLs", str(s.warning + s.critical),
+            f"{s.critical} Critical · {s.warning} Warning",
+            _jump_id("hot", filter_key=FILTER_HOT), hint="Show plants with hot RTLs",
+        )
     else:
         hot = kpi_card("Hot RTLs", "—", "Temperature limits not set")
     if s.peak_value is None:
         peak = kpi_card("30-day peak", "—", "No reading in the last 30 days")
     else:
-        peak = kpi_card("30-day peak", temperature(s.peak_value),
-                        f"{when(s.peak_at)} · RTL {s.peak_device_code} · {s.peak_plant}")
-    reporting = kpi_card("Reporting", f"{s.reporting} of {s.total}",
-                         "RTLs with a recent temperature reading")
+        detail = f"{when(s.peak_at)} · RTL {s.peak_device_code} · {s.peak_plant}"
+        peak = kpi_card("30-day peak", temperature(s.peak_value), detail)
+        peak.title = detail  # the full text when the card truncates it
+    reporting = _card_button(
+        "Reporting", f"{s.reporting} of {s.total}",
+        "RTLs with a recent temperature reading",
+        _jump_id("reporting", filter_key=FILTER_NO_DATA),
+        hint="Show plants with RTLs that are not reporting",
+    )
     return html.Div(className="kpi-row fleet-overview-stats",
                     children=[hottest, hot, peak, reporting])
+
+
+def condition_bar(view: FleetOverview):
+    """One stacked bar of RTLs per temperature condition, with a legend.
+    Segments and legend entries set the matching chip (CLICK-FILTER-1)."""
+    counts = rtl_condition_counts(view)
+    total = sum(counts.values())
+    if not total:
+        return None
+    segments, legend = [], []
+    for condition, n in counts.items():
+        tone = _TONE[condition]
+        label = f"{CONDITION_LABELS[condition]} {n}"
+        target = _CONDITION_FILTER.get(condition)
+        if target:
+            segments.append(html.Button(
+                type="button", n_clicks=0, id=_jump_id(f"seg-{condition.value}", filter_key=target),
+                className=f"fleet-overview-condition__seg fleet-overview-condition__seg--{tone}",
+                style={"flexGrow": n}, title=f"{label} — show these plants",
+                **{"aria-label": f"{label}, show these plants"},
+            ))
+            legend.append(html.Button(
+                type="button", n_clicks=0, id=_jump_id(f"legend-{condition.value}", filter_key=target),
+                className=f"fleet-overview-legend fleet-overview-legend--{tone}", children=label,
+            ))
+        else:
+            segments.append(html.Span(
+                className=f"fleet-overview-condition__seg fleet-overview-condition__seg--{tone}",
+                style={"flexGrow": n}, title=label,
+            ))
+            legend.append(html.Span(label, className=f"fleet-overview-legend fleet-overview-legend--{tone}"))
+    return html.Div(className="fleet-overview-condition", children=[
+        html.Div(className="fleet-overview-condition__head", children=[
+            html.Span("Temperature condition", className="fleet-overview-condition__title"),
+            html.Span(_plural(total, "RTL"), className="fleet-overview-condition__total"),
+        ]),
+        html.Div(className="fleet-overview-condition__bar", children=segments),
+        html.Div(className="fleet-overview-condition__legend", children=legend),
+    ])

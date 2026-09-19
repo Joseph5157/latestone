@@ -42,7 +42,7 @@ def test_fetches_once_with_the_resolved_scope():
         calls.append(s)
         return FleetOverview(now, None, ())
 
-    summary, _, limits, plants, error, options = cb.populate(
+    summary, _, limits, plants, error, options, _bar = cb.populate(
         {"route": "overview"}, fetch=fetch, scope_for=lambda: scope
     )
     assert calls == [scope]
@@ -82,3 +82,11 @@ def test_filter_and_sort_reach_the_list():
     rows = out[3].children
     assert len(rows) == 1
     assert {o["value"]: o["label"] for o in out[5]}["hot"] == "Hot · 1"
+
+
+def test_a_card_click_sets_the_chip_or_sort_and_re_renders_do_nothing():
+    trigger = {"type": "fleet-overview-jump", "part": "hot", "filter": "hot", "sort": ""}
+    assert cb.jump_outputs(trigger, 1) == ("hot", no_update)
+    assert cb.jump_outputs({**trigger, "filter": "", "sort": "hottest"}, 2) == (no_update, "hottest")
+    assert cb.jump_outputs(trigger, 0) == (no_update, no_update)
+    assert cb.jump_outputs(trigger, None) == (no_update, no_update)

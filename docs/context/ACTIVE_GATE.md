@@ -4,7 +4,73 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (CC-VISUALS-1); push **NOT granted**.
+exercised** (CLICK-FILTER-1); push **NOT granted**.
+
+## CLICK-FILTER-1 — CLOSED / PASS
+
+Baseline: `main` at `bdd5231`, branch `click-to-filter`.
+
+## Task
+
+- **Fleet Overview:** a stacked temperature-condition bar (RTL counts:
+  Normal / Warning / Critical / No recent data, or Limits not set) under the
+  stat cards; the 30-day peak card shows its full text on hover.
+- **Click to filter, Fleet Overview:** Hot RTLs card and the Warning /
+  Critical segments -> Hot chip; Normal segment -> Normal chip; Reporting
+  card and No-recent-data segment -> No recent data chip; Hottest now card
+  -> Hottest-first sort. The chips stay the single filter state.
+- **Click to filter, Command Center:** the severity counters and strip
+  segments filter the problem list to that severity; clicking the active one
+  (or "Show all") clears it. The headline keeps the full count.
+
+## Relevant files
+
+- `services/fleet_overview_service.py`, `components/fleet_overview.py`,
+  `pages/plants_overview.py`, `callbacks/fleet_overview.py`
+- `components/attention.py`, `pages/command_center.py`,
+  `callbacks/command_center.py`, `assets/app.css`
+
+## Non-goals (explicit)
+
+- No new query, no schema change, no URL change; filters are not persisted.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed with
+  the live simulator stopped. Browser at 1440 px: every click target.
+
+## Known ambiguity
+
+- Plant-level chips have no separate Warning / Critical filter, so both
+  segments select Hot (plants with any Warning or Critical RTL).
+
+## Implementation
+
+- `d9e59c8` `rtl_condition_counts`; `condition_bar` (segments + legend as
+  buttons, "Limits not set" not clickable); Hottest / Hot RTLs / Reporting
+  cards as buttons (pattern id `fleet-overview-jump`); `jump_outputs` sets
+  the chip / sort, ignoring re-render fires; peak card `title`.
+- `c7d6b5e` severity counters and strip segments as buttons
+  (`attention-severity`), `SEVERITY_STORE_ID`, `severity_selection`
+  toggle, filtered problem list with "Showing X only · Show all".
+- `b6dcb01` clickable cards truncate long text, full text on hover.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed with the live simulator stopped (restarted afterwards). A first run
+  caught weight 700 (the font ships 400/600 only); the active counter uses
+  an outline instead.
+- Browser 1440 px (admin): Hot RTLs card -> Hot · 8 (8 rows); Normal legend
+  -> Normal · 22; Reporting card -> No recent data · 1; Warning segment ->
+  Hot; Hottest card -> Hottest first. Command Center 55 problems; Warning
+  counter -> 32 rows, pressed, note shown; Critical strip segment -> 13;
+  Show all -> 55; pressing the active counter again -> 55. No console
+  errors.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## CC-VISUALS-1 — CLOSED / PASS
 
@@ -60,7 +126,7 @@ None.
   x range; 16 stacked segments with legend Power Down / Battery Low / Sensor
   Error; demo.tech01 own scope. No horizontal scroll, no console errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: CLICK-FILTER-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

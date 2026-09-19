@@ -116,3 +116,35 @@ def test_stat_cards_are_temperature_first_and_count_rtls():
 def test_stat_cards_without_limits_do_not_invent_hot_counts():
     content = text(ui.stat_cards(_view(limits=None)))
     assert "Temperature limits not set" in content
+
+
+def _jump_ids(node):
+    return [n.id for n in _walk(node)
+            if isinstance(getattr(n, "id", None), dict) and n.id.get("type") == ui.JUMP]
+
+
+def test_cards_that_filter_are_buttons_with_their_target():
+    targets = {(i["part"], i["filter"], i["sort"]) for i in _jump_ids(ui.stat_cards(_view()))}
+    assert targets == {("hottest", "", "hottest"), ("hot", "hot", ""), ("reporting", "no_recent_data", "")}
+
+
+def test_peak_card_carries_its_full_text_on_hover():
+    peak = [n for n in _walk(ui.stat_cards(_view())) if getattr(n, "title", None)
+            and "30-day" not in str(getattr(n, "title", ""))]
+    assert any("16 Sep 14:00 UTC · RTL D1 · Alpha Station" == n.title for n in peak)
+
+
+def test_condition_bar_segments_and_legend_select_the_matching_chip():
+    bar = ui.condition_bar(_view())
+    ids = _jump_ids(bar)
+    assert {i["filter"] for i in ids} == {"hot"}  # the one RTL is Critical
+    assert "Critical 1" in text(bar) and "1 RTL" in text(bar)
+
+
+def test_limits_not_set_segment_is_not_clickable():
+    from services.temperature_condition_service import TemperatureCondition as TC
+    logger = DeviceTemperature("p1", "p1-t1", "T1", "d1", "D1", 30.0, NOW, TC.LIMITS_NOT_SET)
+    tv = TransformerView("p1-t1", "T1", None, None, None, (logger,))
+    plant = PlantView("p1", "A", "ZA", (tv,), logger, ConditionCounts(limits_not_set=1))
+    bar = ui.condition_bar(FleetOverview(NOW, None, (plant,)))
+    assert _jump_ids(bar) == [] and "Limits not set 1" in text(bar)

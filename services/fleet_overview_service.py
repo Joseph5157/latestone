@@ -251,3 +251,14 @@ def fleet_stats(view: FleetOverview) -> FleetStats:
         reporting=sum(t.condition is not TemperatureCondition.NO_RECENT_DATA for _p, t in loggers),
         total=len(loggers),
     )
+
+
+def rtl_condition_counts(view: FleetOverview) -> dict[TemperatureCondition, int]:
+    """RTLs per temperature condition across the snapshot (CLICK-FILTER-1's
+    stacked bar). Worst first; conditions with no RTL are left out."""
+    counts: dict[TemperatureCondition, int] = {}
+    for p in view.plants:
+        for tv in p.transformers:
+            for t in tv.loggers:
+                counts[t.condition] = counts.get(t.condition, 0) + 1
+    return {c: counts[c] for c in _SEVERITY if counts.get(c)}

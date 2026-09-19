@@ -167,3 +167,12 @@ def test_fleet_stats_count_rtls_and_find_the_hottest_and_the_peak():
 def test_fleet_stats_on_an_empty_scope():
     s = svc.fleet_stats(svc.build_overview([], [], [], now=NOW, limits=None))
     assert s.hottest is None and s.peak_value is None and (s.reporting, s.total) == (0, 0)
+
+
+def test_rtl_condition_counts_are_worst_first_and_skip_zeros():
+    temps = [_t("d1", cond=C.NORMAL), _t("d2", cond=C.CRITICAL), _t("d3", cond=C.NORMAL),
+             _t("d4", cond=C.NO_RECENT_DATA)]
+    view = svc.build_overview([_plant("p1", "A")], temps, [], now=NOW, limits=LIMITS)
+    assert list(svc.rtl_condition_counts(view).items()) == [
+        (C.CRITICAL, 1), (C.NO_RECENT_DATA, 1), (C.NORMAL, 2),
+    ]

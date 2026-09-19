@@ -228,3 +228,28 @@ def test_trend_bars_stack_by_kind_with_a_legend():
     segs = _by_class(card, "attention-trend__seg")
     assert [s.style["flexGrow"] for s in segs] == [1, 2]
     assert "Power Down" in text(card) and "Battery Low" in text(card)
+
+
+def test_counters_are_filter_buttons_and_the_active_one_is_pressed():
+    snap = _snap(problems=[_problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)])
+    bar = ui.status_bar(snap, selected="critical")
+    counters = {n.id["tone"]: n for n in _walk(bar)
+                if isinstance(getattr(n, "id", None), dict) and n.id.get("part") == "counter"}
+    assert counters["critical"].__dict__["aria-pressed"] == "true"
+    assert counters["warning"].__dict__["aria-pressed"] == "false"
+    assert counters["nodata"].disabled is True  # nothing to show
+    strip = [n for n in _walk(bar) if isinstance(getattr(n, "id", None), dict) and n.id.get("part") == "strip"]
+    assert "attention-strip__seg--dim" in strip[1].className  # warning dimmed while critical is selected
+
+
+def test_selected_severity_narrows_the_list_and_offers_show_all():
+    problems = [_problem(K.POWER_DOWN), _problem(K.BATTERY_LOW), _problem(K.TEMP_CRITICAL)]
+    card = ui.problem_list(problems, NOW, selected="critical")
+    assert len(_by_class(card, "attention-problem")) == 3  # header + 2 critical rows
+    assert "Showing Critical only · 2 problems" in text(card)
+    assert any(isinstance(getattr(n, "id", None), dict) and n.id.get("tone") == "all" for n in _walk(card))
+
+
+def test_no_selection_shows_everything_without_a_note():
+    card = ui.problem_list([_problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)], NOW)
+    assert "Showing" not in text(card)

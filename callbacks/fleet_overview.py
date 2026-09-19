@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from dash import Input, Output, no_update
+from dash import ALL, Input, Output, ctx, no_update
 
 from components import fleet_overview as ui
 from components.status_panels import error_panel
@@ -25,7 +25,7 @@ from services.fleet_overview_service import FILTER_ALL, SORT_NAME, filter_and_so
 logger = logging.getLogger(__name__)
 
 ROUTE = "overview"
-OUTPUTS = 6  # stat cards, refreshed, limits, plants, error, filter options
+OUTPUTS = 7  # stat cards, refreshed, limits, plants, error, filter options, condition bar
 
 
 def populate(context, filter_key=FILTER_ALL, sort_key=SORT_NAME, *,
@@ -38,7 +38,7 @@ def populate(context, filter_key=FILTER_ALL, sort_key=SORT_NAME, *,
         view = fetch(scope_for(), now=now)
     except Exception:
         logger.exception("Failed to load the Fleet Overview")
-        return None, None, None, [], error_panel(), []
+        return None, None, None, [], error_panel(), [], None
     return (
         ui.stat_cards(view),
         f"Updated {now.strftime('%d %b %Y %H:%M UTC')}",
@@ -46,7 +46,17 @@ def populate(context, filter_key=FILTER_ALL, sort_key=SORT_NAME, *,
         ui.plant_list(view, filter_and_sort(view, filter_key or FILTER_ALL, sort_key or SORT_NAME)),
         None,
         ui.filter_options(view),
+        ui.condition_bar(view),
     )
+
+
+def jump_outputs(trigger, clicks) -> tuple:
+    """(filter value, sort value) for a click on a card or bar segment.
+    Pattern inputs also fire when the cards re-render with n_clicks 0; only
+    a real click acts."""
+    if not clicks or not isinstance(trigger, dict):
+        return no_update, no_update
+    return (trigger.get("filter") or no_update, trigger.get("sort") or no_update)
 
 
 def register(app) -> None:
@@ -57,9 +67,20 @@ def register(app) -> None:
         Output(page.PLANTS_ID, "children"),
         Output(page.ERROR_ID, "children"),
         Output(page.FILTER_ID, "options"),
+        Output(page.CONDITION_ID, "children"),
         Input("page-context", "data"),
         Input(page.FILTER_ID, "value"),
         Input(page.SORT_ID, "value"),
     )
     def populate_fleet_overview(context, filter_key, sort_key):
         return populate(context, filter_key, sort_key)
+
+    @app.callback(
+        Output(page.FILTER_ID, "value"),
+        Output(page.SORT_ID, "value"),
+        Input({"type": ui.JUMP, "part": ALL, "filter": ALL, "sort": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def jump_from_card(_clicks):
+        value = ctx.triggered[0]["value"] if ctx.triggered else None
+        return jump_outputs(ctx.triggered_id, value)
