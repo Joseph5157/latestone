@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T13:33:55Z
+Date: 2026-09-19T13:38:17Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `problem-dots` = `0a84648` "feat(ui): Needs-attention problems as text after a coloured dot, not a badge (ADR-026, COLOUR-KEY-2)" (not `main`)
+- current branch `problem-text-colour` = `dd69067` "Merge branch 'problem-dots': Needs-attention problems as dot + text (ADR-026)" (not `main`)
 - Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2980 passed, 731 deselected in 34.01s
+- `python -m pytest -m "not db"` → 2980 passed, 731 deselected in 34.22s
 
 ## Branches
 
@@ -42,6 +42,8 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `overview-cc-polish`
 - `overview-cc-redesign`
 - `overview-stats-cards`
+- `problem-dots`
+- `problem-text-colour`
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
@@ -55,10 +57,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 418 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 268 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 418 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `problem-dots` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 422 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 272 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 422 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -95,7 +96,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+COLOUR-KEY-3 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 

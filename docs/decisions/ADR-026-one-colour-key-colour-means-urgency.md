@@ -46,9 +46,11 @@ Colour states **how urgent**; the label states **what**. One key, one module:
   `KIND_TONE`; no page keeps its own table.
 - A **badge** (`.status-chip`) marks a status beside a value (a
   temperature, a plant row). When the status is the row's own main text —
-  the Command Center's Needs-attention Problem column — it is plain text
-  after a **coloured dot** (`.status-dot`), so a list of urgent rows does
-  not become a column of red pills (COLOUR-KEY-2, 2026-09-19).
+  the Command Center's Needs-attention Problem column — the text itself
+  takes the tone colour (`.status-text`), so a list of urgent rows does not
+  become a column of red pills (COLOUR-KEY-2; COLOUR-KEY-3 replaced the
+  first form, a small dot, which the user found too hard to see). Every tone
+  colour reaches 4.5:1 as text in both appearances.
 - Every status badge is one `.status-chip` style; every status colour is a
   `--sev-*` token (including `--sev-none`), restated for dark.
 - Labels name the coverage where a colour covers more than one thing

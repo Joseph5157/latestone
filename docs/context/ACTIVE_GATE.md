@@ -1,10 +1,42 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (COLOUR-KEY-2); push **NOT granted**.
+Gate: COLOUR-KEY-3
+Commit/push permission: commit on branch `problem-text-colour` and local
+merge to `main` **GRANTED**; push **NOT granted**.
+
+## COLOUR-KEY-3 — OPEN / IN PROGRESS
+
+Baseline: `main` at `dd69067`, branch `problem-text-colour`. ADR-026
+(amended).
+
+## Task
+
+The dot before a Needs-attention problem is too hard to see (user): colour
+the problem name itself in its tone instead; remove the dot.
+
+## Relevant files
+
+- `components/status_colors.py`, `components/attention.py`,
+  `assets/app.css`, `tests/test_attention_components.py`,
+  `tests/test_status_colors.py`
+- `docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md`
+
+## Non-goals (explicit)
+
+- Badges elsewhere unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px, dark and light: the Needs-attention list.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## COLOUR-KEY-2 — CLOSED / PASS
 
@@ -50,7 +82,7 @@ None.
 - Browser 1440 px, dark and light: the Needs-attention list shows dots and
   plain names; Hottest-now badges unchanged.
 
-## Next implementation gate: NONE
+## Next implementation gate: COLOUR-KEY-3 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
