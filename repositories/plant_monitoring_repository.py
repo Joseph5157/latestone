@@ -3293,6 +3293,37 @@ def list_recent_programming_requests(
     return [_to_programming_request(row) for row in rows]
 
 
+def list_programming_requests_since(
+    *,
+    since: datetime,
+    allowed_device_ids: frozenset[str] | None,
+    limit: int = 200,
+) -> list[ProgrammingRequestRecord]:
+    """Programming requests made at or after `since`, newest first, in scope.
+
+    The fleet-grained companion to `list_recent_programming_requests`, for
+    the Command Center's recent-activity panel (CC-NEW-1). Bounded by both
+    the window and `limit`; the table is small (one row per request).
+    """
+    scope_clause, params = _scope_clause("r", allowed_device_ids)
+    params.update({"since": since, "limit": limit})
+    statement = _scoped(
+        text(
+            f"""
+            SELECT {", ".join("r." + c.strip() for c in _PROGRAMMING_REQUEST_COLUMNS.split(","))}
+            FROM {_SCHEMA}.rtl_programming_requests r
+            WHERE r.requested_at >= :since{scope_clause}
+            ORDER BY r.requested_at DESC, r.request_id DESC
+            LIMIT :limit
+            """
+        ),
+        allowed_device_ids,
+    )
+    with session_scope() as session:
+        rows = session.execute(statement, params).all()
+    return [_to_programming_request(row) for row in rows]
+
+
 @dataclass(frozen=True)
 class DeviceAuditHistoryRecord:
     """One device-scoped audit row, reduced to safe operational fields.
