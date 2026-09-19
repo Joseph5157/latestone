@@ -1,6 +1,8 @@
 """Metric chart — line chart parameterized by MetricConfig."""
 from __future__ import annotations
 
+from typing import Sequence
+
 from dash import dcc
 import plotly.graph_objects as go
 
@@ -8,6 +10,8 @@ from components.chart_presentation import (
     TEMPLATE, bar_geometries, grid_axis, hover_template, no_data_annotation,
 )
 from config.metrics import MetricConfig
+from components.status_colors import GAP_FILL, KIND_TONE, TONE_CHART_COLOUR
+from services.device_timeline_service import DeviceAlarm, ReadingGap
 from services.monitoring_service import Reading
 
 LINE_COLOR = "#3b82f6"
@@ -119,6 +123,40 @@ def build_metric_figure(
         fig, metric, _chart_title(metric, period_label), view_revision,
         hovermode="x unified",
     )
+    return fig
+
+
+def add_alarm_overlay(
+    fig: go.Figure, alarms: Sequence[DeviceAlarm], gaps: Sequence[ReadingGap] = ()
+) -> go.Figure:
+    """ADR-027: this RTL's alarms as dashed lines with a marker at the top,
+    and "No readings" gaps as a faint band, over any metric's chart.
+
+    Markers sit on a hidden second y axis pinned to [0, 1] so they stay at
+    the top of the plot whatever the metric's own scale.
+    """
+    for gap in gaps:
+        fig.add_vrect(x0=gap.start, x1=gap.end, fillcolor=GAP_FILL, line_width=0,
+                      layer="below", annotation_text="No readings",
+                      annotation_position="top left",
+                      annotation_font=dict(size=11, color=TONE_CHART_COLOUR["nodata"]))
+    by_kind: dict = {}
+    for alarm in alarms:
+        colour = TONE_CHART_COLOUR[KIND_TONE[alarm.kind]]
+        fig.add_shape(type="line", xref="x", yref="paper", x0=alarm.at, x1=alarm.at,
+                      y0=0, y1=1, line=dict(color=colour, width=1.2, dash="dot"))
+        by_kind.setdefault(alarm.kind, []).append(alarm)
+    for kind, group in by_kind.items():
+        fig.add_trace(go.Scatter(
+            x=[a.at for a in group], y=[1] * len(group), yaxis="y2",
+            mode="markers", name=group[0].label, showlegend=False, cliponaxis=False,
+            marker=dict(color=TONE_CHART_COLOUR[KIND_TONE[kind]], size=10,
+                        line=dict(color="#ffffff", width=1.5)),
+            hovertemplate=f"{group[0].label}<extra></extra>",
+        ))
+    if by_kind:
+        fig.update_layout(yaxis2=dict(overlaying="y", range=[0, 1], visible=False,
+                                      fixedrange=True))
     return fig
 
 

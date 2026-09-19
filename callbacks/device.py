@@ -6,15 +6,17 @@ from datetime import datetime, time, timedelta, timezone
 
 from dash import Input, Output, State, no_update
 
+from components.device_alarms import alarm_history
 from components.freshness_badge import format_last_reading, freshness_badge
 from components.kpi_card import kpi_row
 from components.metric_chart import (
-    build_delta_figure, build_metric_figure, chart_revision,
+    add_alarm_overlay, build_delta_figure, build_metric_figure, chart_revision,
 )
 from components.metric_workspace import metric_workspace
 from components.readings_table import build_table_rows
 from components.status_panels import error_panel
 from routes import device_href
+from services import device_timeline_service as timeline
 from services import monitoring_service as svc
 from services.device_scope import current_device_scope
 from services.monitoring_service import Freshness, Period
@@ -92,6 +94,7 @@ def error_outputs() -> tuple:
         [],                                             # readings-table columns
         header_freshness_children(Freshness.NO_DATA),   # header-freshness
         "No readings",                                  # equipment-last-data
+        None,                                           # device-alarm-history
     )
 
 
@@ -106,6 +109,7 @@ def register(app) -> None:
         Output("readings-table", "columns"),
         Output("header-freshness", "children"),
         Output("equipment-last-data", "children"),
+        Output("device-alarm-history", "children"),
         Input("page-context", "data"),
         Input("metric-dropdown", "value"),
         Input("period-radio", "value"),
@@ -116,11 +120,11 @@ def register(app) -> None:
     )
     def refresh_device_dashboard(context, metric_key, period_value, custom_start, custom_end, _n):
         if not context or context.get("route") != "device":
-            return [no_update] * 7
+            return [no_update] * 8
 
         device_id = context.get("device_id")
         if not device_id:
-            return [no_update] * 7
+            return [no_update] * 8
 
         # P0-3 (AUTH-HARDEN-1). `page-context` is Input, not State: this
         # callback is independently invokable with a forged device_id, and
@@ -159,7 +163,7 @@ def register(app) -> None:
             view = views.get(metric_key)
 
             if view is None:
-                return [no_update] * 7
+                return [no_update] * 8
 
             # 4. Build outputs
             # The service decides which metrics need bars and how to bin
@@ -202,6 +206,20 @@ def register(app) -> None:
                     view_revision=revision, period_label=label,
                 )
 
+            # ADR-027: this RTL's alarms (Administrator/Technician only) as
+            # markers on the chart and a list under it; "No readings" gaps
+            # shaded on line charts. Bars already mark bins they could not
+            # compute, so they get markers only.
+            window_start = view.window_start or (view.series[0].timestamp if view.series else None)
+            window_end = view.window_end or (view.series[-1].timestamp if view.series else None)
+            alarms = timeline.current_alarm_history(device_id, window_start, window_end)
+            gaps = () if view.metric.chart_type == "bar" else timeline.reading_gaps(
+                (r.timestamp for r in view.series),
+                # A custom range can end later today; silence stops at now.
+                until=min(window_end, datetime.now(timezone.utc)) if window_end else None)
+            add_alarm_overlay(fig, alarms or (), gaps)
+            history = alarm_history(alarms, label)
+
             # Readings table (newest first)
             sorted_series = sorted(view.series, key=lambda r: r.timestamp, reverse=True)
             table_data = build_table_rows(view.metric, sorted_series)
@@ -218,7 +236,8 @@ def register(app) -> None:
             )
 
             return (
-                workspace, kpis, fig, table_data, table_columns, freshness, last_data
+                workspace, kpis, fig, table_data, table_columns, freshness, last_data,
+                history,
             )
 
         except Exception:

@@ -4,7 +4,69 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (PROBLEM-GROUPS-1); push **NOT granted**.
+exercised** (ALARM-HISTORY-1); push **NOT granted**.
+
+## ALARM-HISTORY-1 — CLOSED / PASS
+
+Baseline: `main` at `3de2832`, branch `alarm-history`. ADR-027.
+
+## Task
+
+Device page: the RTL's alarms as markers on the chart, a read-only alarm
+history list under it, and shaded "No readings" gaps (ADR-027; user
+approved mockup and decisions 2026-09-19).
+
+## Relevant files
+
+- `services/device_timeline_service.py` (new),
+  `components/device_alarms.py` (new), `components/metric_chart.py`,
+  `components/status_colors.py`, `callbacks/device.py`,
+  `pages/device_dashboard.py`, `assets/app.css`
+- `tests/test_device_timeline_service.py` (new),
+  `tests/test_device_alarms_component.py` (new)
+- `docs/decisions/ADR-027-device-page-alarm-history.md`
+
+## Non-goals (explicit)
+
+- No Acknowledge on the Device page (read-only).
+- No new repository query, table or migration.
+- No fixed reporting cadence.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` (seed-integrity row
+  counts known-red on the current local DB).
+- Browser 1440 px, dark and light: a Device page with alarms, as
+  Administrator, Technician and General User.
+
+## Known ambiguity
+
+None. Gap rule chosen by the user: relative to the RTL's own rhythm (4 x
+median spacing), not the 24 h freshness limit.
+
+## Implementation
+
+- `6bbf26c` `services/device_timeline_service.py` (`device_alarms`,
+  `reading_gaps` incl. trailing silence, `current_alarm_history` — None for
+  roles that may not open Notifications); `attention_service.event_kind`;
+  `components/device_alarms.py` list; `metric_chart.add_alarm_overlay`
+  (dotted line + marker on hidden `y2`, labelled gap band);
+  `status_colors.TONE_CHART_COLOUR` / `GAP_FILL`; device callback gains an
+  8th output (`device-alarm-history`), tests pinned to 7 updated.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes.
+- `python -m pytest`: only the 3 known `tests/test_seed_integrity.py`
+  row-count tests fail (local DB not on the plain seed); nothing else.
+- Browser 1440 px: Administrator — Power Down marker + list (dark and
+  light); "No data" RTL shows a labelled trailing "No readings" band;
+  Technician — Battery Low on an assigned RTL, marker on the voltage chart;
+  General User — no alarm history.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## PROBLEM-GROUPS-1 — CLOSED / PASS
 
@@ -54,7 +116,7 @@ None.
 - Browser 1440 px, dark and light: six headings in rank order with counts
   2 / 8 / 1 / 14 / 18 / 9; heading stays pinned while the list scrolls.
 
-## Next implementation gate: NONE
+## Next implementation gate: ALARM-HISTORY-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

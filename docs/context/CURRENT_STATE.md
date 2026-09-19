@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T15:06:30Z
+Date: 2026-09-19T15:23:09Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `problem-groups` = `f02069b` "feat(ui): Needs-attention list grouped by kind with counts (PROBLEM-GROUPS-1)" (not `main`)
-- Working tree: 8 entries — see below
+- current branch `alarm-history` = `6bbf26c` "feat(device): alarm history on the Device page (ADR-027, ALARM-HISTORY-1)" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2987 passed, 731 deselected in 35.96s
+- `python -m pytest -m "not db"` → 3008 passed, 731 deselected in 35.77s
 
 ## Branches
 
@@ -43,6 +43,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `overview-cc-redesign`
 - `overview-stats-cards`
 - `problem-dots`
+- `problem-groups`
 - `problem-text-colour`
 - `role-1-session-identity`
 - `role-2-route-authorization`
@@ -58,14 +59,14 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 429 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 279 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 429 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `problem-groups` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `alarm-history` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 432 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 282 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 432 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-26 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+27 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -95,6 +96,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-024-overview-and-command-center-split-by-question.md | Approved | `2cfad36` (switch-over; built in FO-NEW-1, CC-NEW-1, CC-ACTIONS-1) |
 | ADR-025-dark-mode-is-app-wide-and-remembered.md | Approved | `07d1b02` (app-wide theme, store, toggle); `0503480` (components) |
 | ADR-026-one-colour-key-colour-means-urgency.md | Approved | `21a5d1f`; `0a84648` (badge-vs-dot); `fd84225` (coloured text) |
+| ADR-027-device-page-alarm-history.md | Approved | `6bbf26c` |
 
 ## Active gate
 
@@ -104,6 +106,7 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ```
 M docs/context/ACTIVE_GATE.md
+ M docs/decisions/ADR-027-device-page-alarm-history.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
