@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: CLICK-FILTER-1
-Commit/push permission: commit **GRANTED on branch `click-to-filter`** and a
-local merge to `main` once green; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (CLICK-FILTER-1); push **NOT granted**.
 
-## CLICK-FILTER-1 — OPEN / IN PROGRESS
+## CLICK-FILTER-1 — CLOSED / PASS
 
 Baseline: `main` at `bdd5231`, branch `click-to-filter`.
 
@@ -43,6 +43,32 @@ Baseline: `main` at `bdd5231`, branch `click-to-filter`.
 
 - Plant-level chips have no separate Warning / Critical filter, so both
   segments select Hot (plants with any Warning or Critical RTL).
+
+## Implementation
+
+- `d9e59c8` `rtl_condition_counts`; `condition_bar` (segments + legend as
+  buttons, "Limits not set" not clickable); Hottest / Hot RTLs / Reporting
+  cards as buttons (pattern id `fleet-overview-jump`); `jump_outputs` sets
+  the chip / sort, ignoring re-render fires; peak card `title`.
+- `c7d6b5e` severity counters and strip segments as buttons
+  (`attention-severity`), `SEVERITY_STORE_ID`, `severity_selection`
+  toggle, filtered problem list with "Showing X only · Show all".
+- `b6dcb01` clickable cards truncate long text, full text on hover.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed with the live simulator stopped (restarted afterwards). A first run
+  caught weight 700 (the font ships 400/600 only); the active counter uses
+  an outline instead.
+- Browser 1440 px (admin): Hot RTLs card -> Hot · 8 (8 rows); Normal legend
+  -> Normal · 22; Reporting card -> No recent data · 1; Warning segment ->
+  Hot; Hottest card -> Hottest first. Command Center 55 problems; Warning
+  counter -> 32 rows, pressed, note shown; Critical strip segment -> 13;
+  Show all -> 55; pressing the active counter again -> 55. No console
+  errors.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
