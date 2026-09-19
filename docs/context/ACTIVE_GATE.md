@@ -1,10 +1,50 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (CC-VISUALS-1); push **NOT granted**.
+Gate: CLICK-FILTER-1
+Commit/push permission: commit **GRANTED on branch `click-to-filter`** and a
+local merge to `main` once green; push **NOT granted**.
+
+## CLICK-FILTER-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `bdd5231`, branch `click-to-filter`.
+
+## Task
+
+- **Fleet Overview:** a stacked temperature-condition bar (RTL counts:
+  Normal / Warning / Critical / No recent data, or Limits not set) under the
+  stat cards; the 30-day peak card shows its full text on hover.
+- **Click to filter, Fleet Overview:** Hot RTLs card and the Warning /
+  Critical segments -> Hot chip; Normal segment -> Normal chip; Reporting
+  card and No-recent-data segment -> No recent data chip; Hottest now card
+  -> Hottest-first sort. The chips stay the single filter state.
+- **Click to filter, Command Center:** the severity counters and strip
+  segments filter the problem list to that severity; clicking the active one
+  (or "Show all") clears it. The headline keeps the full count.
+
+## Relevant files
+
+- `services/fleet_overview_service.py`, `components/fleet_overview.py`,
+  `pages/plants_overview.py`, `callbacks/fleet_overview.py`
+- `components/attention.py`, `pages/command_center.py`,
+  `callbacks/command_center.py`, `assets/app.css`
+
+## Non-goals (explicit)
+
+- No new query, no schema change, no URL change; filters are not persisted.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed with
+  the live simulator stopped. Browser at 1440 px: every click target.
+
+## Known ambiguity
+
+- Plant-level chips have no separate Warning / Critical filter, so both
+  segments select Hot (plants with any Warning or Critical RTL).
+
+## Prior gate record
 
 ## CC-VISUALS-1 — CLOSED / PASS
 
@@ -60,7 +100,7 @@ None.
   x range; 16 stacked segments with legend Power Down / Battery Low / Sensor
   Error; demo.tech01 own scope. No horizontal scroll, no console errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: CLICK-FILTER-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
