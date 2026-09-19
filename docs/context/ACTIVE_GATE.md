@@ -1,10 +1,66 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** on branch
-`overview-cc-redesign` (FO-NEW-1); push **NOT granted**.
+Gate: SWITCH-OVER-1
+Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
+and a local merge to `main` once green (user: "continue 5 and 6"); push
+**NOT granted**.
+
+## SWITCH-OVER-1 — OPEN / IN PROGRESS
+
+Baseline: branch `overview-cc-redesign` at `92172ee`. Phase 6 of the Fleet
+Overview + Command Center redesign (decision D12).
+
+## Task
+
+- Delete the old Command Center (page, full locations view, callbacks,
+  `components/command_center/` panels it alone used,
+  `services/command_center_service.py`) and the old Fleet Overview (page,
+  its populate callback and the components only it used). The theme
+  callbacks move to the new Command Center; `refresh`, `theme` and
+  `primitives` stay.
+- The new pages take the real paths: Command Center at `/command-center`,
+  Fleet Overview at `/plants` (and `/` for General Users). `/plants-new`,
+  `/command-center-new` and `/command-center/locations` are removed.
+- Kept: plant and transformer detail pages, the Device page, Assignments
+  (Administration cards), a Technician's Devices page (`build_my_rtls_rows`).
+- Merge to `main` locally when both suites are green.
+
+## Relevant files
+
+- `routes.py`, `services/authorization.py`, `callbacks/routing.py`,
+  `callbacks/navigation.py`, `app.py`, `assets/app.css`
+- `pages/command_center.py`, `pages/command_center_locations.py`,
+  `callbacks/command_center.py`, `components/command_center/__init__.py`,
+  `services/command_center_service.py` (to be deleted)
+- `pages/plants_overview.py`, `callbacks/listings.py`,
+  `components/fleet_condition.py`, `components/needs_attention.py`,
+  `components/my_rtls.py`, `components/unassigned_rtls.py`
+- `pages/command_center_new.py`, `callbacks/command_center_new.py`,
+  `pages/plants_overview_new.py`, `callbacks/plants_overview_new.py`
+  (renamed to the real names)
+- `docs/decisions/ADR-006-route-scoped-theming-is-architecture.md`,
+  `docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md`
+
+## Non-goals (explicit)
+
+- No behaviour change to the new pages, the detail pages, the Device page
+  or any service they use. No schema change. No push.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: all three roles land correctly; `/command-center` and `/plants`
+  render the new pages; removed paths show "page not found".
+
+## Known ambiguity
+
+- ADRs that describe the removed panels (ADR-008 and others) stay as
+  history; where one is now wrong about the running app, it gets an
+  `Amended-by`/status note rather than a rewrite.
+
+## Prior gate record
 
 ## FO-NEW-1 — CLOSED / PASS
 
@@ -82,7 +138,7 @@ A new Fleet Overview at `/plants-new`, built beside the old one, answering
   active; no horizontal scroll; no console errors. Limits unset locally, so
   every RTL reads "Limits not set" and the unset notice shows.
 
-## Next implementation gate: NONE
+## Next implementation gate: SWITCH-OVER-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
