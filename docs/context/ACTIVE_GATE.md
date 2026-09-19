@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: PROBLEM-GROUPS-2
-Commit/push permission: commit on branch `problem-groups-fold` and local
-merge to `main` **GRANTED**; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (PROBLEM-GROUPS-2); push **NOT granted**.
 
-## PROBLEM-GROUPS-2 — OPEN / IN PROGRESS
+## PROBLEM-GROUPS-2 — CLOSED / PASS
 
 Baseline: `main` at `70059c9`, branch `problem-groups-fold`. ADR-024
 (amended).
@@ -40,6 +40,25 @@ survives the auto-refresh and navigating away within the browser tab.
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `08e790e` each group is `li > details > (summary.attention-group,
+  ul.attention-group__rows)`; summary id `{"type": GROUP_TOGGLE, "kind"}`;
+  `fold_selection()` toggles the kind in `attention-folded-store`
+  (session), read by populate as State; CSS chevron, dashed rule when
+  folded.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes.
+- `python -m pytest`: only the 3 known `tests/test_seed_integrity.py`
+  row-count tests fail (local DB not on the plain seed); nothing else.
+- Browser 1440 px, dark and light: Power Down and Battery Low folded stay
+  folded after Refresh now and after Overview → Command Center; unfolding
+  Battery Low works.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
