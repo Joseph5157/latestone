@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: CC-FILTER-FAST-1
-Commit/push permission: commit and local merge to `main` **GRANTED** (user,
-2026-09-19, "commit and do this now"); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (user, 2026-09-19, "commit and do this now"); push **NOT granted**.
 
-## CC-FILTER-FAST-1 — OPEN
+## CC-FILTER-FAST-1 — CLOSED / PASS
 
 Baseline: `main` at `fa56aad`, branch `cc-filter-fast`. No ADR: applies
 PROBLEM-GROUPS-2's rule (a browser-side view change must not refetch the
@@ -52,6 +52,25 @@ logic stays in Python (`severity_selection`, `fold_selection`,
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `059fcc0` `realClick`/`filterClass` in `assets/command_center.js`; four
+  click stores + `FILTER_ROOT_ID` on the page; server callbacks on the
+  stores; severity store is State for `populate`; filter CSS on
+  `attention-filter--<tone>`.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes; pack CLEAN.
+- Browser against the running app: donut Warning click → 1 request
+  (severity store), no populate; only Battery Low shown, its note shown,
+  card and label aria-pressed; Refresh now → 1 request (populate only, was
+  5), filter held; Manage opens the drawer (29033); folding a group holds
+  across a refresh. Acknowledge not clicked (writes the DB); covered by
+  unit tests.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
