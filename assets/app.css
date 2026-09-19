@@ -6758,6 +6758,25 @@ body {
   max-height: 640px;
   overflow-y: auto;
 }
+/* PROBLEM-GROUPS-1: a heading with a count wherever the kind changes. It
+   takes the kind's tone (ADR-026 .status-text--*) and sticks to the top of
+   the scrolling list, so the group of the row in view is always named. */
+.attention-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0 2px;
+  background: var(--color-surface);
+  border-bottom: 2px solid currentColor;
+  font-weight: 600;
+}
+.attention-problems > .attention-group:first-child { padding-top: var(--sp-1); }
+.attention-group__count { font-variant-numeric: tabular-nums; }
+
 .attention-problem {
   display: grid;
   /* Fixed since/actions widths so the columns line up across rows

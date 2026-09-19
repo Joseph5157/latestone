@@ -1,10 +1,44 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (WORKING-CARD-1); push **NOT granted**.
+Gate: PROBLEM-GROUPS-1
+Commit/push permission: commit on branch `problem-groups` and local merge to
+`main` **GRANTED**; push **NOT granted**.
+
+## PROBLEM-GROUPS-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `d7470b9`, branch `problem-groups`. ADR-024 (amended).
+
+## Task
+
+Command Center Needs-attention list: a heading with a count wherever the
+problem kind changes, so the ranked list scans as groups (user approved
+the mockup, Zendesk-style priority groups from the Mobbin review). Order
+unchanged (D5). Headings do not fold (user decision).
+
+## Relevant files
+
+- `components/attention.py`, `assets/app.css`,
+  `tests/test_attention_components.py`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+
+## Non-goals (explicit)
+
+- No change to ranking, services or queries.
+- No collapsing groups; severity cards remain the filter.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` (seed-integrity row
+  counts are known-red on the current local DB, see WORKING-CARD-1).
+- Browser 1440 px, dark and light: the Needs-attention list.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## WORKING-CARD-1 — CLOSED / PASS
 
@@ -56,7 +90,7 @@ working count may appear on both pages.
 - Browser 1440 px, dark and light: card reads "Working 119 of 120 · 1 not
   reporting".
 
-## Next implementation gate: NONE
+## Next implementation gate: PROBLEM-GROUPS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

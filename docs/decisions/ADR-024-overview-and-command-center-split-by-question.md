@@ -35,6 +35,8 @@ tracked).
   temperature, Battery Low, Sensor error; oldest first within a kind), the
   hottest five RTLs, alarms per day for 7 days, recent activity for 24 h.
   Acknowledge and Manage reuse the existing guarded flows (ADR-016).
+  The problem list carries a heading with a count wherever the kind
+  changes (amended 2026-09-19, PROBLEM-GROUPS-1); headings do not fold.
 - **No panel appears on both pages** — one exception (amended
   2026-09-19, WORKING-CARD-1, by user request): the working count ("N of M
   RTLs with a recent reading") is a card on the Command Center as well as

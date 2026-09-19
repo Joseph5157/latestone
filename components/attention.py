@@ -7,6 +7,7 @@ visual tone comes from `components.status_colors` (ADR-026).
 from __future__ import annotations
 
 import math
+from itertools import groupby
 from datetime import datetime
 from typing import Sequence
 
@@ -227,6 +228,47 @@ def _actions(p: Problem, may_ack: frozenset[str], may_manage: frozenset[str]) ->
     return buttons
 
 
+def _problem_row(p: Problem, now: datetime, may_ack: frozenset[str],
+                 may_manage: frozenset[str]) -> html.Li:
+    return html.Li(
+        className=f"attention-problem attention-problem--{KIND_TONE[p.kind]}",
+        children=[
+            html.Span(p.label, className="attention-problem__kind "
+                      + status_text_class(KIND_TONE[p.kind])),
+            html.Div(className="attention-problem__main", children=[
+                _device_link(p.device_id, p.device_code),
+                html.Span(f"{p.plant_name} · {p.transformer_code}",
+                          className="attention-problem__where"),
+            ]),
+            html.Span(p.detail, className="attention-problem__detail"),
+            html.Span(ago(p.since, now), className="attention-problem__since",
+                      title=p.since.strftime("%Y-%m-%d %H:%M UTC") if p.since else None),
+            html.Div(_actions(p, may_ack, may_manage),
+                     className="attention-problem__actions"),
+        ],
+    )
+
+
+def _grouped_rows(problems: Sequence[Problem], now: datetime,
+                  may_ack: frozenset[str], may_manage: frozenset[str]) -> list:
+    """PROBLEM-GROUPS-1: a heading with a count wherever the kind changes.
+
+    The list arrives ranked (D5), so each kind is one run; the headings
+    live in the same <ul> so the list keeps its single scroll area.
+    """
+    items: list = []
+    for kind, run in groupby(problems, key=lambda p: p.kind):
+        run = list(run)
+        tone = KIND_TONE[kind]
+        items.append(html.Li(
+            className=f"attention-group attention-group--{tone} " + status_text_class(tone),
+            children=[html.Span(run[0].label, className="attention-group__label"),
+                      html.Span(str(len(run)), className="attention-group__count")],
+        ))
+        items.extend(_problem_row(p, now, may_ack, may_manage) for p in run)
+    return items
+
+
 def problem_list(
     problems: Sequence[Problem],
     now: datetime,
@@ -257,26 +299,10 @@ def problem_list(
             html.Span("Since", className="attention-problem__since"),
             html.Span("", className="attention-problem__actions"),
         ])
-        body = filter_note + [head, html.Ul(className="attention-problems", children=[
-            html.Li(
-                className=f"attention-problem attention-problem--{KIND_TONE[p.kind]}",
-                children=[
-                    html.Span(p.label, className="attention-problem__kind "
-                              + status_text_class(KIND_TONE[p.kind])),
-                    html.Div(className="attention-problem__main", children=[
-                        _device_link(p.device_id, p.device_code),
-                        html.Span(f"{p.plant_name} · {p.transformer_code}",
-                                  className="attention-problem__where"),
-                    ]),
-                    html.Span(p.detail, className="attention-problem__detail"),
-                    html.Span(ago(p.since, now), className="attention-problem__since",
-                              title=p.since.strftime("%Y-%m-%d %H:%M UTC") if p.since else None),
-                    html.Div(_actions(p, may_ack, may_manage),
-                             className="attention-problem__actions"),
-                ],
-            )
-            for p in problems
-        ])]
+        body = filter_note + [head, html.Ul(
+            className="attention-problems",
+            children=_grouped_rows(problems, now, may_ack, may_manage),
+        )]
     return cc_card("Needs attention", body,
                    subtitle="Most urgent first · alarms stay until acknowledged")
 
