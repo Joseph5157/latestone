@@ -25,6 +25,7 @@
   --color-bg: #f4f6f8;              /* canvas — neutral cool grey */
   --color-surface: #ffffff;         /* cards */
   --color-border: #e2e5e9;          /* dividers */
+  --color-input-border: #aeb7c2;    /* form-field edges */
 
   /* text */
   --color-text: #1f2937;            /* primary — 13.6:1 on surface */
@@ -1006,6 +1007,7 @@ body {
 
 .app-sidebar__icon--overview      { -webkit-mask-image: url("/assets/icons/nav-overview.svg");      mask-image: url("/assets/icons/nav-overview.svg"); }
 .app-sidebar__icon--devices       { -webkit-mask-image: url("/assets/icons/nav-devices.svg");       mask-image: url("/assets/icons/nav-devices.svg"); }
+.app-sidebar__icon--my-devices    { -webkit-mask-image: url("/assets/icons/nav-my-devices.svg");    mask-image: url("/assets/icons/nav-my-devices.svg"); }
 .app-sidebar__icon--assignments   { -webkit-mask-image: url("/assets/icons/nav-assignments.svg");   mask-image: url("/assets/icons/nav-assignments.svg"); }
 .app-sidebar__icon--registration  { -webkit-mask-image: url("/assets/icons/nav-registration.svg");  mask-image: url("/assets/icons/nav-registration.svg"); }
 .app-sidebar__icon--notifications { -webkit-mask-image: url("/assets/icons/nav-notifications.svg"); mask-image: url("/assets/icons/nav-notifications.svg"); }
@@ -1414,7 +1416,7 @@ body {
 .unassigned-rtls__status {
   display: inline-block;
   padding: 2px 7px;
-  border: 1px solid #cbd2d9;
+  border: 1px solid var(--color-border-strong);
   border-radius: 3px;
   background: var(--color-subtle);
   color: var(--color-text-2);
@@ -2381,7 +2383,7 @@ body {
   display: inline-block;
   width: fit-content;
   padding: 2px 7px;
-  border: 1px solid #cbd2d9;
+  border: 1px solid var(--color-border-strong);
   border-radius: 3px;
   background: var(--color-subtle);
   color: var(--color-text-2);
@@ -2478,7 +2480,7 @@ body {
   display: inline-block;
   width: fit-content;
   padding: 2px 7px;
-  border: 1px solid #cbd2d9;
+  border: 1px solid var(--color-border-strong);
   border-radius: 3px;
   background: var(--color-subtle);
   color: var(--color-text-2);
@@ -3348,7 +3350,7 @@ body {
 .page--device-dashboard .equipment-context__item--administrative .equipment-context__value {
   align-self: flex-start;
   background: var(--color-subtle);
-  border: 1px solid #cbd2d9;
+  border: 1px solid var(--color-border-strong);
   border-radius: 3px;
   color: var(--color-text-2);
   font-size: 11px;
@@ -3419,7 +3421,7 @@ body {
 .page--device-dashboard .metric-control--metric { flex: 0 1 240px; }
 .page--device-dashboard .metric-dropdown { min-width: 180px; }
 .page--device-dashboard .metric-dropdown .Select-control {
-  border-color: #aeb7c2;
+  border-color: var(--color-input-border);
   border-radius: 3px;
   box-shadow: none;
   min-height: 36px;
@@ -3431,7 +3433,7 @@ body {
 
 .page--device-dashboard .period-radio {
   background: var(--color-surface);
-  border: 1px solid #aeb7c2;
+  border: 1px solid var(--color-input-border);
   border-radius: 3px;
   display: inline-flex;
   gap: 0;
@@ -4049,7 +4051,7 @@ body {
 .page--user-admin .user-admin-toolbar__dropdown .Select-control,
 .page--user-admin .user-form-drawer__dropdown .Select-control,
 .page--device-register .device-register-form__dropdown .Select-control {
-  border-color: #aeb7c2;
+  border-color: var(--color-input-border);
   border-radius: 4px;
   min-height: 36px;
 }
@@ -6028,14 +6030,18 @@ body {
    3:1 on #1a232e, which is below the 4.5:1 these carry on light. */
 .app-root.theme--dark:not(:has(.login-page)) {
   --color-bg: #121820;
-  --color-surface: #1a232e;
+  --color-surface: #1e2835;
   --color-border: #2b3949;
   --color-text: #e6ebf2;
   --color-muted: #98a4b5;
   --color-brand: #0d131a;
   --color-accent: #7aa9ff;
-  --color-accent-bg: #16233a;
+  --color-accent-bg: #24406b;
+  --color-input-border: #63768c;
   --focus-ring: 0 0 0 3px rgba(122, 169, 255, 0.5);
+  /* THEME-APP-2: native radios, checkboxes and scrollbars follow. */
+  color-scheme: dark;
+  accent-color: var(--color-accent);
 
   --cc-fresh:    var(--color-muted);
   --cc-stale:    #e3b341;
@@ -6093,6 +6099,7 @@ body {
 .app-root.theme--dark:not(:has(.login-page)) .app-sidebar__link--active {
   background: var(--color-accent-bg);
   color: var(--color-text);
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -7293,7 +7300,7 @@ button.attention-severity-card.attention-counter--critical.attention-counter--ac
 .app-root.theme--dark:not(:has(.login-page)) .dash-table-container .previous-next-container button { color: var(--color-text); background: transparent; }
 
 /* dcc.Dropdown (react-select v1). */
-.app-root.theme--dark:not(:has(.login-page)) .Select-control { background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); }
+.app-root.theme--dark:not(:has(.login-page)) .Select-control { background-color: var(--color-surface); border-color: var(--color-input-border); color: var(--color-text); }
 .app-root.theme--dark:not(:has(.login-page)) .Select.is-disabled > .Select-control { background-color: var(--color-subtle); }
 .app-root.theme--dark:not(:has(.login-page)) .Select-value-label, .app-root.theme--dark:not(:has(.login-page)) .Select-input > input, .app-root.theme--dark:not(:has(.login-page)) .Select--single > .Select-control .Select-value { color: var(--color-text) !important; }
 .app-root.theme--dark:not(:has(.login-page)) .Select-placeholder { color: var(--color-muted); }
@@ -7305,7 +7312,7 @@ button.attention-severity-card.attention-counter--critical.attention-counter--ac
 
 /* dcc.DatePickerSingle / Range (react-dates). */
 .app-root.theme--dark:not(:has(.login-page)) .DateInput, .app-root.theme--dark:not(:has(.login-page)) .DateInput_input, .app-root.theme--dark:not(:has(.login-page)) .DateRangePickerInput, .app-root.theme--dark:not(:has(.login-page)) .SingleDatePickerInput {
-  background-color: var(--color-surface); color: var(--color-text); border-color: var(--color-border);
+  background-color: var(--color-surface); color: var(--color-text); border-color: var(--color-input-border);
 }
 .app-root.theme--dark:not(:has(.login-page)) .DayPicker, .app-root.theme--dark:not(:has(.login-page)) .CalendarMonth, .app-root.theme--dark:not(:has(.login-page)) .CalendarMonthGrid, .app-root.theme--dark:not(:has(.login-page)) .DayPicker_transitionContainer { background: var(--color-surface); }
 .app-root.theme--dark:not(:has(.login-page)) .CalendarMonth_caption, .app-root.theme--dark:not(:has(.login-page)) .DayPicker_weekHeader { color: var(--color-text); }
@@ -7318,7 +7325,7 @@ button.attention-severity-card.attention-counter--critical.attention-counter--ac
 .app-root.theme--dark:not(:has(.login-page)) input[type=email], .app-root.theme--dark:not(:has(.login-page)) input[type=password], .app-root.theme--dark:not(:has(.login-page)) textarea, .app-root.theme--dark:not(:has(.login-page)) select {
   background-color: var(--color-surface);
   color: var(--color-text);
-  border-color: var(--color-border);
+  border-color: var(--color-input-border);
 }
 
 /* Plotly: transparent grounds and themed ink; !important because plotly
@@ -7334,5 +7341,21 @@ button.attention-severity-card.attention-counter--critical.attention-counter--ac
 
 /* Links inside tables (markdown cells) default to the browser's #0000ee. */
 .app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container a { color: var(--color-accent); }
-.app-root.theme--dark:not(:has(.login-page)) button:disabled:not([class*="--primary"]) { color: var(--color-muted); }
+.app-root.theme--dark:not(:has(.login-page)) button:disabled:not([class*="--primary"]) {
+  color: var(--color-muted);
+  background: var(--color-subtle);
+  border-color: var(--color-border);
+}
+
+/* THEME-APP-2: light edges that were written as literals. */
+.app-root.theme--dark:not(:has(.login-page)) .entity-table-wrapper--freshness-axis td[data-dash-column="freshness"] { border-left-color: var(--color-border); }
+.app-root.theme--dark:not(:has(.login-page)) .detail-operational-summary .kpi-card,
+.app-root.theme--dark:not(:has(.login-page)) .detail-operational-summary .temperature-attribution,
+.app-root.theme--dark:not(:has(.login-page)) .page--device-dashboard .equipment-context,
+.app-root.theme--dark:not(:has(.login-page)) .admin-boundary-note,
+.app-root.theme--dark:not(:has(.login-page)) .page--device-register .device-register-form__dropdown .Select-control.is-disabled { border-color: var(--color-border); }
+/* dash_table's filter case toggle ships a hot-pink edge. */
+.app-root.theme--dark:not(:has(.login-page)) input.dash-filter--case { border-color: var(--color-border) !important; color: var(--color-muted); }
+.app-root.theme--dark:not(:has(.login-page)) input.dash-filter--case--sensitive { border-color: var(--color-accent) !important; color: var(--color-accent); }
+.app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container .dash-spreadsheet-inner th.dash-filter input:not([type=button]) { border-bottom: 1px solid var(--color-input-border); }
 .app-root.theme--dark:not(:has(.login-page)) .Select-input, .app-root.theme--dark:not(:has(.login-page)) .Select-input > input { background: transparent; }

@@ -136,3 +136,86 @@ class TestComponentsFollowTheTheme:
     def test_text_on_an_accent_fill_uses_the_on_accent_token(self, css):
         assert "color: #ffffff;\n}" not in css.split(".manage-drawer__btn--primary {")[1][:200]
         assert "--color-on-accent" in css
+
+
+# --- THEME-APP-2: contrast of the dark states, native controls, leftovers ---
+
+def _dark_tokens(css):
+    block = re.search(re.escape(DARK_SCOPE) + r"\s*\{(.*?)\}", css, flags=re.S).group(1)
+    return dict(re.findall(r"(--[\w-]+):\s*(#[0-9a-fA-F]{6})\s*;", block))
+
+
+def _contrast(a, b):
+    def lum(h):
+        c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+class TestDarkContrast:
+    """WCAG 2.2: text 4.5:1; a form field's edge 3:1 (1.4.11); a selected
+    or hovered row must visibly differ from its surroundings."""
+
+    @pytest.mark.parametrize("token", ["--color-text", "--color-text-2", "--color-text-3",
+                                       "--color-muted", "--color-accent", "--sev-critical",
+                                       "--sev-warning", "--sev-nodata", "--sev-normal"])
+    def test_text_tokens_read_on_every_ground(self, css, token):
+        t = _dark_tokens(css)
+        for ground in ("--color-bg", "--color-surface", "--color-subtle"):
+            assert _contrast(t[token], t[ground]) >= 4.5, (token, ground)
+
+    def test_the_highlight_is_visible_on_surface_page_and_sidebar(self, css):
+        t = _dark_tokens(css)
+        for ground in ("--color-surface", "--color-bg", "--color-brand"):
+            assert _contrast(t["--color-accent-bg"], t[ground]) >= 1.4, ground
+        assert _contrast(t["--color-text"], t["--color-accent-bg"]) >= 4.5
+
+    def test_form_field_edges_reach_three_to_one(self, css):
+        t = _dark_tokens(css)
+        for ground in ("--color-surface", "--color-subtle", "--color-bg"):
+            assert _contrast(t["--color-input-border"], t[ground]) >= 3, ground
+
+    def test_cards_stand_off_the_canvas(self, css):
+        t = _dark_tokens(css)
+        assert _contrast(t["--color-surface"], t["--color-bg"]) >= 1.18
+
+    def test_the_active_sidebar_link_has_an_accent_marker(self, css):
+        rule = css.split(f"{DARK_SCOPE} .app-sidebar__link--active {{")[1].split("}")[0]
+        assert "var(--color-accent)" in rule
+
+
+class TestDarkLeftovers:
+    def test_native_controls_render_dark(self, css):
+        block = re.search(re.escape(DARK_SCOPE) + r"\s*\{(.*?)\}", css, flags=re.S).group(1)
+        assert "color-scheme: dark" in block
+        assert "accent-color: var(--color-accent)" in block
+
+    @pytest.mark.parametrize("literal", ["#cbd2d9", "#aeb7c2"])
+    def test_shared_border_literals_live_only_in_root(self, css, literal):
+        root = re.search(r":root\s*\{(.*?)\}", css, flags=re.S).group(0)
+        assert css.count(literal) == root.count(literal) == 1, literal
+
+    @pytest.mark.parametrize("hook", [
+        '.entity-table-wrapper--freshness-axis td[data-dash-column="freshness"]',
+        ".detail-operational-summary .kpi-card",
+        ".page--device-dashboard .equipment-context",
+        ".admin-boundary-note",
+        "input.dash-filter--case",
+    ])
+    def test_hard_coded_light_edges_have_a_dark_rule(self, css, hook):
+        assert f"{DARK_SCOPE} {hook}" in css
+
+    def test_disabled_secondary_buttons_get_a_dark_fill(self, css):
+        rule = css.split(f'{DARK_SCOPE} button:disabled:not([class*="--primary"]) {{')[1].split("}")[0]
+        assert "background" in rule
+
+
+def test_every_sidebar_icon_has_a_drawing():
+    """A sidebar icon without a mask rule paints as a solid square."""
+    from components.app_sidebar import SIDEBAR_SECTIONS
+    text = CSS_PATH.read_text(encoding="utf-8")
+    for _title, items in SIDEBAR_SECTIONS:
+        for _key, _label, _href, icon in items:
+            assert re.search(rf"\.app-sidebar__icon--{re.escape(icon)}\s*\{{[^}}]*mask-image", text), icon
