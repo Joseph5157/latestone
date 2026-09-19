@@ -157,3 +157,12 @@ class TestManageOutputs:
 
     def test_rerender_is_not_a_click(self):
         assert cb.manage_outputs(MANAGE, 0) == (no_update,) * cb.DRAWER_OUTPUTS
+
+
+def test_severity_selection_toggles_and_ignores_re_renders():
+    from dash import no_update as nu
+    t = {"type": "attention-severity", "tone": "critical", "part": "counter"}
+    assert cb.severity_selection(t, 1, None) == "critical"
+    assert cb.severity_selection(t, 2, "critical") is None
+    assert cb.severity_selection({**t, "tone": "all"}, 1, "warning") is None
+    assert cb.severity_selection(t, 0, None) is nu

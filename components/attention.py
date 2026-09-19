@@ -61,6 +61,15 @@ SEVERITY_COUNTERS = (
 )
 
 
+#: Pattern-matching id type for the severity filter controls (CLICK-FILTER-1):
+#: counters and strip segments carry their tone; "Show all" carries "all".
+SEVERITY_BUTTON = "attention-severity"
+
+
+def tone_of(p: Problem) -> str:
+    return _KIND_TONE[p.kind]
+
+
 def severity_counts(problems: Sequence[Problem]) -> dict[str, int]:
     counts = {tone: 0 for _label, tone in SEVERITY_COUNTERS}
     for p in problems:
@@ -100,7 +109,7 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
-def status_bar(snapshot: AttentionSnapshot) -> html.Div:
+def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html.Div:
     """One line that answers "is everything OK?" before anything else."""
     clear = not snapshot.problems
     headline = (
@@ -123,11 +132,20 @@ def status_bar(snapshot: AttentionSnapshot) -> html.Div:
             className="attention-status__limits",
         )
     counts = severity_counts(snapshot.problems)
+    # CLICK-FILTER-1: each counter filters the problem list; the active one
+    # is pressed, and pressing it again clears the filter.
     counters = html.Div(className="attention-status__counts", children=[
-        html.Span(className=f"attention-counter attention-counter--{tone}"
-                            + (" attention-counter--zero" if not counts[tone] else ""),
-                  children=[html.Span(label, className="attention-counter__label"),
-                            html.Strong(str(counts[tone]), className="attention-counter__value")])
+        html.Button(
+            type="button", n_clicks=0, disabled=not counts[tone],
+            id={"type": SEVERITY_BUTTON, "tone": tone, "part": "counter"},
+            className=f"attention-counter attention-counter--{tone}"
+                      + (" attention-counter--zero" if not counts[tone] else "")
+                      + (" attention-counter--active" if selected == tone else ""),
+            title=("Show all problems" if selected == tone else f"Show only {label}"),
+            **{"aria-pressed": "true" if selected == tone else "false"},
+            children=[html.Span(label, className="attention-counter__label"),
+                      html.Strong(str(counts[tone]), className="attention-counter__value")],
+        )
         for label, tone in SEVERITY_COUNTERS
     ])
     # CC-VISUALS-1: the mix of problems before any number is read.
@@ -137,9 +155,12 @@ def status_bar(snapshot: AttentionSnapshot) -> html.Div:
             [html.Span(className="attention-strip__seg attention-strip__seg--normal",
                        style={"flexGrow": 1})]
             if clear else
-            [html.Span(className=f"attention-strip__seg attention-strip__seg--{tone}",
-                       style={"flexGrow": counts[tone]})
-             for _label, tone in SEVERITY_COUNTERS if counts[tone]]
+            [html.Button(type="button", n_clicks=0, tabIndex="-1",
+                         id={"type": SEVERITY_BUTTON, "tone": tone, "part": "strip"},
+                         className=f"attention-strip__seg attention-strip__seg--{tone}"
+                                   + (" attention-strip__seg--dim" if selected and selected != tone else ""),
+                         style={"flexGrow": counts[tone]}, title=f"{label} {counts[tone]} — show only these")
+             for label, tone in SEVERITY_COUNTERS if counts[tone]]
         ),
     )
     oldest = oldest_unacknowledged(snapshot.problems)
@@ -195,9 +216,20 @@ def problem_list(
     *,
     may_ack: frozenset[str] = frozenset(),
     may_manage: frozenset[str] = frozenset(),
+    selected: str | None = None,
 ) -> html.Section:
+    filter_note = []
+    if selected:
+        label = dict((t, l) for l, t in SEVERITY_COUNTERS).get(selected, selected)
+        problems = [p for p in problems if tone_of(p) == selected]
+        filter_note = [html.Div(className="attention-filter-note", children=[
+            html.Span(f"Showing {label} only · {_plural(len(problems), 'problem')}"),
+            html.Button("Show all", type="button", n_clicks=0,
+                        id={"type": SEVERITY_BUTTON, "tone": "all", "part": "clear"},
+                        className="attention-action"),
+        ])]
     if not problems:
-        body = [html.P("Nothing needs attention.", className="attention-empty")]
+        body = filter_note + [html.P("Nothing needs attention.", className="attention-empty")]
     else:
         # Column header on the same grid as the rows, so "since" and the
         # actions read as columns (POLISH-1). Hidden on phones.
@@ -208,7 +240,7 @@ def problem_list(
             html.Span("Since", className="attention-problem__since"),
             html.Span("", className="attention-problem__actions"),
         ])
-        body = [head, html.Ul(className="attention-problems", children=[
+        body = filter_note + [head, html.Ul(className="attention-problems", children=[
             html.Li(
                 className=f"attention-problem attention-problem--{_KIND_TONE[p.kind]}",
                 children=[

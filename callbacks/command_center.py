@@ -88,12 +88,13 @@ def permitted_devices(problems, user, scope, *, allow=may_action) -> tuple[froze
     return may_ack, may_manage
 
 
-def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset()) -> tuple:
+def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset(), selected=None) -> tuple:
     now = snapshot.generated_at
     return (
         scope_indicator_text(snapshot.total_rtls),
-        ui.status_bar(snapshot),
-        ui.problem_list(snapshot.problems, now, may_ack=may_ack, may_manage=may_manage),
+        ui.status_bar(snapshot, selected),
+        ui.problem_list(snapshot.problems, now, may_ack=may_ack, may_manage=may_manage,
+                        selected=selected),
         ui.hottest_card(snapshot.hottest, snapshot.limits),
         ui.activity_card(snapshot.activity, now),
         ui.alarm_trend_card(snapshot.daily_alarms),
@@ -101,7 +102,7 @@ def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset()) -> tupl
 
 
 def populate(
-    context, refresh_state, *,
+    context, refresh_state, selected=None, *,
     fetch=get_attention_snapshot, scope_for=current_device_scope,
     identity=current_identity, allow=may_action,
 ):
@@ -115,7 +116,7 @@ def populate(
         may_ack, may_manage = permitted_devices(
             snapshot.problems, identity(), scope, allow=allow
         )
-        return render_panels(snapshot, may_ack, may_manage) + (
+        return render_panels(snapshot, may_ack, may_manage, selected) + (
             None,
             refresh.refresh_status(fetched_at, failed=False),
             {"last_success_at": fetched_at.isoformat(), "failed": False},
@@ -172,6 +173,18 @@ def acknowledge_outputs(
     return _notice(message), {"at": datetime.now(timezone.utc).isoformat()}
 
 
+def severity_selection(trigger, clicks, current):
+    """The new severity filter for one counter / strip / Show-all click.
+    Pressing the active tone again, or Show all, clears it. Re-render fires
+    (n_clicks 0/None) change nothing."""
+    if not clicks or not isinstance(trigger, dict):
+        return no_update
+    tone = trigger.get("tone")
+    if tone == "all" or tone == current:
+        return None
+    return tone
+
+
 def manage_outputs(
     trigger, clicks, *,
     identity=current_identity, scope_for=current_device_scope, allow=may_action,
@@ -221,10 +234,21 @@ def register(app) -> None:
         Input(page.INTERVAL_ID, "n_intervals"),
         Input(page.REFRESH_NOW_ID, "n_clicks"),
         Input(page.ACK_STORE_ID, "data"),
+        Input(page.SEVERITY_STORE_ID, "data"),
         State(page.STORE_ID, "data"),
     )
-    def populate_attention(context, _ticks, _clicks, _acked, refresh_state):
-        return populate(context, refresh_state)
+    def populate_attention(context, _ticks, _clicks, _acked, selected, refresh_state):
+        return populate(context, refresh_state, selected)
+
+    @app.callback(
+        Output(page.SEVERITY_STORE_ID, "data"),
+        Input({"type": ui.SEVERITY_BUTTON, "tone": ALL, "part": ALL}, "n_clicks"),
+        State(page.SEVERITY_STORE_ID, "data"),
+        prevent_initial_call=True,
+    )
+    def select_severity(_clicks, current):
+        value = ctx.triggered[0]["value"] if ctx.triggered else None
+        return severity_selection(ctx.triggered_id, value, current)
 
     @app.callback(
         Output(page.ACTION_RESULT_ID, "children"),

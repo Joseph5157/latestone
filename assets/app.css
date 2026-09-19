@@ -7102,3 +7102,24 @@ button.fleet-overview-condition__seg:hover { filter: brightness(0.9); }
 .fleet-overview-legend::before { content: ""; width: 10px; height: 10px; border-radius: 2px; }
 button.fleet-overview-legend { cursor: pointer; }
 button.fleet-overview-legend:hover { text-decoration: underline; }
+
+/* CLICK-FILTER-1: Command Center severity counters / strip as filters. */
+button.attention-counter { background: none; font: inherit; font-size: var(--fs-body); cursor: pointer; }
+button.attention-counter:hover:not(:disabled) { background: color-mix(in srgb, currentColor 12%, transparent); }
+button.attention-counter:disabled { cursor: default; }
+button.attention-counter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.attention-counter--active { background: color-mix(in srgb, currentColor 22%, transparent); box-shadow: inset 0 0 0 1px currentColor; }
+button.attention-strip__seg { border: 0; padding: 0; cursor: pointer; }
+.attention-strip { height: 8px; }
+.attention-strip__seg--dim { opacity: 0.3; }
+.attention-filter-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  font-size: var(--fs-body);
+}
