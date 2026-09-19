@@ -1,13 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: SWITCH-OVER-1
-Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
-and a local merge to `main` once green (user: "continue 5 and 6"); push
-**NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (SWITCH-OVER-1, user: "continue 5 and 6"); push **NOT granted**.
 
-## SWITCH-OVER-1 — OPEN / IN PROGRESS
+## SWITCH-OVER-1 — CLOSED / PASS
 
 Baseline: branch `overview-cc-redesign` at `92172ee`. Phase 6 of the Fleet
 Overview + Command Center redesign (decision D12).
@@ -30,18 +29,16 @@ Overview + Command Center redesign (decision D12).
 ## Relevant files
 
 - `routes.py`, `services/authorization.py`, `callbacks/routing.py`,
-  `callbacks/navigation.py`, `app.py`, `assets/app.css`
-- `pages/command_center.py`, `pages/command_center_locations.py`,
-  `callbacks/command_center.py`, `components/command_center/__init__.py`,
-  `services/command_center_service.py` (to be deleted)
-- `pages/plants_overview.py`, `callbacks/listings.py`,
-  `components/fleet_condition.py`, `components/needs_attention.py`,
-  `components/my_rtls.py`, `components/unassigned_rtls.py`
-- `pages/command_center_new.py`, `callbacks/command_center_new.py`,
-  `pages/plants_overview_new.py`, `callbacks/plants_overview_new.py`
-  (renamed to the real names)
-- `docs/decisions/ADR-006-route-scoped-theming-is-architecture.md`,
-  `docs/decisions/ADR-008-command-center-reuses-existing-read-paths.md`
+  `callbacks/navigation.py`, `app.py`
+- `pages/command_center.py`, `callbacks/command_center.py` (the new page,
+  renamed), `pages/plants_overview.py`, `callbacks/fleet_overview.py`
+- `callbacks/listings.py`, `components/fleet_summary.py`,
+  `components/freshness_threshold_panel.py`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+- Deleted: pages/command_center_locations.py, services/command_center_service.py,
+  components/fleet_condition.py, components/needs_attention.py,
+  components/my_rtls.py, components/unassigned_rtls.py and seven old
+  components/command_center panels, with their tests
 
 ## Non-goals (explicit)
 
@@ -59,6 +56,35 @@ Overview + Command Center redesign (decision D12).
 - ADRs that describe the removed panels (ADR-008 and others) stay as
   history; where one is now wrong about the running app, it gets an
   `Amended-by`/status note rather than a rewrite.
+
+## Implementation
+
+- `2cfad36` old pages, panels and `command_center_service` deleted; the new
+  pages renamed onto `/command-center` and `/plants`; theme callbacks moved
+  into `callbacks/command_center.py`; ids/classes `fleet-new-*` ->
+  `fleet-overview-*`; `threshold_label` moved to its one remaining user;
+  `build_my_rtls_rows` kept for a Technician's Devices page (new focused
+  test `tests/test_my_rtls_rows.py`). Tests of removed code deleted or
+  trimmed to what still exists.
+- `87d04a9` ADR-024; ADR-002/009/011/012 superseded; AGENTS.md UI text and
+  the tracker updated.
+- Follow-up test fix: the scope KPI check renders the plant cards.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed (freshness demo re-applied afterwards).
+- Browser (Playwright, local): admin and demo.tech01 land on the Command
+  Center at `/` (38 and 4 problems), `/plants` is the new Fleet Overview (30
+  and 16 plants), the theme toggle still re-themes the page and keeps the
+  page's own class; `/command-center-new`, `/plants-new`,
+  `/command-center/locations` show Not found. demo.general01 lands on Fleet
+  Overview (30 plants), gets No access at `/command-center`, no horizontal
+  scroll at 390 px. No console errors.
+- Known leftover: CSS rules for the removed panels remain in
+  `assets/app.css` (recorded in ADR-024).
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
