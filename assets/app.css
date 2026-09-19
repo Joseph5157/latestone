@@ -3,6 +3,16 @@
    one edit here. Colour is reserved for state and selection (§6.3); normal
    information stays neutral so a healthy screen reads calm. */
 :root {
+  /* SEVERITY-PALETTE-1: one severity palette for Fleet Overview and Command
+     Center. Critical is the only strong colour; the others are deliberately
+     quieter so the eye goes to Critical first. Re-stated for the Command
+     Center's dark appearance further down. */
+  --sev-critical: #b91c1c;
+  --sev-warning:  #a0620b;
+  --sev-nodata:   #6d5a9e;
+  --sev-info:     #55697d;
+  --sev-normal:   #3f7d52;
+
   /* surfaces */
   --color-bg: #f4f6f8;              /* canvas — neutral cool grey */
   --color-surface: #ffffff;         /* cards */
@@ -5995,9 +6005,10 @@ body {
 
   --cc-fresh:    var(--color-muted);   /* quiet on purpose: the majority state */
   --cc-stale:    #8a5a00;              /* ochre/gold */
-  --cc-no-data:  #5b21b6;              /* purple */
-  --cc-warning:  #9a4a06;              /* amber */
-  --cc-critical: #991b1b;              /* red */
+  /* SEVERITY-PALETTE-1: the shared severity palette (see :root). */
+  --cc-no-data:  var(--sev-nodata);
+  --cc-warning:  var(--sev-warning);
+  --cc-critical: var(--sev-critical);
 }
 
 /* Dark appearance. Canvas #121820 (ADR-006), panels slightly lighter than
@@ -6020,9 +6031,15 @@ body {
 
   --cc-fresh:    var(--color-muted);
   --cc-stale:    #e3b341;
-  --cc-no-data:  #b79cf5;
-  --cc-warning:  #f0a75a;
-  --cc-critical: #ff8085;
+  /* SEVERITY-PALETTE-1, dark: Critical stays vivid; the rest are muted. */
+  --sev-critical: #ff6b6b;
+  --sev-warning:  #d6a75e;
+  --sev-nodata:   #a99bcf;
+  --sev-info:     #8ea2b6;
+  --sev-normal:   #7fb08c;
+  --cc-no-data:  var(--sev-nodata);
+  --cc-warning:  var(--sev-warning);
+  --cc-critical: var(--sev-critical);
 }
 
 /* The shell surfaces. They inherit the tokens above; these rules only paint
@@ -6657,8 +6674,8 @@ body {
 /* Center's own --cc-* tokens, so dark and light both work unchanged.  */
 /* ------------------------------------------------------------------ */
 .attention-page {
-  --attention-normal: var(--cc-fresh);
-  --attention-info: var(--color-accent);
+  --attention-normal: var(--sev-normal);
+  --attention-info: var(--sev-info);
 }
 
 .attention-status {
@@ -6896,9 +6913,11 @@ body {
   font-weight: 600;
   white-space: nowrap;
 }
-.fleet-overview-chip--critical { background: var(--state-error-bg); color: var(--state-error-text); }
-.fleet-overview-chip--warning  { background: var(--state-stale-bg); color: var(--state-stale-text); }
-.fleet-overview-chip--normal   { background: var(--state-fresh-bg); color: var(--state-fresh-text); }
+/* SEVERITY-PALETTE-1: same palette as the Command Center. */
+.fleet-overview-chip--critical { background: color-mix(in srgb, var(--sev-critical) 14%, var(--color-surface)); color: var(--sev-critical); }
+.fleet-overview-chip--warning  { background: color-mix(in srgb, var(--sev-warning) 12%, var(--color-surface));  color: var(--sev-warning); }
+.fleet-overview-chip--nodata   { background: color-mix(in srgb, var(--sev-nodata) 12%, var(--color-surface));   color: var(--sev-nodata); }
+.fleet-overview-chip--normal   { background: color-mix(in srgb, var(--sev-normal) 10%, var(--color-surface));   color: var(--sev-normal); }
 .fleet-overview-chip--none     { background: var(--state-none-bg);  color: var(--state-none-text); }
 
 @media (max-width: 640px) {
@@ -7088,9 +7107,10 @@ body {
 .fleet-overview-condition__seg { display: block; min-width: 6px; border: 0; padding: 0; }
 button.fleet-overview-condition__seg { cursor: pointer; }
 button.fleet-overview-condition__seg:hover { filter: brightness(0.9); }
-.fleet-overview-condition__seg--critical, .fleet-overview-legend--critical::before { background: var(--state-error-text); }
-.fleet-overview-condition__seg--warning,  .fleet-overview-legend--warning::before  { background: #d97706; }
-.fleet-overview-condition__seg--normal,   .fleet-overview-legend--normal::before   { background: #16a34a; }
+.fleet-overview-condition__seg--critical, .fleet-overview-legend--critical::before { background: var(--sev-critical); }
+.fleet-overview-condition__seg--warning,  .fleet-overview-legend--warning::before  { background: var(--sev-warning); }
+.fleet-overview-condition__seg--nodata,   .fleet-overview-legend--nodata::before   { background: var(--sev-nodata); }
+.fleet-overview-condition__seg--normal,   .fleet-overview-legend--normal::before   { background: var(--sev-normal); }
 .fleet-overview-condition__seg--none,     .fleet-overview-legend--none::before     { background: #9ca3af; }
 .fleet-overview-condition__legend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-2); }
 .fleet-overview-legend {
@@ -7175,4 +7195,13 @@ button.attention-severity-card.attention-counter--active {
   background: color-mix(in srgb, currentColor 14%, var(--color-surface));
   border-color: currentColor;
   box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* SEVERITY-PALETTE-1: Critical is the only card that is tinted by default,
+   so it is the first thing the eye lands on when there is any. */
+button.attention-severity-card.attention-counter--critical:not(.attention-counter--zero) {
+  background: color-mix(in srgb, var(--sev-critical) 10%, var(--color-surface));
+}
+button.attention-severity-card.attention-counter--critical.attention-counter--active {
+  background: color-mix(in srgb, var(--sev-critical) 20%, var(--color-surface));
 }
