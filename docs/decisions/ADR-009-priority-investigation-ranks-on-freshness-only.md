@@ -1,6 +1,7 @@
 # ADR-009: Priority Investigation ranks on freshness only, and a STALE age is the OLDEST metric's timestamp
 
-Status: Approved
+Status: Superseded
+Superseded-by: ADR-024 (the panel this governed was removed in SWITCH-OVER-1, 2026-09-19)
 Date: 2026-08-30
 Evidence: `services/monitoring_service.py:298` (`device_last_updated`),
 `services/monitoring_service.py:388-394` (it is a MAX over metric rows),

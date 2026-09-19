@@ -1,6 +1,7 @@
 # ADR-011: Affected Locations names the worst 8 Plants and discloses the rest
 
-Status: Approved
+Status: Superseded
+Superseded-by: ADR-024 (the panel this governed was removed in SWITCH-OVER-1, 2026-09-19)
 Date: 2026-08-30
 Evidence: `components/command_center/affected_locations.py` (`TOP_N`,
 `visible_locations`); `pages/command_center_locations.py` (the full view,

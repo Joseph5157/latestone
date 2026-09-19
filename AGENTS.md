@@ -113,9 +113,12 @@ cannot reasonably solve the requirement.
 ## UI requirements
 
 After login, Administrators and Technicians land on the Command Center (`/`)
-and General Users on the Plants overview. The monitoring workflow is: Plants
-overview (30 plants with transformer/device counts) → Plant detail (transformers) → Transformer detail
-(devices) → Device dashboard. The device dashboard carries equipment context,
+and General Users on the Fleet Overview (`/plants`). The two pages answer
+different questions and share no panel (ADR-024): Fleet Overview — 30 plants,
+each expanding inline to transformers and RTLs with temperature first →
+Device dashboard; Command Center — the ranked problems needing attention now.
+Plant and transformer detail pages remain, reached from the device
+breadcrumb. The device dashboard carries equipment context,
 an 8-metric snapshot strip, metric selector, period filter, aggregation-aware
 KPIs, a Plotly chart, a readings table and a freshness badge.
 

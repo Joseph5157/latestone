@@ -1,6 +1,7 @@
 # ADR-002: "Requires Attention" is Stale + No Data only — never mixed with event history
 
-Status: Approved
+Status: Superseded
+Superseded-by: ADR-024 (the panel this governed was removed in SWITCH-OVER-1, 2026-09-19)
 Date: 2026-08-28
 Evidence: `components/fleet_condition.py:1-5`; `command center/04_DATA_SEMANTICS_AND_CONTRACTS.md` §"Attention aggregation for CC-1" and §"Communication panel"
 Implemented-by: `29a4c5a` (Fleet Condition panels on the Overview page)
