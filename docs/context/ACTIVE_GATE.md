@@ -1,10 +1,46 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (THEME-APP-1); push **NOT granted**.
+Gate: THEME-APP-2
+Commit/push permission: commit on branch `dark-mode-polish` and local merge
+to `main` **GRANTED**; push **NOT granted**.
+
+## THEME-APP-2 — OPEN / IN PROGRESS
+
+Baseline: `main` at `0bba5cf`, branch `dark-mode-polish`. ADR-025.
+
+## Task
+
+Dark-mode follow-up after a contrast review and a Technician report that
+Devices, Notification Center and Report Center are not fully dark:
+hover/selected highlights visible (accent-bg), form-field and dropdown
+borders at least 3:1, cards a step lighter than the canvas; native controls
+dark (`color-scheme`); hard-coded light borders (badges, freshness column
+rule, device-page controls) tokenised; disabled secondary buttons and the
+table filter case toggle dark; the Technician "Devices" sidebar icon (no
+mask rule, rendered as a solid square in both themes).
+
+## Relevant files
+
+- `assets/app.css`, `tests/test_app_theme.py`
+- `docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md`
+
+## Non-goals (explicit)
+
+- No layout or behaviour change; light-mode values unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px: Technician Devices / Notifications / Reports and the
+  admin pages, bright-background and contrast audits, dark and light.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## THEME-APP-1 — CLOSED / PASS
 
@@ -68,7 +104,7 @@ None.
   page keeps its own design; Light -> sign out -> sign in stays Light;
   light mode screenshots unchanged.
 
-## Next implementation gate: NONE
+## Next implementation gate: THEME-APP-2 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
