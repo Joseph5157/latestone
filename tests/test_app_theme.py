@@ -111,3 +111,28 @@ class TestTheStylesheet:
     def test_no_theme_rule_changes_the_font_family(self, css):
         for m in re.finditer(r"theme--dark[^{]*\{(.*?)\}", css, flags=re.S):
             assert "font-family" not in m.group(1)
+
+
+class TestComponentsFollowTheTheme:
+    """THEME-APP-1 step 2: components that paint their own colours."""
+
+    @pytest.mark.parametrize("hook", [
+        ".dash-spreadsheet-container .dash-spreadsheet-inner td",  # tables
+        ".Select-control", ".Select-menu-outer",                   # dropdowns
+        ".DateInput_input", ".CalendarDay__default",               # date pickers
+        ".js-plotly-plot .main-svg",                               # charts
+        ".header__brand",
+    ])
+    def test_dark_rule_exists(self, css, hook):
+        assert f"{DARK_SCOPE} {hook}" in css
+
+    def test_tables_take_their_cell_colours_from_tokens(self):
+        from components.entity_table import entity_table
+        table = next(n for n in _walk(entity_table(table_id="t", columns=[{"name": "A", "id": "a"}], rows=[]))
+                     if getattr(n, "style_cell", None))
+        assert table.style_cell["backgroundColor"] == "var(--color-surface)"
+        assert table.style_cell["color"] == "var(--color-text)"
+
+    def test_text_on_an_accent_fill_uses_the_on_accent_token(self, css):
+        assert "color: #ffffff;\n}" not in css.split(".manage-drawer__btn--primary {")[1][:200]
+        assert "--color-on-accent" in css

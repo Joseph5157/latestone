@@ -161,6 +161,9 @@ def entity_table(
                     "padding": "11px 12px",
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
+                    # THEME-APP-1: tokens, so the table follows the appearance.
+                    "backgroundColor": "var(--color-surface)",
+                    "color": "var(--color-text)",
                 },
                 # A label for the column, not another row of data. It
                 # previously carried `#f9fafb` — the same fill as the odd-row
@@ -172,7 +175,7 @@ def entity_table(
                 # flush against the label and read as "⇅Device".
                 style_header={
                     "backgroundColor": "var(--color-surface)",
-                    "borderBottom": "2px solid #cbd2d9",
+                    "borderBottom": "2px solid var(--color-border-strong)",
                     # The heading of the table, not a caption for it. An
                     # 11px muted label disappeared against the data it was
                     # supposed to introduce; it now sits a step above the
