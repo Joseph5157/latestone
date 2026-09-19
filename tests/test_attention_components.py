@@ -291,3 +291,30 @@ def test_severity_cards_break_each_tone_down_by_kind_in_rank_order():
     cards = [c for c in _by_class(ui.status_bar(snap), "attention-severity-card")
              if "attention-working" not in (c.className or "").split()]
     assert len(cards) == 4
+
+
+# PROBLEM-GROUPS-1: a heading with a count wherever the problem kind changes.
+def test_problem_list_heads_each_kind_with_its_count_in_list_order():
+    problems = [_problem(K.TEMP_CRITICAL), _problem(K.TEMP_CRITICAL),
+                _problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)]
+    card = ui.problem_list(problems, NOW)
+    heads = _by_class(card, "attention-group")
+    assert [text(h) for h in heads] == [
+        "Critical temperature 2", "Power Down 1", "Battery Low 1"]
+    # The rows are unchanged: one per problem, plus the column header.
+    assert len(_by_class(card, "attention-problem")) == 5
+    # Headings sit in the one scrolling list, before the rows they count.
+    items = next(n for n in _walk(card) if "attention-problems" in (getattr(n, "className", "") or "").split()).children
+    kinds = ["group" if "attention-group" in i.className.split() else "row" for i in items]
+    assert kinds == ["group", "row", "row", "group", "row", "group", "row"]
+
+
+def test_problem_group_heading_takes_the_kind_tone():
+    heads = _by_class(ui.problem_list([_problem(K.BATTERY_LOW)], NOW), "attention-group")
+    assert "attention-group--warning" in heads[0].className.split()
+
+
+def test_filtered_list_shows_only_its_own_groups():
+    problems = [_problem(K.TEMP_CRITICAL), _problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)]
+    heads = _by_class(ui.problem_list(problems, NOW, selected="warning"), "attention-group")
+    assert [text(h) for h in heads] == ["Battery Low 1"]
