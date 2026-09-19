@@ -4,6 +4,8 @@ Status: Approved
 Date: 2026-08-28
 Evidence: `services/event_semantics.py:1-19` (module contract, rules EVT-D1/D4/D7); Functional-Spec battery-voltage figures relayed as legend copy in `command center/04_DATA_SEMANTICS_AND_CONTRACTS.md`
 Implemented-by: `bb1e2e9` (event consumption), extended by every commit that reads `services/event_semantics.py`
+Amended-by: ADR-023 (adds a derived temperature condition against
+Administrator-configured limits; this ADR's event rules are unchanged)
 Supersedes: a CC-1 planning draft that put `<3.61V` (Power Down) / `<3.75V` (Battery Low) directly into Command Center consumer logic
 
 ## Decision

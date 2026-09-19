@@ -37,3 +37,15 @@ class TestParseCsvList:
     def test_trims_whitespace_and_drops_empty_entries(self, monkeypatch):
         monkeypatch.setenv("TEST_CSV_VAR", " a , , b ,")
         assert _parse_csv_list("TEST_CSV_VAR") == ("a", "b")
+
+
+class TestEventsPerDaySetting:
+    def test_defaults_to_zero_so_events_are_off(self, monkeypatch):
+        monkeypatch.delenv("LIVE_SIM_EVENTS_PER_DAY", raising=False)
+        from config.settings import LiveSimSettings
+        assert LiveSimSettings().events_per_day == 0.0
+
+    def test_reads_the_environment(self, monkeypatch):
+        monkeypatch.setenv("LIVE_SIM_EVENTS_PER_DAY", "12")
+        from config.settings import LiveSimSettings
+        assert LiveSimSettings().events_per_day == 12.0

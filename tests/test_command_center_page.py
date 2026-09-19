@@ -1,88 +1,159 @@
-"""Tests for the Command Center page layout (Phase 3+4: foundation and
-shell). Layout only, no queries - matches pages/report_center.py's own
-convention. Data is populated post-mount by callbacks/command_center.py.
-"""
+"""CC-NEW-1: page layout ids and the populate callback's guard/failure paths."""
 from __future__ import annotations
 
-from pages.command_center import layout
-from tests.dash_tree import find_by_class, find_by_id, links, text_of
+from datetime import datetime, timezone
+
+from dash import no_update
+
+from callbacks import command_center as cb
+from components.command_center import theme
+from pages import command_center as page
+from services.attention_service import AttentionSnapshot
 
 
-class TestCommandCenterLayout:
-    def test_layout_returns_a_component(self):
-        assert hasattr(layout(), "children")
+def _ids(node, out=None):
+    out = set() if out is None else out
+    if getattr(node, "id", None):
+        out.add(node.id)
+    children = getattr(node, "children", None)
+    for child in children if isinstance(children, (list, tuple)) else ([children] if children is not None else []):
+        _ids(child, out)
+    return out
 
-    def test_has_the_page_title(self):
-        assert "Command Center" in text_of(layout())
 
-    def test_has_a_scope_indicator_container_for_the_callback_to_fill(self):
-        assert find_by_id(layout(), "command-center-scope-indicator") is not None
+def test_layout_carries_every_slot_and_the_shared_theme_ids():
+    ids = _ids(page.layout())
+    assert {page.SCOPE_ID, page.STATUS_SLOT_ID, page.PROBLEMS_ID, page.HOTTEST_ID,
+            page.ACTIVITY_ID, page.TREND_ID, page.ERROR_ID, page.INTERVAL_ID,
+            page.STORE_ID, page.REFRESH_STATUS_ID, page.REFRESH_NOW_ID} <= ids
+    assert {theme.ROOT_ID, theme.STORE_ID, theme.TOGGLE_DARK_ID, theme.TOGGLE_LIGHT_ID} <= ids
 
-    def test_has_an_error_container_for_the_callback_to_fill(self):
-        assert find_by_id(layout(), "command-center-error") is not None
 
-    def test_error_container_carries_the_shared_listing_error_class(self):
-        error = find_by_id(layout(), "command-center-error")
-        assert error.className == "listing-error"
+def test_other_routes_do_nothing():
+    out = cb.populate({"route": "overview"}, None, fetch=lambda *a, **k: 1 / 0)
+    assert out == (no_update,) * 9
 
-    def test_has_no_app_brand_header(self):
-        """The cockpit drops the Eskom/Powerplant brand bar and breadcrumb:
-        the sidebar already shows where you are, and in a fixed-height
-        layout that strip is ~60px spent restating it."""
-        text = text_of(layout())
-        assert "Powerplant Dashboard" not in text
-        assert not find_by_class(layout(), "app-header")
 
-    def test_sign_out_comes_from_the_sidebar_not_this_page(self):
-        """Logout used to live in app_header, which this page no longer
-        renders. It is not gone — it moved to the globally-mounted sidebar,
-        which is why this page needs no sign-out of its own. Asserted from
-        both sides so neither a page-local duplicate nor a silent loss can
-        pass."""
-        from components.app_sidebar import app_sidebar
+def test_success_renders_every_panel_and_records_success():
+    snap = AttentionSnapshot(total_rtls=3, reporting_rtls=3, problems=(), hottest=(),
+                             activity=(), daily_alarms=(), limits=None,
+                             generated_at=datetime(2026, 9, 19, tzinfo=timezone.utc))
+    out = cb.populate({"route": "command_center"}, None,
+                      fetch=lambda scope, now: snap, scope_for=lambda: None,
+                      identity=lambda: None)
+    assert len(out) == 9 and out[6] is None
+    assert out[8]["failed"] is False and out[8]["last_success_at"]
 
-        assert "/logout" not in [href for _label, href in links(layout())]
-        assert "/logout" in [href for _label, href in links(app_sidebar("command_center", "administrator"))]
 
-    def test_situation_summary_is_a_live_region_not_a_placeholder(self):
-        """Phase 5: this slot no longer names itself in the layout — it is an
-        empty container the callback fills with four real cards, so its title
-        text arrives with its content rather than being baked into the shell."""
-        assert find_by_id(layout(), "command-center-situation-summary") is not None
+def test_failed_first_load_shows_error():
+    out = cb.populate({"route": "command_center"}, None,
+                      fetch=lambda *a, **k: 1 / 0, scope_for=lambda: None)
+    assert out[6] is not None and out[8] == {"last_success_at": None, "failed": True}
 
-    def test_electrical_conditions_is_a_live_region_not_a_placeholder(self):
-        """Phase 6: the Exception Intelligence slot now holds the Electrical
-        Conditions card. Its id is unchanged from Phase 4 — the shell's DOM
-        contract stays stable while its contents graduate."""
-        assert find_by_id(layout(), "command-center-exception-intelligence") is not None
 
-    def test_affected_locations_is_a_live_region_not_a_placeholder(self):
-        """Phase 7: the ranked plant bar view. Id unchanged from Phase 4."""
-        assert find_by_id(layout(), "command-center-affected-locations") is not None
+def test_failed_refresh_keeps_last_good_panels():
+    state = {"last_success_at": "2026-09-19T00:00:00+00:00", "failed": False}
+    out = cb.populate({"route": "command_center"}, state,
+                      fetch=lambda *a, **k: 1 / 0, scope_for=lambda: None)
+    assert out[:7] == (no_update,) * 7
+    assert out[8] == {"last_success_at": state["last_success_at"], "failed": True}
 
-    def test_selected_location_is_a_live_region_not_a_placeholder(self):
-        """Phase 8: transformer concentration for the selected plant."""
-        assert find_by_id(layout(), "command-center-selected-location") is not None
 
-    def test_recent_events_is_a_live_region_not_a_placeholder(self):
-        """Phase 9: persisted operational events. Id unchanged from Phase 4."""
-        assert find_by_id(layout(), "command-center-recent-events") is not None
+def test_page_class_survives_the_theme_callback():
+    """apply_theme REPLACES the root className, so nothing of this page's
+    own may live there — it would vanish on the first theme apply."""
+    root = page.layout()
+    assert root.className == theme.root_class_name(theme.DEFAULT_THEME)
+    assert root.children[0].className == "attention-page"
 
-    def test_priority_investigation_is_a_live_region_not_a_placeholder(self):
-        """Phase 10: the ranked RTL list, the last Phase 4 slot to graduate.
-        Id unchanged from Phase 4, so the shell's DOM contract held across
-        every phase that filled it."""
-        assert find_by_id(layout(), "command-center-priority-investigation") is not None
 
-    def test_no_placeholder_panel_remains(self):
-        """Every named slot now carries real content. A leftover "not yet
-        available" card would understate a finished cockpit."""
-        assert "Not yet available in this build." not in text_of(layout())
+# --- CC-ACTIONS-1 -----------------------------------------------------------
+from types import SimpleNamespace as NS
 
-    def test_initial_shell_uses_unavailable_only_for_electrical_current_state(self):
-        """The interactive controls mount with ADR-001's honest current-state
-        result; the new affected-RTL panel starts as a selection prompt."""
-        text = text_of(layout()).lower()
-        assert "no data" not in text
-        assert text.count("unavailable") == 2
-        assert "select power down or battery low" in text
+from callbacks import device_manage
+from components import attention as ui
+from services.attention_service import ProblemKind
+from services.authorization import AuthorizationError
+
+
+def test_layout_mounts_the_shared_manage_drawer():
+    from components.device_manage_drawer import MANAGE_DRAWER_ID
+    assert MANAGE_DRAWER_ID in _ids(page.layout())
+    assert {page.ACTION_RESULT_ID, page.ACK_STORE_ID} <= _ids(page.layout())
+
+
+def test_drawer_output_count_matches_the_other_openers():
+    assert cb.DRAWER_OUTPUTS == device_manage._MANAGE_DRAWER_OUTPUTS
+
+
+def test_permitted_devices_asks_the_policy_per_device_with_the_scope():
+    problems = [NS(device_id="a"), NS(device_id="b")]
+    seen = []
+
+    def allow(user, action, *, device_id, scope):
+        seen.append(scope)
+        return device_id == "a"
+
+    may_ack, may_manage = cb.permitted_devices(problems, "u", "SCOPE", allow=allow)
+    assert may_ack == may_manage == frozenset({"a"})
+    assert set(seen) == {"SCOPE"}
+
+
+ACK = {"type": ui.ACK_BUTTON, "device": "d1", "kind": "power_down"}
+
+
+class TestAcknowledgeOutputs:
+    def test_rerender_is_not_a_click(self):
+        assert cb.acknowledge_outputs(ACK, 0) == (no_update, no_update)
+        assert cb.acknowledge_outputs(ACK, None) == (no_update, no_update)
+
+    def test_click_acknowledges_and_refreshes(self):
+        seen = {}
+
+        def ack(user, scope, device, kind):
+            seen.update(device=device, kind=kind)
+            return 2
+
+        notice, store = cb.acknowledge_outputs(ACK, 1, identity=lambda: "u",
+                                               scope_for=lambda: "s", ack=ack)
+        assert seen == {"device": "d1", "kind": ProblemKind.POWER_DOWN}
+        assert "Acknowledged 2 alarms" in notice.children.children
+        assert store and store["at"]
+
+    def test_refusal_shows_notice_without_refresh(self):
+        def ack(*a):
+            raise AuthorizationError("no")
+
+        notice, store = cb.acknowledge_outputs(ACK, 1, identity=lambda: "u",
+                                               scope_for=lambda: "s", ack=ack)
+        assert notice is not no_update and store is no_update
+
+    def test_unknown_kind_is_ignored(self):
+        bad = {**ACK, "kind": "nonsense"}
+        assert cb.acknowledge_outputs(bad, 1) == (no_update, no_update)
+
+
+MANAGE = {"type": ui.MANAGE_BUTTON, "device": "d1"}
+PATH = NS(device_code="29001", transformer_code="t1", plant_name="Alpha")
+
+
+class TestManageOutputs:
+    def test_opens_drawer_with_server_resolved_labels(self):
+        out = cb.manage_outputs(MANAGE, 1, identity=lambda: "u", scope_for=lambda: "s",
+                                allow=lambda *a, **k: True, paths_for=lambda ids, scope: [PATH])
+        assert len(out) == cb.DRAWER_OUTPUTS
+        assert out[0] == {"display": "block"} and out[1] == "d1" and out[2] == "menu"
+        assert out[3:6] == ("29001", "t1", "Alpha")
+
+    def test_declined_without_permission(self):
+        out = cb.manage_outputs(MANAGE, 1, identity=lambda: "u", scope_for=lambda: "s",
+                                allow=lambda *a, **k: False, paths_for=lambda ids, scope: [PATH])
+        assert out == (no_update,) * cb.DRAWER_OUTPUTS
+
+    def test_declined_when_out_of_scope(self):
+        out = cb.manage_outputs(MANAGE, 1, identity=lambda: "u", scope_for=lambda: "s",
+                                allow=lambda *a, **k: True, paths_for=lambda ids, scope: [])
+        assert out == (no_update,) * cb.DRAWER_OUTPUTS
+
+    def test_rerender_is_not_a_click(self):
+        assert cb.manage_outputs(MANAGE, 0) == (no_update,) * cb.DRAWER_OUTPUTS

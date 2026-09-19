@@ -175,3 +175,22 @@ class TestItCannotDeleteByAccident:
 
     def test_it_refuses_when_the_hierarchy_is_missing(self):
         assert "Refused:" in SOURCE
+
+
+class TestSilencedFeeds:
+    """The (device, metric) pairs --apply removes; the live simulator skips them."""
+
+    def test_skips_the_fresh_control(self):
+        from db.seed_freshness_demo import silenced_feeds
+        assert not any(d == "plant-02-t1-d1" for d, _ in silenced_feeds())
+
+    def test_whole_device_target_silences_every_metric(self):
+        from config.metrics import METRIC_KEYS
+        from db.seed_freshness_demo import silenced_feeds
+        assert {m for d, m in silenced_feeds() if d == "plant-03-t1-d1"} == set(METRIC_KEYS)
+
+    def test_single_metric_targets_silence_only_that_metric(self):
+        from db.seed_freshness_demo import silenced_feeds
+        feeds = silenced_feeds()
+        assert {m for d, m in feeds if d == "plant-04-t1-d1"} == {"voltage"}
+        assert {m for d, m in feeds if d == "plant-05-t1-d1"} == {"frequency"}

@@ -61,7 +61,6 @@ ROUTE_PATHS = {
     "audit_log": "/admin/audit-log",
     "admin_settings": "/admin/settings",
     "command_center": "/command-center",
-    "command_center_locations": "/command-center/locations",
 }
 
 #: Functional Specification §5.9 retains the monitoring hierarchy and report
@@ -69,7 +68,9 @@ ROUTE_PATHS = {
 #: Administrator and Technician roles.
 ADMIN_ONLY = ("admin_devices", "admin_assignments", "device_register", "admin_users", "audit_log", "admin_settings")
 GENERAL_READ_ROUTES = ("overview", "plant", "transformer", "device", "reports")
-OPERATIONAL_ROUTES = ("notifications", "command_center", "command_center_locations")
+OPERATIONAL_ROUTES = (
+    "notifications", "command_center",
+)
 #: ADR-016: a Technician's own assigned-devices surface. Deliberately NOT in
 #: ADMIN_ONLY (the Administrator cannot reach it — it names no fleet-wide
 #: administration Administrator already has via admin_devices) and NOT in

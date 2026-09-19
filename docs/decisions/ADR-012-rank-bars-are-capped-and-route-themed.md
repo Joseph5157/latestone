@@ -1,6 +1,7 @@
 # ADR-012: The rank bar is a capped mark on route-scoped tokens
 
-Status: Approved
+Status: Superseded
+Superseded-by: ADR-024 (the panel this governed was removed in SWITCH-OVER-1, 2026-09-19)
 Date: 2026-08-31
 Evidence: `assets/app.css` (`.command-center__rank-row`,
 `.command-center__rank-bar`, `.command-center__rank-bar-fill`);

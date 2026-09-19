@@ -5,7 +5,7 @@ Regression tests for audit finding NEW-08.
 Routing and the device dashboard had error boundaries; the three listing
 callbacks called services directly. The overview route performs no database
 access of its own, so an outage *after* login first surfaced inside
-`populate_overview()` and raised through the Dash callback — leaving the
+a page's populate callback and raised through the Dash callback — leaving the
 operator on a page that simply never filled in.
 
 An empty table is not an adequate answer either: "no plants exist" and "we could
@@ -23,7 +23,6 @@ from callbacks.listings import (
     DEVICE_COLUMNS,
     NO_DEVICES_MESSAGE,
     NO_TRANSFORMERS_MESSAGE,
-    PLANT_COLUMNS,
     TRANSFORMER_COLUMNS,
     build_device_rows,
     inventory_empty_notice,
@@ -53,21 +52,21 @@ class _Device:
 class TestListingOutputs:
     def test_success_returns_rows_and_no_error(self):
         rows, columns, error = listing_outputs(
-            lambda: [{"id": "plant-01", "plant": "Alpha"}], PLANT_COLUMNS, "ctx"
+            lambda: [{"id": "plant-01", "plant": "Alpha"}], TRANSFORMER_COLUMNS, "ctx"
         )
         assert rows == [{"id": "plant-01", "plant": "Alpha"}]
-        assert columns is PLANT_COLUMNS
+        assert columns is TRANSFORMER_COLUMNS
         assert error is None
 
     def test_failure_returns_an_error_panel_and_empty_rows(self):
-        rows, columns, error = listing_outputs(_boom, PLANT_COLUMNS, "ctx")
+        rows, columns, error = listing_outputs(_boom, TRANSFORMER_COLUMNS, "ctx")
         assert rows == []
-        assert columns is PLANT_COLUMNS
+        assert columns is TRANSFORMER_COLUMNS
         assert find_by_class(error, "status-panel--error"), "no error panel rendered"
 
     def test_failure_does_not_leak_internals_to_the_ui(self):
         """AGENTS.md: never expose stack traces, SQL or connection strings."""
-        _, _, error = listing_outputs(_boom, PLANT_COLUMNS, "ctx")
+        _, _, error = listing_outputs(_boom, TRANSFORMER_COLUMNS, "ctx")
         shown = text_of(error)
         assert "connection refused" not in shown
         assert "RuntimeError" not in shown
@@ -75,13 +74,13 @@ class TestListingOutputs:
 
     def test_failure_is_logged_in_full(self, caplog):
         with caplog.at_level(logging.ERROR):
-            listing_outputs(_boom, PLANT_COLUMNS, "loading plants")
+            listing_outputs(_boom, TRANSFORMER_COLUMNS, "loading plants")
         assert "loading plants" in caplog.text
         assert "connection refused" in caplog.text, "the real cause must reach the log"
 
     def test_an_empty_result_is_not_an_error(self):
         """No plants and unreachable database must not look the same."""
-        rows, _, error = listing_outputs(lambda: [], PLANT_COLUMNS, "ctx")
+        rows, _, error = listing_outputs(lambda: [], TRANSFORMER_COLUMNS, "ctx")
         assert rows == []
         assert error is None
 
@@ -90,7 +89,7 @@ class TestEveryListingPageHasAnErrorSlot:
     @pytest.mark.parametrize(
         "layout,slot_id",
         [
-            (plants_overview.layout(), "plants-error"),
+            (plants_overview.layout(), "fleet-overview-error"),
             (plant_detail.layout("Plant"), "transformers-error"),
             (transformer_detail.layout("Plant", "T1", "p1"), "devices-error"),
         ],

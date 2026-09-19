@@ -105,14 +105,20 @@ cannot reasonably solve the requirement.
 - Parse database strings into real datetime/numeric types before calculating.
 - "Current temperature" means the latest available reading; min/max/average
   apply to the selected range.
-- No production warning/critical thresholds — `MonitoringCondition` is always
-  `UNKNOWN`.
+- No Eskom-confirmed warning/critical thresholds exist. Temperature condition
+  (Normal/Warning/Critical/Limits not set/No recent data) is evaluated only by
+  `services/temperature_condition_service.py`, against Administrator-configured
+  limits (ADR-023). Device-page `MonitoringCondition` stays `UNKNOWN`.
 
 ## UI requirements
 
-After login the operator workflow is: Plants overview (30 plants with
-transformer/device counts) → Plant detail (transformers) → Transformer detail
-(devices) → Device dashboard. The device dashboard carries equipment context,
+After login, Administrators and Technicians land on the Command Center (`/`)
+and General Users on the Fleet Overview (`/plants`). The two pages answer
+different questions and share no panel (ADR-024): Fleet Overview — 30 plants,
+each expanding inline to transformers and RTLs with temperature first →
+Device dashboard; Command Center — the ranked problems needing attention now.
+Plant and transformer detail pages remain, reached from the device
+breadcrumb. The device dashboard carries equipment context,
 an 8-metric snapshot strip, metric selector, period filter, aggregation-aware
 KPIs, a Plotly chart, a readings table and a freshness badge.
 

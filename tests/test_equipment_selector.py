@@ -21,12 +21,10 @@ from components.assign_device_drawer import assign_device_drawer
 from components.user_form_drawer import user_form_drawer
 from components.device_manage_drawer import device_manage_drawer
 from components.device_operations import device_operations_panel
-from components.my_rtls import my_rtls_panel
-from components.needs_attention import needs_attention
 from components.freshness_threshold_panel import freshness_threshold_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
-from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, command_center_locations
+from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center
 from services.device_scope import UNRESTRICTED
 from tests.auth_test_support import trusted_session
 
@@ -75,44 +73,6 @@ def callback_reference_ids(dash_app) -> set[str]:
     return referenced
 
 
-def _needs_attention_example():
-    """A capped queue + its "extra" remainder, minimal literal shape (same
-    fields `components/needs_attention.py` reads), so the toggle button
-    (`needs-attention-toggle`) and its target (`needs-attention-card`) are
-    rendered here the same way `build_exception_queue` +
-    `extra_groups_beyond_cap` produce them in production — the toggle only
-    exists when there really is something beyond the cap to show."""
-    def _leaf(device_id):
-        return {
-            "kind": "device", "id": device_id, "entity": device_id,
-            "issue": "Stale", "last_update": "1d ago",
-            "href": f"/devices/{device_id}", "_state": "stale", "_severity": 1,
-        }
-
-    def _transformer(tid, leaves):
-        return {
-            "kind": "transformer", "id": tid, "entity": tid,
-            "issue": "Stale", "last_update": "1d ago",
-            "href": f"/plants/p1/{tid}", "_state": "stale", "_severity": 1,
-            "children": leaves,
-        }
-
-    def _plant(children):
-        return {
-            "kind": "plant", "id": "p1", "entity": "Plant One",
-            "issue": "Stale", "last_update": "1d ago",
-            "href": "/plants/p1", "_state": "stale", "_severity": 1,
-            "children": children,
-        }
-
-    queue = {
-        "groups": [_plant([_transformer("t1", [_leaf("d1")])])],
-        "total_rtls": 2, "shown_rtls": 1, "plant_count": 1,
-    }
-    extra_groups = [_plant([_transformer("t1", [_leaf("d2")])])]
-    return queue, extra_groups
-
-
 GLOBAL_LAYOUT_IDS = collect_ids(app_module.app.layout)
 
 PAGE_LAYOUT_IDS = (
@@ -130,16 +90,6 @@ PAGE_LAYOUT_IDS = (
     # ROLE-4B: rendered into the device page's operations slot by a callback,
     # so it is mountable even though no static layout contains it.
     | collect_ids(device_operations_panel("plant-01-t1-d1"))
-    # TECH-WORKSPACE-1: rendered into the Fleet Overview's my-rtls slot by
-    # callbacks/listings.py's populate_overview, same reasoning as
-    # device_operations_panel above — a non-empty rows list is needed here
-    # so the underlying entity_table (id "my-rtls-table") actually renders;
-    # the empty-state branch renders no table at all.
-    | collect_ids(my_rtls_panel([
-        {"id": "plant-01-t1-d1", "device": "29017", "plant": "Plant",
-         "transformer": "T1", "freshness": "Fresh", "_severity": 0,
-         "_state": "fresh"},
-    ]))
     # THRESH-CONFIG-1: same reasoning — rendered into the Fleet Overview's
     # temperature-threshold-panel slot by callbacks/temperature_threshold.py.
     | collect_ids(temperature_threshold_panel(None))
@@ -149,11 +99,6 @@ PAGE_LAYOUT_IDS = (
     # VIB-CONFIG-1: same reasoning — rendered into the Fleet Overview's
     # vibration-contract-panel slot by callbacks/vibration_contract.py.
     | collect_ids(vibration_contract_panel({}))
-    # FLEET-CONDITION-ORDER-2: the "Show all" toggle (needs-attention-toggle)
-    # and its target (needs-attention-card) only render into the
-    # Fleet Overview's needs-attention slot when the queue was actually
-    # capped — same reasoning as my_rtls_panel above.
-    | collect_ids(needs_attention(*_needs_attention_example()))
     | collect_ids(user_admin.layout())
     | collect_ids(audit_log.layout())
     | collect_ids(admin_settings.layout())
@@ -161,7 +106,6 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(report_center.layout())
     | collect_ids(notifications.layout())
     | collect_ids(command_center.layout())
-    | collect_ids(command_center_locations.layout())
 )
 
 MOUNTABLE_IDS = GLOBAL_LAYOUT_IDS | PAGE_LAYOUT_IDS
@@ -174,7 +118,15 @@ MOUNTABLE_IDS = GLOBAL_LAYOUT_IDS | PAGE_LAYOUT_IDS
 class TestCallbackLayoutWiring:
     def test_every_callback_id_exists_in_some_layout(self):
         """No callback may reference a component no layout ever renders."""
-        orphans = callback_reference_ids(app_module.app) - MOUNTABLE_IDS
+        # Wildcard pattern-matching ids (`ALL`/`MATCH`, CC-ACTIONS-1's per-row
+        # buttons) are rendered per data row at runtime, and Dash accepts an
+        # ALL pattern that matches zero components, so they cannot raise the
+        # ReferenceError this guards. Their rendering is pinned instead by
+        # tests/test_attention_components.py::TestProblemActions.
+        orphans = {
+            ref for ref in callback_reference_ids(app_module.app) - MOUNTABLE_IDS
+            if '["ALL"]' not in ref and '["MATCH"]' not in ref
+        }
         assert not orphans, (
             "Callbacks reference ids that exist in no layout: "
             f"{sorted(orphans)}. Every navigation would raise a Dash "

@@ -672,10 +672,16 @@ def latest_metric_readings(
     *,
     plant_id: str | None = None,
     transformer_id: str | None = None,
+    fleet: bool = False,
     allowed_device_ids: frozenset[str] | None,
     include_inactive: bool = False,
 ) -> list[DeviceMetricReading]:
     """Newest reading of ONE metric for every device beneath one entity.
+
+    `fleet=True` (TEMP-CONDITION-1) drops the entity predicate: every
+    device in `allowed_device_ids`' scope, still one bounded seek each. It
+    must be asked for explicitly and cannot be combined with an entity, so
+    a missing plant/transformer id can never silently widen a read.
 
     Covers **Monitoring Devices** — active devices under active transformers,
     the same population as `latest_reading_times`, so attribution and
@@ -701,7 +707,11 @@ def latest_metric_readings(
     this is reimplemented behind the same typed return contract, and nothing
     above the repository changes.
     """
-    if plant_id is None and transformer_id is None:
+    if fleet and (plant_id is not None or transformer_id is not None):
+        raise ValueError(
+            "latest_metric_readings takes fleet=True or an entity, not both"
+        )
+    if not fleet and plant_id is None and transformer_id is None:
         # Matches the module's no-unbounded-reading-query rule: without a scope
         # this would seek every device in the fleet.
         raise ValueError(
@@ -712,7 +722,9 @@ def latest_metric_readings(
 
     # Literal fragments, bound values — the same idiom as `latest_reading_times`
     # and `count_hierarchy_by_plant`, so this file has one way of doing it.
-    if transformer_id is not None:
+    if fleet:
+        scope_sql = ""
+    elif transformer_id is not None:
         scope_sql = " AND d.transformer_id = :transformer_id"
         params["transformer_id"] = transformer_id
     else:
@@ -3278,6 +3290,37 @@ def list_recent_programming_requests(
             ),
             {"device_id": device_id, "limit": limit},
         ).all()
+    return [_to_programming_request(row) for row in rows]
+
+
+def list_programming_requests_since(
+    *,
+    since: datetime,
+    allowed_device_ids: frozenset[str] | None,
+    limit: int = 200,
+) -> list[ProgrammingRequestRecord]:
+    """Programming requests made at or after `since`, newest first, in scope.
+
+    The fleet-grained companion to `list_recent_programming_requests`, for
+    the Command Center's recent-activity panel (CC-NEW-1). Bounded by both
+    the window and `limit`; the table is small (one row per request).
+    """
+    scope_clause, params = _scope_clause("r", allowed_device_ids)
+    params.update({"since": since, "limit": limit})
+    statement = _scoped(
+        text(
+            f"""
+            SELECT {", ".join("r." + c.strip() for c in _PROGRAMMING_REQUEST_COLUMNS.split(","))}
+            FROM {_SCHEMA}.rtl_programming_requests r
+            WHERE r.requested_at >= :since{scope_clause}
+            ORDER BY r.requested_at DESC, r.request_id DESC
+            LIMIT :limit
+            """
+        ),
+        allowed_device_ids,
+    )
+    with session_scope() as session:
+        rows = session.execute(statement, params).all()
     return [_to_programming_request(row) for row in rows]
 
 

@@ -51,3 +51,65 @@ class TestResolveMetricScope:
     def test_error_message_names_the_unknown_metric(self):
         with pytest.raises(ConfigurationError, match="not_a_metric"):
             resolve_metric_scope(("not_a_metric",), self.KNOWN_METRICS)
+
+
+class TestSilencedFeedsInSimulator:
+    def test_empty_when_no_capture_file(self, monkeypatch, tmp_path):
+        from db import live_simulator
+        monkeypatch.setattr(live_simulator, "CAPTURE_PATH", tmp_path / "absent.json")
+        assert live_simulator.active_silenced_feeds() == frozenset()
+
+    def test_demo_feeds_when_capture_file_exists(self, monkeypatch, tmp_path):
+        from db import live_simulator
+        capture = tmp_path / "capture.json"
+        capture.write_text("[]")
+        monkeypatch.setattr(live_simulator, "CAPTURE_PATH", capture)
+        assert ("plant-03-t1-d1", "temperature") in live_simulator.active_silenced_feeds()
+
+    def test_is_silenced(self):
+        from db import live_simulator
+        silenced = frozenset({("d1", "voltage")})
+        assert live_simulator.is_silenced("d1", "voltage", silenced)
+        assert not live_simulator.is_silenced("d1", "temperature", silenced)
+
+
+class TestParseArgs:
+    def test_no_arguments_means_run_forever(self):
+        from db import live_simulator
+        assert live_simulator.parse_args([]).backfill_events_days is None
+
+    def test_backfill_days(self):
+        from db import live_simulator
+        args = live_simulator.parse_args(["--backfill-events-days", "7"])
+        assert args.backfill_events_days == 7.0
+
+
+class TestBackfillEvents:
+    NOW = __import__("datetime").datetime(2026, 9, 19, tzinfo=__import__("datetime").timezone.utc)
+
+    def _with_rate(self, monkeypatch, rate):
+        import dataclasses
+        from db import live_simulator
+        monkeypatch.setattr(
+            live_simulator, "live_sim",
+            dataclasses.replace(live_simulator.live_sim, events_per_day=rate),
+        )
+        return live_simulator
+
+    def test_plans_the_whole_window_and_emits(self, monkeypatch):
+        import random
+        live_simulator = self._with_rate(monkeypatch, 12.0)
+        emitted = []
+        monkeypatch.setattr(live_simulator, "_device_transformers",
+                            lambda: {"d1": "t1", "d2": "t1"})
+        monkeypatch.setattr(live_simulator, "emit_planned",
+                            lambda planned, transformer_of: emitted.extend(planned) or len(planned))
+        assert live_simulator.backfill_events(7, self.NOW, random.Random(1)) == 84
+        assert len(emitted) == 84
+        assert {e.device_id for e in emitted} <= {"d1", "d2"}
+
+    def test_does_nothing_when_events_are_off(self, monkeypatch):
+        import random
+        live_simulator = self._with_rate(monkeypatch, 0.0)
+        monkeypatch.setattr(live_simulator, "_device_transformers", lambda: 1 / 0)
+        assert live_simulator.backfill_events(7, self.NOW, random.Random(1)) == 0

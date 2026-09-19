@@ -16,16 +16,24 @@ Configuration (see config.settings.LiveSimSettings / .env.example):
     LIVE_SIM_DEVICE_IDS        comma-separated device ids (default: all)
     LIVE_SIM_METRICS           comma-separated metric keys (default: all)
     LIVE_SIM_NOISE_SCALE       jitter multiplier (default 1.0)
+    LIVE_SIM_EVENTS_PER_DAY    simulated RTL events per day (default 0 = off)
+
+    python -m db.live_simulator --backfill-events-days 7
+        one-shot: emit LIVE_SIM_EVENTS_PER_DAY events over the last 7 days, exit
 """
 from __future__ import annotations
 
+import argparse
+import random
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from config.metrics import METRIC_KEYS
 from config.settings import live_sim
 from db.generators import generate_live_reading, initial_energy_meter
+from db.live_events import emit_planned, plan_events
+from db.seed_freshness_demo import CAPTURE_PATH, silenced_feeds
 from repositories.plant_monitoring_repository import (
     RawReading,
     get_latest_reading,
@@ -72,6 +80,21 @@ def resolve_metric_scope(
     return list(configured_metrics)
 
 
+def active_silenced_feeds() -> frozenset[tuple[str, str]]:
+    """Feeds to skip: the freshness demo's, only while it is applied.
+
+    Without this the first tick refills every feed db/seed_freshness_demo.py
+    removed, and its Stale / No Data RTLs go Fresh again.
+    """
+    return silenced_feeds() if CAPTURE_PATH.exists() else frozenset()
+
+
+def is_silenced(
+    device_id: str, metric: str, silenced: frozenset[tuple[str, str]]
+) -> bool:
+    return (device_id, metric) in silenced
+
+
 def _device_latitudes() -> dict[str, float]:
     """device_id -> its plant's latitude, for every administratively active device."""
     devices = list_all_devices()
@@ -88,6 +111,39 @@ def _initial_energy(device_id: str) -> float:
     return latest.value if latest is not None else initial_energy_meter(device_id)
 
 
+def _device_transformers() -> dict[str, str]:
+    """device_id -> transformer_id for every device, for event attribution."""
+    return {d.device_id: d.transformer_id for d in list_all_devices()}
+
+
+def backfill_events(days: float, now: datetime, rng: random.Random) -> int:
+    """One-shot: plan and emit events spread over the last `days`.
+
+    Events are append-only (INGEST-D3): running this twice doubles them.
+    """
+    if live_sim.events_per_day <= 0:
+        print("LIVE_SIM_EVENTS_PER_DAY is 0 - nothing to backfill.")
+        return 0
+    transformer_of = _device_transformers()
+    planned = plan_events(
+        rng, sorted(transformer_of), now - timedelta(days=days), now,
+        live_sim.events_per_day,
+    )
+    return emit_planned(planned, transformer_of)
+
+
+def parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Live-append synthetic readings (and, if enabled, events)."
+    )
+    parser.add_argument(
+        "--backfill-events-days", type=float, default=None,
+        help="Emit LIVE_SIM_EVENTS_PER_DAY events spread over the last N days, "
+             "then exit. Events are append-only: running this twice doubles them.",
+    )
+    return parser.parse_args(argv)
+
+
 def run() -> None:
     latitudes = _device_latitudes()
     device_ids = resolve_device_scope(live_sim.device_ids, set(latitudes))
@@ -100,6 +156,12 @@ def run() -> None:
         f"Live simulator: {len(device_ids)} device(s), metrics={metrics}, "
         f"every {live_sim.interval_seconds}s (Ctrl+C to stop)"
     )
+    silenced = active_silenced_feeds()
+    rng = random.Random()
+    transformer_of = _device_transformers() if live_sim.events_per_day > 0 else {}
+    last_tick = datetime.now(timezone.utc)
+    if silenced:
+        print(f"  skipping {len(silenced)} silenced feed(s) (freshness demo applied)")
 
     while True:
         now = datetime.now(timezone.utc)
@@ -114,18 +176,35 @@ def run() -> None:
                 noise_scale=live_sim.noise_scale,
             )
             for metric in metrics:
+                if is_silenced(device_id, metric, silenced):
+                    continue
                 rows.append(RawReading(device_id, metric, now, reading[metric]))
             if "energy" in metrics:
                 energy_state[device_id] = reading["energy"]
 
         insert_readings(rows)
         print(f"  {now.isoformat()} -- wrote {len(rows)} readings")
+        if live_sim.events_per_day > 0:
+            planned = plan_events(
+                rng, device_ids, last_tick, now, live_sim.events_per_day
+            )
+            emitted = emit_planned(planned, transformer_of)
+            if emitted:
+                print(f"  {now.isoformat()} -- emitted {emitted} event(s)")
+        last_tick = now
         time.sleep(live_sim.interval_seconds)
 
 
 if __name__ == "__main__":
+    args = parse_args(sys.argv[1:])
     try:
-        run()
+        if args.backfill_events_days is not None:
+            count = backfill_events(
+                args.backfill_events_days, datetime.now(timezone.utc), random.Random()
+            )
+            print(f"Backfilled {count} event(s).")
+        else:
+            run()
     except ConfigurationError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         sys.exit(1)

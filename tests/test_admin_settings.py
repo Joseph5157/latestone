@@ -96,8 +96,6 @@ class TestLayouts:
         for slot in PANEL_SLOTS + ("auto-disable-override-panel",):
             assert find_by_id(page, slot) is None, slot
 
-    def test_fleet_overview_keeps_the_administration_summary(self):
-        assert find_by_id(plants_overview.layout(), "admin-summary") is not None
 
 
 @pytest.mark.parametrize("module, service_names, panel, extra_state", PANELS)

@@ -93,8 +93,7 @@ class _DemoEvent:
 #: (Critical/Warning), the neutral informational types, and the quarantine
 #: row that must render without a link.
 #:
-#: More rows than the panel shows (services.command_center_service
-#: .RECENT_EVENT_ROWS), so the newest-first bound and the scroll region are
+#: More rows than the old Command Center's recent-events panel showed (10), so the newest-first bound and the scroll region are
 #: both visible rather than only unit-tested.
 #: EVERY presentation path must land inside the newest RECENT_EVENT_ROWS,
 #: not merely somewhere in the batch. The first version of this list put the

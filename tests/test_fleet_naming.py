@@ -29,23 +29,9 @@ def test_fleet_page_title():
 
 
 def test_fleet_page_subtitle_slot_is_present():
-    """The slot itself is static layout; its text is filled by the listing
-    callback (populate_overview), since layout() performs no queries."""
+    """The subtitle is static layout; the page performs no queries."""
     layout = plants_overview.layout()
     assert find_by_class(layout, "page__subtitle")
-
-
-def test_fleet_page_subtitle_wording():
-    """The wording the callback writes into that slot.
-
-    `fleet_subtitle_text` is the pure function the callback calls, so this
-    proves the wording without needing a live query — the plant count itself
-    is exercised in tests/test_fleet_overview.py alongside the rest of the
-    freshness chain.
-    """
-    from components.fleet_summary import fleet_subtitle_text
-
-    assert "monitored plants" in fleet_subtitle_text(30)
 
 
 def test_breadcrumb_root_reads_fleet_on_the_fleet_page():
@@ -82,21 +68,3 @@ def test_the_route_is_still_plants():
     ]
     assert any(h == "/plants" for h in links)
     assert not any("/fleet" in h for h in links)
-
-
-def test_the_plants_kpi_card_still_counts_plants():
-    """The card label is a domain noun, not the page name. It does not change.
-
-    Asserted on the rendered output rather than on source text: the label
-    living inside a `counts=[("Plants", ...)]` list is exactly as valid a
-    place for it as a literal `kpi_card("Plants", ...)` call, so pinning the
-    source text would fail the moment the composition is refactored without
-    the label itself ever changing.
-    """
-    from services.monitoring_service import fleet_health_from_rows
-    from components.fleet_summary import fleet_kpi_cards
-
-    health = fleet_health_from_rows([])
-    cards = fleet_kpi_cards(plants=30, transformers=71, devices=120, health=health)
-    labels = [text_of(el) for el in find_by_class(cards, "kpi-card__label")]
-    assert "Plants" in labels

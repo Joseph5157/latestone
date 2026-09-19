@@ -2,7 +2,7 @@
 
 Status: Approved
 Date: 2026-08-29
-Last updated: 2026-09-18 — added ADR-022
+Last updated: 2026-09-19 — added ADR-023
 
 Every ADR in `docs/decisions/`, one line each. This file is the map; the ADR
 is the territory — read the ADR before acting on a decision, don't act on
@@ -16,18 +16,18 @@ either "approved" means "built" or "not yet" means "undecided."
 
 | ADR | Decision | Status | Implemented-by |
 |---|---|---|---|
-| [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) | Events are closed, pre-classified facts — no consumer holds a numeric threshold | Approved | `bb1e2e9` |
-| [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) | Requires Attention = Stale + No Data only, never mixed with event history | Approved | `29a4c5a` |
+| [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) | Events are closed, pre-classified facts — no consumer holds a numeric threshold (amended by ADR-023: a separate derived temperature condition) | Approved | `bb1e2e9` |
+| [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) | Requires Attention = Stale + No Data only, never mixed with event history | Superseded by ADR-024 | `29a4c5a` |
 | [ADR-003](../decisions/ADR-003-location-is-plant.md) | Location = Plant; no Zone/Feeder/GIS level exists in the schema | Approved | `699ece0` |
 | [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) | Device scope is authorization-derived; no page may offer a scope selector | Approved | `9966bd7` |
 | [ADR-005](../decisions/ADR-005-auto-refresh-is-page-owned-polling.md) | Auto-refresh is a page-owned `dcc.Interval`, not a shared "live" feed | Approved | `23642da` (precedent); Command Center's own interval `b8315c8` |
 | [ADR-006](../decisions/ADR-006-route-scoped-theming-is-architecture.md) | Route-scoped dark/light theming is CC-1 architecture, not later polish; the semantic palette is route-scoped in BOTH appearances | Approved | `267b11a` |
 | [ADR-007](../decisions/ADR-007-event-demo-seed-uses-ingest-event.md) | The CC-1 event demo seed must call `ingest_event()`, never `insert_device_event()` directly | Approved | `a49620f` |
 | [ADR-008](../decisions/ADR-008-command-center-reuses-existing-read-paths.md) | Command Center's read side is `get_fleet_health()` + `list_recent_device_events()` + the batched `list_device_paths()`, never new SQL or Fleet Overview's presentation components | Approved | `1940b93`, `bb1e2e9` (precedent); Command Center's call sites `a49620f` |
-| [ADR-009](../decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md) | Priority Investigation ranks on freshness only; a STALE age is the OLDEST metric's timestamp, and exists only when every metric has one | Approved | `ce5d4ac` |
+| [ADR-009](../decisions/ADR-009-priority-investigation-ranks-on-freshness-only.md) | Priority Investigation ranks on freshness only; a STALE age is the OLDEST metric's timestamp, and exists only when every metric has one | Superseded by ADR-024 | `ce5d4ac` |
 | [ADR-010](../decisions/ADR-010-monitoring-reset-preserves-operational-history.md) | A monitoring reset replaces measurements and preserves operational history; the destructive teardown is a separate, acknowledged `--purge`; no CASCADE | Approved | `29f5290` |
-| [ADR-011](../decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md) | Affected Locations names the worst 8 Plants and discloses the rest; a selected Plant below the cut is retained and says why | Approved | `6aafc4c` |
-| [ADR-012](../decisions/ADR-012-rank-bars-are-capped-and-route-themed.md) | The rank bar is a fixed 15rem track on route-scoped tokens; no track absorbs surplus width, and the encoding basis is unchanged | Approved | `e33d0e1`, `59f92a9` |
+| [ADR-011](../decisions/ADR-011-affected-locations-is-top-n-with-disclosure.md) | Affected Locations names the worst 8 Plants and discloses the rest; a selected Plant below the cut is retained and says why | Superseded by ADR-024 | `6aafc4c` |
+| [ADR-012](../decisions/ADR-012-rank-bars-are-capped-and-route-themed.md) | The rank bar is a fixed 15rem track on route-scoped tokens; no track absorbs surplus width, and the encoding basis is unchanged | Superseded by ADR-024 | `e33d0e1`, `59f92a9` |
 | [ADR-013](../decisions/ADR-013-export-data-is-a-capability.md) | EXPORT_DATA is a device-less capability, not a device action; same roles, guard changed to `require_capability`, scope still enforced by the repository's `allowed_device_ids` | Approved | `723dd0b` |
 | [ADR-014](../decisions/ADR-014-latest-reads-are-bounded-seeks.md) | Every latest-reading read is a bounded index seek, at device grain too; `get_latest_readings_for_device` no longer scans the device's history, and the guard measures rows examined rather than wall-clock | Approved | `3b33015` |
 | [ADR-015](../decisions/ADR-015-credentials-name-logins-not-roles.md) | Credential configuration names logins and can never express a role; the `users` row decides user_id, name, role and status. No password column, no migration — the rule survives the eventual swap to the client's mechanism | Approved | `f0862d0` |
@@ -38,6 +38,8 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-020](../decisions/ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md) | `notification_delivery.py`/`mock_notification_delivery.py` are a provider-neutral outgoing-delivery boundary, structurally uncoupled from the existing Notification Center (`notification_service.py`, unmodified); `DeliveryRequest.recipient_endpoint` is always caller-supplied — no recipient-resolution policy is implemented; no `notification_deliveries` table, since delivery lifecycle/retention/escalation are still client-undecided | Approved | `0b2a4d5` |
 | [ADR-021](../decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md) | The global freshness threshold is an Administrator-configurable singleton, read live by `evaluate_freshness` once per request; no row = environment default; BR008 unaffected | Approved | `08acb6e` |
 | [ADR-022](../decisions/ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md) | Registration enforces the 5-digit RTL UID (one shared rule with programming) and refuses a code already registered anywhere in the fleet; application-level only, no DB constraint until the client confirms | Approved | `c47cf87` |
+| [ADR-023](../decisions/ADR-023-temperature-condition-uses-admin-limits.md) | Temperature condition (Normal/Warning/Critical/Limits not set/No recent data) is evaluated only by `temperature_condition_service`, on each RTL's latest reading against Administrator-configured limits, in Decimal; a derived condition, not an event; amends ADR-001 and the AGENTS.md data rule | Approved | `a0f1223` |
+| [ADR-024](../decisions/ADR-024-overview-and-command-center-split-by-question.md) | Fleet Overview (`/plants`, every role) answers where everything is and how hot; Command Center (`/command-center`, Administrator/Technician) answers what needs attention now; no panel on both; `/` lands operational roles on Command Center; supersedes ADR-002/009/011/012 | Approved | `2cfad36` |
 
 ## Reading this table
 

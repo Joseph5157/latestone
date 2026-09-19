@@ -46,6 +46,40 @@ Step 8 is optional: it appends one fresh reading per device every 10s (see
 visibly move instead of showing static seeded history. Configurable via
 `LIVE_SIM_*` in `.env.example`; stop it with Ctrl+C any time.
 
+### Refreshing development data so it looks live
+
+The seeded readings end when you ran step 5, so after a few days every RTL
+reads silent for more than 24 hours. To bring the data back to a realistic,
+live-looking state (all synthetic; run from the repo root):
+
+```bash
+python -m db.seed_freshness_demo --restore        # only if .freshness-demo-capture.json exists
+python -m db.seed_plant_monitoring --reset        # readings re-dated to end now (events, users, history kept)
+python -m db.seed_freshness_demo --apply          # 3 RTLs Stale / No Data on purpose (undo: --restore)
+LIVE_SIM_EVENTS_PER_DAY=12 python -m db.live_simulator --backfill-events-days 7   # 7 days of events
+LIVE_SIM_EVENTS_PER_DAY=12 LIVE_SIM_INTERVAL_SECONDS=300 python -m db.live_simulator   # leave running
+```
+
+PowerShell: set the variables first, e.g.
+`$env:LIVE_SIM_EVENTS_PER_DAY='12'; python -m db.live_simulator --backfill-events-days 7`.
+
+- `LIVE_SIM_EVENTS_PER_DAY` (default 0 = off) makes the simulator raise
+  simulated startup, check-in, battery-low, power-down and sensor-error events
+  through the same ingestion path real events use. Events are append-only:
+  running the backfill twice doubles them.
+- While the freshness demo is applied, the simulator leaves its silenced
+  feeds alone, so those RTLs stay Stale / No Data.
+- **Test temperature limits:** Administration → Settings → Temperature and
+  vibration, warning **36 °C**, critical **40 °C**. These are test values, not
+  Eskom values. Synthetic temperatures follow the time of day: around 12:00
+  UTC about 19 RTLs reach 36 °C and 4 reach 40 °C; overnight none do.
+- The full test suite (`python -m pytest`) expects the plain seed:
+  `tests/test_seed_integrity.py` and the repository range tests pin exact row
+  counts and 30-minute spacing. Stop the simulator, then
+  `python -m db.seed_freshness_demo --restore` and
+  `python -m db.seed_plant_monitoring --reset` before running it; re-apply
+  the freshness demo afterwards. `python -m pytest -m "not db"` is unaffected.
+
 Open http://localhost:8050 and log in with the credentials you set as
 `DEMO_USERNAME` / `DEMO_PASSWORD` in `.env`. There is no fallback credential:
 if they are unset, every login is refused.

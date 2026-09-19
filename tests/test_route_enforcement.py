@@ -81,7 +81,7 @@ class TestRouteDecision:
         assert routing.route_decision(identity(role), route) == routing.DECISION_ALLOW
 
     @pytest.mark.parametrize(
-        "route", ["notifications", "command_center", "command_center_locations"]
+        "route", ["notifications", "command_center"]
     )
     def test_general_operational_direct_urls_are_refused(self, route):
         assert routing.route_decision(identity(GENERAL), route) == (
@@ -89,7 +89,7 @@ class TestRouteDecision:
         )
 
     @pytest.mark.parametrize(
-        "route", ["notifications", "command_center", "command_center_locations"]
+        "route", ["notifications", "command_center"]
     )
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN])
     def test_operational_direct_urls_remain_open_to_authorized_roles(self, role, route):

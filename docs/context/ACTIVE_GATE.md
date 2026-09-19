@@ -1,10 +1,503 @@
 # Active Gate
 
 Status: **CLOSED / PASS**
-Date: 2026-09-18
+Date: 2026-09-19
 Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** 2026-09-18
-(`003b9b6` + closure docs); push not requested.
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (SWITCH-OVER-1, user: "continue 5 and 6"); push **NOT granted**.
+
+## SWITCH-OVER-1 — CLOSED / PASS
+
+Baseline: branch `overview-cc-redesign` at `92172ee`. Phase 6 of the Fleet
+Overview + Command Center redesign (decision D12).
+
+## Task
+
+- Delete the old Command Center (page, full locations view, callbacks,
+  `components/command_center/` panels it alone used,
+  `services/command_center_service.py`) and the old Fleet Overview (page,
+  its populate callback and the components only it used). The theme
+  callbacks move to the new Command Center; `refresh`, `theme` and
+  `primitives` stay.
+- The new pages take the real paths: Command Center at `/command-center`,
+  Fleet Overview at `/plants` (and `/` for General Users). `/plants-new`,
+  `/command-center-new` and `/command-center/locations` are removed.
+- Kept: plant and transformer detail pages, the Device page, Assignments
+  (Administration cards), a Technician's Devices page (`build_my_rtls_rows`).
+- Merge to `main` locally when both suites are green.
+
+## Relevant files
+
+- `routes.py`, `services/authorization.py`, `callbacks/routing.py`,
+  `callbacks/navigation.py`, `app.py`
+- `pages/command_center.py`, `callbacks/command_center.py` (the new page,
+  renamed), `pages/plants_overview.py`, `callbacks/fleet_overview.py`
+- `callbacks/listings.py`, `components/fleet_summary.py`,
+  `components/freshness_threshold_panel.py`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+- Deleted: pages/command_center_locations.py, services/command_center_service.py,
+  components/fleet_condition.py, components/needs_attention.py,
+  components/my_rtls.py, components/unassigned_rtls.py and seven old
+  components/command_center panels, with their tests
+
+## Non-goals (explicit)
+
+- No behaviour change to the new pages, the detail pages, the Device page
+  or any service they use. No schema change. No push.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: all three roles land correctly; `/command-center` and `/plants`
+  render the new pages; removed paths show "page not found".
+
+## Known ambiguity
+
+- ADRs that describe the removed panels (ADR-008 and others) stay as
+  history; where one is now wrong about the running app, it gets an
+  `Amended-by`/status note rather than a rewrite.
+
+## Implementation
+
+- `2cfad36` old pages, panels and `command_center_service` deleted; the new
+  pages renamed onto `/command-center` and `/plants`; theme callbacks moved
+  into `callbacks/command_center.py`; ids/classes `fleet-new-*` ->
+  `fleet-overview-*`; `threshold_label` moved to its one remaining user;
+  `build_my_rtls_rows` kept for a Technician's Devices page (new focused
+  test `tests/test_my_rtls_rows.py`). Tests of removed code deleted or
+  trimmed to what still exists.
+- `87d04a9` ADR-024; ADR-002/009/011/012 superseded; AGENTS.md UI text and
+  the tracker updated.
+- Follow-up test fix: the scope KPI check renders the plant cards.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed (freshness demo re-applied afterwards).
+- Browser (Playwright, local): admin and demo.tech01 land on the Command
+  Center at `/` (38 and 4 problems), `/plants` is the new Fleet Overview (30
+  and 16 plants), the theme toggle still re-themes the page and keeps the
+  page's own class; `/command-center-new`, `/plants-new`,
+  `/command-center/locations` show Not found. demo.general01 lands on Fleet
+  Overview (30 plants), gets No access at `/command-center`, no horizontal
+  scroll at 390 px. No console errors.
+- Known leftover: CSS rules for the removed panels remain in
+  `assets/app.css` (recorded in ADR-024).
+
+## Next implementation gate: NONE
+
+## Prior gate record
+
+## FO-NEW-1 — CLOSED / PASS
+
+Baseline: branch `overview-cc-redesign` at `53d57e3`. Phase 5 of the Fleet
+Overview + Command Center redesign (decisions D1, D2, D6, D8, D11).
+
+## Task
+
+A new Fleet Overview at `/plants-new`, built beside the old one, answering
+"where is everything and how hot is it?" for every role:
+
+- One row per plant in scope: plant, transformer and RTL counts, hottest
+  latest temperature and its condition, and how many RTLs are Normal /
+  Warning or Critical / without recent data.
+- Each plant expands inline (native disclosure, no callback) to its
+  transformers; each transformer shows its 30-day maximum temperature and
+  when it was reached (the C-15 report query, reused), and its RTLs with
+  latest temperature, condition (ADR-023), last reading time and a small
+  "Electrical readings" link to the Device page.
+- Temperature first. No alarm panels, no electrical metrics, no
+  Administration section (Assignments and Device Management hold that).
+
+## Relevant files
+
+- `routes.py`, `services/authorization.py`, `callbacks/routing.py`,
+  `callbacks/navigation.py`, `app.py`, `assets/app.css`
+- `services/temperature_condition_service.py`, `services/hierarchy_service.py`,
+  `services/device_scope.py`, `repositories/plant_monitoring_repository.py`
+  (read only)
+- `pages/plants_overview.py`, `callbacks/listings.py` (read only: the old page)
+- `docs/decisions/ADR-004-device-scope-is-not-user-selectable.md`,
+  `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
+- To be created: services/fleet_overview_service.py,
+  components/fleet_overview.py, pages/plants_overview_new.py,
+  callbacks/plants_overview_new.py
+
+## Non-goals (explicit)
+
+- No schema change, no new SQL, no change to the old Fleet Overview, the
+  Device page or the report. No polling: the page renders on load and has a
+  Refresh link, as the old one does (a poll would collapse open plants).
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: all three roles; a Technician sees only assigned RTLs; no
+  horizontal scroll at 1440 px and 390 px.
+
+## Known ambiguity
+
+- The spec says "30-day maximum" per RTL; the existing read (report C-15) is
+  per transformer and names the RTL that reached it. Shown per transformer —
+  the transformer is what is being protected — rather than adding new SQL.
+
+## Implementation
+
+- `648643d` `services/fleet_overview_service.py`: one snapshot from
+  `list_plants`, `device_temperatures` (ADR-023) and the C-15
+  `max_temperature_report_rows` read, all narrowed by the one scope; plants
+  by name, plants with no in-scope RTL left out.
+- `4676579` `components/fleet_overview.py`: `<details>` plant rows (name,
+  size, hottest temperature + condition, normal / hot / no-recent-data
+  counts), transformer 30-day peak, RTL rows with an "Electrical readings"
+  link; limits line carries `LIMIT_SOURCE_NOTE`, or says limits are unset.
+- `2c90256` `/plants-new` (`overview_new`, every role, Overview nav item),
+  page, callback (error panel on a failed read), CSS incl. phone layout.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0. No SQL or DB code changed; the
+  full DB suite runs at the switch-over close.
+- Browser (Playwright, local, real data), 1440 px and 390 px: admin and
+  demo.general01 see 30 plants / 71 transformers / 120 RTLs; demo.tech01
+  sees 16 / 21 / 24 (own scope). Plant expands inline; Overview nav item
+  active; no horizontal scroll; no console errors. Limits unset locally, so
+  every RTL reads "Limits not set" and the unset notice shows.
+
+## Next implementation gate: SWITCH-OVER-1 — OPEN / IN PROGRESS
+
+## Prior gate record
+
+## CC-ACTIONS-1 — CLOSED / PASS
+
+Baseline: branch `overview-cc-redesign` at `9595adb`. Phase 4 of the Fleet
+Overview + Command Center redesign (redesign decision D7: full actions in
+Command Center, reusing the existing flows, never copies).
+
+## Task
+
+Each problem on the new Command Center offers:
+
+- **Acknowledge** (Power Down / Battery Low / Sensor Error problems): the
+  RTL's current unacknowledged events of that type are resolved server-side
+  and each goes through `require_action(ACKNOWLEDGE_ALARM)` +
+  `alarm_acknowledgement_service.acknowledge_alarm`, the Notification
+  Center's path. The browser names only the RTL and the kind.
+- **Manage**: opens the shared `device_manage_drawer()` (Program RTL,
+  Message Forwarding, Deactivate with its existing confirm step). Its confirm
+  callbacks and their `require_action` checks are unchanged.
+
+Buttons render only where `may_action` allows (visibility, not authority).
+
+## Relevant files
+
+- `services/attention_service.py`, `components/attention.py`,
+  `pages/command_center_new.py`, `callbacks/command_center_new.py`
+- `services/alarm_acknowledgement_service.py`, `services/action_guard.py`,
+  `services/authorization.py`, `services/hierarchy_service.py` (read only)
+- `components/device_manage_drawer.py`, `callbacks/device_manage.py`
+  (read only: drawer contract)
+- `callbacks/notifications.py` (read only: acknowledgement precedent)
+- `docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md`
+
+## Non-goals (explicit)
+
+- No new action, no policy change, no schema change, no change to the drawer
+  or its confirm callbacks. Assignment stays out of Command Center (ADR-016).
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: Administrator acknowledges a problem and opens Manage; Technician
+  sees actions only for their own RTLs.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `ae6a4ff` `attention_service.acknowledge_problem` +
+  `ACKNOWLEDGEABLE_KINDS`: open events resolved server-side within scope;
+  each through `require_action(ACKNOWLEDGE_ALARM)` then `acknowledge_alarm`.
+- `d370bdb` `components/attention.py`: pattern-matching Acknowledge / Manage
+  buttons, rendered only for `may_ack` / `may_manage` device sets.
+- `1b76508` page mounts `device_manage_drawer()`, result notice and ack
+  store; callbacks `acknowledge_outputs` (ignores re-render fires; refusal ->
+  `action_refused_notice`), `manage_outputs` (drawer's 12 outputs, labels
+  from `list_device_paths` in scope), `permitted_devices` (uses the
+  resolved scope, no per-row reads). `test_equipment_selector` wiring test
+  skips wildcard pattern ids (Dash allows ALL to match nothing).
+- Follow-up: two-line problem rows so the buttons never squeeze the text.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0; `python -m pytest` exit 0 on the
+  plain seed (freshness demo re-applied afterwards).
+- Browser (Playwright, local, real data): Administrator saw 39 problems, 38
+  Acknowledge buttons (none on the no-data problem) and 39 Manage buttons;
+  Acknowledge on 29012 (Power Down) -> "Acknowledged 1 alarm", headline 39 ->
+  38, and the acknowledgement appeared in Recent activity. Manage opened the
+  shared drawer for 29007 / Three Gorges Dam, themed. demo.tech01: 4
+  problems, 4 + 4 buttons, own scope only. No console errors; no horizontal
+  scroll at 1440 px or 390 px.
+- One real acknowledgement was written to the local dev DB (synthetic event
+  on 29012) as part of this check.
+
+## Next implementation gate: FO-NEW-1 — OPEN / IN PROGRESS
+
+## Prior gate record
+
+## CC-NEW-1 — CLOSED / PASS
+
+Baseline: branch `overview-cc-redesign` at `3e30fdf`. Phase 3 of the Fleet
+Overview + Command Center redesign (internal design/plan under
+`docs/superpowers/`, gitignored).
+
+## Task
+
+A new Command Center at `/command-center-new`, built beside the old one for
+side-by-side comparison, answering "what needs my attention now?":
+
+1. Status bar ("N of M RTLs reporting · K problems · updated …"; an
+   intentional All clear state).
+2. Problem list ranked Critical temperature → Power down → No data > 24 h
+   (BR008) → Warning temperature → Battery alarm → Sensor error; oldest first
+   within a kind. Event problems are unacknowledged alarms grouped per RTL
+   and type.
+3. Hottest 5 RTLs now (ADR-023 condition).
+4. Recent activity, last 24 h: switch-ons, programming requests,
+   acknowledgements.
+5. Alarms per day, last 7 days.
+
+Plus a role-aware landing: `/` renders the new Command Center for
+Administrators and Technicians and Fleet Overview for General Users;
+`/plants` stays Fleet Overview for everyone. Actions arrive in Phase 4.
+
+## Relevant files
+
+- `routes.py`, `services/authorization.py`, `callbacks/routing.py`,
+  `callbacks/navigation.py`, `app.py`
+- `repositories/plant_monitoring_repository.py`
+- `services/temperature_condition_service.py`, `services/notification_service.py`,
+  `services/event_semantics.py`, `services/monitoring_service.py`,
+  `services/device_scope.py` (read only)
+- `components/command_center/refresh.py`, `components/command_center/theme.py`,
+  `components/command_center/primitives.py` (reused, unchanged)
+- `assets/app.css`
+- `docs/decisions/ADR-001-event-classification-no-thresholds.md`,
+  `docs/decisions/ADR-004-device-scope-is-not-user-selectable.md`,
+  `docs/decisions/ADR-005-auto-refresh-is-page-owned-polling.md`,
+  `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
+- `services/attention_service.py`, `components/attention.py`,
+  `pages/command_center_new.py`, `callbacks/command_center_new.py`
+
+## Non-goals (explicit)
+
+- No change to the old Command Center, Fleet Overview or Device page.
+- No actions on the page (Phase 4). No schema change. No persisted
+  temperature alarms.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: Administrator, Technician and General User at `/`.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `1c5621a` route `command_center_new` (`/command-center-new`), ROUTE_POLICY
+  operational roles, `routing.landing_route_name` (role-aware `/`),
+  `navigation.active_nav_key(pathname, role)`.
+- `174d1e7` `repo.list_programming_requests_since` (fleet-scoped, bounded).
+- `adfb3f2` `services/attention_service.py`: one snapshot per poll; ranked
+  problems (D5), unacknowledged alarm events grouped per RTL and type,
+  BR008 via `build_no_data_notifications`, hottest 5, 24 h activity, 7-day
+  alarm counts; event labels from `event_semantics.display_label_for`.
+- `8a1a666` `components/attention.py` panels; `e5bd7e7` page, callback,
+  CSS, `app.py` registration; `test_equipment_selector` and
+  `test_authorization` route/layout inventories extended.
+- Follow-up fix commit: phone layout and quieter hottest list. The theme
+  callback replaces the root className, so the page class is on an inner
+  wrapper (test-guarded).
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0; `python -m pytest` exit 0 on the
+  plain seed (freshness demo re-applied afterwards).
+- Browser (Playwright, local, real data, no temperature limits set):
+  Administrator at `/` -> new Command Center, 39 problems (11 Power Down,
+  18 Battery Low, 9 Sensor Error, 1 no data > 24 h), 119 of 120 reporting,
+  hottest 5, 7 trend bars, sidebar highlights Command Center.
+  demo.tech01 at `/` -> new Command Center scoped to 24 RTLs, 4 problems.
+  demo.general01 at `/` -> Fleet Overview. No horizontal scroll at 1440 px
+  or 390 px; at 390 px the title bar wraps. Only console message is the
+  pre-existing login-page uncontrolled-input warning.
+- Not verified: Warning/Critical temperature rows in the browser (no limits
+  are stored; the logic is unit-tested and was checked in TEMP-CONDITION-1).
+
+## Next implementation gate: CC-ACTIONS-1 — OPEN / IN PROGRESS
+
+## Prior gate record
+
+## TEMP-CONDITION-1 — CLOSED / PASS
+
+Baseline: branch `overview-cc-redesign` at `53a8721`. Phase 2 of the Fleet
+Overview + Command Center redesign (internal design/plan under
+`docs/superpowers/`, gitignored).
+
+## Task
+
+One service answering "what is this RTL's temperature condition now?" from
+its latest temperature and the Administrator-configured warning/critical
+limits (migration 011, `c83cf94`): Normal / Warning / Critical / Limits not
+set / No recent data. Approved by the user 2026-09-19 (one global limit
+pair). Lands with ADR-023, which amends ADR-001 and the `AGENTS.md` data
+rule "MonitoringCondition is always UNKNOWN".
+
+## Relevant files
+
+- `repositories/plant_monitoring_repository.py` (`latest_metric_readings`)
+- `services/temperature_threshold_service.py`
+- `services/freshness_threshold_service.py` (read only)
+- `services/device_scope.py` (read only)
+- `services/monitoring_service.py` (read only: `evaluate_freshness`)
+- `docs/decisions/ADR-001-event-classification-no-thresholds.md`
+- `docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md`
+- `docs/decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md`
+- `AGENTS.md`
+- `services/temperature_condition_service.py`,
+  `tests/test_temperature_condition_service.py`,
+  `tests/test_latest_metric_readings_fleet.py`
+- `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
+
+## Non-goals (explicit)
+
+- No UI change (Phases 3-5). No persisted High Temperature events or
+  notifications. No schema change. No per-transformer limits.
+- Device page `MonitoringCondition` stays `UNKNOWN`.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `38d3fbd` `latest_metric_readings(..., fleet=True)`: explicit fleet scope,
+  refused together with an entity; still one bounded seek per device.
+- `a0f1223` `services/temperature_condition_service.py`: `classify()` (pure;
+  no reading or stale -> No recent data; no limits -> Limits not set; `>=` in
+  Decimal), `current_limits()`, `device_temperatures(scope)`, `hottest()`,
+  `LIMIT_SOURCE_NOTE`.
+- ADR-023; ADR-001 `Amended-by`; `AGENTS.md` data rule; DECISION_INDEX;
+  `temperature_threshold_service.py` docstring.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0; `python -m pytest` exit 0 on the
+  plain seed (freshness demo re-applied afterwards).
+- Real local data: no limits stored -> 119 Limits not set, 1 No recent data
+  (plant-03, silenced). With 30/33 degC applied in memory only (nothing
+  written): 102 Normal, 13 Warning, 4 Critical, 1 No recent data.
+
+## Next implementation gate: CC-NEW-1 — OPEN / IN PROGRESS
+
+## Prior gate record
+
+## DATA-REFRESH-1 — CLOSED / PASS
+
+Baseline: branch `overview-cc-redesign` at `88692c2` (off `main` `78fde0e`).
+Phase 1 of the Fleet Overview + Command Center redesign agreed with the user
+on 2026-09-19 (design and plan are internal docs under `docs/superpowers/`,
+gitignored: `specs/2026-09-19-overview-command-center-redesign-design.md`,
+`plans/2026-09-19-data-refresh-1.md`).
+
+## Task
+
+Make development data look like a live fleet before any page is redesigned.
+Local data ends 2026-09-16 (all 120 RTLs read > 24 h silent), there are 13
+device events (all 2026-08-29) and no temperature limits are set.
+
+- The live simulator can raise simulated events (startup, check-in, battery
+  low, power down, sensor error) at `LIVE_SIM_EVENTS_PER_DAY` (default 0 =
+  off, so Railway is unchanged), through `simulated_event_source.emit()` ->
+  `ingest_event()` only (ADR-019), plus a one-shot 7-day backfill.
+- The live simulator skips the feeds `db/seed_freshness_demo.py --apply`
+  removed, while its capture file exists, so the silenced RTLs stay silent.
+- A runbook in `README.md` for refreshing local data, including
+  TEST temperature limits (never presented as Eskom values).
+
+## Relevant files
+
+- `config/settings.py`, `.env.example`
+- `db/live_simulator.py`, `db/seed_freshness_demo.py`
+- `services/simulated_event_source.py` (read only)
+- `docs/decisions/ADR-019-simulated-event-source-reuses-canonical-ingestion.md`
+- `tests/test_live_simulator.py`, `tests/test_live_sim_settings.py`
+- To be created (cited once they exist): db/live_events.py,
+  tests/test_live_events.py
+- `README.md`
+
+## Non-goals (explicit)
+
+- No page or UI change. No temperature evaluation (that is Phase 2).
+- No schema change. No change to event semantics or ingestion.
+- No Railway change.
+
+## Required tests
+
+- `python -m pytest -m "not db"` and `python -m pytest` (simulator stopped).
+- Real run of the runbook against the local dev DB, with counts recorded.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `a2eade4` `config/settings.py`: `LiveSimSettings.events_per_day`
+  (`LIVE_SIM_EVENTS_PER_DAY`, default 0, read per instance).
+- `2c3dbfa`, `59d6356` `db/live_events.py`: pure `plan_events()` (seeded
+  `random.Random`; expected count per window, fraction decided by one draw)
+  and `emit_planned()` -> `simulated_event_source.emit()`, `source =
+  "live_simulator"`.
+- `4cfa970` `db/seed_freshness_demo.py::silenced_feeds()`;
+  `db/live_simulator.py` skips those feeds while the capture file exists.
+- `849313b` `db/live_simulator.py`: events each tick when enabled;
+  `--backfill-events-days N` one-shot.
+- Runbook: `README.md` "Refreshing development data so it looks live".
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"`: exit 0. `python -m pytest`: exit 0 on
+  the canonical seed. With the refreshed data applied, 7 DB tests fail by
+  design (`tests/test_seed_integrity.py` x5, two range tests in
+  `tests/test_plant_monitoring_repository.py`: they pin exact row counts and
+  30-minute spacing); documented in the README runbook.
+- Real run: `--reset` 1,383,360 rows; freshness demo removed 1,956;
+  backfill 84 events + live ticks = 85 (`check_in` 43, `battery_low` 17,
+  `power_down` 10, `sensor_error` 9, `startup` 6), 6-14 per day over 7
+  days. Live tick wrote 950 readings (960 minus 10 silenced feeds).
+  119 of 120 RTLs have a temperature reading < 1 h old; plant-03 silent,
+  plant-04 voltage > 33 h old, plant-05 no frequency.
+- **Deviation from plan:** suggested test limits changed from 36/39 to
+  **36/40 degC**. Synthetic temperature is diurnal: at 12:00 UTC 19 RTLs >= 36
+  and 4 >= 40; at 05:00 UTC the maximum was 35.9, at 00:00 UTC 31.0. Limits
+  are NOT set in the DB by this gate (set via Admin Settings when needed).
+
+## Next implementation gate: TEMP-CONDITION-1 — OPEN / IN PROGRESS
+
+Phase 2 (temperature condition service + ADR-023) is next per the design;
+not opened.
+
+## Prior gate record
 
 ## DEVICE-FILTERS-1 — CLOSED / PASS
 
@@ -93,7 +586,7 @@ None.
   uncontrolled-input warning seen during the session comes from the login
   page, is pre-existing, and is out of scope.
 
-## Next implementation gate: NONE
+## Next implementation gate: DATA-REFRESH-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

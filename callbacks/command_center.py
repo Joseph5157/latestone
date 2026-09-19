@@ -1,229 +1,260 @@
-"""Command Center callbacks — wire the service facade to the page.
+"""The Command Center's callbacks (CC-NEW-1, CC-ACTIONS-1, SWITCH-OVER-1).
 
-Phase 3+4 (foundation and shell): one callback, populating only the header's
-scope indicator. The six panel slots stay static "not yet available" cards
-(components/command_center/primitives.py) until Phase 5 onward gives each
-one its own callback and real data — this file grows with those phases, it
-does not front-load them.
+One interval tick = one `attention_service` snapshot = one render of every
+panel (ADR-005). Failure handling matches the old page: a failed first load
+shows the error state; a failed refresh keeps the last good panels on screen
+and says the data is stale, never blanking correct information.
+
+Actions reuse existing flows, never copies (redesign D7):
+
+- Acknowledge -> `attention_service.acknowledge_problem` -> `require_action`
+  + `alarm_acknowledgement_service` (the Notification Center's path). The
+  browser names only the RTL and the problem kind, never event ids.
+- Manage -> opens the shared `device_manage_drawer()`; its confirm callbacks
+  in `callbacks/device_manage.py` do the work and re-check authority.
+
+Buttons are rendered from `may_action`; that hides, it does not protect.
 """
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
 
-from dash import Input, Output, State, ctx, html, no_update
+from dash import ALL, Input, Output, State, ctx, html, no_update
 
-from components.command_center.affected_locations import (
-    affected_locations_card,
-    ranked_locations_list,
-)
-from components.command_center.electrical import (
-    BATTERY_LOW_BUTTON_ID,
-    POWER_DOWN_BUTTON_ID,
-    condition_button_class,
-    electrical_conditions_card,
-)
-from components.command_center.condition_investigation import (
-    PANEL_ID as CONDITION_INVESTIGATION_ID,
-    condition_investigation_card,
-)
-from components.command_center.primitives import scope_indicator_text
+from components import attention as ui
 from components.command_center import refresh, theme
-from components.command_center.priority import priority_investigation_card
-from components.command_center.recent_events import recent_events_card
-from components.command_center.selected_location import selected_location_card
-from components.command_center.situation_summary import situation_summary_panels
-from components.status_panels import error_panel
+from components.command_center.primitives import scope_indicator_text
+from components.device_manage_drawer import (
+    MANAGE_ACTION_STORE_ID,
+    MANAGE_DEVICE_ID,
+    MANAGE_DRAWER_ID,
+    PROGRAM_RTL_TRANSFORMER_ID,
+    PROGRAM_RTL_UID_ID,
+)
+from components.status_panels import action_refused_notice, error_panel
+from pages import command_center as page
+from services.action_guard import may_action
+from services.alarm_acknowledgement_service import AlarmAcknowledgementError
+from services.attention_service import (
+    ProblemKind,
+    acknowledge_problem,
+    get_attention_snapshot,
+)
 from services.auth_service import current_identity
-from services.authorization import ADMINISTRATOR
-from services.command_center_service import (
-    ELECTRICAL_CONDITIONS,
-    get_command_center_snapshot,
-    get_condition_affected_rtls,
+from services.authorization import (
+    ACKNOWLEDGE_ALARM,
+    DEACTIVATE_RTL,
+    PROGRAM_RTL,
+    TOGGLE_MESSAGE_FORWARDING,
+    AuthorizationError,
 )
 from services.device_scope import current_device_scope
+from services.hierarchy_service import list_device_paths
 
 logger = logging.getLogger(__name__)
 
-
-#: The outputs of the refresh callback that render DATA (scope indicator plus
-#: the six panels). Counted rather than spelled out so a future panel cannot
-#: be added to the callback while the failure path keeps clearing only the
-#: ones that existed when it was written.
-PANEL_OUTPUT_COUNT = 7
-
-#: Index of the generic error region within that callback's return tuple.
-ERROR_OUTPUT_INDEX = 7
-
-#: Panels + error + refresh status + refresh store.
-OUTPUT_COUNT = 10
+ROUTE = "command_center"
+PANEL_OUTPUTS = 6  # scope, status, problems, hottest, activity, trend
+#: The drawer's actions; assignment is deliberately not one (ADR-016).
+OPERATIONAL_ACTIONS = (PROGRAM_RTL, TOGGLE_MESSAGE_FORWARDING, DEACTIVATE_RTL)
+#: Same twelve outputs, in the same order, as callbacks/device_manage.py's
+#: openers; a test pins the count against that module.
+DRAWER_OUTPUTS = 12
+_DRAWER_DECLINED = (no_update,) * DRAWER_OUTPUTS
 
 
-def _last_success(refresh_state):
-    """When the last SUCCESSFUL snapshot landed, or None if none ever has.
-
-    The None case is the whole reason this is a STORED fact rather than
-    something read back off the page: a first load that fails and a refresh
-    that fails look identical in the DOM, and they must not be handled the
-    same way.
-    """
-    stamp = (refresh_state or {}).get("last_success_at")
-    if not stamp:
-        return None
+def _last_success(state) -> datetime | None:
+    stamp = (state or {}).get("last_success_at")
     try:
-        return datetime.fromisoformat(stamp)
+        return datetime.fromisoformat(stamp) if stamp else None
     except (TypeError, ValueError):
-        # A malformed value is treated as "never succeeded" rather than
-        # crashing the only callback that can recover the page.
         return None
 
 
-def condition_selection_outputs(pressed: str | None, scope):
-    """Purely compose the six outputs for one condition activation."""
-    by_button = {
-        POWER_DOWN_BUTTON_ID: ELECTRICAL_CONDITIONS[0],
-        BATTERY_LOW_BUTTON_ID: ELECTRICAL_CONDITIONS[1],
-    }
-    condition = by_button.get(pressed)
-    if condition is None:
-        return (no_update,) * 6
+def permitted_devices(problems, user, scope, *, allow=may_action) -> tuple[frozenset, frozenset]:
+    """(may_ack, may_manage) device-id sets for the rendered problems.
 
-    rows = get_condition_affected_rtls(condition.event_type, scope=scope)
-    selected = condition.event_type
-    power, battery = ELECTRICAL_CONDITIONS
+    `scope` is passed through so no per-row assignment read happens.
+    """
+    devices = {p.device_id for p in problems}
+    may_ack = frozenset(
+        d for d in devices if allow(user, ACKNOWLEDGE_ALARM, device_id=d, scope=scope)
+    )
+    may_manage = frozenset(
+        d for d in devices
+        if any(allow(user, a, device_id=d, scope=scope) for a in OPERATIONAL_ACTIONS)
+    )
+    return may_ack, may_manage
+
+
+def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset()) -> tuple:
+    now = snapshot.generated_at
     return (
-        {"event_type": selected},
-        condition_investigation_card(condition.condition_label, rows),
-        condition_button_class(power, selected),
-        condition_button_class(battery, selected),
-        str(power.event_type == selected).lower(),
-        str(battery.event_type == selected).lower(),
+        scope_indicator_text(snapshot.total_rtls),
+        ui.status_bar(snapshot),
+        ui.problem_list(snapshot.problems, now, may_ack=may_ack, may_manage=may_manage),
+        ui.hottest_card(snapshot.hottest),
+        ui.activity_card(snapshot.activity, now),
+        ui.alarm_trend_card(snapshot.daily_alarms),
     )
-def register(app) -> None:
-    """Register Command Center callbacks on the Dash app."""
-
-    @app.callback(
-        Output("command-center-scope-indicator", "children"),
-        Output("command-center-situation-summary", "children"),
-        Output("command-center-exception-intelligence", "children"),
-        Output("command-center-affected-locations", "children"),
-        Output("command-center-selected-location", "children"),
-        Output("command-center-recent-events", "children"),
-        Output("command-center-priority-investigation", "children"),
-        Output("command-center-error", "children"),
-        Output(refresh.STATUS_ID, "children"),
-        Output(refresh.STORE_ID, "data"),
-        Input("page-context", "data"),
-        Input(refresh.INTERVAL_ID, "n_intervals"),
-        Input(refresh.MANUAL_ID, "n_clicks"),
-        State("auth-store", "data"),
-        State(refresh.STORE_ID, "data"),
-        prevent_initial_call=True,
-    )
-    def populate_command_center(context, _ticks, _manual, auth_data, refresh_state):
-        """One snapshot, one render — the header and every card are served by
-        the same fetch, so two parts of the page can never disagree about
-        which RTLs are stale. That discipline is what makes polling safe:
-        one interval tick is ONE snapshot assembly, not six panels each
-        going to the database on their own (ADR-005 over ADR-008).
-
-        The selected Plant is NOT re-derived here. It rides in
-        `page-context` from the URL (`?plant=`), so a routine poll cannot
-        reset the operator to the top-ranked plant - no callback owns the
-        selection, so none can lose it.
-        """
-        if not context or context.get("route") != "command_center":
-            return (no_update,) * OUTPUT_COUNT
-
-        try:
-            # Resolved once per render (ADR-004/ADR-008), same discipline
-            # get_fleet_health's own docstring requires of every caller.
-            scope = current_device_scope()
-            # EVT-D5, applying the precedent this app already set in
-            # callbacks/notifications.py: an unregistered UID belongs to no
-            # device set, so scope alone cannot decide who may see the
-            # quarantine rows. Only an administrator asks for them.
-            user = current_identity()
-            is_admin = user is not None and user.role == ADMINISTRATOR
-            # One reference time, used for the fetch AND for the label, so
-            # `Last updated` names the moment the DATA describes rather than
-            # the moment the render happened to finish.
-            fetched_at = datetime.now(timezone.utc)
-            snapshot = get_command_center_snapshot(
-                scope=scope,
-                selected_plant_id=context.get("plant_id"),
-                include_unregistered=is_admin,
-                now=fetched_at,
-            )
-            return (
-                scope_indicator_text(snapshot.monitored_device_count),
-                situation_summary_panels(snapshot),
-                electrical_conditions_card(snapshot),
-                affected_locations_card(snapshot),
-                selected_location_card(snapshot),
-                # An events read that failed did NOT fail the snapshot — the
-                # facade holds that boundary (ADR-008) and the card states
-                # which of "nothing happened" / "could not look" it has.
-                recent_events_card(snapshot),
-                priority_investigation_card(snapshot),
-                None,
-                refresh.refresh_status(fetched_at, failed=False),
-                # A success always clears a previous failure, so the banner
-                # disappears on its own at the next good poll.
-                {"last_success_at": fetched_at.isoformat(), "failed": False},
-            )
-        except Exception:
-            # Logged in full; the UI stays generic and never exposes
-            # internals (AGENTS.md).
-            logger.exception("Failed to load Command Center snapshot")
-            last_success = _last_success(refresh_state)
-
-            if last_success is None:
-                # FIRST LOAD. No last-good data exists, so there is nothing
-                # for a stale-data banner to sit over. Clear the regions
-                # rather than leave "Loading..." forever - a stuck spinner
-                # reads as a slow fleet, not a failed read - and show the
-                # ordinary error state.
-                return (
-                    no_update, [], [], [], [], [], [],
-                    error_panel(),
-                    refresh.refresh_status(None, failed=False),
-                    {"last_success_at": None, "failed": True},
-                )
-
-            # A FAILED REFRESH over data that is still true. `no_update`
-            # leaves every rendered panel exactly as it was: blanking them
-            # would throw away a screen of correct information because one
-            # query timed out, and an empty Needs Attention card reads as
-            # "nothing is wrong" rather than "we could not look".
-            #
-            # `last_success_at` is deliberately NOT advanced. It names the
-            # age of what is on screen, and moving it on a failed attempt
-            # would claim freshness at the one moment that claim is false.
-            return (no_update,) * PANEL_OUTPUT_COUNT + (
-                no_update,
-                refresh.refresh_status(last_success, failed=True),
-                {"last_success_at": refresh_state["last_success_at"], "failed": True},
-            )
 
 
-    @app.callback(
-        Output("command-center-selected-condition", "data"),
-        Output(CONDITION_INVESTIGATION_ID, "children"),
-        Output(POWER_DOWN_BUTTON_ID, "className"),
-        Output(BATTERY_LOW_BUTTON_ID, "className"),
-        Output(POWER_DOWN_BUTTON_ID, "aria-pressed"),
-        Output(BATTERY_LOW_BUTTON_ID, "aria-pressed"),
-        Input(POWER_DOWN_BUTTON_ID, "n_clicks"),
-        Input(BATTERY_LOW_BUTTON_ID, "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def select_condition(_power_clicks, _battery_clicks):
-        """Populate scoped persisted occurrences for the activated card."""
-        return condition_selection_outputs(
-            ctx.triggered_id,
-            current_device_scope(),
+def populate(
+    context, refresh_state, *,
+    fetch=get_attention_snapshot, scope_for=current_device_scope,
+    identity=current_identity, allow=may_action,
+):
+    """Body of the populate callback, testable without a Dash runtime."""
+    if not context or context.get("route") != ROUTE:
+        return (no_update,) * (PANEL_OUTPUTS + 3)
+    try:
+        fetched_at = datetime.now(timezone.utc)
+        scope = scope_for()
+        snapshot = fetch(scope, now=fetched_at)
+        may_ack, may_manage = permitted_devices(
+            snapshot.problems, identity(), scope, allow=allow
         )
+        return render_panels(snapshot, may_ack, may_manage) + (
+            None,
+            refresh.refresh_status(fetched_at, failed=False),
+            {"last_success_at": fetched_at.isoformat(), "failed": False},
+        )
+    except Exception:
+        logger.exception("Failed to load the Command Center snapshot")
+        last = _last_success(refresh_state)
+        if last is None:
+            return (no_update,) + ([],) * (PANEL_OUTPUTS - 1) + (
+                error_panel(),
+                refresh.refresh_status(None, failed=False),
+                {"last_success_at": None, "failed": True},
+            )
+        return (no_update,) * PANEL_OUTPUTS + (
+            no_update,
+            refresh.refresh_status(last, failed=True),
+            {"last_success_at": refresh_state["last_success_at"], "failed": True},
+        )
+
+
+def _notice(message: str) -> html.Div:
+    return html.Div(className="status-panel status-panel--inactive", children=html.P(message))
+
+
+def acknowledge_outputs(
+    trigger, clicks, *,
+    identity=current_identity, scope_for=current_device_scope, ack=acknowledge_problem,
+):
+    """(notice, ack-store) for one Acknowledge click.
+
+    Pattern-matching ALL inputs also fire when the list re-renders (every
+    poll) with n_clicks 0/None; those are not clicks and do nothing.
+    """
+    if not clicks or not isinstance(trigger, dict):
+        return no_update, no_update
+    try:
+        kind = ProblemKind(trigger.get("kind"))
+    except ValueError:
+        return no_update, no_update
+    try:
+        changed = ack(identity(), scope_for(), trigger.get("device"), kind)
+    except AuthorizationError:
+        return action_refused_notice(), no_update
+    except (AlarmAcknowledgementError, ValueError) as exc:
+        return error_panel(str(exc)), no_update
+    except Exception:
+        logger.exception("Acknowledge from Command Center failed")
+        return error_panel(), no_update
+    if changed:
+        plural = "s" if changed != 1 else ""
+        message = f"Acknowledged {changed} alarm{plural}; the problem leaves the list."
+    else:
+        message = "Nothing left to acknowledge for this problem."
+    return _notice(message), {"at": datetime.now(timezone.utc).isoformat()}
+
+
+def manage_outputs(
+    trigger, clicks, *,
+    identity=current_identity, scope_for=current_device_scope, allow=may_action,
+    paths_for=list_device_paths,
+):
+    """The shared drawer's twelve outputs for one Manage click."""
+    if not clicks or not isinstance(trigger, dict):
+        return _DRAWER_DECLINED
+    device_id = trigger.get("device")
+    user, scope = identity(), scope_for()
+    if not device_id or not any(
+        allow(user, a, device_id=device_id, scope=scope) for a in OPERATIONAL_ACTIONS
+    ):
+        return _DRAWER_DECLINED
+    paths = paths_for([device_id], scope=scope)
+    if not paths:
+        return _DRAWER_DECLINED
+    path = paths[0]
+    return (
+        {"display": "block"},       # show drawer
+        device_id,                  # drawer's device
+        "menu",                     # start at the action menu
+        path.device_code,
+        path.transformer_code,
+        path.plant_name,
+        {"display": "none"},        # program panel
+        {"display": "none"},        # forwarding panel
+        {"display": "none"},        # deactivate panel
+        {"display": "block"},       # action menu
+        path.device_code,           # pre-fill UID
+        path.transformer_code,      # pre-fill transformer name
+    )
+
+
+def register(app) -> None:
+    @app.callback(
+        Output(page.SCOPE_ID, "children"),
+        Output(page.STATUS_SLOT_ID, "children"),
+        Output(page.PROBLEMS_ID, "children"),
+        Output(page.HOTTEST_ID, "children"),
+        Output(page.ACTIVITY_ID, "children"),
+        Output(page.TREND_ID, "children"),
+        Output(page.ERROR_ID, "children"),
+        Output(page.REFRESH_STATUS_ID, "children"),
+        Output(page.STORE_ID, "data"),
+        Input("page-context", "data"),
+        Input(page.INTERVAL_ID, "n_intervals"),
+        Input(page.REFRESH_NOW_ID, "n_clicks"),
+        Input(page.ACK_STORE_ID, "data"),
+        State(page.STORE_ID, "data"),
+    )
+    def populate_attention(context, _ticks, _clicks, _acked, refresh_state):
+        return populate(context, refresh_state)
+
+    @app.callback(
+        Output(page.ACTION_RESULT_ID, "children"),
+        Output(page.ACK_STORE_ID, "data"),
+        Input({"type": ui.ACK_BUTTON, "device": ALL, "kind": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def acknowledge_from_command_center(_clicks):
+        value = ctx.triggered[0]["value"] if ctx.triggered else None
+        return acknowledge_outputs(ctx.triggered_id, value)
+
+    @app.callback(
+        Output(MANAGE_DRAWER_ID, "style", allow_duplicate=True),
+        Output(MANAGE_DEVICE_ID, "data", allow_duplicate=True),
+        Output(MANAGE_ACTION_STORE_ID, "data", allow_duplicate=True),
+        Output("manage-drawer-device-code", "children", allow_duplicate=True),
+        Output("manage-drawer-transformer", "children", allow_duplicate=True),
+        Output("manage-drawer-plant", "children", allow_duplicate=True),
+        Output("manage-program-panel", "style", allow_duplicate=True),
+        Output("manage-forwarding-panel", "style", allow_duplicate=True),
+        Output("manage-deactivate-panel", "style", allow_duplicate=True),
+        Output("manage-action-menu", "style", allow_duplicate=True),
+        Output(PROGRAM_RTL_UID_ID, "value", allow_duplicate=True),
+        Output(PROGRAM_RTL_TRANSFORMER_ID, "value", allow_duplicate=True),
+        Input({"type": ui.MANAGE_BUTTON, "device": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def open_manage_from_command_center(_clicks):
+        value = ctx.triggered[0]["value"] if ctx.triggered else None
+        return manage_outputs(ctx.triggered_id, value)
 
     @app.callback(
         Output(theme.STORE_ID, "data"),
@@ -232,12 +263,8 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def choose_theme(_dark_clicks, _light_clicks):
-        """Which appearance the operator picked (ADR-006).
-
-        Reads `ctx.triggered_id` rather than comparing click counts: counts
-        drift the moment a button is re-rendered with `n_clicks=0`, and the
-        question here is only ever "which one was pressed".
-        """
+        """Which appearance the operator picked (ADR-006). Reads
+        `ctx.triggered_id`: click counts drift when a button re-renders."""
         pressed = ctx.triggered_id
         if pressed == theme.TOGGLE_LIGHT_ID:
             return {"theme": theme.LIGHT}
@@ -254,15 +281,10 @@ def register(app) -> None:
         Input(theme.STORE_ID, "data"),
     )
     def apply_theme(data):
-        """One className swap re-themes the workspace AND the shell around
-        it — the sidebar and utility chrome follow via `:has()` in the
-        stylesheet, so nothing in the shell is touched (ADR-006, amended).
-
-        Driven by the STORE rather than by the buttons, so the stored choice
-        is re-applied whenever the page mounts. Without that, returning to
-        `/command-center` in the same session would render the default while
-        the store still said otherwise.
-        """
+        """One className swap re-themes the page and the shell around it
+        (ADR-006). Driven by the store, so the stored choice is re-applied
+        whenever the page mounts. It REPLACES the root className, which is
+        why the page keeps its own class on an inner wrapper."""
         choice = (data or {}).get("theme", theme.DEFAULT_THEME)
         dark_class, dark_pressed = theme.option_state(theme.DARK, choice)
         light_class, light_pressed = theme.option_state(theme.LIGHT, choice)
@@ -273,48 +295,3 @@ def register(app) -> None:
             dark_pressed,
             light_pressed,
         )
-
-    @app.callback(
-        Output("command-center-locations-list", "children"),
-        Output("command-center-locations-summary", "children"),
-        Output("command-center-locations-error", "children"),
-        Input("page-context", "data"),
-        State("auth-store", "data"),
-        prevent_initial_call=True,
-    )
-    def populate_locations_full_view(context, auth_data):
-        """The same ranked data as the panel, without the height cap.
-
-        Reads through the same facade and the same row renderer, so the
-        full view can never disagree with the panel it was opened from.
-        """
-        if not context or context.get("route") != "command_center_locations":
-            return no_update, no_update, no_update
-
-        try:
-            scope = current_device_scope()
-            snapshot = get_command_center_snapshot(scope=scope)
-            ranked = [row for row in snapshot.affected_locations if row.affected_rtls]
-
-            if not ranked:
-                message = (
-                    "No RTLs require attention in your current access scope."
-                    if snapshot.affected_locations
-                    else "No monitored RTLs in your current access scope."
-                )
-                return (
-                    [html.P(message, className="command-center__empty-note")],
-                    "",
-                    None,
-                )
-
-            total = len(snapshot.affected_locations)
-            noun = "plant" if total == 1 else "plants"
-            return (
-                ranked_locations_list(ranked),
-                f"{len(ranked)} of {total} {noun} affected",
-                None,
-            )
-        except Exception:
-            logger.exception("Failed to load the full affected-locations view")
-            return [], "", error_panel()

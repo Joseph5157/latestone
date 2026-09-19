@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from callbacks.routing import PLACEHOLDER_PAGES, device_href, parse_pathname, parse_query
-from routes import command_center_href, parse_plant_selection
 from config.metrics import DEFAULT_METRIC_KEY
 
 
@@ -45,17 +44,11 @@ class TestParsePathname:
         assert parse_pathname("/command-center").name == "command_center"
         assert parse_pathname("/command-center/").name == "command_center"
 
-    def test_command_center_locations_route(self):
-        assert parse_pathname("/command-center/locations").name == (
-            "command_center_locations"
-        )
-        assert parse_pathname("/command-center/locations/").name == (
-            "command_center_locations"
-        )
 
-    def test_an_unknown_command_center_subpath_is_not_the_locations_view(self):
-        """The parent route must not swallow arbitrary children — a typo'd
-        subpath is 'no such page', not the locations list."""
+    def test_command_center_has_no_subpaths(self):
+        """The full locations view was removed with the old Command Center
+        (SWITCH-OVER-1); every subpath is 'no such page'."""
+        assert parse_pathname("/command-center/locations").name == "unknown"
         assert parse_pathname("/command-center/nope").name == "unknown"
 
     def test_admin_devices_route(self):
@@ -133,36 +126,3 @@ class TestDeviceHref:
         assert "?" not in href
 
 
-class TestPlantSelection:
-    """Phase 8: the selected Plant travels in the URL, mirroring ?assign=.
-
-    A query parameter rather than a Store, so selection survives a polling
-    refresh by construction — no callback can clear what it does not own —
-    and the selected view is bookmarkable and shareable.
-    """
-
-    def test_reads_the_selected_plant(self):
-        assert parse_plant_selection("?plant=plant-07") == "plant-07"
-
-    def test_no_search_selects_nothing(self):
-        assert parse_plant_selection(None) is None
-        assert parse_plant_selection("") is None
-
-    def test_an_empty_value_selects_nothing(self):
-        assert parse_plant_selection("?plant=") is None
-
-    def test_other_parameters_are_ignored(self):
-        assert parse_plant_selection("?metric=voltage") is None
-
-    def test_builds_a_selecting_link(self):
-        assert command_center_href("plant-07") == "/command-center?plant=plant-07"
-
-    def test_the_identifier_is_encoded(self):
-        """A value carrying & or ? must not append parameters of its own on
-        the way there — the same guard device_assign_href applies."""
-        href = command_center_href("a&b=c")
-        assert "&b=c" not in href
-        assert href == "/command-center?plant=a%26b%3Dc"
-
-    def test_no_plant_builds_the_bare_route(self):
-        assert command_center_href(None) == "/command-center"
