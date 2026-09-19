@@ -214,3 +214,13 @@ class TestAcknowledgeProblem:
 
     def test_acknowledgeable_kinds(self):
         assert svc.ACKNOWLEDGEABLE_KINDS == {K.POWER_DOWN, K.BATTERY_LOW, K.SENSOR_ERROR}
+
+
+def test_acknowledged_count_uses_the_24h_window_not_the_row_cap():
+    from types import SimpleNamespace
+    from datetime import datetime, timedelta, timezone
+    from services import attention_service as svc
+    now = datetime(2026, 9, 19, 12, 0, tzinfo=timezone.utc)
+    events = [SimpleNamespace(acknowledged_at=now - timedelta(hours=h)) for h in range(0, 30)]
+    events.append(SimpleNamespace(acknowledged_at=None))
+    assert svc.acknowledged_count(events, now=now) == 25  # 0..24 h inclusive

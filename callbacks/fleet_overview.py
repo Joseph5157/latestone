@@ -25,7 +25,7 @@ from services.fleet_overview_service import FILTER_ALL, SORT_NAME, filter_and_so
 logger = logging.getLogger(__name__)
 
 ROUTE = "overview"
-OUTPUTS = 6  # summary, refreshed, limits, plants, error, filter options
+OUTPUTS = 6  # stat cards, refreshed, limits, plants, error, filter options
 
 
 def populate(context, filter_key=FILTER_ALL, sort_key=SORT_NAME, *,
@@ -40,7 +40,7 @@ def populate(context, filter_key=FILTER_ALL, sort_key=SORT_NAME, *,
         logger.exception("Failed to load the Fleet Overview")
         return None, None, None, [], error_panel(), []
     return (
-        ui.summary_line(view),
+        ui.stat_cards(view),
         f"Updated {now.strftime('%d %b %Y %H:%M UTC')}",
         ui.limits_line(view.limits),
         ui.plant_list(view, filter_and_sort(view, filter_key or FILTER_ALL, sort_key or SORT_NAME)),
@@ -51,7 +51,7 @@ def populate(context, filter_key=FILTER_ALL, sort_key=SORT_NAME, *,
 
 def register(app) -> None:
     @app.callback(
-        Output(page.SUMMARY_ID, "children"),
+        Output(page.STATS_ID, "children"),
         Output(page.REFRESHED_ID, "children"),
         Output(page.LIMITS_ID, "children"),
         Output(page.PLANTS_ID, "children"),

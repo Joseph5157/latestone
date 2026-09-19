@@ -12,6 +12,15 @@ from services.device_scope import DeviceScope
 from services.fleet_overview_service import FleetOverview
 
 
+def _texts(node):
+    if isinstance(node, str):
+        yield node
+        return
+    kids = getattr(node, "children", None)
+    for k in (kids if isinstance(kids, (list, tuple)) else [kids] if kids is not None else []):
+        yield from _texts(k)
+
+
 def test_route_and_policy():
     assert FLEET_OVERVIEW_PATH == "/plants"
     assert parse_pathname("/plants").name == "overview"
@@ -37,7 +46,7 @@ def test_fetches_once_with_the_resolved_scope():
         {"route": "overview"}, fetch=fetch, scope_for=lambda: scope
     )
     assert calls == [scope]
-    assert summary == "0 plants · 0 transformers · 0 RTLs"
+    assert "Reporting" in " ".join(n for n in _texts(summary))
     assert error is None
     assert [o["value"] for o in options] == ["all", "no_recent_data"]
 

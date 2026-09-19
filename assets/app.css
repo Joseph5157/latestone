@@ -6994,3 +6994,15 @@ body {
 @media (max-width: 700px) {
   .attention-problem--head { display: none; }
 }
+
+/* STATS-CARDS-1: acknowledgement backlog figures in the status bar, and the
+   Fleet Overview stat row's spacing above the limits line. */
+.attention-status__backlog {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  color: var(--color-muted);
+  font-size: var(--fs-body);
+}
+.attention-status__oldest { color: var(--color-text); }
+.fleet-overview-stats { margin: var(--sp-2) 0 var(--sp-3); }

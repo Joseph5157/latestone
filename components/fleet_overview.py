@@ -10,6 +10,8 @@ from datetime import datetime
 
 from dash import dcc, html
 
+from components.kpi_card import kpi_card
+
 from routes import device_href
 from services.attention_service import format_limit
 from services.fleet_overview_service import (
@@ -23,6 +25,7 @@ from services.fleet_overview_service import (
     PlantView,
     TransformerView,
     filter_counts,
+    fleet_stats,
 )
 from services.temperature_condition_service import (
     CONDITION_LABELS,
@@ -95,14 +98,6 @@ def counts_text(counts, *, limits_set: bool) -> str:
     if counts.no_recent_data:
         parts.append(f"{counts.no_recent_data} without recent data")
     return " · ".join(parts)
-
-
-def summary_line(view: FleetOverview) -> str:
-    return " · ".join([
-        _plural(len(view.plants), "plant"),
-        _plural(view.transformer_count, "transformer"),
-        _plural(view.logger_count, "RTL"),
-    ])
 
 
 def _logger_row(t: DeviceTemperature, now: datetime) -> html.Tr:
@@ -196,3 +191,28 @@ def plant_list(view: FleetOverview, plants=None):
     return html.Div(className="fleet-overview-plants", children=[
         plant_row(p, view.generated_at, limits_set=limits_set) for p in shown
     ])
+
+
+def stat_cards(view: FleetOverview) -> html.Div:
+    """Temperature at a glance (STATS-CARDS-1). Every count is RTLs."""
+    s = fleet_stats(view)
+    limits_set = view.limits is not None
+    if s.hottest is None:
+        hottest = kpi_card("Hottest now", "—", "No recent reading")
+    else:
+        hottest = kpi_card("Hottest now", temperature(s.hottest.value),
+                           f"RTL {s.hottest.device_code} · {s.hottest_plant}", accent=True)
+    if limits_set:
+        hot = kpi_card("Hot RTLs", str(s.warning + s.critical),
+                       f"{s.critical} Critical · {s.warning} Warning")
+    else:
+        hot = kpi_card("Hot RTLs", "—", "Temperature limits not set")
+    if s.peak_value is None:
+        peak = kpi_card("30-day peak", "—", "No reading in the last 30 days")
+    else:
+        peak = kpi_card("30-day peak", temperature(s.peak_value),
+                        f"{when(s.peak_at)} · RTL {s.peak_device_code} · {s.peak_plant}")
+    reporting = kpi_card("Reporting", f"{s.reporting} of {s.total}",
+                         "RTLs with a recent temperature reading")
+    return html.Div(className="kpi-row fleet-overview-stats",
+                    children=[hottest, hot, peak, reporting])

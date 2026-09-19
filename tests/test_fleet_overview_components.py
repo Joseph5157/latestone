@@ -58,10 +58,6 @@ def test_limits_line_says_when_limits_are_not_set():
     assert "not set" in text(ui.limits_line(None))
 
 
-def test_summary_counts_plants_transformers_and_rtls():
-    assert ui.summary_line(_view()) == "1 plant · 1 transformer · 1 RTL"
-
-
 def test_plant_row_is_a_disclosure_with_temperature_first():
     [row] = ui.plant_list(_view()).children
     assert isinstance(row, html.Details)
@@ -106,3 +102,17 @@ def test_filter_options_carry_counts_and_hide_hot_without_limits():
 
 def test_an_empty_filter_result_says_so_rather_than_no_plants():
     assert "No plants match" in text(ui.plant_list(_view(), plants=()))
+
+
+def test_stat_cards_are_temperature_first_and_count_rtls():
+    cards = ui.stat_cards(_view())
+    content = text(cards)
+    assert "Hottest now" in content and "41.3 °C" in content and "Alpha Station" in content
+    assert "Hot RTLs" in content and "1 Critical · 0 Warning" in content
+    assert "30-day peak" in content and "44.5 °C" in content
+    assert "Reporting" in content and "1 of 1" in content
+
+
+def test_stat_cards_without_limits_do_not_invent_hot_counts():
+    content = text(ui.stat_cards(_view(limits=None)))
+    assert "Temperature limits not set" in content

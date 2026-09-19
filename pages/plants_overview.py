@@ -15,7 +15,7 @@ from components.fleet_overview import SORT_OPTIONS
 from routes import FLEET_OVERVIEW_PATH
 from services.fleet_overview_service import FILTER_ALL, SORT_NAME
 
-SUMMARY_ID = "fleet-overview-summary"
+STATS_ID = "fleet-overview-stats"
 REFRESHED_ID = "fleet-overview-refreshed"
 LIMITS_ID = "fleet-overview-limits"
 ERROR_ID = "fleet-overview-error"
@@ -32,11 +32,12 @@ def layout() -> html.Div:
             html.H1("Fleet Overview"),
             html.P("Where everything is and how hot it is.", className="page__subtitle"),
             html.Div(className="fleet-refresh-context", children=[
-                html.P(id=SUMMARY_ID, className="page__meta"),
                 html.P(id=REFRESHED_ID, className="page__meta"),
                 dcc.Link("Refresh", href=FLEET_OVERVIEW_PATH, refresh=True,
                          className="fleet-refresh-context__action"),
             ]),
+            # STATS-CARDS-1: four temperature stat cards, filled by the callback.
+            html.Div(id=STATS_ID),
             html.Div(id=LIMITS_ID),
             html.Div(id=ERROR_ID, className="listing-error"),
             # POLISH-1: options (with counts) are written by the callback from
