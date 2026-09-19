@@ -35,8 +35,10 @@ def _loading(what: str) -> html.P:
 def layout() -> html.Div:
     return html.Div(
         id=theme.ROOT_ID,
-        className=theme.root_class_name(theme.DEFAULT_THEME) + " attention-page",
-        children=[
+        # The theme callback REPLACES this className on every theme apply,
+        # so this page's own class lives on the inner wrapper below.
+        className=theme.root_class_name(theme.DEFAULT_THEME),
+        children=[html.Div(className="attention-page", children=[
             dcc.Store(id=theme.STORE_ID, storage_type="session"),
             dcc.Interval(id=INTERVAL_ID, interval=refresh.interval_ms(), n_intervals=0),
             dcc.Store(id=STORE_ID, data={"last_success_at": None, "failed": False},
@@ -78,5 +80,5 @@ def layout() -> html.Div:
                     ]),
                 ],
             ),
-        ],
+        ])],
     )

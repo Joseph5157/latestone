@@ -46,6 +46,9 @@ _CONDITION_TONE = {
 }
 
 
+_FLAGGED = frozenset({TemperatureCondition.WARNING, TemperatureCondition.CRITICAL})
+
+
 def ago(moment: datetime | None, now: datetime) -> str:
     if moment is None:
         return "—"
@@ -139,8 +142,11 @@ def hottest_card(temps: Sequence[DeviceTemperature]) -> html.Section:
             html.Li(className="attention-hottest__row", children=[
                 _device_link(t.device_id, t.device_code),
                 html.Span(t.transformer_code, className="attention-hottest__where"),
-                html.Span(f"{t.value:.1f} °C", className="attention-hottest__value"),
-                _chip(CONDITION_LABELS[t.condition], _CONDITION_TONE[t.condition]),
+                html.Span(f"{t.value:.1f} °C", className="attention-hottest__value"),
+                # Only a real finding earns a chip; "Limits not set" is said
+                # once in the status bar, not repeated on every row.
+                *([_chip(CONDITION_LABELS[t.condition], _CONDITION_TONE[t.condition])]
+                  if t.condition in _FLAGGED else []),
             ])
             for t in temps
         ])]

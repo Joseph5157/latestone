@@ -56,3 +56,11 @@ def test_failed_refresh_keeps_last_good_panels():
                       fetch=lambda *a, **k: 1 / 0, scope_for=lambda: None)
     assert out[:7] == (no_update,) * 7
     assert out[8] == {"last_success_at": state["last_success_at"], "failed": True}
+
+
+def test_page_class_survives_the_theme_callback():
+    """apply_theme REPLACES the root className, so nothing of this page's
+    own may live there — it would vanish on the first theme apply."""
+    root = page.layout()
+    assert root.className == theme.root_class_name(theme.DEFAULT_THEME)
+    assert root.children[0].className == "attention-page"

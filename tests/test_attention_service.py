@@ -51,7 +51,7 @@ class TestTemperatureProblems:
 
     def test_detail_names_value_and_limit(self):
         critical = svc.temperature_problems(TEMPS, LIMITS, WHERE)[0]
-        assert critical.detail == "41.0 °C · limit 40 °C"
+        assert critical.detail == "41.0 °C · limit 40 °C"
         assert critical.plant_name == "Alpha"
 
 

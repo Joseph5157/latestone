@@ -197,7 +197,7 @@ def temperature_problems(
         limit = limits.critical_c if kind is ProblemKind.TEMP_CRITICAL else limits.warning_c
         problems.append(_problem(
             kind, t.device_id, where, since=t.reading_ts,
-            detail=f"{t.value:.1f} °C · limit {format_limit(limit)} °C",
+            detail=f"{t.value:.1f} °C · limit {format_limit(limit)} °C",
         ))
     return problems
 
@@ -225,7 +225,7 @@ def event_problems(events, where: Mapping[str, Location]) -> list[Problem]:
         latest = group[-1]
         detail = f"{len(group)} unacknowledged" if len(group) > 1 else "Unacknowledged"
         if latest.battery_voltage is not None:
-            detail += f" · last reported {latest.battery_voltage:.2f} V"
+            detail += f" · last reported {latest.battery_voltage:.2f} V"
         problems.append(_problem(
             _EVENT_KIND[event_type], device_id, where, since=group[0].event_ts,
             detail=detail, event_ids=[e.event_id for e in group], count=len(group),

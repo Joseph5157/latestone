@@ -105,7 +105,11 @@ class TestProblemList:
 class TestHottest:
     def test_values_and_condition(self):
         card = ui.hottest_card([_temp(41.26, C.CRITICAL)])
-        assert "41.3 °C" in text(card) and "Critical" in text(card)
+        assert "41.3 °C" in text(card) and "Critical" in text(card)
+
+    def test_no_chip_when_nothing_is_flagged(self):
+        card = ui.hottest_card([_temp(30.0, C.LIMITS_NOT_SET), _temp(30.0, C.NORMAL)])
+        assert not any(c.startswith("attention-chip--") for c in classes(card))
 
     def test_empty(self):
         assert "No recent temperature readings" in text(ui.hottest_card([]))
