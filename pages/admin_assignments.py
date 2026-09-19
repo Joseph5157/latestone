@@ -9,17 +9,30 @@ real page.
 """
 from __future__ import annotations
 
-from dash import html
+from dash import dcc, html
 
 from components.app_header import app_header
 from components.assign_device_drawer import assign_device_drawer
 from components.breadcrumb import breadcrumb
+from components.column_filter import DATA_FILTER_OPTIONS, column_filter
 from components.device_manage_drawer import device_manage_drawer
 from components.entity_table import entity_table
 
 WORKLOAD_TABLE_ID = "assignment-workload-table"
 TABLE_ID = "assignment-devices-table"
 EMPTY_ID = "assignment-devices-empty"
+
+#: ASSIGN-TOOLBAR-1: the RTL table's filter surface, replacing dash_table's
+#: native filter row (first-column-only placeholder, case-sensitive match,
+#: filter cells on the Assign/Manage action columns). Same controls and same
+#: `filter_device_rows` as Device Management, minus the filters that page
+#: needs for fleet housekeeping (Status, Transformer, Last reading).
+SEARCH_ID = "assignment-search"
+PLANT_FILTER_ID = "assignment-plant-filter"
+DATA_FILTER_ID = "assignment-data-filter"
+TECHNICIAN_FILTER_ID = "assignment-technician-filter"
+CLEAR_FILTERS_ID = "assignment-clear-filters"
+DEVICE_SUMMARY_ID = "assignment-devices-summary"
 
 #: Technician | count of assigned RTLs, sorted most-loaded first by the
 #: callback — this is the page's one new piece of information Device
@@ -62,6 +75,43 @@ DEVICE_TABLE_COLUMN_WIDTHS = {
 }
 
 
+def _device_filters() -> html.Div:
+    return html.Div(
+        className="device-admin-filters",
+        children=[
+            column_filter("Plant", dcc.Dropdown(
+                id=PLANT_FILTER_ID,
+                options=[],
+                placeholder="All plants",
+                searchable=True,
+                className="device-admin-toolbar__dropdown",
+            )),
+            column_filter("Data", dcc.Dropdown(
+                id=DATA_FILTER_ID,
+                options=DATA_FILTER_OPTIONS,
+                value="all",
+                clearable=False,
+                searchable=False,
+                className="device-admin-toolbar__dropdown",
+            )),
+            column_filter("Technician", dcc.Dropdown(
+                id=TECHNICIAN_FILTER_ID,
+                options=[{"label": "All", "value": "all"}],
+                value="all",
+                clearable=False,
+                searchable=True,
+                className="device-admin-toolbar__dropdown",
+            )),
+            html.Button(
+                "Clear filters",
+                id=CLEAR_FILTERS_ID,
+                n_clicks=0,
+                className="device-admin-filters__clear",
+            ),
+        ],
+    )
+
+
 def layout() -> html.Div:
     return html.Div(
         className="page page--monitoring page--admin-assignments",
@@ -87,6 +137,27 @@ def layout() -> html.Div:
                 filter_action="none",
             ),
             html.H2("RTL Assignments", className="fleet-inventory__title"),
+            html.Div(
+                className="device-admin-toolbar",
+                children=[
+                    html.Label(
+                        "Search RTLs",
+                        htmlFor=SEARCH_ID,
+                        className="visually-hidden",
+                    ),
+                    dcc.Input(
+                        id=SEARCH_ID,
+                        # Controlled from first paint: Clear filters sets it.
+                        value="",
+                        type="text",
+                        placeholder="Search device, plant, transformer, technician...",
+                        className="device-admin-toolbar__search",
+                        debounce=True,
+                    ),
+                ],
+            ),
+            _device_filters(),
+            html.P(id=DEVICE_SUMMARY_ID, className="page__meta"),
             entity_table(
                 table_id=TABLE_ID,
                 columns=DEVICE_TABLE_COLUMNS,
@@ -95,6 +166,8 @@ def layout() -> html.Div:
                 state_column_id="freshness",
                 administrative_state_column_id="status",
                 responsive=True,
+                # The toolbar above is this table's filter surface.
+                filter_action="none",
                 column_widths=DEVICE_TABLE_COLUMN_WIDTHS,
             ),
             html.Div(id=EMPTY_ID),

@@ -188,6 +188,10 @@ def entity_table(
                     "textTransform": "uppercase",
                     "paddingRight": "22px",
                     "paddingLeft": "12px",
+                    # The link column's underline (style_cell_conditional
+                    # above) applies to its header too; a column label is
+                    # not a link.
+                    "textDecoration": "none",
                 },
                 markdown_options=(
                     {"link_target": markdown_link_target}

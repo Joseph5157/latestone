@@ -19,6 +19,10 @@ from callbacks.device_admin import (
     DEVICE_ADMIN_COLUMNS,
     build_device_admin_rows,
     device_row_target,
+    empty_state,
+    filter_device_rows,
+    plant_filter_options,
+    technician_filter_options,
 )
 from callbacks.device_assign import assign_drawer_open_state, find_device_row
 from components.admin_summary import admin_summary_cards
@@ -37,7 +41,17 @@ from components.device_manage_drawer import (
     PROGRAM_RTL_UID_ID,
 )
 from components.status_panels import error_panel
-from pages.admin_assignments import EMPTY_ID, TABLE_ID, WORKLOAD_TABLE_ID
+from pages.admin_assignments import (
+    CLEAR_FILTERS_ID,
+    DATA_FILTER_ID,
+    DEVICE_SUMMARY_ID,
+    EMPTY_ID,
+    PLANT_FILTER_ID,
+    SEARCH_ID,
+    TABLE_ID,
+    TECHNICIAN_FILTER_ID,
+    WORKLOAD_TABLE_ID,
+)
 from services import device_scope, hierarchy_service, monitoring_service, prototype_assignments
 from services.action_guard import require_capability
 from services.admin_overview_service import get_admin_overview
@@ -92,6 +106,13 @@ def _device_sort_key(row: dict) -> tuple:
     return (technician != "Unassigned", technician, row.get("device", ""))
 
 
+def device_filter_summary(shown: int, total: int) -> str:
+    """The line above the RTL table: how many of the fleet's RTLs it shows."""
+    if shown == total:
+        return f"{total} RTLs"
+    return f"Showing {shown} of {total} RTLs"
+
+
 def register(app) -> None:
     """Register Assignments page callbacks on the Dash app."""
 
@@ -102,12 +123,19 @@ def register(app) -> None:
         Output("admin-assignments-error", "children"),
         Output("admin-assignments-summary", "children"),
         Output(EMPTY_ID, "children"),
+        Output(DEVICE_SUMMARY_ID, "children"),
         Input("page-context", "data"),
+        Input(SEARCH_ID, "value"),
+        Input(PLANT_FILTER_ID, "value"),
+        Input(DATA_FILTER_ID, "value"),
+        Input(TECHNICIAN_FILTER_ID, "value"),
         prevent_initial_call=True,
     )
-    def populate_admin_assignments(context):
+    def populate_admin_assignments(
+        context, search="", plant=None, freshness="all", technician="all",
+    ):
         if not context or context.get("route") != "admin_assignments":
-            return (no_update,) * 6
+            return (no_update,) * 7
 
         # P0-4 (AUTH-HARDEN-1), same lesson as callbacks/device_admin.py:
         # admin_assignments is Administrator-only by ROUTE_POLICY, but this
@@ -119,7 +147,7 @@ def register(app) -> None:
             require_capability(current_identity(), MANAGE_DEVICES)
         except AuthorizationError:
             logger.warning("Assignments data refused: not an administrator.")
-            return [], [], DEVICE_TABLE_COLUMNS, error_panel(), None, None
+            return [], [], DEVICE_TABLE_COLUMNS, error_panel(), None, None, ""
 
         try:
             rendered_at = monitoring_service._now()
@@ -131,16 +159,65 @@ def register(app) -> None:
             technicians = get_technicians()
 
             workload_rows = build_technician_workload_rows(technicians, assignments)
+            all_rows = build_device_admin_rows(devices, health, assignments, now=rendered_at)
+            # The filters narrow only the RTL table. The workload roster and
+            # the summary cards always describe the whole fleet.
             device_rows = sorted(
-                build_device_admin_rows(devices, health, assignments, now=rendered_at),
+                filter_device_rows(
+                    all_rows, search, "all",
+                    plant=plant, freshness=freshness, technician=technician,
+                ),
                 key=_device_sort_key,
             )
             summary = admin_summary_cards(get_admin_overview(rendered_at))
         except Exception:
             logger.exception("Failed to load assignments data")
-            return [], [], DEVICE_TABLE_COLUMNS, error_panel(), None, None
+            return [], [], DEVICE_TABLE_COLUMNS, error_panel(), None, None, ""
 
-        return workload_rows, device_rows, DEVICE_TABLE_COLUMNS, None, summary, None
+        return (
+            workload_rows, device_rows, DEVICE_TABLE_COLUMNS, None, summary,
+            empty_state(len(device_rows)),
+            device_filter_summary(len(device_rows), len(all_rows)),
+        )
+
+    @app.callback(
+        Output(PLANT_FILTER_ID, "options"),
+        Output(TECHNICIAN_FILTER_ID, "options"),
+        Input("page-context", "data"),
+        prevent_initial_call=True,
+    )
+    def load_assignment_filter_options(context):
+        """Plant and Technician choices, once per page render — the same
+        option builders Device Management uses. Independently invokable, so
+        it re-checks the capability: who holds devices is administration
+        data."""
+        if not context or context.get("route") != "admin_assignments":
+            return no_update, no_update
+        try:
+            require_capability(current_identity(), MANAGE_DEVICES)
+        except AuthorizationError:
+            return [], technician_filter_options({})
+        try:
+            plants = hierarchy_service.list_plants(scope=device_scope.UNRESTRICTED)
+            assignments = prototype_assignments.assigned_technicians()
+        except Exception:
+            logger.exception("Failed to load assignment filter options")
+            return [], technician_filter_options({})
+        return plant_filter_options(plants), technician_filter_options(assignments)
+
+    @app.callback(
+        Output(SEARCH_ID, "value"),
+        Output(PLANT_FILTER_ID, "value"),
+        Output(DATA_FILTER_ID, "value"),
+        Output(TECHNICIAN_FILTER_ID, "value"),
+        Input(CLEAR_FILTERS_ID, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def clear_assignment_filters(n_clicks):
+        """Every filter back to its default."""
+        if not n_clicks:
+            return (no_update,) * 4
+        return "", None, "all", "all"
 
     @app.callback(
         Output("url", "pathname", allow_duplicate=True),

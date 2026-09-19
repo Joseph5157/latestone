@@ -2374,6 +2374,38 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .entity-table-wrapper .column-header--sort { transition: none; }
 }
+
+/* ASSIGN-TOOLBAR-1: dash_table puts the arrow BEFORE the name and lets the
+   name grow to fill the cell, so the margin above spaced the wrong side
+   ("⇅DEVICE") and a right-aligned numeric header left its arrow ~800px from
+   its label. Inline-flex makes the pair one box that follows the th's own
+   text-align; `order` puts the arrow after the name. Five classes: the
+   vendor rules these override carry four and are injected after app.css. */
+.entity-table-wrapper .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner .dash-header > div {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+
+.entity-table-wrapper .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner .column-header-name {
+  flex-grow: 0;
+  order: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-table-wrapper .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner .dash-header .column-actions {
+  order: 2;
+}
+
+/* Every Assign/Manage cell holds the same link, so sorting them reorders
+   nothing. dash_table has no per-column sortable flag; without the arrow
+   there is nothing to click. */
+.entity-table-wrapper th.dash-header[data-dash-column="assign"] .column-header--sort,
+.entity-table-wrapper th.dash-header[data-dash-column="manage"] .column-header--sort {
+  display: none;
+}
 .entity-table-wrapper .dash-table-container { max-width: 100%; }
 
 /* Administrative lifecycle is a neutral outlined label. Monitoring freshness

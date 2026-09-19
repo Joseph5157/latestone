@@ -1,10 +1,71 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (PROBLEM-GROUPS-2); push **NOT granted**.
+Gate: ASSIGN-TOOLBAR-1
+Commit/push permission: commit and local merge to `main` **GRANTED** (user,
+2026-09-19, after browser review); push **NOT granted**.
+
+## ASSIGN-TOOLBAR-1 — OPEN
+
+Baseline: `main` at `e3280eb`, branch `assign-toolbar`. No ADR: this applies
+the existing `entity_table` rule ("a page carrying its own toolbar passes
+`filter_action="none"`") to the one admin table that still used the native
+filter row.
+
+## Task
+
+User request (option A of a browser review of `/admin/assignments`):
+
+1. Replace the RTL Assignments table's native filter row with the same
+   toolbar Device Management uses: Search, Plant, Data, Technician, Clear
+   filters. The row's defects this removes: placeholder shown on the first
+   column only, the Device column's link styling bleeding into its filter
+   cell, case-sensitive matching (`three gorges` → 0 rows), right-aligned
+   input text, filter cells on the Assign/Manage action columns.
+2. Sort arrows in the shared `entity_table`: the arrow renders *before* the
+   label and our CSS spaced it as if it came after; on a right-aligned
+   (numeric) header the label stretched and left the arrow ~800 px away.
+   Put the arrow after the label, keep it beside it, and hide it on the
+   Assign/Manage action columns, whose every cell is identical.
+
+## Relevant files
+
+- `pages/admin_assignments.py`, `callbacks/admin_assignments.py`
+- `pages/device_admin.py`, `callbacks/device_admin.py` (reused, not copied)
+- `components/column_filter.py` (new: the labelled filter field, moved out
+  of `pages/device_admin.py` so both pages share it)
+- `components/entity_table.py`, `assets/app.css`
+- `tests/test_admin_assignments.py`, `tests/test_table_presentation.py`
+
+## Non-goals (explicit)
+
+- No change to services, repository or queries.
+- Last reading / Data sort order: native sort compares the rendered text
+  (`"5d 3h"` before `"8 min"`). Fixing it needs custom sorting across every
+  `entity_table` page; reported, not done here.
+- Device Management's own filters are unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`.
+- Browser 1440 px, dark and light: Assignments toolbar filters the RTL
+  table, Clear resets it, workload table and cards unaffected; sort arrows
+  sit after labels on both tables.
+
+## Known ambiguity
+
+None.
+
+## Verification (2026-09-19, uncommitted)
+
+- `python -m pytest -m "not db"` passes; pack `--check` CLEAN.
+- Browser 1440 px, dark and light: `three gorges` → 7 of 120 (native row
+  gave 0); Technician = Unassigned → 23 of 120, matching the card; Clear
+  filters → 120; workload roster unchanged under filtering; "Assigned RTLs"
+  arrow 8 px after its label (was ~800 px); no arrow on Assign/Manage.
+
+## Prior gate record
 
 ## PROBLEM-GROUPS-2 — CLOSED / PASS
 
@@ -58,7 +119,7 @@ None.
   folded after Refresh now and after Overview → Command Center; unfolding
   Battery Low works.
 
-## Next implementation gate: NONE
+## Next implementation gate: ASSIGN-TOOLBAR-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
