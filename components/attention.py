@@ -136,8 +136,11 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
             className="attention-status__limits",
         )
     counts = severity_counts(snapshot.problems)
-    # CLICK-FILTER-1: each counter filters the problem list; the active one
-    # is pressed, and pressing it again clears the filter.
+    # CLICK-FILTER-1: each counter filters the problem list; pressing it
+    # again clears the filter. CC-FILTER-FAST-1: the pressed and dimmed looks
+    # come from the page's `attention-filter--<tone>` class (applied in the
+    # browser, assets/command_center.js); only aria-pressed is drawn here, and
+    # the browser keeps it current between refreshes.
     # CC-SEVERITY-CARDS-1: stat cards, same shape as the Fleet Overview's.
     # Still the CLICK-FILTER-1 filter buttons: the active one is pressed, and
     # pressing it again clears the filter.
@@ -161,9 +164,8 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
             type="button", n_clicks=0, disabled=not counts[tone],
             id={"type": SEVERITY_BUTTON, "tone": tone, "part": "counter"},
             className=f"attention-counter attention-severity-card attention-counter--{tone}"
-                      + (" attention-counter--zero" if not counts[tone] else "")
-                      + (" attention-counter--active" if selected == tone else ""),
-            title=("Show all problems" if selected == tone else f"Show only {label}"),
+                      + (" attention-counter--zero" if not counts[tone] else ""),
+            title=f"Show only {label} (again: show all)",
             **{"aria-pressed": "true" if selected == tone else "false"},
             children=[
                 html.Span(label, className="attention-counter__label"),
@@ -183,8 +185,7 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
             if clear else
             [html.Button(type="button", n_clicks=0, tabIndex="-1",
                          id={"type": SEVERITY_BUTTON, "tone": tone, "part": "strip"},
-                         className=f"attention-strip__seg attention-strip__seg--{tone}"
-                                   + (" attention-strip__seg--dim" if selected and selected != tone else ""),
+                         className=f"attention-strip__seg attention-strip__seg--{tone}",
                          style={"flexGrow": counts[tone]}, title=f"{label} {counts[tone]} — show only these")
              for label, tone in SEVERITY_COUNTERS if counts[tone]]
         ),
@@ -269,7 +270,8 @@ def _grouped_rows(problems: Sequence[Problem], now: datetime,
     for kind, run in groupby(problems, key=lambda p: p.kind):
         run = list(run)
         tone = KIND_TONE[kind]
-        items.append(html.Li(className="attention-group-item", children=html.Details(
+        items.append(html.Li(className=f"attention-group-item attention-group-item--{tone}",
+                             children=html.Details(
             open=kind.value not in folded,
             className="attention-group-details",
             children=[
@@ -295,16 +297,25 @@ def problem_list(
     selected: str | None = None,
     folded: frozenset[str] = frozenset(),
 ) -> html.Section:
-    filter_note = []
-    if selected:
-        label = dict((t, l) for l, t in SEVERITY_COUNTERS).get(selected, selected)
-        problems = [p for p in problems if tone_of(p) == selected]
-        filter_note = [html.Div(className="attention-filter-note", children=[
-            html.Span(f"Showing {label} only · {_plural(len(problems), 'problem')}"),
+    """Every problem, grouped by kind.
+
+    CC-FILTER-FAST-1: the severity filter no longer re-renders this list.
+    It is always drawn whole; the page's `attention-filter--<tone>` class
+    hides the other tones' groups and shows that tone's note, so a filter
+    click needs no data fetch and no redraw.
+    """
+    counts = severity_counts(problems)
+    filter_note = [
+        html.Div(className=f"attention-filter-note attention-filter-note--{tone}", children=[
+            html.Span(f"Showing {label} only · {_plural(counts[tone], 'problem')}"),
             html.Button("Show all", type="button", n_clicks=0,
-                        id={"type": SEVERITY_BUTTON, "tone": "all", "part": "clear"},
+                        id={"type": SEVERITY_BUTTON, "tone": "all", "part": f"clear-{tone}"},
                         className="attention-action"),
-        ])]
+        ])
+        # The selected tone keeps its note (and its Show all) even when a
+        # refresh has emptied it, or the list would be blank with no way out.
+        for label, tone in SEVERITY_COUNTERS if counts[tone] or tone == selected
+    ]
     if not problems:
         body = filter_note + [html.P("Nothing needs attention.", className="attention-empty")]
     else:
@@ -470,10 +481,10 @@ def ring_stops(counts: Sequence[tuple[str, int]]) -> list[tuple[str, float, floa
     return stops
 
 
-def _tone_colour(tone: str, dim: bool = False) -> str:
-    colour = f"var({RING_TONE_VAR[tone]})"
-    # A filtered-out slice fades like its strip segment does.
-    return f"color-mix(in srgb, {colour} 30%, transparent)" if dim else colour
+def _ring_colour(tone: str) -> str:
+    """A slice's paint: `--ring-<tone>`, which app.css points at the tone's
+    colour and fades while another tone is filtered (CC-FILTER-FAST-1)."""
+    return f"var(--ring-{tone}, var({RING_TONE_VAR[tone]}))"
 
 
 def working_arc(snapshot: AttentionSnapshot) -> html.Div:
@@ -514,7 +525,7 @@ def problem_donut(snapshot: AttentionSnapshot, selected: str | None = None) -> h
     stops = ring_stops([(tone, counts[tone]) for _label, tone in SEVERITY_COUNTERS])
     if stops:
         background = "conic-gradient(" + ", ".join(
-            f"{_tone_colour(tone, dim=bool(selected) and selected != tone)} {start}% {end}%"
+            f"{_ring_colour(tone)} {start}% {end}%"
             for tone, start, end in stops
         ) + ")"
         centre = [html.Strong(str(total), className="attention-gauge__value"),
@@ -530,10 +541,8 @@ def problem_donut(snapshot: AttentionSnapshot, selected: str | None = None) -> h
         html.Button(
             type="button", n_clicks=0, disabled=not counts[tone],
             id={"type": SEVERITY_BUTTON, "tone": tone, "part": "donut"},
-            className=f"attention-donut__label attention-legend attention-legend--{tone}"
-                      + (" attention-donut__label--active" if selected == tone else "")
-                      + (" attention-donut__label--dim" if selected and selected != tone else ""),
-            title=("Show all problems" if selected == tone else f"Show only {label}"),
+            className=f"attention-donut__label attention-legend attention-legend--{tone}",
+            title=f"Show only {label} (again: show all)",
             **{"aria-pressed": "true" if selected == tone else "false"},
             children=[html.Span(label), html.Strong(str(counts[tone]))],
         )
