@@ -105,3 +105,42 @@ def test_get_fleet_overview_narrows_every_read_by_the_one_scope(monkeypatch):
     assert seen["max"]["allowed_device_ids"] == frozenset({"d1"})
     assert seen["max"]["since"] == NOW - timedelta(days=30)
     assert view.limits == LIMITS and len(view.plants) == 1
+
+
+def _plant_view(pid, name, hot_value, counts, loggers=2):
+    from services.fleet_overview_service import PlantView, TransformerView
+    temps = tuple(_t(f"{pid}-d{i}", plant=pid) for i in range(loggers))
+    top = _t(f"{pid}-top", plant=pid, value=hot_value) if hot_value is not None else None
+    return PlantView(pid, name, "ZA", (TransformerView(f"{pid}-t", "T", None, None, None, temps),),
+                     top, counts)
+
+
+def _polish_view(limits=LIMITS):
+    C_ = svc.ConditionCounts
+    return svc.FleetOverview(NOW, limits, (
+        _plant_view("a", "Alpha", 31.0, C_(normal=2)),
+        _plant_view("b", "Bravo", 41.0, C_(normal=1, hot=1)),
+        _plant_view("c", "Charlie", None, C_(no_recent_data=2)),
+        _plant_view("d", "Delta", 35.0, C_(normal=1, no_recent_data=1)),
+    ))
+
+
+def test_filter_counts_per_available_filter():
+    assert svc.filter_counts(_polish_view()) == {
+        "all": 4, "hot": 1, "no_recent_data": 2, "normal": 1,
+    }
+
+
+def test_hot_and_normal_filters_need_limits():
+    view = _polish_view(limits=None)
+    assert svc.available_filters(view) == ("all", "no_recent_data")
+    # An unavailable filter falls back to all rather than showing nothing.
+    assert len(svc.filter_and_sort(view, "hot", "name")) == 4
+
+
+def test_filter_keeps_name_order_and_sort_hottest_puts_no_reading_last():
+    view = _polish_view()
+    assert [p.name for p in svc.filter_and_sort(view, "no_recent_data", "name")] == ["Charlie", "Delta"]
+    assert [p.name for p in svc.filter_and_sort(view, "all", "hottest")] == [
+        "Bravo", "Delta", "Alpha", "Charlie",
+    ]

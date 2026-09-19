@@ -33,12 +33,13 @@ def test_fetches_once_with_the_resolved_scope():
         calls.append(s)
         return FleetOverview(now, None, ())
 
-    summary, _, limits, plants, error = cb.populate(
+    summary, _, limits, plants, error, options = cb.populate(
         {"route": "overview"}, fetch=fetch, scope_for=lambda: scope
     )
     assert calls == [scope]
     assert summary == "0 plants · 0 transformers · 0 RTLs"
     assert error is None
+    assert [o["value"] for o in options] == ["all", "no_recent_data"]
 
 
 def test_failed_read_shows_the_error_panel_not_an_empty_list():
@@ -47,3 +48,28 @@ def test_failed_read_shows_the_error_panel_not_an_empty_list():
 
     out = cb.populate({"route": "overview"}, fetch=fetch, scope_for=lambda: None)
     assert out[3] == [] and out[4] is not None
+
+
+def test_filter_and_sort_reach_the_list():
+    from datetime import timedelta
+    from decimal import Decimal
+    from services.fleet_overview_service import ConditionCounts, PlantView, TransformerView
+    from services.temperature_condition_service import (
+        DeviceTemperature, TemperatureCondition as C, TemperatureLimits,
+    )
+
+    def plant(pid, value, counts):
+        t = DeviceTemperature(pid, f"{pid}-t", "T", f"{pid}-d", "D", value,
+                              datetime.now(timezone.utc) - timedelta(minutes=5), C.NORMAL)
+        return PlantView(pid, pid.upper(), "ZA", (TransformerView(f"{pid}-t", "T", None, None, None, (t,)),),
+                         t, counts)
+
+    view = FleetOverview(datetime.now(timezone.utc), TemperatureLimits(Decimal(36), Decimal(40)), (
+        plant("a", 30.0, ConditionCounts(normal=1)),
+        plant("b", 41.0, ConditionCounts(hot=1)),
+    ))
+    out = cb.populate({"route": "overview"}, "hot", "name",
+                      fetch=lambda s, *, now: view, scope_for=lambda: None)
+    rows = out[3].children
+    assert len(rows) == 1
+    assert {o["value"]: o["label"] for o in out[5]}["hot"] == "Hot · 1"

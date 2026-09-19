@@ -12,7 +12,18 @@ from dash import dcc, html
 
 from routes import device_href
 from services.attention_service import format_limit
-from services.fleet_overview_service import FleetOverview, PlantView, TransformerView
+from services.fleet_overview_service import (
+    FILTER_ALL,
+    FILTER_HOT,
+    FILTER_NO_DATA,
+    FILTER_NORMAL,
+    SORT_HOTTEST,
+    SORT_NAME,
+    FleetOverview,
+    PlantView,
+    TransformerView,
+    filter_counts,
+)
 from services.temperature_condition_service import (
     CONDITION_LABELS,
     LIMIT_SOURCE_NOTE,
@@ -153,10 +164,35 @@ def plant_row(plant: PlantView, now: datetime, *, limits_set: bool) -> html.Deta
     ])
 
 
-def plant_list(view: FleetOverview):
+FILTER_LABELS = {
+    FILTER_ALL: "All",
+    FILTER_HOT: "Hot",
+    FILTER_NO_DATA: "No recent data",
+    FILTER_NORMAL: "Normal",
+}
+
+SORT_OPTIONS = [
+    {"label": "Name", "value": SORT_NAME},
+    {"label": "Hottest first", "value": SORT_HOTTEST},
+]
+
+
+def filter_options(view: FleetOverview) -> list[dict]:
+    """Chip options with the number of plants each would show."""
+    return [
+        {"label": f"{FILTER_LABELS[key]} · {count}", "value": key}
+        for key, count in filter_counts(view).items()
+    ]
+
+
+def plant_list(view: FleetOverview, plants=None):
+    """`plants` is the filtered, sorted subset; None means every plant."""
     if not view.plants:
         return html.P("No plants to show for your account.", className="fleet-overview-empty")
+    shown = view.plants if plants is None else plants
+    if not shown:
+        return html.P("No plants match this filter.", className="fleet-overview-empty")
     limits_set = view.limits is not None
     return html.Div(className="fleet-overview-plants", children=[
-        plant_row(p, view.generated_at, limits_set=limits_set) for p in view.plants
+        plant_row(p, view.generated_at, limits_set=limits_set) for p in shown
     ])
