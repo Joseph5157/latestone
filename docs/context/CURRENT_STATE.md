@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T05:22:06Z
+Date: 2026-09-19T05:29:31Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `overview-cc-redesign` = `53a8721` "docs(context): close DATA-REFRESH-1" (not `main`)
-- Working tree: 9 entries — see below
+- current branch `overview-cc-redesign` = `a0f1223` "feat(temperature): condition per RTL against administrator limits (ADR-023)" (not `main`)
+- Working tree: 13 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3394 passed, 726 deselected in 30.54s
+- `python -m pytest -m "not db"` → 3417 passed, 728 deselected in 30.68s
 
 ## Branches
 
@@ -48,11 +48,11 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 338 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 188 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 338 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `overview-cc-redesign` | 8 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `overview-cc-redesign` | 11 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
-22 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+23 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -78,16 +78,20 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md | Approved | `0b2a4d5ec2c88d5a395729d30dee86abf1b6fb4d` (`feat(integration): add notification delivery abstraction`) |
 | ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md | Approved | `08acb6e` (`feat(freshness): let Administrators set the freshness threshold live`) |
 | ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md | Approved | `c47cf87` (`feat(register): redesign Register Device and enforce the 5-digit UID fleet-wide`) |
+| ADR-023-temperature-condition-uses-admin-limits.md | Approved | `a0f1223` (`feat(temperature): condition per RTL against administrator limits (ADR-023)`) |
 
 ## Active gate
 
-TEMP-CONDITION-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
+M AGENTS.md
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/DECISION_INDEX.md
+ M docs/decisions/ADR-001-event-classification-no-thresholds.md
+ M services/temperature_threshold_service.py
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
@@ -95,5 +99,6 @@ M docs/context/ACTIVE_GATE.md
 ?? .pytest-alarm-ack/
 ?? .pytest-command-dispatch-suite/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md
 ```
 

@@ -2,7 +2,7 @@
 
 Status: Approved
 Date: 2026-08-29
-Last updated: 2026-09-18 — added ADR-022
+Last updated: 2026-09-19 — added ADR-023
 
 Every ADR in `docs/decisions/`, one line each. This file is the map; the ADR
 is the territory — read the ADR before acting on a decision, don't act on
@@ -16,7 +16,7 @@ either "approved" means "built" or "not yet" means "undecided."
 
 | ADR | Decision | Status | Implemented-by |
 |---|---|---|---|
-| [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) | Events are closed, pre-classified facts — no consumer holds a numeric threshold | Approved | `bb1e2e9` |
+| [ADR-001](../decisions/ADR-001-event-classification-no-thresholds.md) | Events are closed, pre-classified facts — no consumer holds a numeric threshold (amended by ADR-023: a separate derived temperature condition) | Approved | `bb1e2e9` |
 | [ADR-002](../decisions/ADR-002-fleet-attention-is-freshness-only.md) | Requires Attention = Stale + No Data only, never mixed with event history | Approved | `29a4c5a` |
 | [ADR-003](../decisions/ADR-003-location-is-plant.md) | Location = Plant; no Zone/Feeder/GIS level exists in the schema | Approved | `699ece0` |
 | [ADR-004](../decisions/ADR-004-device-scope-is-not-user-selectable.md) | Device scope is authorization-derived; no page may offer a scope selector | Approved | `9966bd7` |
@@ -38,6 +38,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-020](../decisions/ADR-020-notification-delivery-is-separate-from-the-in-app-projection.md) | `notification_delivery.py`/`mock_notification_delivery.py` are a provider-neutral outgoing-delivery boundary, structurally uncoupled from the existing Notification Center (`notification_service.py`, unmodified); `DeliveryRequest.recipient_endpoint` is always caller-supplied — no recipient-resolution policy is implemented; no `notification_deliveries` table, since delivery lifecycle/retention/escalation are still client-undecided | Approved | `0b2a4d5` |
 | [ADR-021](../decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md) | The global freshness threshold is an Administrator-configurable singleton, read live by `evaluate_freshness` once per request; no row = environment default; BR008 unaffected | Approved | `08acb6e` |
 | [ADR-022](../decisions/ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md) | Registration enforces the 5-digit RTL UID (one shared rule with programming) and refuses a code already registered anywhere in the fleet; application-level only, no DB constraint until the client confirms | Approved | `c47cf87` |
+| [ADR-023](../decisions/ADR-023-temperature-condition-uses-admin-limits.md) | Temperature condition (Normal/Warning/Critical/Limits not set/No recent data) is evaluated only by `temperature_condition_service`, on each RTL's latest reading against Administrator-configured limits, in Decimal; a derived condition, not an event; amends ADR-001 and the AGENTS.md data rule | Approved | `a0f1223` |
 
 ## Reading this table
 

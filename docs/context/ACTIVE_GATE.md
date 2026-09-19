@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: TEMP-CONDITION-1
-Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
-(commit after each green task); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** on branch
+`overview-cc-redesign` (TEMP-CONDITION-1); push **NOT granted**.
 
-## TEMP-CONDITION-1 — OPEN / IN PROGRESS
+## TEMP-CONDITION-1 — CLOSED / PASS
 
 Baseline: branch `overview-cc-redesign` at `53a8721`. Phase 2 of the Fleet
 Overview + Command Center redesign (internal design/plan under
@@ -32,8 +32,10 @@ rule "MonitoringCondition is always UNKNOWN".
 - `docs/decisions/ADR-014-latest-reads-are-bounded-seeks.md`
 - `docs/decisions/ADR-021-freshness-threshold-is-admin-configurable-and-read-live.md`
 - `AGENTS.md`
-- To be created: services/temperature_condition_service.py,
-  tests/test_temperature_condition_service.py, ADR-023.
+- `services/temperature_condition_service.py`,
+  `tests/test_temperature_condition_service.py`,
+  `tests/test_latest_metric_readings_fleet.py`
+- `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
 
 ## Non-goals (explicit)
 
@@ -48,6 +50,27 @@ rule "MonitoringCondition is always UNKNOWN".
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `38d3fbd` `latest_metric_readings(..., fleet=True)`: explicit fleet scope,
+  refused together with an entity; still one bounded seek per device.
+- `a0f1223` `services/temperature_condition_service.py`: `classify()` (pure;
+  no reading or stale -> No recent data; no limits -> Limits not set; `>=` in
+  Decimal), `current_limits()`, `device_temperatures(scope)`, `hottest()`,
+  `LIMIT_SOURCE_NOTE`.
+- ADR-023; ADR-001 `Amended-by`; `AGENTS.md` data rule; DECISION_INDEX;
+  `temperature_threshold_service.py` docstring.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0; `python -m pytest` exit 0 on the
+  plain seed (freshness demo re-applied afterwards).
+- Real local data: no limits stored -> 119 Limits not set, 1 No recent data
+  (plant-03, silenced). With 30/33 degC applied in memory only (nothing
+  written): 102 Normal, 13 Warning, 4 Critical, 1 No recent data.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 

@@ -6,10 +6,9 @@ client confirmation: warning/critical temperature thresholds must be
 administrator-configurable, never permanently hardcoded, with every change
 audited. Actual Eskom threshold values remain unconfirmed — this module
 persists whatever an Administrator configures; it invents no default and
-activates no alarm/event logic. `MonitoringCondition` stays permanently
-`UNKNOWN` (AGENTS.md §Data rules) — nothing here reads this configuration
-back to evaluate a reading against it; that is explicitly out of scope for
-this gate.
+activates no alarm/event logic. Readings are evaluated against this
+configuration only by `services/temperature_condition_service.py`
+(TEMP-CONDITION-1, ADR-023); this module never evaluates a reading itself.
 
 Layering (matches forwarding_auto_disable_service.py / audit_service.py):
 

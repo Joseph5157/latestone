@@ -105,8 +105,10 @@ cannot reasonably solve the requirement.
 - Parse database strings into real datetime/numeric types before calculating.
 - "Current temperature" means the latest available reading; min/max/average
   apply to the selected range.
-- No production warning/critical thresholds — `MonitoringCondition` is always
-  `UNKNOWN`.
+- No Eskom-confirmed warning/critical thresholds exist. Temperature condition
+  (Normal/Warning/Critical/Limits not set/No recent data) is evaluated only by
+  `services/temperature_condition_service.py`, against Administrator-configured
+  limits (ADR-023). Device-page `MonitoringCondition` stays `UNKNOWN`.
 
 ## UI requirements
 
