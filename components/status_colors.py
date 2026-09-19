@@ -59,10 +59,10 @@ def status_chip_class(tone: str) -> str:
     return f"status-chip status-chip--{tone}"
 
 
-def status_dot(tone: str) -> html.Span:
-    """A small coloured dot before a status that is the row's own text
-    (ADR-026: badges are for a status beside a value)."""
-    return html.Span(className=f"status-dot status-dot--{tone}", **{"aria-hidden": "true"})
+def status_text_class(tone: str) -> str:
+    """For a status that is the row's own text (ADR-026: badges are for a
+    status beside a value)."""
+    return f"status-text status-text--{tone}"
 
 
 def colour_key() -> html.Details:

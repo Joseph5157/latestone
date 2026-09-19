@@ -100,13 +100,19 @@ def test_the_hottest_card_is_not_painted_as_a_selection():
     assert "accent=True" not in getsource(fleet_overview.stat_cards)
 
 
-@pytest.mark.parametrize("tone", sorted(KEY_TONES))
-def test_every_tone_has_a_dot_on_its_token(tone):
-    rule = re.search(rf"\.status-dot--{tone}\s*\{{([^}}]*)\}}", CSS)
-    assert rule and f"var({sc.TONE_TOKEN[tone]})" in rule.group(1)
+@pytest.mark.parametrize("tone", ["critical", "warning", "nodata", "info"])
+def test_every_problem_tone_colours_text_on_its_token(tone):
+    rule = re.search(rf"\.status-text--{tone}\s*\{{([^}}]*)\}}", CSS)
+    assert rule and f"color: var({sc.TONE_TOKEN[tone]})" in rule.group(1)
 
 
-def test_the_dot_is_decorative():
-    dot = sc.status_dot("critical")
-    assert dot.className == "status-dot status-dot--critical"
-    assert getattr(dot, "aria-hidden") == "true"
+@pytest.mark.parametrize("tone", ["critical", "warning", "nodata", "info"])
+def test_tone_colours_read_as_text_in_light(tone):
+    root = re.search(r":root\s*\{(.*?)\}", CSS, flags=re.S).group(1)
+    colour = re.search(rf"{sc.TONE_TOKEN[tone]}:\s*(#[0-9a-fA-F]{{6}})", root).group(1)
+    from tests.test_app_theme import _contrast
+    assert _contrast(colour, "#ffffff") >= 4.5 and _contrast(colour, "#f4f6f8") >= 4.5
+
+
+def test_the_dot_is_gone():
+    assert not hasattr(sc, "status_dot") and ".status-dot" not in CSS

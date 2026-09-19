@@ -4,7 +4,55 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (COLOUR-KEY-2); push **NOT granted**.
+exercised** (COLOUR-KEY-3); push **NOT granted**.
+
+## COLOUR-KEY-3 — CLOSED / PASS
+
+Baseline: `main` at `dd69067`, branch `problem-text-colour`. ADR-026
+(amended).
+
+## Task
+
+The dot before a Needs-attention problem is too hard to see (user): colour
+the problem name itself in its tone instead; remove the dot.
+
+## Relevant files
+
+- `components/status_colors.py`, `components/attention.py`,
+  `assets/app.css`, `tests/test_attention_components.py`,
+  `tests/test_status_colors.py`
+- `docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md`
+
+## Non-goals (explicit)
+
+- Badges elsewhere unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px, dark and light: the Needs-attention list.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `fbed394` ADR-026 amended: coloured text, not a dot.
+- `fd84225` `status_text_class()` replaces `status_dot()`; the problem name
+  carries `.status-text--{tone}`; `.status-dot` removed; a test checks each
+  tone colour reaches 4.5:1 as text in light (dark already covered).
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed.
+- Browser 1440 px, dark and light: problem names in red / amber / purple /
+  grey-blue; text-contrast audit clean on the Command Center.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## COLOUR-KEY-2 — CLOSED / PASS
 
@@ -50,7 +98,7 @@ None.
 - Browser 1440 px, dark and light: the Needs-attention list shows dots and
   plain names; Hottest-now badges unchanged.
 
-## Next implementation gate: NONE
+## Next implementation gate: COLOUR-KEY-3 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
