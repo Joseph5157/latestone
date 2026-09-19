@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T11:58:26Z
+Date: 2026-09-19T12:03:59Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `severity-palette` = `f570546` "Merge branch 'cc-severity-cards': Command Center severity counters as stat cards" (not `main`)
+- current branch `severity-palette` = `548f28c` "style: one severity palette for Fleet Overview and Command Center; Critical is the only strong colour" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2929 passed, 731 deselected in 31.85s
+- `python -m pytest -m "not db"` → 2929 passed, 731 deselected in 31.98s
 
 ## Branches
 
@@ -42,7 +42,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
-- `severity-palette`
 - `tech-workspace-1`
 - `ui-1-frontend-audit`
 - `worktree-fleet-overview-visual-v2`
@@ -55,6 +54,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 400 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 250 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 400 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `severity-palette` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -89,7 +89,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-SEVERITY-PALETTE-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 

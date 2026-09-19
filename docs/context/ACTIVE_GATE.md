@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: SEVERITY-PALETTE-1
-Commit/push permission: commit **GRANTED on branch `severity-palette`** and
-a local merge to `main` once green; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (SEVERITY-PALETTE-1); push **NOT granted**.
 
-## SEVERITY-PALETTE-1 — OPEN / IN PROGRESS
+## SEVERITY-PALETTE-1 — CLOSED / PASS
 
 Baseline: `main` at `f570546`, branch `severity-palette`.
 
@@ -39,6 +39,26 @@ Baseline: `main` at `f570546`, branch `severity-palette`.
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `548f28c` `--sev-*` on `:root` and re-stated in the Command Center dark
+  scope; `--cc-critical/-warning/-no-data` and the attention tones point at
+  them; Fleet Overview chips and condition bar use them; No recent data ->
+  "nodata" tone (purple, as on the Command Center); a Critical card with
+  problems is tinted by default.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed (no simulator running).
+- Contrast of every `--sev-*` value >= 4.9:1 on white (light) and >= 5.7:1
+  on #1a232e (dark).
+- Browser 1440 px: Command Center dark and light, Fleet Overview; Critical
+  is the one saturated tone; Warning / No data identical on both pages; no
+  console errors.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
