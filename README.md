@@ -80,9 +80,14 @@ PowerShell: set the variables first, e.g.
   `python -m db.seed_plant_monitoring --reset` before running it; re-apply
   the freshness demo afterwards. `python -m pytest -m "not db"` is unaffected.
 
-Open http://localhost:8050 and log in with the credentials you set as
+Open http://127.0.0.1:8050 and log in with the credentials you set as
 `DEMO_USERNAME` / `DEMO_PASSWORD` in `.env`. There is no fallback credential:
 if they are unset, every login is refused.
+
+On Windows prefer `127.0.0.1` to `localhost`: `localhost` tries IPv6 first
+and the dev server listens on IPv4, which adds roughly 0.2–0.3 s to every
+request (measured 2026-09-19). Logins are kept per address, so sign in
+again after switching.
 
 Stop the database with `docker compose stop` (keeps your data) or
 `docker compose down -v` (destroys the volume, so step 4 onwards runs again).

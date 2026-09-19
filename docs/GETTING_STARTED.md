@@ -88,7 +88,9 @@ refresh it.
 ```bash
 python app.py
 ```
-Open **http://localhost:8050** in your browser and log in:
+Open **http://127.0.0.1:8050** in your browser and log in. (On Windows,
+`localhost` also works but adds about 0.2–0.3 s to every request: it tries
+IPv6 first and the dev server listens on IPv4.)
 
 - Username: `admin`
 - Password: `demo1234`

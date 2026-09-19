@@ -82,7 +82,7 @@ Configurable refresh interval (default 60 seconds).
 ## 8. Visual Rules
 - Use restrained industrial styling.
 - Make warning states visually distinct without turning the whole interface red.
-- Do not overload the dashboard with gauges, pie charts or unnecessary animations.
+- Do not overload the dashboard with gauges, pie charts or unnecessary animations. Ring and donut gauges are allowed only for part-of-whole counts; needle or speedometer dials and full pies are not (ADR-028).
 - Use line charts for time series.
 - Keep units visible.
 

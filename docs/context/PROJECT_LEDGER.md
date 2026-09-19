@@ -4,7 +4,7 @@
 
 - **Branch:** `main`
 - **SHA:** `c851036` — "fix(notifications): drop misleading \"Prototype.\" lead on the honesty banner" (`main` = `origin/main`, pushed 2026-09-18). On top, pushed 2026-09-18: FRESHNESS-CONFIG-1 (`08acb6e`, docs `b5d8a36`) and SETTINGS-PAGE-1 (`6388003` + closure docs) — see §10 rows 43–44.
-- **Last updated:** 2026-09-18 (27 commits since the 2026-09-16 reconciliation: Functional Specification alignment gates, client-feedback gates, Railway migration fix and FRESHNESS-CONFIG-1 — see amendment below and §10 rows 26–43)
+- **Last updated:** 2026-09-19 (LEDGER-SYNC-2: §10 rows 45–72 added for every gate closed after SETTINGS-PAGE-1; see the 2026-09-19 amendment below)
 - **Client delivery:** branch `cc-1-command-center-progress` @ `983c17169a0cedd2282a0df4731228e0b05feac7` on `powerplant-dashboard-client` (CLIENT-SYNC-3, 2026-09-11 — adds the Technician "My RTLs" work list on top of CLIENT-SYNC-2B's `3f21c3a` milestone). The client repo's `main` remains `aa1dd3c` and the stale local `client-release` (`d89a090`, pre-Command-Center) is **not** the delivery branch — see §7a. Not re-verified as part of `CONTEXT-RECONCILE-1`; none of the dev-side gates below were curated to it.
 - **Working tree expectation:** untracked `.pytest-*` scratch directories only, once FRESHNESS-CONFIG-1 is committed.
 - **Real development database revision: `015_freshness_threshold_config`** (2026-09-18, applied for FRESHNESS-CONFIG-1, `08acb6e`). Previously `014_alarm_ack_fk_no_action` (`LOCAL-DB-CATCHUP-3`, 2026-09-16). `readings` remains the canonical 1,383,360-row seed from `DEV-READINGS-RESET-1`. Migrations are exercised in tests through the `isolated_schema` fixture, never against this schema, except where a gate explicitly targets the real schema (`test_seed_reset_contract.py`'s live-schema class).
@@ -27,6 +27,16 @@
   client review notes are mapped in
   `docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md` (Addendum — 2026-09-18);
   open questions are in `docs/context/CLIENT_QUESTIONS.md` Q6–Q9.
+- **Amendment (2026-09-19, LEDGER-SYNC-2):** `origin/main` is `78fde0e`
+  (DEVICE-FILTERS-1, pushed 2026-09-18). Local `main` is `e17ddbc`, 113
+  commits ahead and **not pushed**: the Fleet Overview + Command Center
+  redesign (ADR-023, ADR-024), app-wide dark mode (ADR-025), one colour key
+  (ADR-026), Device page alarm history (ADR-027), Command Center gauges
+  (ADR-028) and the gates in §10 rows 48–72. The Railway demo still runs the
+  pushed code. One new known defect is open: TABLE-SORT-TEXT-1
+  (`docs/context/KNOWN_DEFECTS.md`, deferred by the user). No row's
+  verification claim was written from memory: each row's SHA and summary
+  come from that gate's record in `docs/context/ACTIVE_GATE.md`.
 - **Roadmap:** `docs/context/Power_RTL_Master_Build_Plan_2026-09-04.md` is the adopted high-level roadmap (validated by POWER-MASTER-PLAN-1); this ledger remains the executive/detailed status record it is built from.
 - **Source of truth:** `docs/context/SOURCE_AUTHORITY.md` — code outranks prose
 - **Amendment (2026-09-06):** Development baselines recorded for C-08,
@@ -757,6 +767,34 @@ Work that can be implemented without unresolved client/external decisions:
 | 42 | **NOTIF-BANNER-1** | 🟢 CLOSED (`c851036`, 2026-09-18) | Notification Center banner no longer leads with "Prototype."; names only SMS/email delivery as not connected. |
 | 43 | **FRESHNESS-CONFIG-1** | 🟢 CLOSED / PUSHED (`08acb6e`, 2026-09-18) | Administrator-editable global freshness threshold, read live (ADR-021, migration 015). Full suite green; browser-verified. Tier 2 per-device override agreed but not started. |
 | 44 | **SETTINGS-PAGE-1** | 🟢 CLOSED / PUSHED (`6388003`, 2026-09-18) | Administrator-only Settings page (`/admin/settings`, sidebar System) now holds the Freshness, Temperature and Vibration panels; Fleet Overview no longer does. Fixed ADMIN-PANEL-LOAD-ERROR-1. |
+| 45 | **REGISTER-UX-1** | 🟢 CLOSED / PUSHED (`c47cf87`, 2026-09-18) | Register Device redesign; 5-digit UID enforced fleet-wide with duplicate refusal (ADR-022). |
+| 46 | **USER-FILTERS-1** | 🟢 CLOSED / PUSHED (`d0343a2`, 2026-09-18) | User Administration's broken native filter row replaced with a Role filter. |
+| 47 | **DEVICE-FILTERS-1** | 🟢 CLOSED / PUSHED (`003b9b6`, 2026-09-18) | Device Management column filters (Plant, Transformer, Data, Technician, Last reading, Clear); native filter row stays off. |
+| 48 | **DATA-REFRESH-1** | 🟢 CLOSED, local `main` only (`a2eade4`, 2026-09-19) | Development data made to look like a live fleet before the page redesign. |
+| 49 | **TEMP-CONDITION-1** | 🟢 CLOSED, local `main` only (`38d3fbd`, 2026-09-19) | One service for an RTL's temperature condition against Administrator-set limits (ADR-023). |
+| 50 | **CC-NEW-1** | 🟢 CLOSED, local `main` only (`1c5621a`, 2026-09-19) | New Command Center ("what needs my attention now?") built beside the old one (ADR-024). |
+| 51 | **CC-ACTIONS-1** | 🟢 CLOSED, local `main` only (`ae6a4ff`, 2026-09-19) | Acknowledge and Manage on each Command Center problem, reusing the guarded flows (ADR-016). |
+| 52 | **FO-NEW-1** | 🟢 CLOSED, local `main` only (`648643d`, 2026-09-19) | New Fleet Overview ("where is everything and how hot is it?") built beside the old one. |
+| 53 | **SWITCH-OVER-1** | 🟢 CLOSED, local `main` only (`2cfad36`, 2026-09-19) | Old Command Center and Fleet Overview deleted; the new pages take their routes (ADR-024). |
+| 54 | **POLISH-1** | 🟢 CLOSED, local `main` only (`5bbaf99`, 2026-09-19) | Overview filter chips and sort; Command Center counters and aligned columns. |
+| 55 | **STATS-CARDS-1** | 🟢 CLOSED, local `main` only (`03bf28f`, 2026-09-19) | Overview temperature stat cards; Command Center acknowledgement backlog line. |
+| 56 | **CC-VISUALS-1** | 🟢 CLOSED, local `main` only (`50caa10`, 2026-09-19) | Command Center severity strip, temperature meters, stacked alarm bars (plain HTML). |
+| 57 | **CLICK-FILTER-1** | 🟢 CLOSED, local `main` only (`d9e59c8`, 2026-09-19) | Overview condition bar; click-to-filter on Overview and Command Center. |
+| 58 | **CC-SEVERITY-CARDS-1** | 🟢 CLOSED, local `main` only (`ad0d73d`, 2026-09-19) | Command Center severity counters became stat cards. |
+| 59 | **SEVERITY-PALETTE-1** | 🟢 CLOSED, local `main` only (`548f28c`, 2026-09-19) | One severity palette; Critical is the only strong colour. |
+| 60 | **THEME-APP-1** | 🟢 CLOSED, local `main` only (`b2a672f`, 2026-09-19) | App-wide dark mode, Dark by default, remembered per browser (ADR-025). |
+| 61 | **THEME-APP-2** | 🟢 CLOSED, local `main` only (`3ad1f8f`, 2026-09-19) | Dark-mode contrast fixes and leftover light surfaces. |
+| 62 | **COLOUR-KEY-1** | 🟢 CLOSED, local `main` only (`cedd4c9`, 2026-09-19) | One colour key across the dashboard: colour means urgency (ADR-026). |
+| 63 | **COLOUR-KEY-2** | 🟢 CLOSED, local `main` only (`197e754`, 2026-09-19) | Needs-attention problems as dot + text instead of badges. |
+| 64 | **COLOUR-KEY-3** | 🟢 CLOSED, local `main` only (`fbed394`, 2026-09-19) | Needs-attention problem names coloured in their tone; dot removed. |
+| 65 | **WORKING-CARD-1** | 🟢 CLOSED, local `main` only (`aabbc5e`, 2026-09-19) | Command Center "Working N of M" card (ADR-024 amendment). |
+| 66 | **PROBLEM-GROUPS-1** | 🟢 CLOSED, local `main` only (`f02069b`, 2026-09-19) | Needs-attention list grouped by kind with counts. |
+| 67 | **ALARM-HISTORY-1** | 🟢 CLOSED, local `main` only (`6bbf26c`, 2026-09-19) | Device page alarm markers, read-only alarm history, shaded reading gaps (ADR-027). |
+| 68 | **PROBLEM-GROUPS-2** | 🟢 CLOSED, local `main` only (`08e790e`, 2026-09-19) | Needs-attention groups fold as an accordion; folded set kept for the tab. |
+| 69 | **ASSIGN-TOOLBAR-1** | 🟢 CLOSED, local `main` only (`c3a02f1`, 2026-09-19) | Assignments RTL table: Device Management's toolbar replaces the native filter row; sort arrow after the label in every `entity_table`. |
+| 70 | **AUTH-SIDEBAR-1** | 🟢 CLOSED, local `main` only (`a6e4828`, 2026-09-19) | `auth-store` follows the trusted session, so the sidebar no longer shows beside the login page. |
+| 71 | **CC-GAUGES-1** | 🟢 CLOSED, local `main` only (`7973853`, 2026-09-19) | Command Center "Fleet at a glance": RTLs-working half-arc and problems donut whose labels filter the list (ADR-028). |
+| 72 | **CC-FILTER-FAST-1** | 🟢 CLOSED, local `main` only (`059fcc0`, 2026-09-19) | Command Center severity filter applied in the browser (no refetch); no-op requests from re-renders gated out. |
 
 ### Blocked / Waiting for Client or Integration
 
