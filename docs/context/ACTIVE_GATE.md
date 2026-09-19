@@ -4,7 +4,66 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (user, 2026-09-19, after browser review); push **NOT granted**.
+exercised** (user, 2026-09-19); push **NOT granted**.
+
+## AUTH-SIDEBAR-1 — CLOSED / PASS
+
+Baseline: `main` at `17944a6`, branch `auth-sidebar-sync`. No ADR: this
+applies AUTH-HARDEN-1's existing rule (the server session is the identity;
+`auth-store` is cosmetic) to the chrome that still read only the store.
+
+## Task
+
+User report: after logout the login page sometimes renders with the sidebar
+beside it. Cause: the router decides login-vs-page from the trusted server
+session (`current_identity()`), while the sidebar and Asset Navigator show
+or hide from `auth-store`. They drift when the cookie dies without
+`/logout`: an app restart (unset `FLASK_SECRET_KEY` is regenerated per
+process, including every debug-reloader restart), a logout in another tab,
+a deactivation. The reverse drift — a new tab with an empty store and a
+valid cookie — rendered the page with no sidebar.
+
+Fix: one callback rewrites `auth-store` from the trusted session on every
+navigation and cold load, skipping `/logout` (owned by `_sign_out`).
+
+## Relevant files
+
+- `callbacks/auth.py`
+- `tests/test_session_persistence.py`
+
+## Non-goals (explicit)
+
+- Router, sidebar and selector callbacks unchanged.
+- No change to how the secret key is resolved.
+
+## Required tests
+
+- `python -m pytest -m "not db"`.
+- Browser: cookie cleared then reload → login page, no sidebar; new tab on
+  the same cookie → page with sidebar; Logout → login page, no sidebar.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `a6e4828` `reconciled_auth_store()` + `_reconcile_auth_store` callback in
+  `callbacks/auth.py`; 7 tests in `tests/test_session_persistence.py`.
+- Local `.env` (untracked) now sets `FLASK_SECRET_KEY`, so restarts keep the
+  session; not a code change.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes.
+- Playwright 1440 px against the running app, before → after the fix:
+  cookie cleared + reload `/plants`: login page with sidebar → login page,
+  no sidebar; new tab, same cookie: page without sidebar → with sidebar;
+  login, Logout and revisit unchanged and correct.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## ASSIGN-TOOLBAR-1 — CLOSED / PASS
 
@@ -71,7 +130,7 @@ None.
   filters → 120; workload roster unchanged under filtering; "Assigned RTLs"
   arrow 8 px after its label (was ~800 px); no arrow on Assign/Manage.
 
-## Next implementation gate: NONE
+## Next implementation gate: AUTH-SIDEBAR-1 — CLOSED / PASS
 
 ## Prior gate record
 

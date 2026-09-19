@@ -91,3 +91,68 @@ class TestTheLinkStillWorks:
             if getattr(n, "href", None) == LOGOUT_PATH
         ]
         assert [type(a) for a in anchors] == [html.A]
+
+
+class TestStoreFollowsTheTrustedSession:
+    """AUTH-SIDEBAR-1: the router trusts the server session, the sidebar
+    trusts `auth-store`. When they drift the login page renders beside a
+    signed-in sidebar, so the store is rewritten from the server's answer."""
+
+    @staticmethod
+    def _user(role="administrator"):
+        from services.auth_service import AuthenticatedUser
+
+        return AuthenticatedUser(user_id=7, username="op", full_name="Op", role=role)
+
+    def test_a_lost_server_session_signs_the_store_out(self):
+        """App restart (new secret key) or a logout in another tab: the
+        cookie is gone but this tab's store still claims a user."""
+        from callbacks.auth import reconciled_auth_store
+        from services.auth_service import to_session
+
+        stale = to_session(self._user())
+        assert reconciled_auth_store("/plants", stale, None) == {"authenticated": False}
+
+    def test_a_valid_cookie_fills_an_empty_store(self):
+        """A new tab starts with an empty store but shares the cookie; the
+        router shows the page, so the sidebar must show too."""
+        from callbacks.auth import reconciled_auth_store
+        from services.auth_service import to_session
+
+        user = self._user()
+        assert reconciled_auth_store("/", {"authenticated": False}, user) == to_session(user)
+
+    def test_a_role_change_reaches_the_store(self):
+        from callbacks.auth import reconciled_auth_store
+        from services.auth_service import to_session
+
+        stale = to_session(self._user("administrator"))
+        fresh = self._user("technician")
+        assert reconciled_auth_store("/", stale, fresh) == to_session(fresh)
+
+    @pytest.mark.parametrize("signed_in", [True, False])
+    def test_an_agreeing_store_is_left_alone(self, signed_in):
+        """Also what stops the callback re-firing on its own output."""
+        from callbacks.auth import reconciled_auth_store
+        from services.auth_service import to_session
+
+        user = self._user() if signed_in else None
+        store = to_session(user) if signed_in else {"authenticated": False}
+        assert reconciled_auth_store("/plants", store, user) is no_update
+
+    def test_logout_is_left_to_sign_out(self):
+        """The /logout request may still carry the cookie `_sign_out` is
+        clearing; writing it back would undo the logout."""
+        from callbacks.auth import reconciled_auth_store
+
+        assert reconciled_auth_store(LOGOUT_PATH, {"authenticated": False}, self._user()) is no_update
+
+    def test_it_runs_on_a_cold_load(self):
+        """A restart's drift appears on the very next full page load."""
+        reconcile = next(
+            c for c in app_module.app._callback_list
+            if "auth-store.data" in c["output"]
+            and len(c["inputs"]) == 2
+            and {i["id"] for i in c["inputs"]} == {"url", "auth-store"}
+        )
+        assert reconcile["prevent_initial_call"] is False

@@ -1,10 +1,14 @@
 """Authentication callbacks — isolated so they can later be replaced."""
 from __future__ import annotations
 
+import logging
+
 from dash import Input, Output, State, no_update
 
 from pages.login import TOGGLE_ICON_HIDE_CLASS, TOGGLE_ICON_SHOW_CLASS
 from services import auth_service
+
+logger = logging.getLogger(__name__)
 
 
 def login_was_submitted(n_clicks, username_submits, password_submits) -> bool:
@@ -64,6 +68,27 @@ def sign_out_outputs(pathname):
     if pathname != LOGOUT_PATH:
         return no_update, no_update
     return {"authenticated": False}, "/"
+
+
+def reconciled_auth_store(pathname, auth_data, user):
+    """The auth-store payload that matches the trusted session, or no_update.
+
+    The router decides login-vs-page from the server session; the sidebar,
+    the Asset Navigator and the header read `auth-store`. When the two drift
+    — the server session is gone after an app restart (a fresh secret key),
+    a logout in another tab, a deactivation — the router shows the login
+    page while the chrome still shows a signed-in sidebar. The reverse drift
+    (a new tab: empty store, valid cookie) shows a page with no sidebar.
+    Rewriting the store from the server's answer makes every reader agree.
+
+    `/logout` is skipped: `_sign_out` owns that navigation, and this call's
+    request may still carry the cookie `_sign_out` is about to clear, which
+    would write the signed-out session straight back in.
+    """
+    if pathname == LOGOUT_PATH:
+        return no_update
+    wanted = auth_service.to_session(user) if user is not None else {"authenticated": False}
+    return no_update if auth_data == wanted else wanted
 
 
 def password_toggle_state(n_clicks) -> tuple[str, str, str, str]:
@@ -142,6 +167,27 @@ def register(app) -> None:
         if pathname == LOGOUT_PATH:
             auth_service.end_trusted_session()
         return sign_out_outputs(pathname)
+
+    @app.callback(
+        Output("auth-store", "data", allow_duplicate=True),
+        Input("url", "pathname"),
+        Input("auth-store", "data"),
+        # Fires on the first render too: an app restart invalidates the
+        # cookie, and the very next page load is where the drift shows.
+        prevent_initial_call="initial_duplicate",
+    )
+    def _reconcile_auth_store(pathname, auth_data):
+        # Its own output is also an Input, which Dash allows within one
+        # callback; it settles in one step because a rewritten store equals
+        # `wanted` on the re-fire and returns no_update.
+        try:
+            user = auth_service.current_identity()
+        except Exception:
+            # Cannot tell who is signed in: leave the store alone rather than
+            # sign anyone out on a transient database error.
+            logger.exception("Could not resolve the trusted session")
+            return no_update
+        return reconciled_auth_store(pathname, auth_data, user)
 
     # Logout stays a plain `<a href="/logout">` (see components.app_header).
     # That makes it a full page load, so the callback above must run on its
