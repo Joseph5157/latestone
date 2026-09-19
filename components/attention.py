@@ -6,6 +6,7 @@ mapping here is kind/condition -> visual tone.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Sequence
 
@@ -17,6 +18,7 @@ from services.attention_service import (
     ACKNOWLEDGEABLE_KINDS,
     ActivityItem,
     AttentionSnapshot,
+    KIND_LABELS,
     DailyAlarms,
     Problem,
     ProblemKind,
@@ -128,6 +130,18 @@ def status_bar(snapshot: AttentionSnapshot) -> html.Div:
                             html.Strong(str(counts[tone]), className="attention-counter__value")])
         for label, tone in SEVERITY_COUNTERS
     ])
+    # CC-VISUALS-1: the mix of problems before any number is read.
+    strip = html.Div(
+        className="attention-strip", **{"aria-hidden": "true"},
+        children=(
+            [html.Span(className="attention-strip__seg attention-strip__seg--normal",
+                       style={"flexGrow": 1})]
+            if clear else
+            [html.Span(className=f"attention-strip__seg attention-strip__seg--{tone}",
+                       style={"flexGrow": counts[tone]})
+             for _label, tone in SEVERITY_COUNTERS if counts[tone]]
+        ),
+    )
     oldest = oldest_unacknowledged(snapshot.problems)
     backlog = html.Div(className="attention-status__backlog", children=[
         html.Span(
@@ -149,6 +163,7 @@ def status_bar(snapshot: AttentionSnapshot) -> html.Div:
                 className="attention-status__reporting",
             ),
             limits,
+            strip,
         ],
     )
 
@@ -216,14 +231,46 @@ def problem_list(
                    subtitle="Most urgent first · alarms stay until acknowledged")
 
 
-def hottest_card(temps: Sequence[DeviceTemperature]) -> html.Section:
+def temperature_scale(temps: Sequence[DeviceTemperature], limits) -> tuple[float, float]:
+    """(low, high) °C for the Hottest bars: wide enough for every value and
+    both limit markers, with a little room either side."""
+    values = [t.value for t in temps if t.value is not None]
+    if limits is not None:
+        values += [float(limits.warning_c), float(limits.critical_c)]
+    if not values:
+        return 0.0, 1.0
+    low, high = math.floor(min(values) - 5), math.ceil(max(values) + 2)
+    return float(low), float(max(high, low + 1))
+
+
+def _pct(value: float, scale: tuple[float, float]) -> float:
+    low, high = scale
+    return round(max(0.0, min(100.0, 100 * (value - low) / (high - low))), 1)
+
+
+def hottest_card(temps: Sequence[DeviceTemperature], limits=None) -> html.Section:
     if not temps:
         body = [html.P("No recent temperature readings.", className="attention-empty")]
     else:
+        scale = temperature_scale(temps, limits)
+        markers = [] if limits is None else [
+            html.Span(className="attention-meter__mark attention-meter__mark--warning",
+                      style={"left": f"{_pct(float(limits.warning_c), scale)}%"},
+                      title=f"Warning {format_limit(limits.warning_c)} °C"),
+            html.Span(className="attention-meter__mark attention-meter__mark--critical",
+                      style={"left": f"{_pct(float(limits.critical_c), scale)}%"},
+                      title=f"Critical {format_limit(limits.critical_c)} °C"),
+        ]
         body = [html.Ol(className="attention-hottest", children=[
             html.Li(className="attention-hottest__row", children=[
                 _device_link(t.device_id, t.device_code),
                 html.Span(t.transformer_code, className="attention-hottest__where"),
+                # CC-VISUALS-1: how close to the limits, not just the number.
+                html.Div(className="attention-meter", **{"aria-hidden": "true"}, children=[
+                    html.Div(className=f"attention-meter__fill attention-meter__fill--{_CONDITION_TONE[t.condition]}",
+                             style={"width": f"{_pct(t.value, scale)}%"}),
+                    *markers,
+                ]),
                 html.Span(f"{t.value:.1f} °C", className="attention-hottest__value"),
                 # Only a real finding earns a chip; "Limits not set" is said
                 # once in the status bar, not repeated on every row.
@@ -232,6 +279,12 @@ def hottest_card(temps: Sequence[DeviceTemperature]) -> html.Section:
             ])
             for t in temps
         ])]
+        if limits is not None:
+            body.append(html.P(
+                f"Markers: Warning {format_limit(limits.warning_c)} °C · "
+                f"Critical {format_limit(limits.critical_c)} °C",
+                className="attention-meter__legend",
+            ))
     return cc_card("Hottest now", body, subtitle="Latest reading per RTL")
 
 
@@ -258,15 +311,29 @@ def alarm_trend_card(days: Sequence[DailyAlarms]) -> html.Section:
         html.Div(className="attention-trend__day", children=[
             html.Span(str(d.count), className="attention-trend__count"),
             html.Div(className="attention-trend__track", children=[
-                html.Div(className="attention-trend__bar",
-                         style={"height": f"{round(100 * d.count / peak)}%"}),
+                # CC-VISUALS-1: one stack per day, a segment per alarm kind.
+                html.Div(
+                    className="attention-trend__bar",
+                    style={"height": f"{round(100 * d.count / peak)}%"},
+                    title=", ".join(f"{KIND_LABELS[k]} {n}" for k, n in d.by_kind) or None,
+                    children=[
+                        html.Div(className=f"attention-trend__seg attention-trend__seg--{_KIND_TONE[k]}",
+                                 style={"flexGrow": n})
+                        for k, n in d.by_kind
+                    ],
+                ),
             ]),
             html.Span(d.day.strftime("%a %d"), className="attention-trend__label"),
         ])
         for d in days
     ]
+    seen = {k for d in days for k, _n in d.by_kind}
+    legend = html.Div(className="attention-trend__legend", children=[
+        html.Span(KIND_LABELS[k], className=f"attention-legend attention-legend--{_KIND_TONE[k]}")
+        for k in ProblemKind if k in seen
+    ])
     total = sum(d.count for d in days)
     return cc_card(
-        "Alarms per day", [html.Div(className="attention-trend", children=bars)],
+        "Alarms per day", [html.Div(className="attention-trend", children=bars), legend],
         subtitle=f"Battery, power-down and sensor alarms · last 7 days · {total} total",
     )

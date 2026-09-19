@@ -139,6 +139,21 @@ class TestDailyAlarms:
         assert [d.day for d in days] == [date(2026, 9, 13) + timedelta(days=i) for i in range(7)]
         assert [d.count for d in days] == [0, 0, 0, 0, 0, 1, 1]
 
+    def test_each_day_is_split_by_kind_in_rank_order(self):
+        events = [
+            _event(1, "d1", "battery_low", NOW - timedelta(hours=1)),
+            _event(2, "d2", "power_down", NOW - timedelta(hours=2)),
+            _event(3, "d3", "battery_low", NOW - timedelta(hours=3)),
+            _event(4, "d4", "sensor_error", NOW - timedelta(hours=4)),
+        ]
+        today = svc.daily_alarm_counts(events, now=NOW)[-1]
+        assert today.by_kind == (
+            (svc.ProblemKind.POWER_DOWN, 1),
+            (svc.ProblemKind.BATTERY_LOW, 2),
+            (svc.ProblemKind.SENSOR_ERROR, 1),
+        )
+        assert sum(n for _k, n in today.by_kind) == today.count
+
 
 class TestSnapshot:
     def test_assembles_one_snapshot(self, monkeypatch):

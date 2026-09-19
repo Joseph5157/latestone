@@ -141,6 +141,9 @@ class ActivityItem:
 class DailyAlarms:
     day: date
     count: int
+    #: (kind, count) per alarm kind that occurred that day, in rank order
+    #: (CC-VISUALS-1: the stacked bar). Sums to `count`.
+    by_kind: tuple[tuple[ProblemKind, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -288,16 +291,25 @@ def oldest_unacknowledged(problems: Iterable[Problem]) -> Problem | None:
 
 
 def daily_alarm_counts(events, *, now: datetime) -> list[DailyAlarms]:
-    """Alarm events per UTC day for the last TREND_DAYS days, today last."""
+    """Alarm events per UTC day for the last TREND_DAYS days, today last,
+    each split by alarm kind."""
     today = now.astimezone(timezone.utc).date()
     days = [today - timedelta(days=offset) for offset in range(TREND_DAYS - 1, -1, -1)]
-    counts = {d: 0 for d in days}
+    counts: dict[date, dict[ProblemKind, int]] = {d: {} for d in days}
     for e in events:
-        if e.event_type in _EVENT_KIND:
+        kind = _EVENT_KIND.get(e.event_type)
+        if kind is not None:
             day = e.event_ts.astimezone(timezone.utc).date()
             if day in counts:
-                counts[day] += 1
-    return [DailyAlarms(d, counts[d]) for d in days]
+                counts[day][kind] = counts[day].get(kind, 0) + 1
+    return [
+        DailyAlarms(
+            d,
+            sum(counts[d].values()),
+            tuple(sorted(counts[d].items(), key=lambda kv: KIND_RANK[kv[0]])),
+        )
+        for d in days
+    ]
 
 
 def _plant_names(scope: DeviceScope) -> dict[str, str]:
