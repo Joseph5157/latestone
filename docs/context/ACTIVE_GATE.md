@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: COLOUR-KEY-1
-Commit/push permission: commit on branch `colour-key` and local merge to
-`main` **GRANTED**; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (COLOUR-KEY-1); push **NOT granted**.
 
-## COLOUR-KEY-1 — OPEN / IN PROGRESS
+## COLOUR-KEY-1 — CLOSED / PASS
 
 Baseline: `main` at `a582d08`, branch `colour-key`. ADR-026.
 
@@ -20,7 +20,7 @@ card no longer accent blue; a "Colour key" disclosure on both pages.
 
 ## Relevant files
 
-- `components/fleet_overview.py` (and a new `status_colors` module),
+- `components/status_colors.py` (new), `components/fleet_overview.py`,
   `components/attention.py`, `pages/plants_overview.py`,
   `pages/command_center.py`, `assets/app.css`
 - `docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md`
@@ -38,6 +38,30 @@ card no longer accent blue; a "Colour key" disclosure on both pages.
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `cedd4c9` ADR-026.
+- `21a5d1f` `components/status_colors.py`: `COLOUR_KEY`, `CONDITION_TONE`,
+  `KIND_TONE`, `TONE_TOKEN`, `status_chip_class`, `colour_key()`; both
+  pages' own tone tables removed; one `.status-chip` style (soft fill) for
+  every status tag; `--sev-none` (light `#9ca3af`, the literal it replaces;
+  dark `#8b95a3`); Limits not set -> grey on both pages; condition bar and
+  Command Center strip both 10 px; Overview labels "Critical/Warning
+  temperature", Hottest-now card no longer accent blue; Command Center
+  "Sensor" -> "Device fault", Alarms-per-day legend "Critical · Power Down"
+  etc.; a closed "Colour key" disclosure on both pages.
+  `tests/test_status_colors.py`.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed.
+- Browser 1440 px, dark and light: Overview and Command Center with the key
+  open; tags, bars and key match; text-contrast audit clean on both pages
+  and the device page.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
