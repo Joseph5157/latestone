@@ -35,6 +35,11 @@ def classes(node) -> set[str]:
     return out
 
 
+def find_by_class(node, name: str):
+    return next(n for n in _walk(node)
+                if name in (getattr(n, "className", None) or "").split())
+
+
 def hrefs(node) -> list[str]:
     return [n.href for n in _walk(node) if getattr(n, "href", None)]
 
@@ -69,9 +74,23 @@ class TestAgo:
 class TestStatusBar:
     def test_counts_and_problems(self):
         bar = ui.status_bar(_snap([_problem()]))
-        assert "119 of 120 RTLs reporting" in text(bar)
+        assert "RTLs reporting" not in text(bar)  # WORKING-CARD-1: now a card
         assert "1 problem" in text(bar)
         assert "attention-status--clear" not in classes(bar)
+
+    def test_working_card_counts_reporting_rtls(self):
+        bar = ui.status_bar(_snap([_problem()]))
+        card = find_by_class(bar, "attention-working")
+        assert "Working" in text(card)
+        assert "119 of 120" in text(card)
+        assert "1 not reporting" in text(card)
+        assert "attention-working--short" in classes(card)
+
+    def test_working_card_all_reporting(self):
+        card = find_by_class(ui.status_bar(_snap(reporting=120)), "attention-working")
+        assert "120 of 120" in text(card)
+        assert "All RTLs reporting" in text(card)
+        assert "attention-working--short" not in classes(card)
 
     def test_all_clear_is_deliberate(self):
         bar = ui.status_bar(_snap([], limits=TemperatureLimits(Decimal("36"), Decimal("40"))))
@@ -269,5 +288,6 @@ def test_no_selection_shows_everything_without_a_note():
 def test_severity_cards_break_each_tone_down_by_kind_in_rank_order():
     snap = _snap(problems=[_problem(K.POWER_DOWN), _problem(K.TEMP_CRITICAL), _problem(K.TEMP_CRITICAL)])
     assert ui.severity_breakdown(snap.problems)["critical"] == "Critical temperature 2 · Power Down 1"
-    cards = _by_class(ui.status_bar(snap), "attention-severity-card")
+    cards = [c for c in _by_class(ui.status_bar(snap), "attention-severity-card")
+             if "attention-working" not in (c.className or "").split()]
     assert len(cards) == 4

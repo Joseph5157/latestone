@@ -137,7 +137,21 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
     # Still the CLICK-FILTER-1 filter buttons: the active one is pressed, and
     # pressing it again clears the filter.
     breakdown = severity_breakdown(snapshot.problems)
-    counters = html.Div(className="attention-severity-cards", children=[
+    # WORKING-CARD-1 (ADR-024 amendment): how many RTLs are working, first.
+    not_working = snapshot.total_rtls - snapshot.reporting_rtls
+    working = html.Div(
+        className="attention-severity-card attention-working"
+                  + (" attention-working--short" if not_working else ""),
+        children=[
+            html.Span("Working", className="attention-counter__label"),
+            html.Strong(f"{snapshot.reporting_rtls} of {snapshot.total_rtls}",
+                        className="attention-counter__value"),
+            html.Span(f"{not_working} not reporting" if not_working
+                      else "All RTLs reporting",
+                      className="attention-severity-card__detail"),
+        ],
+    )
+    counters = html.Div(className="attention-severity-cards", children=[working] + [
         html.Button(
             type="button", n_clicks=0, disabled=not counts[tone],
             id={"type": SEVERITY_BUTTON, "tone": tone, "part": "counter"},
@@ -185,10 +199,6 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
         children=[
             *headline,
             backlog,
-            html.Span(
-                f"{snapshot.reporting_rtls} of {snapshot.total_rtls} RTLs reporting",
-                className="attention-status__reporting",
-            ),
             limits,
             strip,
         ],
