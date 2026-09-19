@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T07:43:17Z
+Date: 2026-09-19T07:48:54Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `overview-cc-redesign` = `53d57e3` "docs(context): close CC-ACTIONS-1" (not `main`)
+- current branch `overview-cc-redesign` = `2c90256` "feat(fleet-overview): /plants-new page for every role, beside the old one" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3487 passed, 731 deselected in 31.00s
+- `python -m pytest -m "not db"` → 3506 passed, 731 deselected in 31.78s
 
 ## Branches
 
@@ -48,7 +48,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 338 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 188 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 338 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `overview-cc-redesign` | 26 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `overview-cc-redesign` | 30 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -82,7 +82,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-FO-NEW-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 

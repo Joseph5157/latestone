@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: FO-NEW-1
-Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
-(commit after each green task); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** on branch
+`overview-cc-redesign` (FO-NEW-1); push **NOT granted**.
 
-## FO-NEW-1 — OPEN / IN PROGRESS
+## FO-NEW-1 — CLOSED / PASS
 
 Baseline: branch `overview-cc-redesign` at `53d57e3`. Phase 5 of the Fleet
 Overview + Command Center redesign (decisions D1, D2, D6, D8, D11).
@@ -58,6 +58,31 @@ A new Fleet Overview at `/plants-new`, built beside the old one, answering
 - The spec says "30-day maximum" per RTL; the existing read (report C-15) is
   per transformer and names the RTL that reached it. Shown per transformer —
   the transformer is what is being protected — rather than adding new SQL.
+
+## Implementation
+
+- `648643d` `services/fleet_overview_service.py`: one snapshot from
+  `list_plants`, `device_temperatures` (ADR-023) and the C-15
+  `max_temperature_report_rows` read, all narrowed by the one scope; plants
+  by name, plants with no in-scope RTL left out.
+- `4676579` `components/fleet_overview.py`: `<details>` plant rows (name,
+  size, hottest temperature + condition, normal / hot / no-recent-data
+  counts), transformer 30-day peak, RTL rows with an "Electrical readings"
+  link; limits line carries `LIMIT_SOURCE_NOTE`, or says limits are unset.
+- `2c90256` `/plants-new` (`overview_new`, every role, Overview nav item),
+  page, callback (error panel on a failed read), CSS incl. phone layout.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0. No SQL or DB code changed; the
+  full DB suite runs at the switch-over close.
+- Browser (Playwright, local, real data), 1440 px and 390 px: admin and
+  demo.general01 see 30 plants / 71 transformers / 120 RTLs; demo.tech01
+  sees 16 / 21 / 24 (own scope). Plant expands inline; Overview nav item
+  active; no horizontal scroll; no console errors. Limits unset locally, so
+  every RTL reads "Limits not set" and the unset notice shows.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
