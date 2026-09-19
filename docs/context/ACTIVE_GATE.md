@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: CC-GAUGES-1
-Commit/push permission: commit and local merge to `main` **GRANTED** (user,
-2026-09-19, after browser review); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (user, 2026-09-19, after browser review); push **NOT granted**.
 
-## CC-GAUGES-1 — OPEN
+## CC-GAUGES-1 — CLOSED / PASS
 
 Baseline: `main` at `f2a86fa`, branch `cc-gauges`. ADR-028 (new),
 ADR-024 (amended), ADR-026 (tones, unchanged).
@@ -47,7 +47,13 @@ with CSS `conic-gradient` (user chose this over Plotly).
 
 None.
 
-## Verification (2026-09-19, uncommitted)
+## Implementation
+
+- `7973853` `ring_stops`, `working_arc`, `problem_donut`, `glance_card` in
+  `components/attention.py`; `GLANCE_ID` slot above `PROBLEMS_ID`;
+  `PANEL_OUTPUTS` 7; `.attention-glance*` CSS; ADR-028; AGENTS.md rule.
+
+## Verification (2026-09-19)
 
 - `python -m pytest -m "not db"` passes; pack `--check` CLEAN.
 - Browser 1440 px against the running app: panel above Needs attention
@@ -56,6 +62,8 @@ None.
   donut Warning → list shows only Battery Low 18, card and label both
   pressed; Critical held across Refresh now (16:27:56 → 16:28:13); other
   slices and labels fade; light mode correct.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 

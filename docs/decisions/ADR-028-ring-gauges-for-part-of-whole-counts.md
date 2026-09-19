@@ -4,7 +4,7 @@ Status: Approved
 Date: 2026-09-19
 Evidence: `AGENTS.md` (UI requirements), `components/attention.py`,
 `assets/app.css`, `docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md`
-Implemented-by: not yet
+Implemented-by: `7973853`
 
 ## Context
 
