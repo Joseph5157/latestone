@@ -216,7 +216,7 @@ def _card_button(label, value, secondary, jump_id, *, hint, accent=False) -> htm
     """A stat card that is also a filter control. Same classes as `kpi_card`,
     spans instead of divs so it is valid button content."""
     return html.Button(
-        type="button", n_clicks=0, id=jump_id, title=hint,
+        type="button", n_clicks=0, id=jump_id, title=f"{secondary} — {hint}",
         className="kpi-card kpi-card--action" + (" kpi-card--accent" if accent else ""),
         children=[
             html.Span(label, className="kpi-card__label"),

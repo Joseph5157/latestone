@@ -7123,3 +7123,5 @@ button.attention-strip__seg { border: 0; padding: 0; cursor: pointer; }
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   font-size: var(--fs-body);
 }
+.kpi-card--action > span { display: block; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-card--action { min-width: 0; overflow: hidden; }
