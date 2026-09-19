@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: CC-SEVERITY-CARDS-1
-Commit/push permission: commit **GRANTED on branch `cc-severity-cards`**
-and a local merge to `main` once green; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (CC-SEVERITY-CARDS-1); push **NOT granted**.
 
-## CC-SEVERITY-CARDS-1 — OPEN / IN PROGRESS
+## CC-SEVERITY-CARDS-1 — CLOSED / PASS
 
 Baseline: `main` at `979f86c`, branch `cc-severity-cards`.
 
@@ -34,6 +34,25 @@ headline, backlog, reporting and limits; the severity strip stays.
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `ad0d73d` `severity_breakdown` (per tone, kinds in rank order); the four
+  counters become `attention-severity-card` buttons (label, big number,
+  breakdown, tone edge) in a row under the status box; ids, store and
+  callbacks from CLICK-FILTER-1 unchanged.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed. A first full run failed `test_seed_integrity` (+1 range test)
+  because an orphaned live-simulator process was still appending readings
+  after its background task was reaped; stopped, rerun green.
+- Browser 1440 px dark and light: cards "Critical 11 · Critical temperature
+  3 · Power Down 8", "Warning 35", "No data 1", "Sensor 9"; Critical card ->
+  11 rows, pressed; no horizontal scroll; no console errors.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 

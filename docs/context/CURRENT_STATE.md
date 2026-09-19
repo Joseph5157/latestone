@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T11:42:18Z
+Date: 2026-09-19T11:52:04Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-severity-cards` = `979f86c` "Merge branch 'click-to-filter': condition bar and click-to-filter on Overview and Command Center" (not `main`)
+- current branch `cc-severity-cards` = `ad0d73d` "feat(command-center): severity counters as stat cards with a per-kind breakdown" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2928 passed, 731 deselected in 34.12s
+- `python -m pytest -m "not db"` → 2929 passed, 731 deselected in 33.82s
 
 ## Branches
 
@@ -27,7 +27,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-dashboard-final`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
-- `cc-severity-cards`
 - `cc-visuals`
 - `click-to-filter`
 - `ctx-1-context-architecture`
@@ -52,6 +51,7 @@ Diverged from `main` (has commits `main` doesn't):
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
 | `cc-1-command-center-progress` | 14 | 396 | REVIEW — unexpected divergence |
+| `cc-severity-cards` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `client-demo-1` | 7 | 246 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 396 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
@@ -88,7 +88,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CC-SEVERITY-CARDS-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
