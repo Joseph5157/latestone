@@ -412,7 +412,7 @@ def test_fleet_kpi_cards_report_the_visible_population():
     """Spec 7.1(3): asserted on the rendered KPI numbers, not just the query
     result. This is where filtering-after-aggregation would show through â€” the
     query could be right and the card still wrong."""
-    from components.fleet_summary import fleet_kpi_cards
+    from components.fleet_summary import plant_kpi_cards
     from services import hierarchy_service, monitoring_service
     from services.device_scope import DeviceScope
     from tests.dash_tree import text_of
@@ -435,8 +435,10 @@ def test_fleet_kpi_cards_report_the_visible_population():
     assert len(plants) == 1, "only the plant holding kpi-d1 is visible"
     assert visible_devices == 1, "Invariant 4: counted over the visible set"
 
-    cards = fleet_kpi_cards(
-        plants=len(plants),
+    # The fleet KPI row left with the old Fleet Overview (SWITCH-OVER-1);
+    # the plant page's cards are the surviving consumer of the same chain.
+    cards = plant_kpi_cards(
+        plants[0].plant_id,
         transformers=sum(t for t, _d in counts.values()),
         devices=visible_devices,
         health=health,
