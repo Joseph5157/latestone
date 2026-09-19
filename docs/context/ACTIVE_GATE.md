@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: STATS-CARDS-1
-Commit/push permission: commit **GRANTED on branch `overview-stats-cards`**
-and a local merge to `main` once green; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (STATS-CARDS-1); push **NOT granted**.
 
-## STATS-CARDS-1 — OPEN / IN PROGRESS
+## STATS-CARDS-1 — CLOSED / PASS
 
 Baseline: `main` at `4cde0cb`, branch `overview-stats-cards`.
 
@@ -43,6 +43,27 @@ Baseline: `main` at `4cde0cb`, branch `overview-stats-cards`.
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `03bf28f` `fleet_stats` (service, pure) + `stat_cards` (reuses
+  `kpi_card` in a `kpi-row`); replaces the plant/transformer/RTL summary
+  line. Hot RTLs shows "—" with "Temperature limits not set" when unset.
+- `b019a33` `acknowledged_count` (24 h window over the same bounded event
+  read) as `AttentionSnapshot.acknowledged_24h`; `oldest_unacknowledged`
+  (alarm kinds only, no-data excluded) rendered in the status bar.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed with the live simulator stopped (restarted afterwards).
+- Browser 1440 px: admin/general cards "40.1 °C · RTL 29020 · Tucuruí",
+  "11 · 1 Critical · 10 Warning", "44.3 °C · 06 Sep", "119 of 120";
+  demo.tech01 own scope (24 of 24). Command Center backlog: admin "Oldest
+  unacknowledged: Battery Low · 20 d ago | 4 acknowledged in the last 24 h";
+  tech "6 d ago | 0". No horizontal scroll, no console errors.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
