@@ -1,10 +1,41 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (CLICK-FILTER-1); push **NOT granted**.
+Gate: CC-SEVERITY-CARDS-1
+Commit/push permission: commit **GRANTED on branch `cc-severity-cards`**
+and a local merge to `main` once green; push **NOT granted**.
+
+## CC-SEVERITY-CARDS-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `979f86c`, branch `cc-severity-cards`.
+
+## Task
+
+The Command Center's four severity counters (Critical / Warning / No data /
+Sensor) become a row of stat cards like the Fleet Overview's: big number,
+a per-kind breakdown line, a tone edge; still the same filter buttons
+(CLICK-FILTER-1 ids and callbacks unchanged). The status line keeps the
+headline, backlog, reporting and limits; the severity strip stays.
+
+## Relevant files
+
+- `components/attention.py`, `assets/app.css`
+
+## Non-goals (explicit)
+
+- No new data, no callback or store change.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+  Browser 1440 px, dark and light.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## CLICK-FILTER-1 — CLOSED / PASS
 
@@ -68,7 +99,7 @@ Baseline: `main` at `bdd5231`, branch `click-to-filter`.
   Show all -> 55; pressing the active counter again -> 55. No console
   errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-SEVERITY-CARDS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
