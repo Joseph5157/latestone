@@ -5,7 +5,7 @@ Date: 2026-09-19
 Evidence: `components/status_colors.py` (the key and both tone maps),
 `components/fleet_overview.py`, `components/attention.py`,
 `assets/app.css` (`--sev-*` tokens, `.status-chip`)
-Implemented-by: `21a5d1f`; `0a84648` (badge-vs-dot)
+Implemented-by: `21a5d1f`; `0a84648` (badge-vs-dot); `fd84225` (coloured text)
 
 ## Context
 

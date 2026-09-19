@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T13:38:17Z
+Date: 2026-09-19T13:44:15Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `problem-text-colour` = `dd69067` "Merge branch 'problem-dots': Needs-attention problems as dot + text (ADR-026)" (not `main`)
+- current branch `problem-text-colour` = `fd84225` "feat(ui): Needs-attention problem names in their tone colour; dot removed (ADR-026, COLOUR-KEY-3)" (not `main`)
 - Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2980 passed, 731 deselected in 34.22s
+- `python -m pytest -m "not db"` → 2982 passed, 731 deselected in 34.27s
 
 ## Branches
 
@@ -43,7 +43,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `overview-cc-redesign`
 - `overview-stats-cards`
 - `problem-dots`
-- `problem-text-colour`
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
@@ -60,6 +59,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 422 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 272 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 422 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `problem-text-colour` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -92,11 +92,11 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-023-temperature-condition-uses-admin-limits.md | Approved | `a0f1223` (`feat(temperature): condition per RTL against administrator limits (ADR-023)`) |
 | ADR-024-overview-and-command-center-split-by-question.md | Approved | `2cfad36` (switch-over; built in FO-NEW-1, CC-NEW-1, CC-ACTIONS-1) |
 | ADR-025-dark-mode-is-app-wide-and-remembered.md | Approved | `07d1b02` (app-wide theme, store, toggle); `0503480` (components) |
-| ADR-026-one-colour-key-colour-means-urgency.md | Approved | `21a5d1f`; `0a84648` (badge-vs-dot) |
+| ADR-026-one-colour-key-colour-means-urgency.md | Approved | `21a5d1f`; `0a84648` (badge-vs-dot); `fd84225` (coloured text) |
 
 ## Active gate
 
-COLOUR-KEY-3 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
