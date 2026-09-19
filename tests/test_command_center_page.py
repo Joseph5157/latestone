@@ -23,7 +23,7 @@ def _ids(node, out=None):
 
 def test_layout_carries_every_slot_and_no_theme_controls_of_its_own():
     ids = _ids(page.layout())
-    assert {page.SCOPE_ID, page.STATUS_SLOT_ID, page.PROBLEMS_ID, page.HOTTEST_ID,
+    assert {page.SCOPE_ID, page.STATUS_SLOT_ID, page.GLANCE_ID, page.PROBLEMS_ID, page.HOTTEST_ID,
             page.ACTIVITY_ID, page.TREND_ID, page.ERROR_ID, page.INTERVAL_ID,
             page.STORE_ID, page.REFRESH_STATUS_ID, page.REFRESH_NOW_ID} <= ids
     # ADR-025: the appearance is app-wide; its store and toggle live in the
@@ -33,7 +33,7 @@ def test_layout_carries_every_slot_and_no_theme_controls_of_its_own():
 
 def test_other_routes_do_nothing():
     out = cb.populate({"route": "overview"}, None, fetch=lambda *a, **k: 1 / 0)
-    assert out == (no_update,) * 9
+    assert out == (no_update,) * (cb.PANEL_OUTPUTS + 3)
 
 
 def test_success_renders_every_panel_and_records_success():
@@ -43,22 +43,25 @@ def test_success_renders_every_panel_and_records_success():
     out = cb.populate({"route": "command_center"}, None,
                       fetch=lambda scope, now: snap, scope_for=lambda: None,
                       identity=lambda: None)
-    assert len(out) == 9 and out[6] is None
-    assert out[8]["failed"] is False and out[8]["last_success_at"]
+    P = cb.PANEL_OUTPUTS
+    assert len(out) == P + 3 and out[P] is None
+    assert out[P + 2]["failed"] is False and out[P + 2]["last_success_at"]
 
 
 def test_failed_first_load_shows_error():
     out = cb.populate({"route": "command_center"}, None,
                       fetch=lambda *a, **k: 1 / 0, scope_for=lambda: None)
-    assert out[6] is not None and out[8] == {"last_success_at": None, "failed": True}
+    P = cb.PANEL_OUTPUTS
+    assert out[P] is not None and out[P + 2] == {"last_success_at": None, "failed": True}
 
 
 def test_failed_refresh_keeps_last_good_panels():
     state = {"last_success_at": "2026-09-19T00:00:00+00:00", "failed": False}
     out = cb.populate({"route": "command_center"}, state,
                       fetch=lambda *a, **k: 1 / 0, scope_for=lambda: None)
-    assert out[:7] == (no_update,) * 7
-    assert out[8] == {"last_success_at": state["last_success_at"], "failed": True}
+    P = cb.PANEL_OUTPUTS
+    assert out[:P + 1] == (no_update,) * (P + 1)
+    assert out[P + 2] == {"last_success_at": state["last_success_at"], "failed": True}
 
 
 def test_page_root_carries_its_route_class_not_a_theme_class():
@@ -199,3 +202,72 @@ def _walk_all(node):
         return
     for child in children if isinstance(children, (list, tuple)) else [children]:
         yield from _walk_all(child)
+
+
+# --- CC-GAUGES-1 (ADR-028) ----------------------------------------------------
+
+
+def test_the_glance_slot_sits_above_the_problem_list_in_the_main_column():
+    main = next(n for n in _walk_nodes(page.layout())
+                if getattr(n, "className", None) == "attention-grid__main")
+    assert [c.id for c in main.children] == [page.GLANCE_ID, page.PROBLEMS_ID]
+
+
+def _walk_nodes(node):
+    yield node
+    children = getattr(node, "children", None)
+    for child in children if isinstance(children, (list, tuple)) else ([children] if children is not None else []):
+        yield from _walk_nodes(child)
+
+
+def test_populate_fills_the_glance_slot_in_callback_output_order():
+    snap = AttentionSnapshot(total_rtls=3, reporting_rtls=2, problems=(), hottest=(),
+                             activity=(), daily_alarms=(), limits=None,
+                             generated_at=datetime(2026, 9, 19, tzinfo=timezone.utc))
+    out = cb.populate({"route": "command_center"}, None, selected="warning",
+                      fetch=lambda scope, now: snap, scope_for=lambda: None,
+                      identity=lambda: None)
+    outputs = [
+        (o.component_id, o.component_property)
+        for o in _populate_outputs()
+    ]
+    glance = out[outputs.index((page.GLANCE_ID, "children"))]
+    assert "2 of 3" in str(_texts(glance))
+
+
+def _texts(node):
+    return [n for n in _walk_nodes(node) if isinstance(n, str)]
+
+
+def _populate_outputs():
+    from dash import Output
+
+    class Capture:
+        def __init__(self):
+            self.specs = {}
+
+        def callback(self, *args, **kwargs):
+            def register(fn):
+                self.specs[fn.__name__] = args
+                return fn
+            return register
+
+    capture = Capture()
+    cb.register(capture)
+    return [a for a in capture.specs["populate_attention"] if isinstance(a, Output)]
+
+
+def test_a_donut_label_selects_and_toggles_like_a_card():
+    trigger = {"type": ui.SEVERITY_BUTTON, "tone": "warning", "part": "donut"}
+    assert cb.severity_selection(trigger, 1, None) == "warning"
+    assert cb.severity_selection(trigger, 1, "warning") is None
+
+
+def test_gauge_rings_have_a_cut_out_hole_and_no_animation():
+    from pathlib import Path
+    css = Path("assets/app.css").read_text(encoding="utf-8")
+    start = css.index("/* CC-GAUGES-1 (ADR-028)")
+    block = css[start:css.index("/* ====", start)]
+    assert "mask: radial-gradient(farthest-side, transparent" in block
+    assert ".attention-arc__frame" in block and "overflow: hidden" in block
+    assert "animation:" not in block and "transition:" not in block

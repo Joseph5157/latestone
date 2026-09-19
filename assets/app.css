@@ -6766,7 +6766,7 @@ body {
   gap: var(--sp-4);
   align-items: start;
 }
-.attention-grid__side { display: grid; gap: var(--sp-4); }
+.attention-grid__main, .attention-grid__side { display: grid; gap: var(--sp-4); min-width: 0; }
 @media (max-width: 1100px) {
   .attention-grid { grid-template-columns: minmax(0, 1fr); }
 }
@@ -7147,7 +7147,7 @@ summary.attention-group:focus-visible { outline: 2px solid var(--color-accent); 
 
 /* CC-VISUALS-1: severity strip, temperature meters, stacked alarm bars.
    Plain HTML bars on the Command Center's own tone tokens (no chart library;
-   AGENTS.md forbids gauges and pie charts). */
+   rings only for part-of-whole counts, ADR-028). */
 .attention-strip {
   flex-basis: 100%;
   display: flex;
@@ -7331,6 +7331,87 @@ button.attention-severity-card.attention-counter--critical:not(.attention-counte
 button.attention-severity-card.attention-counter--critical.attention-counter--active {
   background: color-mix(in srgb, var(--sev-critical) 20%, var(--color-surface));
 }
+
+/* CC-GAUGES-1 (ADR-028): Fleet at a glance. Both rings are one element each:
+   a conic-gradient built in components/attention.py from the tone variables,
+   with a radial mask cutting the hole. The half-arc is the same ring shown
+   through a frame half its height. No animation. */
+.attention-glance {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--sp-5, 24px);
+  align-items: center;
+}
+.attention-arc, .attention-donut { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; }
+.attention-arc { flex-direction: column; gap: var(--sp-2); }
+.attention-arc__ring, .attention-donut__ring {
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 20px), #000 calc(100% - 19px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 20px), #000 calc(100% - 19px));
+}
+.attention-arc__frame {
+  position: relative;
+  width: 200px;
+  height: 100px;
+  overflow: hidden;
+}
+.attention-arc__ring { width: 200px; height: 200px; }
+.attention-arc__centre {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+}
+.attention-donut__frame { position: relative; flex: 0 0 160px; width: 160px; height: 160px; }
+.attention-donut__ring { width: 100%; height: 100%; }
+.attention-donut__centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+}
+.attention-gauge__value { font-size: 26px; font-weight: 600; color: var(--color-text); }
+.attention-gauge__caption, .attention-gauge__detail { font-size: var(--fs-small, 12px); color: var(--color-muted); }
+
+/* The labels are the donut's click targets (CLICK-FILTER-1): the same
+   severity filter as the cards, pressed and dimmed the same way. */
+.attention-donut__labels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+button.attention-donut__label {
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+button.attention-donut__label::before { flex: 0 0 10px; }
+button.attention-donut__label > span { flex: 1 1 auto; text-align: left; }
+button.attention-donut__label:hover:not(:disabled) { background: var(--color-bg); }
+button.attention-donut__label:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+button.attention-donut__label:disabled { color: var(--color-muted); cursor: default; }
+button.attention-donut__label:disabled::before { background: var(--color-border); }
+button.attention-donut__label--active {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px currentColor;
+  background: color-mix(in srgb, currentColor 10%, var(--color-surface));
+}
+button.attention-donut__label--dim { opacity: 0.45; }
 
 /* ==========================================================================
    THEME-APP-1 (ADR-025): the app-wide Dark | Light control in the sidebar

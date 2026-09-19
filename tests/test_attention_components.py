@@ -335,3 +335,111 @@ def test_group_heading_is_the_fold_toggle_and_keeps_its_count():
     assert type(heads[0]).__name__ == "Summary"
     assert heads[0].id == {"type": ui.GROUP_TOGGLE, "kind": "power_down"}
     assert text(heads[0]) == "Power Down 1"
+
+
+# --- CC-GAUGES-1 (ADR-028) --------------------------------------------------
+
+
+class TestRingStops:
+    def test_nothing_to_draw_is_no_stops(self):
+        assert ui.ring_stops([]) == []
+        assert ui.ring_stops([("critical", 0), ("warning", 0)]) == []
+
+    def test_one_tone_fills_the_ring(self):
+        assert ui.ring_stops([("critical", 0), ("warning", 5)]) == [("warning", 0.0, 100.0)]
+
+    def test_slices_are_proportional_contiguous_and_end_at_100(self):
+        stops = ui.ring_stops([("critical", 8), ("warning", 18), ("nodata", 1), ("info", 9)])
+        assert [t for t, _s, _e in stops] == ["critical", "warning", "nodata", "info"]
+        assert stops[0] == ("critical", 0.0, 22.22)
+        for (_t, _s, end), (_t2, start, _e) in zip(stops, stops[1:]):
+            assert end == start
+        assert stops[-1][2] == 100.0
+
+
+def _glance(problems=(), reporting=119, selected=None, total=120):
+    snap = AttentionSnapshot(total_rtls=total, reporting_rtls=reporting,
+                             problems=tuple(problems), hottest=(), activity=(),
+                             daily_alarms=(), limits=None, generated_at=NOW)
+    return ui.glance_card(snap, selected)
+
+
+def _donut_labels(node):
+    return [n for n in _walk(node)
+            if isinstance(getattr(n, "id", None), dict)
+            and n.id.get("type") == ui.SEVERITY_BUTTON and n.id.get("part") == "donut"]
+
+
+class TestWorkingArc:
+    def test_centre_reads_working_of_total_and_who_is_short(self):
+        card = _glance(reporting=119)
+        arc = find_by_class(card, "attention-arc")
+        assert "119 of 120" in text(arc)
+        assert "1 not reporting" in text(arc)
+        assert "All RTLs reporting" in text(_glance(reporting=120))
+
+    def test_fill_is_the_calm_tone_proportional_to_working(self):
+        ring = find_by_class(_glance(reporting=60), "attention-arc__ring")
+        background = ring.style["background"]
+        assert "var(--attention-normal) 0% 25.0%" in background
+        assert "--cc-critical" not in background and "--cc-warning" not in background
+
+    def test_none_working_and_no_rtls_draw_an_empty_track(self):
+        for reporting, total in ((0, 120), (0, 0)):
+            ring = find_by_class(_glance(reporting=reporting, total=total), "attention-arc__ring")
+            assert "var(--attention-normal) 0% 0.0%" in ring.style["background"]
+        assert "0 of 0" in text(_glance(reporting=0, total=0))
+
+    def test_arc_is_described_for_screen_readers(self):
+        ring = find_by_class(_glance(reporting=119), "attention-arc__ring")
+        assert ring.role == "img"
+        assert getattr(ring, "aria-label") == "119 of 120 RTLs working"
+
+
+class TestProblemDonut:
+    PROBLEMS = [_problem(K.POWER_DOWN), _problem(K.POWER_DOWN),
+                _problem(K.BATTERY_LOW), _problem(K.SENSOR_ERROR)]
+
+    def test_centre_carries_the_total(self):
+        donut = find_by_class(_glance(self.PROBLEMS), "attention-donut")
+        assert "4" in text(find_by_class(donut, "attention-donut__centre"))
+        assert "problems" in text(find_by_class(donut, "attention-donut__centre"))
+
+    def test_slices_follow_the_severity_counts(self):
+        ring = find_by_class(_glance(self.PROBLEMS), "attention-donut__ring")
+        background = ring.style["background"]
+        assert "var(--cc-critical) 0.0% 50.0%" in background
+        assert "var(--cc-warning) 50.0% 75.0%" in background
+        assert "var(--attention-info) 75.0% 100.0%" in background
+        assert "--cc-no-data" not in background
+
+    def test_no_problems_is_a_calm_full_ring_reading_all_clear(self):
+        donut = find_by_class(_glance(()), "attention-donut")
+        assert "All clear" in text(donut)
+        ring = find_by_class(donut, "attention-donut__ring")
+        assert "var(--attention-normal)" in ring.style["background"]
+
+    def test_labels_are_severity_filter_buttons_disabled_at_zero(self):
+        labels = _donut_labels(_glance(self.PROBLEMS))
+        assert [b.id["tone"] for b in labels] == [t for _l, t in ui.SEVERITY_COUNTERS]
+        by_tone = {b.id["tone"]: b for b in labels}
+        assert "Critical" in text(by_tone["critical"]) and "2" in text(by_tone["critical"])
+        assert by_tone["nodata"].disabled is True
+        assert by_tone["critical"].disabled is False
+
+    def test_selected_tone_is_pressed_and_the_others_dim(self):
+        card = _glance(self.PROBLEMS, selected="warning")
+        by_tone = {b.id["tone"]: b for b in _donut_labels(card)}
+        assert getattr(by_tone["warning"], "aria-pressed") == "true"
+        assert getattr(by_tone["critical"], "aria-pressed") == "false"
+        assert "attention-donut__label--dim" in by_tone["critical"].className
+        assert "attention-donut__label--dim" not in by_tone["warning"].className
+        ring = find_by_class(card, "attention-donut__ring")
+        assert "color-mix(in srgb, var(--cc-critical)" in ring.style["background"]
+        assert "var(--cc-warning) 50.0% 75.0%" in ring.style["background"]
+
+
+def test_glance_card_holds_both_gauges_side_by_side():
+    card = _glance([_problem()])
+    assert "Fleet at a glance" in text(card)
+    assert {"attention-glance", "attention-arc", "attention-donut"} <= classes(card)
