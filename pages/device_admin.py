@@ -6,6 +6,7 @@ from dash import dcc, html
 from components.app_header import app_header
 from components.assign_device_drawer import assign_device_drawer
 from components.breadcrumb import breadcrumb
+from components.column_filter import DATA_FILTER_OPTIONS, column_filter
 from components.device_manage_drawer import device_manage_drawer
 from components.entity_table import entity_table
 
@@ -35,13 +36,6 @@ DEVICE_ADMIN_COLUMN_WIDTHS = {
 }
 
 
-DATA_FILTER_OPTIONS = [
-    {"label": "All", "value": "all"},
-    {"label": "Fresh", "value": "fresh"},
-    {"label": "Stale", "value": "stale"},
-    {"label": "No data", "value": "no_data"},
-]
-
 #: Values are `callbacks.device_admin.last_reading_band` results.
 READING_FILTER_OPTIONS = [
     {"label": "All", "value": "all"},
@@ -52,38 +46,18 @@ READING_FILTER_OPTIONS = [
 ]
 
 
-def _column_filter(label: str, dropdown: dcc.Dropdown) -> html.Div:
-    """One labelled column filter (DEVICE-FILTERS-1).
-
-    dcc.Dropdown renders a div, which a <label for> cannot reach, so the
-    label names a role="group" around it, as the Status filter does.
-    """
-    label_id = f"{dropdown.id}-label"
-    return html.Div(
-        className="device-admin-filters__item",
-        children=[
-            html.Label(label, id=label_id, className="device-admin-filters__label"),
-            html.Div(
-                role="group",
-                **{"aria-labelledby": label_id},
-                children=[dropdown],
-            ),
-        ],
-    )
-
-
 def _column_filters() -> html.Div:
     return html.Div(
         className="device-admin-filters",
         children=[
-            _column_filter("Plant", dcc.Dropdown(
+            column_filter("Plant", dcc.Dropdown(
                 id="device-admin-plant-filter",
                 options=[],
                 placeholder="All plants",
                 searchable=True,
                 className="device-admin-toolbar__dropdown",
             )),
-            _column_filter("Transformer", dcc.Dropdown(
+            column_filter("Transformer", dcc.Dropdown(
                 id="device-admin-transformer-filter",
                 options=[],
                 placeholder="All transformers",
@@ -91,7 +65,7 @@ def _column_filters() -> html.Div:
                 disabled=True,
                 className="device-admin-toolbar__dropdown",
             )),
-            _column_filter("Data", dcc.Dropdown(
+            column_filter("Data", dcc.Dropdown(
                 id="device-admin-data-filter",
                 options=DATA_FILTER_OPTIONS,
                 value="all",
@@ -99,7 +73,7 @@ def _column_filters() -> html.Div:
                 searchable=False,
                 className="device-admin-toolbar__dropdown",
             )),
-            _column_filter("Technician", dcc.Dropdown(
+            column_filter("Technician", dcc.Dropdown(
                 id="device-admin-technician-filter",
                 options=[{"label": "All", "value": "all"}],
                 value="all",
@@ -107,7 +81,7 @@ def _column_filters() -> html.Div:
                 searchable=True,
                 className="device-admin-toolbar__dropdown",
             )),
-            _column_filter("Last reading", dcc.Dropdown(
+            column_filter("Last reading", dcc.Dropdown(
                 id="device-admin-reading-filter",
                 options=READING_FILTER_OPTIONS,
                 value="all",

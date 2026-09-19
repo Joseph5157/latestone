@@ -335,6 +335,24 @@ class TestSortAffordance:
         assert "opacity" in body
         assert "margin-left" in body
 
+    def test_the_arrow_follows_the_label_and_stays_beside_it(self, css):
+        """ASSIGN-TOOLBAR-1: dash_table renders the arrow first and grows the
+        name to fill the cell, so a right-aligned header's arrow sat ~800px
+        from its label."""
+        inner = ".entity-table-wrapper .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner"
+        assert "display: inline-flex" in rule(css, inner + " .dash-header > div")
+        name = rule(css, inner + " .column-header-name")
+        assert "flex-grow: 0" in name
+        assert "order: 1" in name
+        assert "order: 2" in rule(css, inner + " .dash-header .column-actions")
+
+    def test_the_action_columns_carry_no_sort_arrow(self, css):
+        assert "display: none" in rule(
+            css,
+            '.entity-table-wrapper th.dash-header[data-dash-column="manage"] .column-header--sort',
+        )
+        assert '.entity-table-wrapper th.dash-header[data-dash-column="assign"] .column-header--sort' in css
+
     def test_the_arrow_strengthens_on_hover(self, css):
         assert "opacity: 1" in rule(
             css, ".entity-table-wrapper th:hover .column-header--sort"
