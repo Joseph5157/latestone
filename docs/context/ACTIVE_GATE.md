@@ -1,10 +1,49 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (PROBLEM-GROUPS-1); push **NOT granted**.
+Gate: ALARM-HISTORY-1
+Commit/push permission: commit on branch `alarm-history` and local merge to
+`main` **GRANTED**; push **NOT granted**.
+
+## ALARM-HISTORY-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `3de2832`, branch `alarm-history`. ADR-027.
+
+## Task
+
+Device page: the RTL's alarms as markers on the chart, a read-only alarm
+history list under it, and shaded "No readings" gaps (ADR-027; user
+approved mockup and decisions 2026-09-19).
+
+## Relevant files
+
+- `services/device_timeline_service.py` (new),
+  `components/device_alarms.py` (new), `components/metric_chart.py`,
+  `components/status_colors.py`, `callbacks/device.py`,
+  `pages/device_dashboard.py`, `assets/app.css`
+- `tests/test_device_timeline_service.py` (new),
+  `tests/test_device_alarms_component.py` (new)
+- `docs/decisions/ADR-027-device-page-alarm-history.md`
+
+## Non-goals (explicit)
+
+- No Acknowledge on the Device page (read-only).
+- No new repository query, table or migration.
+- No fixed reporting cadence.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` (seed-integrity row
+  counts known-red on the current local DB).
+- Browser 1440 px, dark and light: a Device page with alarms, as
+  Administrator, Technician and General User.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## PROBLEM-GROUPS-1 — CLOSED / PASS
 
@@ -54,7 +93,7 @@ None.
 - Browser 1440 px, dark and light: six headings in rank order with counts
   2 / 8 / 1 / 14 / 18 / 9; heading stays pinned while the list scrolls.
 
-## Next implementation gate: NONE
+## Next implementation gate: ALARM-HISTORY-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

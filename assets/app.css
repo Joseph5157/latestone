@@ -7401,3 +7401,31 @@ button.attention-severity-card.attention-counter--critical.attention-counter--ac
 .app-root.theme--dark:not(:has(.login-page)) input.dash-filter--case--sensitive { border-color: var(--color-accent) !important; color: var(--color-accent); }
 .app-root.theme--dark:not(:has(.login-page)) .dash-spreadsheet-container .dash-spreadsheet-inner th.dash-filter input:not([type=button]) { border-bottom: 1px solid var(--color-input-border); }
 .app-root.theme--dark:not(:has(.login-page)) .Select-input, .app-root.theme--dark:not(:has(.login-page)) .Select-input > input { background: transparent; }
+
+/* ALARM-HISTORY-1 (ADR-027): this RTL's alarms under its chart. Read-only;
+   kind in its ADR-026 tone (.status-text--*), unacknowledged in bold. */
+.device-alarms { margin-top: var(--sp-4); display: grid; gap: var(--sp-2); }
+.device-alarms__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--color-border-strong);
+}
+.device-alarms__title { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--color-text); }
+.device-alarms__summary, .device-alarms__empty { margin: 0; color: var(--color-muted); font-size: var(--fs-meta); }
+.device-alarms__list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+.device-alarms__row {
+  display: grid;
+  grid-template-columns: 9.5rem 10rem minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: baseline;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.device-alarms__time { color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.device-alarms__kind { font-weight: 600; }
+.device-alarms__ack { color: var(--color-muted); }
+.device-alarms__ack--open { color: var(--color-text); font-weight: 600; }

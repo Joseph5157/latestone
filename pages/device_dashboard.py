@@ -213,6 +213,8 @@ def layout(
                         className="device-chart-panel",
                         children=[dcc.Loading(metric_chart("metric-chart"), className="chart-loading")],
                     ),
+                    # ADR-027: this RTL's alarms in the chosen range.
+                    html.Div(id="device-alarm-history"),
                 ],
             ),
             html.Section(

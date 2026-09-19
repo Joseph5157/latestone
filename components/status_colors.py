@@ -37,6 +37,17 @@ TONE_TOKEN = {
     "none": "--sev-none",
 }
 
+#: Plotly draws with fixed colours, not CSS tokens, so marks on a chart take
+#: a mid tone that reads on both the light and the dark ground (ADR-027).
+TONE_CHART_COLOUR = {
+    "critical": "#dc2626",
+    "warning": "#d97706",
+    "nodata": "#8b7bbf",
+    "info": "#7b8ea3",
+}
+#: The "No readings" band: the No data tone, faint.
+GAP_FILL = "rgba(139, 123, 191, 0.16)"
+
 CONDITION_TONE: dict[TemperatureCondition, str] = {
     TemperatureCondition.CRITICAL: "critical",
     TemperatureCondition.WARNING: "warning",

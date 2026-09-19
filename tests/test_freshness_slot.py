@@ -95,4 +95,4 @@ class TestErrorPathDoesNotPutAPanelInTheHeader:
         point, not the number: a callback that returns fewer values than it
         declares fails at runtime, in the browser, on the error path — the one
         path least likely to be exercised by hand."""
-        assert len(error_outputs()) == 7
+        assert len(error_outputs()) == 8

@@ -90,6 +90,12 @@ _EVENT_KIND: dict[str, ProblemKind] = {
     EVENT_TYPE_SENSOR_ERROR: ProblemKind.SENSOR_ERROR,
 }
 ALARM_EVENT_TYPES: tuple[str, ...] = tuple(_EVENT_KIND)
+
+
+def event_kind(event_type: str) -> ProblemKind | None:
+    """The problem kind a persisted alarm event type means, else None."""
+    return _EVENT_KIND.get(event_type)
+
 _KIND_EVENT_TYPE: dict[ProblemKind, str] = {kind: t for t, kind in _EVENT_KIND.items()}
 #: Problems backed by persisted alarm events, and so acknowledgeable (CC-ACTIONS-1).
 ACKNOWLEDGEABLE_KINDS = frozenset(_KIND_EVENT_TYPE)

@@ -177,4 +177,4 @@ class TestGridWiring:
     def test_error_outputs_cover_every_output(self):
         from callbacks.device import error_outputs
 
-        assert len(error_outputs()) == 7
+        assert len(error_outputs()) == 8
