@@ -16,6 +16,7 @@ from routes import FLEET_OVERVIEW_PATH
 from services.fleet_overview_service import FILTER_ALL, SORT_NAME
 
 STATS_ID = "fleet-overview-stats"
+CONDITION_ID = "fleet-overview-condition"
 REFRESHED_ID = "fleet-overview-refreshed"
 LIMITS_ID = "fleet-overview-limits"
 ERROR_ID = "fleet-overview-error"
@@ -38,6 +39,7 @@ def layout() -> html.Div:
             ]),
             # STATS-CARDS-1: four temperature stat cards, filled by the callback.
             html.Div(id=STATS_ID),
+            html.Div(id=CONDITION_ID),
             html.Div(id=LIMITS_ID),
             html.Div(id=ERROR_ID, className="listing-error"),
             # POLISH-1: options (with counts) are written by the callback from

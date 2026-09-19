@@ -7062,3 +7062,43 @@ body {
 }
 .attention-hottest__value { text-align: right; }
 .attention-hottest__row > .attention-chip { justify-self: end; }
+
+/* CLICK-FILTER-1: stat cards and the condition bar as filter controls. */
+.kpi-card--action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kpi-card--action:hover { border-color: var(--color-accent); }
+.kpi-card--action:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.fleet-overview-condition {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.fleet-overview-condition__head { display: flex; justify-content: space-between; font-size: var(--fs-body); margin-bottom: var(--sp-2); }
+.fleet-overview-condition__title { font-weight: 600; color: var(--color-text); }
+.fleet-overview-condition__total { color: var(--color-muted); }
+.fleet-overview-condition__bar { display: flex; gap: 2px; height: 14px; border-radius: 999px; overflow: hidden; }
+.fleet-overview-condition__seg { display: block; min-width: 6px; border: 0; padding: 0; }
+button.fleet-overview-condition__seg { cursor: pointer; }
+button.fleet-overview-condition__seg:hover { filter: brightness(0.9); }
+.fleet-overview-condition__seg--critical, .fleet-overview-legend--critical::before { background: var(--state-error-text); }
+.fleet-overview-condition__seg--warning,  .fleet-overview-legend--warning::before  { background: #d97706; }
+.fleet-overview-condition__seg--normal,   .fleet-overview-legend--normal::before   { background: #16a34a; }
+.fleet-overview-condition__seg--none,     .fleet-overview-legend--none::before     { background: #9ca3af; }
+.fleet-overview-condition__legend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-2); }
+.fleet-overview-legend {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  padding: 0; border: 0; background: none; font: inherit;
+  font-size: var(--fs-body); color: var(--color-text);
+}
+.fleet-overview-legend::before { content: ""; width: 10px; height: 10px; border-radius: 2px; }
+button.fleet-overview-legend { cursor: pointer; }
+button.fleet-overview-legend:hover { text-decoration: underline; }
