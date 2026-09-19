@@ -6725,7 +6725,6 @@ body {
 }
 .attention-status--clear { border-left-color: var(--attention-normal); }
 .attention-status__headline { font-size: 1.125rem; color: var(--color-text); }
-.attention-status__reporting,
 .attention-status__limits { color: var(--color-muted); font-size: var(--fs-body); }
 .attention-status__limits--unset { color: var(--cc-warning); }
 
@@ -7201,10 +7200,11 @@ button.attention-strip__seg { border: 0; padding: 0; cursor: pointer; }
 .attention-overview .attention-status { margin: 0 0 var(--sp-3); }
 .attention-severity-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--sp-3);
 }
-button.attention-severity-card {
+button.attention-severity-card,
+.attention-working {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -7220,6 +7220,10 @@ button.attention-severity-card {
   cursor: pointer;
 }
 button.attention-severity-card:hover:not(:disabled) { border-color: currentColor; }
+/* WORKING-CARD-1: not a filter button; green edge when every RTL reports,
+   the No data tone when some do not. */
+.attention-working { cursor: default; border-left-color: var(--sev-normal); }
+.attention-working--short { border-left-color: var(--sev-nodata); }
 .attention-severity-card .attention-counter__label {
   font-size: var(--fs-meta);
   font-weight: 600;

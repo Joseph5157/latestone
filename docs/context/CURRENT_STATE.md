@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T13:44:15Z
+Date: 2026-09-19T14:05:04Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `problem-text-colour` = `fd84225` "feat(ui): Needs-attention problem names in their tone colour; dot removed (ADR-026, COLOUR-KEY-3)" (not `main`)
+- current branch `working-card` = `aabbc5e` "feat(ui): Command Center 'Working N of M' card (ADR-024 amended, WORKING-CARD-1)" (not `main`)
 - Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2982 passed, 731 deselected in 34.27s
+- `python -m pytest -m "not db"` → 2984 passed, 731 deselected in 34.17s
 
 ## Branches
 
@@ -43,6 +43,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `overview-cc-redesign`
 - `overview-stats-cards`
 - `problem-dots`
+- `problem-text-colour`
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
@@ -56,10 +57,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 422 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 272 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 422 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `problem-text-colour` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 426 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 276 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 426 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `working-card` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -102,7 +103,7 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md
+ M docs/context/CURRENT_STATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

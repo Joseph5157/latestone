@@ -4,9 +4,64 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (COLOUR-KEY-3); push **NOT granted**.
+exercised** (WORKING-CARD-1); push **NOT granted**.
+
+## WORKING-CARD-1 — CLOSED / PASS
+
+Baseline: `main` at `2bca30b`, branch `working-card`. ADR-024 (amended).
+
+## Task
+
+Administrators and Technicians land on the Command Center and cannot see at
+a glance how many RTLs are working (user). Add one simple card: "Working —
+N of M", where working means the RTL has a recent temperature reading (the
+same count as the old "N of M RTLs reporting" status-bar line, which the
+card replaces).
+
+## Relevant files
+
+- `components/attention.py`, `assets/app.css`,
+  `tests/test_attention_components.py`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+
+## Non-goals (explicit)
+
+- No new service or query: `AttentionSnapshot.reporting_rtls` /
+  `total_rtls` already hold the numbers.
+- The card is not a filter button; the severity cards are unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px, dark and light: the Command Center card row.
+
+## Known ambiguity
+
+None. ADR-024 "no panel on both pages" is amended by user request: the
+working count may appear on both pages.
+
+## Implementation
+
+- `aabbc5e` "Working — N of M" card first in the Command Center card row
+  (`reporting_rtls` of `total_rtls`; detail "K not reporting" / "All RTLs
+  reporting"; green edge when all report, No data tone otherwise). The
+  status-bar "RTLs reporting" line is removed. ADR-024 amended.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes.
+- `python -m pytest`: only `tests/test_seed_integrity.py` (3 row-count
+  tests) fails, identically without this change — the local DB is not on
+  the plain seed (refreshed readings). No other failure.
+- Browser 1440 px, dark and light: card reads "Working 119 of 120 · 1 not
+  reporting".
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## COLOUR-KEY-3 — CLOSED / PASS
+
 
 Baseline: `main` at `dd69067`, branch `problem-text-colour`. ADR-026
 (amended).
@@ -50,7 +105,7 @@ None.
 - Browser 1440 px, dark and light: problem names in red / amber / purple /
   grey-blue; text-contrast audit clean on the Command Center.
 
-## Next implementation gate: NONE
+## Next implementation gate: WORKING-CARD-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
