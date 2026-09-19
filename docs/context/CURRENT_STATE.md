@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T15:23:09Z
+Date: 2026-09-19T15:34:15Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `alarm-history` = `6bbf26c` "feat(device): alarm history on the Device page (ADR-027, ALARM-HISTORY-1)" (not `main`)
-- Working tree: 9 entries — see below
+- current branch `problem-groups-fold` = `08e790e` "feat(ui): Needs-attention groups fold as an accordion (PROBLEM-GROUPS-2)" (not `main`)
+- Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3008 passed, 731 deselected in 35.77s
+- `python -m pytest -m "not db"` → 3012 passed, 731 deselected in 35.15s
 
 ## Branches
 
@@ -25,6 +25,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-2-administration-cards`
 - `admin-3-unassigned-rtl-panel`
 - `admin-dashboard-final`
+- `alarm-history`
 - `app-dark-mode`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
@@ -59,10 +60,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `alarm-history` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
-| `cc-1-command-center-progress` | 14 | 432 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 282 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 432 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 435 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 285 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 435 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `problem-groups-fold` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -106,7 +107,6 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/decisions/ADR-027-device-page-alarm-history.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

@@ -167,3 +167,35 @@ def test_severity_selection_toggles_and_ignores_re_renders():
     assert cb.severity_selection(t, 2, "critical") is None
     assert cb.severity_selection({**t, "tone": "all"}, 1, "warning") is None
     assert cb.severity_selection(t, 0, None) is nu
+
+
+# --- PROBLEM-GROUPS-2 -------------------------------------------------------
+def test_fold_selection_toggles_one_kind_and_ignores_rerenders():
+    trig = {"type": ui.GROUP_TOGGLE, "kind": "power_down"}
+    assert cb.fold_selection(trig, 1, []) == ["power_down"]
+    assert cb.fold_selection(trig, 2, ["battery_low", "power_down"]) == ["battery_low"]
+    assert cb.fold_selection(trig, 0, []) is no_update       # re-render
+    assert cb.fold_selection(None, 1, []) is no_update
+
+
+def test_populate_draws_folded_groups_closed():
+    from services.attention_service import AttentionSnapshot, Problem, ProblemKind
+    p = Problem(kind=ProblemKind.POWER_DOWN, device_id="d1", device_code="D1",
+                plant_id="p1", plant_name="Alpha", transformer_code="T1", since=None, detail="x")
+    snap = AttentionSnapshot(total_rtls=1, reporting_rtls=1, problems=(p,), hottest=(),
+                             activity=(), daily_alarms=(), limits=None,
+                             generated_at=datetime(2026, 9, 19, tzinfo=timezone.utc))
+    out = cb.populate({"route": "command_center"}, None, None, ["power_down"],
+                      fetch=lambda scope, now: snap, scope_for=lambda: None,
+                      identity=lambda: None)
+    groups = [n for n in _walk_all(out[2]) if "attention-group-details" in (getattr(n, "className", "") or "").split()]
+    assert [g.open for g in groups] == [False]
+
+
+def _walk_all(node):
+    yield node
+    children = getattr(node, "children", None)
+    if children is None:
+        return
+    for child in children if isinstance(children, (list, tuple)) else [children]:
+        yield from _walk_all(child)

@@ -6774,8 +6774,29 @@ body {
   border-bottom: 2px solid currentColor;
   font-weight: 600;
 }
-.attention-problems > .attention-group:first-child { padding-top: var(--sp-1); }
+.attention-group-item:first-child .attention-group { padding-top: var(--sp-1); }
 .attention-group__count { font-variant-numeric: tabular-nums; }
+/* PROBLEM-GROUPS-2: the heading is the fold toggle (native <details>). A
+   chevron shows the state; the count stays visible when folded. */
+.attention-group-item { list-style: none; }
+.attention-group__rows { list-style: none; margin: 0; padding: 0; }
+summary.attention-group { cursor: pointer; list-style: none; user-select: none; }
+summary.attention-group::-webkit-details-marker { display: none; }
+summary.attention-group::before {
+  content: "";
+  flex: none;
+  width: 0.45em;
+  height: 0.45em;
+  margin: 0 var(--sp-2) 0 2px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-0.12em) rotate(-45deg);
+}
+.attention-group-details[open] > summary.attention-group::before { transform: translateY(-0.25em) rotate(45deg); }
+.attention-group__label { flex: 1 1 auto; }
+summary.attention-group:hover .attention-group__label { text-decoration: underline; text-underline-offset: 2px; }
+summary.attention-group:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.attention-group-details:not([open]) > summary.attention-group { border-bottom-style: dashed; }
 
 .attention-problem {
   display: grid;

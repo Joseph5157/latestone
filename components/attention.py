@@ -49,6 +49,10 @@ SEVERITY_COUNTERS = (
 #: counters and strip segments carry their tone; "Show all" carries "all".
 SEVERITY_BUTTON = "attention-severity"
 
+#: Pattern-matching id type for a problem group's fold heading
+#: (PROBLEM-GROUPS-2); each carries its ProblemKind value as "kind".
+GROUP_TOGGLE = "attention-group-toggle"
+
 
 def tone_of(p: Problem) -> str:
     return KIND_TONE[p.kind]
@@ -250,22 +254,35 @@ def _problem_row(p: Problem, now: datetime, may_ack: frozenset[str],
 
 
 def _grouped_rows(problems: Sequence[Problem], now: datetime,
-                  may_ack: frozenset[str], may_manage: frozenset[str]) -> list:
-    """PROBLEM-GROUPS-1: a heading with a count wherever the kind changes.
+                  may_ack: frozenset[str], may_manage: frozenset[str],
+                  folded: frozenset[str] = frozenset()) -> list:
+    """PROBLEM-GROUPS-1/2: one fold-away section per kind, headed by its
+    label and count.
 
-    The list arrives ranked (D5), so each kind is one run; the headings
-    live in the same <ul> so the list keeps its single scroll area.
+    The list arrives ranked (D5), so each kind is one run. The sections live
+    in the one <ul> so the list keeps its single scroll area. Native
+    <details> folds instantly in the browser; the heading's clicks are also
+    recorded (callbacks.command_center) so the next refresh redraws the same
+    groups folded.
     """
     items: list = []
     for kind, run in groupby(problems, key=lambda p: p.kind):
         run = list(run)
         tone = KIND_TONE[kind]
-        items.append(html.Li(
-            className=f"attention-group attention-group--{tone} " + status_text_class(tone),
-            children=[html.Span(run[0].label, className="attention-group__label"),
-                      html.Span(str(len(run)), className="attention-group__count")],
-        ))
-        items.extend(_problem_row(p, now, may_ack, may_manage) for p in run)
+        items.append(html.Li(className="attention-group-item", children=html.Details(
+            open=kind.value not in folded,
+            className="attention-group-details",
+            children=[
+                html.Summary(
+                    id={"type": GROUP_TOGGLE, "kind": kind.value}, n_clicks=0,
+                    className=f"attention-group attention-group--{tone} " + status_text_class(tone),
+                    children=[html.Span(run[0].label, className="attention-group__label"),
+                              html.Span(str(len(run)), className="attention-group__count")],
+                ),
+                html.Ul(className="attention-group__rows",
+                        children=[_problem_row(p, now, may_ack, may_manage) for p in run]),
+            ],
+        )))
     return items
 
 
@@ -276,6 +293,7 @@ def problem_list(
     may_ack: frozenset[str] = frozenset(),
     may_manage: frozenset[str] = frozenset(),
     selected: str | None = None,
+    folded: frozenset[str] = frozenset(),
 ) -> html.Section:
     filter_note = []
     if selected:
@@ -301,7 +319,7 @@ def problem_list(
         ])
         body = filter_note + [head, html.Ul(
             className="attention-problems",
-            children=_grouped_rows(problems, now, may_ack, may_manage),
+            children=_grouped_rows(problems, now, may_ack, may_manage, frozenset(folded or ())),
         )]
     return cc_card("Needs attention", body,
                    subtitle="Most urgent first · alarms stay until acknowledged")
