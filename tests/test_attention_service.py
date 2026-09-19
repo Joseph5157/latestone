@@ -164,3 +164,53 @@ class TestSnapshot:
         assert [p.kind for p in snap.problems] == [K.TEMP_CRITICAL, K.POWER_DOWN, K.TEMP_WARNING]
         assert [t.device_id for t in snap.hottest] == ["d1", "d2", "d3"]
         assert snap.limits == LIMITS and snap.generated_at == NOW
+
+
+class TestAcknowledgeProblem:
+    USER = NS(user_id=7, role="administrator")
+    SCOPE = DeviceScope(device_ids=None)
+
+    def _patch(self, monkeypatch, events, refuse=False):
+        calls = {"guard": [], "ack": []}
+
+        def guard(user, action, *, device_id):
+            calls["guard"].append((action, device_id))
+            if refuse:
+                raise svc.AuthorizationError("no")
+
+        def ack(*, event_id, actor_user_id, scope):
+            calls["ack"].append((event_id, actor_user_id))
+            return NS(changed=True)
+
+        monkeypatch.setattr(svc.repo, "list_recent_device_events", lambda **kw: events)
+        monkeypatch.setattr(svc, "require_action", guard)
+        monkeypatch.setattr(svc.alarm_acknowledgement_service, "acknowledge_alarm", ack)
+        return calls
+
+    def test_acknowledges_every_open_event_of_that_kind_on_that_rtl(self, monkeypatch):
+        events = [
+            _event(1, "d1", "battery_low", NOW - timedelta(hours=3)),
+            _event(2, "d1", "battery_low", NOW - timedelta(hours=1)),
+            _event(3, "d1", "battery_low", NOW, acked_at=NOW),
+            _event(4, "d2", "battery_low", NOW),
+        ]
+        calls = self._patch(monkeypatch, events)
+        n = svc.acknowledge_problem(self.USER, self.SCOPE, "d1", K.BATTERY_LOW)
+        assert n == 2
+        assert calls["ack"] == [(1, 7), (2, 7)]
+        assert calls["guard"] == [("acknowledge_alarm", "d1")] * 2
+
+    def test_refusal_propagates_and_acknowledges_nothing(self, monkeypatch):
+        import pytest
+        calls = self._patch(monkeypatch, [_event(1, "d1", "power_down", NOW)], refuse=True)
+        with pytest.raises(svc.AuthorizationError):
+            svc.acknowledge_problem(self.USER, self.SCOPE, "d1", K.POWER_DOWN)
+        assert calls["ack"] == []
+
+    def test_non_alarm_kinds_are_refused(self):
+        import pytest
+        with pytest.raises(ValueError):
+            svc.acknowledge_problem(self.USER, self.SCOPE, "d1", K.NO_DATA_24H)
+
+    def test_acknowledgeable_kinds(self):
+        assert svc.ACKNOWLEDGEABLE_KINDS == {K.POWER_DOWN, K.BATTERY_LOW, K.SENSOR_ERROR}

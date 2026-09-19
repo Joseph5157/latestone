@@ -36,6 +36,9 @@ from config.events import (
     EVENT_TYPE_STARTUP,
 )
 from repositories import plant_monitoring_repository as repo
+from services import alarm_acknowledgement_service
+from services.action_guard import AuthorizationError, require_action
+from services.authorization import ACKNOWLEDGE_ALARM
 from services.device_scope import DeviceScope
 from services.event_semantics import display_label_for
 from services.hierarchy_service import list_plants
@@ -87,6 +90,9 @@ _EVENT_KIND: dict[str, ProblemKind] = {
     EVENT_TYPE_SENSOR_ERROR: ProblemKind.SENSOR_ERROR,
 }
 ALARM_EVENT_TYPES: tuple[str, ...] = tuple(_EVENT_KIND)
+_KIND_EVENT_TYPE: dict[ProblemKind, str] = {kind: t for t, kind in _EVENT_KIND.items()}
+#: Problems backed by persisted alarm events, and so acknowledgeable (CC-ACTIONS-1).
+ACKNOWLEDGEABLE_KINDS = frozenset(_KIND_EVENT_TYPE)
 _READ_EVENT_TYPES = ALARM_EVENT_TYPES + (EVENT_TYPE_STARTUP, EVENT_TYPE_CHECK_IN)
 
 _TEMP_KIND = {
@@ -320,3 +326,39 @@ def get_attention_snapshot(
         generated_at=now,
         temperatures=tuple(temps),
     )
+
+
+def acknowledge_problem(user, scope: DeviceScope, device_id: str, kind: ProblemKind) -> int:
+    """Acknowledge every open alarm behind one problem (CC-ACTIONS-1).
+
+    The caller names only the RTL and the kind. The events are resolved here,
+    within `scope`, so a browser can never choose which event ids get
+    acknowledged. Each one goes through the Notification Center's exact path:
+    `require_action(ACKNOWLEDGE_ALARM)` then `acknowledge_alarm`. A refusal
+    raises `AuthorizationError` before anything is written.
+
+    Returns how many events changed state.
+    """
+    if kind not in ACKNOWLEDGEABLE_KINDS:
+        raise ValueError(f"{kind!r} is not an acknowledgeable problem")
+    event_type = _KIND_EVENT_TYPE[kind]
+    events = repo.list_recent_device_events(
+        event_types=(event_type,),
+        allowed_device_ids=scope.device_ids,
+        include_unattributed=False,
+        limit=EVENT_READ_LIMIT,
+    )
+    open_ids = sorted(
+        e.event_id for e in events
+        if e.device_id == device_id and e.acknowledged_at is None
+    )
+    for _ in open_ids:
+        require_action(user, ACKNOWLEDGE_ALARM, device_id=device_id)
+    changed = 0
+    for event_id in open_ids:
+        result = alarm_acknowledgement_service.acknowledge_alarm(
+            event_id=event_id, actor_user_id=user.user_id, scope=scope
+        )
+        changed += bool(result.changed)
+    return changed
+
