@@ -1,10 +1,48 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (SEVERITY-PALETTE-1); push **NOT granted**.
+Gate: THEME-APP-1
+Commit/push permission: commit **GRANTED on branch `app-dark-mode`** and a
+local merge to `main` once green and free of bright leftovers; push
+**NOT granted**.
+
+## THEME-APP-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `8746b75`, branch `app-dark-mode`. ADR-025 (supersedes
+ADR-006).
+
+## Task
+
+Step 1: app-wide theme class on `app-root`, local-storage store (Dark by
+default), sidebar toggle, dark tokens for the whole shell and the plain
+pages; login stays light. Step 2: tables, dropdowns, date pickers, drawers
+and Plotly charts in dark, checked page by page.
+
+## Relevant files
+
+- `components/command_center/theme.py`, `callbacks/navigation.py`,
+  `callbacks/command_center.py`, `pages/command_center.py`,
+  `components/app_sidebar.py`, `app.py`, `assets/app.css`
+- `docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md`,
+  `docs/decisions/ADR-006-route-scoped-theming-is-architecture.md`
+
+## Non-goals (explicit)
+
+- No layout or behaviour change; no new colours for states (the
+  SEVERITY-PALETTE-1 tokens are reused).
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px: every signed-in page in dark and light, the toggle
+  remembered across sign-out; the login page light.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## SEVERITY-PALETTE-1 — CLOSED / PASS
 
@@ -58,7 +96,7 @@ None.
   is the one saturated tone; Warning / No data identical on both pages; no
   console errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: THEME-APP-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

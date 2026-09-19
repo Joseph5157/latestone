@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T12:03:59Z
+Date: 2026-09-19T12:10:59Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `severity-palette` = `548f28c` "style: one severity palette for Fleet Overview and Command Center; Critical is the only strong colour" (not `main`)
-- Working tree: 8 entries — see below
+- current branch `app-dark-mode` = `8746b75` "Merge branch 'severity-palette': one severity palette; Critical is the only strong colour" (not `main`)
+- Working tree: 11 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2929 passed, 731 deselected in 31.98s
+- `python -m pytest -m "not db"` → 2929 passed, 731 deselected in 32.24s
 
 ## Branches
 
@@ -25,6 +25,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-2-administration-cards`
 - `admin-3-unassigned-rtl-panel`
 - `admin-dashboard-final`
+- `app-dark-mode`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
 - `cc-severity-cards`
@@ -42,6 +43,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
+- `severity-palette`
 - `tech-workspace-1`
 - `ui-1-frontend-audit`
 - `worktree-fleet-overview-visual-v2`
@@ -51,14 +53,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 400 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 250 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 400 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `severity-palette` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 404 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 254 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 404 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-24 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+25 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -67,7 +68,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-003-location-is-plant.md | Approved | `699ece0` (normalized `plant_monitoring` schema) |
 | ADR-004-device-scope-is-not-user-selectable.md | Approved | `9966bd7` (`DeviceScope` as the single device-visibility authority), merged to `main` at `71b8db6` |
 | ADR-005-auto-refresh-is-page-owned-polling.md | Approved | `23642da` (device dashboard interval), `699ece0` (`refresh_interval_seconds` setting), `b8315c8` (Command Center's own interval and failure contract) |
-| ADR-006-route-scoped-theming-is-architecture.md | Approved — implemented at CC-1 Phase 11 | `267b11a` |
+| ADR-006-route-scoped-theming-is-architecture.md | Superseded | `267b11a` |
 | ADR-007-event-demo-seed-uses-ingest-event.md | Approved — not yet implemented | not yet — this ADR is the pre-commitment; the seed itself is a CC-1 Phase 0 prerequisite |
 | ADR-008-command-center-reuses-existing-read-paths.md | Approved | `1940b93` (`FleetHealth`/freshness rollups), `bb1e2e9` (`list_recent_device_events`); Command Center call sites `cc6b67a` (Phase 3+4), `1a1be90` (Phase 5), `04e3bfa` (Phase 6) |
 | ADR-009-priority-investigation-ranks-on-freshness-only.md | Superseded | `ce5d4ac` |
@@ -86,15 +87,18 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md | Approved | `c47cf87` (`feat(register): redesign Register Device and enforce the 5-digit UID fleet-wide`) |
 | ADR-023-temperature-condition-uses-admin-limits.md | Approved | `a0f1223` (`feat(temperature): condition per RTL against administrator limits (ADR-023)`) |
 | ADR-024-overview-and-command-center-split-by-question.md | Approved | `2cfad36` (switch-over; built in FO-NEW-1, CC-NEW-1, CC-ACTIONS-1) |
+| ADR-025-dark-mode-is-app-wide-and-remembered.md | Approved | not yet |
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+THEME-APP-1 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
+ M docs/context/DECISION_INDEX.md
+ M docs/decisions/ADR-006-route-scoped-theming-is-architecture.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
@@ -102,5 +106,6 @@ M docs/context/ACTIVE_GATE.md
 ?? .pytest-alarm-ack/
 ?? .pytest-command-dispatch-suite/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md
 ```
 

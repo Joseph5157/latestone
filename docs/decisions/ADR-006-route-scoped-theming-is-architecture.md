@@ -1,6 +1,7 @@
 # ADR-006: Route-scoped dark/light theming is CC-1 architecture, not later polish
 
-Status: Approved — implemented at CC-1 Phase 11
+Status: Superseded
+Superseded-by: ADR-025 (dark mode made app-wide, 2026-09-19)
 Date: 2026-08-28
 Evidence: `assets/app.css` has zero `data-theme` or `prefers-color-scheme` rules today (verified by grep — no theme system exists in this application at all); `assets/app.css:7` (`--color-bg: #f4f6f8`, the light token Command Center light mode must reuse); `command center/05_VISUAL_DESIGN_SYSTEM.md` §"Theme architecture"
 Implemented-by: `267b11a`
