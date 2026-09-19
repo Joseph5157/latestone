@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from config.metrics import METRIC_KEYS
 from config.settings import live_sim
 from db.generators import generate_live_reading, initial_energy_meter
+from db.seed_freshness_demo import CAPTURE_PATH, silenced_feeds
 from repositories.plant_monitoring_repository import (
     RawReading,
     get_latest_reading,
@@ -72,6 +73,21 @@ def resolve_metric_scope(
     return list(configured_metrics)
 
 
+def active_silenced_feeds() -> frozenset[tuple[str, str]]:
+    """Feeds to skip: the freshness demo's, only while it is applied.
+
+    Without this the first tick refills every feed db/seed_freshness_demo.py
+    removed, and its Stale / No Data RTLs go Fresh again.
+    """
+    return silenced_feeds() if CAPTURE_PATH.exists() else frozenset()
+
+
+def is_silenced(
+    device_id: str, metric: str, silenced: frozenset[tuple[str, str]]
+) -> bool:
+    return (device_id, metric) in silenced
+
+
 def _device_latitudes() -> dict[str, float]:
     """device_id -> its plant's latitude, for every administratively active device."""
     devices = list_all_devices()
@@ -100,6 +116,9 @@ def run() -> None:
         f"Live simulator: {len(device_ids)} device(s), metrics={metrics}, "
         f"every {live_sim.interval_seconds}s (Ctrl+C to stop)"
     )
+    silenced = active_silenced_feeds()
+    if silenced:
+        print(f"  skipping {len(silenced)} silenced feed(s) (freshness demo applied)")
 
     while True:
         now = datetime.now(timezone.utc)
@@ -114,6 +133,8 @@ def run() -> None:
                 noise_scale=live_sim.noise_scale,
             )
             for metric in metrics:
+                if is_silenced(device_id, metric, silenced):
+                    continue
                 rows.append(RawReading(device_id, metric, now, reading[metric]))
             if "energy" in metrics:
                 energy_state[device_id] = reading["energy"]

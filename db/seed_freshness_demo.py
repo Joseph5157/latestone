@@ -149,6 +149,22 @@ TARGETS: tuple[Target, ...] = (
 )
 
 
+def silenced_feeds() -> frozenset[tuple[str, str]]:
+    """(device_id, metric) pairs --apply removes readings from.
+
+    db/live_simulator.py reads this so it does not immediately refill the
+    feeds this seed stopped (DATA-REFRESH-1). The FRESH control is excluded:
+    it is never touched, and `metrics=()` there does not mean "every metric".
+    """
+    feeds: set[tuple[str, str]] = set()
+    for target in TARGETS:
+        if target.outcome.startswith("FRESH"):
+            continue
+        for metric in target.metrics or METRIC_KEYS:
+            feeds.add((target.device_id, metric))
+    return frozenset(feeds)
+
+
 def _validate_metrics() -> None:
     """Fail loudly if a target names a metric the registry does not have.
 

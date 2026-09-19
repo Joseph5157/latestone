@@ -51,3 +51,23 @@ class TestResolveMetricScope:
     def test_error_message_names_the_unknown_metric(self):
         with pytest.raises(ConfigurationError, match="not_a_metric"):
             resolve_metric_scope(("not_a_metric",), self.KNOWN_METRICS)
+
+
+class TestSilencedFeedsInSimulator:
+    def test_empty_when_no_capture_file(self, monkeypatch, tmp_path):
+        from db import live_simulator
+        monkeypatch.setattr(live_simulator, "CAPTURE_PATH", tmp_path / "absent.json")
+        assert live_simulator.active_silenced_feeds() == frozenset()
+
+    def test_demo_feeds_when_capture_file_exists(self, monkeypatch, tmp_path):
+        from db import live_simulator
+        capture = tmp_path / "capture.json"
+        capture.write_text("[]")
+        monkeypatch.setattr(live_simulator, "CAPTURE_PATH", capture)
+        assert ("plant-03-t1-d1", "temperature") in live_simulator.active_silenced_feeds()
+
+    def test_is_silenced(self):
+        from db import live_simulator
+        silenced = frozenset({("d1", "voltage")})
+        assert live_simulator.is_silenced("d1", "voltage", silenced)
+        assert not live_simulator.is_silenced("d1", "temperature", silenced)
