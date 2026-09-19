@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T12:31:27Z
+Date: 2026-09-19T12:32:54Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `app-dark-mode` = `0503480` "feat(theme): dark mode for tables, dropdowns, date pickers, form fields, charts and text colours" (not `main`)
-- Working tree: 10 entries — see below
+- `main` = `f96689f` "Merge branch 'app-dark-mode': app-wide dark mode, Dark by default, remembered per browser (ADR-025)"
+- Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2928 passed, 731 deselected in 31.46s
+- `python -m pytest -m "not db"` → 2928 passed, 731 deselected in 33.61s
 
 ## Branches
 
@@ -25,6 +25,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-2-administration-cards`
 - `admin-3-unassigned-rtl-panel`
 - `admin-dashboard-final`
+- `app-dark-mode`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
 - `cc-severity-cards`
@@ -52,10 +53,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `app-dark-mode` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
-| `cc-1-command-center-progress` | 14 | 404 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 254 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 404 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 409 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 259 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 409 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -97,8 +97,6 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

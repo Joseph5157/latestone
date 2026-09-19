@@ -20,7 +20,8 @@ and Plotly charts in dark, checked page by page.
 
 ## Relevant files
 
-- `components/command_center/theme.py`, `callbacks/navigation.py`,
+- `components/theme.py` (replaces components/command_center/theme.py,
+  deleted), `callbacks/navigation.py`,
   `callbacks/command_center.py`, `pages/command_center.py`,
   `components/app_sidebar.py`, `app.py`, `assets/app.css`
 - `docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md`,
