@@ -1,10 +1,50 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (POLISH-1); push **NOT granted**.
+Gate: STATS-CARDS-1
+Commit/push permission: commit **GRANTED on branch `overview-stats-cards`**
+and a local merge to `main` once green; push **NOT granted**.
+
+## STATS-CARDS-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `4cde0cb`, branch `overview-stats-cards`.
+
+## Task
+
+- **Fleet Overview:** four temperature stat cards replacing the plain
+  summary line: Hottest now (value, RTL, plant), Hot RTLs (Warning /
+  Critical split), 30-day peak (value, when, RTL), Reporting (RTLs with
+  recent data, same rule as the Command Center). Counts are RTLs; the chips
+  keep counting plants. No alarm counts (ADR-024).
+- **Command Center:** two figures in the status bar: oldest unacknowledged
+  alarm (kind and age) and alarms acknowledged in the last 24 h.
+- Desktop only (the app is not used on phones).
+
+## Relevant files
+
+- `services/fleet_overview_service.py`, `components/fleet_overview.py`,
+  `pages/plants_overview.py`, `callbacks/fleet_overview.py`
+- `services/attention_service.py`, `components/attention.py`
+- `assets/app.css`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+
+## Non-goals (explicit)
+
+- No new query or schema change; figures derive from the snapshots the pages
+  already build.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed with
+  the live simulator stopped.
+- Browser at 1440 px, three roles.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## POLISH-1 — CLOSED / PASS
 
@@ -68,7 +108,7 @@ None.
   Navigator utility column keeps a fixed width on monitoring routes
   (overview, plant, transformer, device) and squeezes the page content.
 
-## Next implementation gate: NONE
+## Next implementation gate: STATS-CARDS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
