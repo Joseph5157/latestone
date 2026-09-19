@@ -11,6 +11,7 @@ from datetime import datetime
 from dash import dcc, html
 
 from components.kpi_card import kpi_card
+from components.status_colors import CONDITION_TONE, status_chip_class
 
 from routes import device_href
 from services.attention_service import format_limit
@@ -35,16 +36,6 @@ from services.temperature_condition_service import (
     TemperatureCondition,
     TemperatureLimits,
 )
-
-_TONE = {
-    TemperatureCondition.CRITICAL: "critical",
-    TemperatureCondition.WARNING: "warning",
-    TemperatureCondition.NORMAL: "normal",
-    TemperatureCondition.LIMITS_NOT_SET: "none",
-    # Same purple as the Command Center's "No data" (SEVERITY-PALETTE-1).
-    TemperatureCondition.NO_RECENT_DATA: "nodata",
-}
-
 
 def _plural(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
@@ -74,7 +65,7 @@ def when(moment: datetime | None) -> str:
 def condition_chip(condition: TemperatureCondition) -> html.Span:
     return html.Span(
         CONDITION_LABELS[condition],
-        className=f"fleet-overview-chip fleet-overview-chip--{_TONE[condition]}",
+        className=f"fleet-overview-chip {status_chip_class(CONDITION_TONE[condition])}",
     )
 
 
@@ -213,12 +204,12 @@ def _jump_id(part: str, *, filter_key: str = "", sort_key: str = "") -> dict:
     return {"type": JUMP, "part": part, "filter": filter_key, "sort": sort_key}
 
 
-def _card_button(label, value, secondary, jump_id, *, hint, accent=False) -> html.Button:
+def _card_button(label, value, secondary, jump_id, *, hint) -> html.Button:
     """A stat card that is also a filter control. Same classes as `kpi_card`,
     spans instead of divs so it is valid button content."""
     return html.Button(
         type="button", n_clicks=0, id=jump_id, title=f"{secondary} — {hint}",
-        className="kpi-card kpi-card--action" + (" kpi-card--accent" if accent else ""),
+        className="kpi-card kpi-card--action",
         children=[
             html.Span(label, className="kpi-card__label"),
             html.Span(value, className="kpi-card__value"),
@@ -239,12 +230,12 @@ def stat_cards(view: FleetOverview) -> html.Div:
             "Hottest now", temperature(s.hottest.value),
             f"RTL {s.hottest.device_code} · {s.hottest_plant}",
             _jump_id("hottest", sort_key=SORT_HOTTEST),
-            hint="Sort plants hottest first", accent=True,
+            hint="Sort plants hottest first",
         )
     if limits_set:
         hot = _card_button(
             "Hot RTLs", str(s.warning + s.critical),
-            f"{s.critical} Critical · {s.warning} Warning",
+            f"{s.critical} Critical · {s.warning} Warning temperature",
             _jump_id("hot", filter_key=FILTER_HOT), hint="Show plants with hot RTLs",
         )
     else:
@@ -265,6 +256,14 @@ def stat_cards(view: FleetOverview) -> html.Div:
                     children=[hottest, hot, peak, reporting])
 
 
+#: ADR-026: on the Overview red and amber are temperature only, so the
+#: bar says so (the Command Center's Critical also counts Power Down).
+_BAR_LABELS = {
+    TemperatureCondition.CRITICAL: "Critical temperature",
+    TemperatureCondition.WARNING: "Warning temperature",
+}
+
+
 def condition_bar(view: FleetOverview):
     """One stacked bar of RTLs per temperature condition, with a legend.
     Segments and legend entries set the matching chip (CLICK-FILTER-1)."""
@@ -274,8 +273,8 @@ def condition_bar(view: FleetOverview):
         return None
     segments, legend = [], []
     for condition, n in counts.items():
-        tone = _TONE[condition]
-        label = f"{CONDITION_LABELS[condition]} {n}"
+        tone = CONDITION_TONE[condition]
+        label = f"{_BAR_LABELS.get(condition, CONDITION_LABELS[condition])} {n}"
         target = _CONDITION_FILTER.get(condition)
         if target:
             segments.append(html.Button(

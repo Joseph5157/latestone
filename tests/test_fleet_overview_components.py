@@ -138,7 +138,7 @@ def test_condition_bar_segments_and_legend_select_the_matching_chip():
     bar = ui.condition_bar(_view())
     ids = _jump_ids(bar)
     assert {i["filter"] for i in ids} == {"hot"}  # the one RTL is Critical
-    assert "Critical 1" in text(bar) and "1 RTL" in text(bar)
+    assert "Critical temperature 1" in text(bar) and "1 RTL" in text(bar)
 
 
 def test_limits_not_set_segment_is_not_clickable():
