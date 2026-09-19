@@ -5,7 +5,7 @@ Date: 2026-09-19
 Evidence: `components/command_center/theme.py`, `callbacks/navigation.py`
 (theme callbacks), `components/app_sidebar.py` (the toggle), `app.py` (the
 store and the `app-root` class), `assets/app.css` (dark token block)
-Implemented-by: not yet
+Implemented-by: `07d1b02` (app-wide theme, store, toggle); `0503480` (components)
 Supersedes: ADR-006 (route-scoped theming)
 
 ## Context

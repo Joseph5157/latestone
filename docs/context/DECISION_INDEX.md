@@ -40,7 +40,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-022](../decisions/ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md) | Registration enforces the 5-digit RTL UID (one shared rule with programming) and refuses a code already registered anywhere in the fleet; application-level only, no DB constraint until the client confirms | Approved | `c47cf87` |
 | [ADR-023](../decisions/ADR-023-temperature-condition-uses-admin-limits.md) | Temperature condition (Normal/Warning/Critical/Limits not set/No recent data) is evaluated only by `temperature_condition_service`, on each RTL's latest reading against Administrator-configured limits, in Decimal; a derived condition, not an event; amends ADR-001 and the AGENTS.md data rule | Approved | `a0f1223` |
 | [ADR-024](../decisions/ADR-024-overview-and-command-center-split-by-question.md) | Fleet Overview (`/plants`, every role) answers where everything is and how hot; Command Center (`/command-center`, Administrator/Technician) answers what needs attention now; no panel on both; `/` lands operational roles on Command Center; supersedes ADR-002/009/011/012 | Approved | `2cfad36` |
-| [ADR-025](../decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md) | Dark mode is app-wide (one class on `app-root`), Dark by default, remembered per browser (`localStorage` store); toggle in the sidebar; login stays light; supersedes ADR-006 | Approved | not yet |
+| [ADR-025](../decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md) | Dark mode is app-wide (one class on `app-root`), Dark by default, remembered per browser (`localStorage` store); toggle in the sidebar; login stays light; supersedes ADR-006 | Approved | `07d1b02` |
 
 ## Reading this table
 

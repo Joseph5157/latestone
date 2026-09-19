@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T12:10:59Z
+Date: 2026-09-19T12:31:27Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `app-dark-mode` = `8746b75` "Merge branch 'severity-palette': one severity palette; Critical is the only strong colour" (not `main`)
-- Working tree: 11 entries — see below
+- current branch `app-dark-mode` = `0503480` "feat(theme): dark mode for tables, dropdowns, date pickers, form fields, charts and text colours" (not `main`)
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2929 passed, 731 deselected in 32.24s
+- `python -m pytest -m "not db"` → 2928 passed, 731 deselected in 31.46s
 
 ## Branches
 
@@ -25,7 +25,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-2-administration-cards`
 - `admin-3-unassigned-rtl-panel`
 - `admin-dashboard-final`
-- `app-dark-mode`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
 - `cc-severity-cards`
@@ -53,6 +52,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
+| `app-dark-mode` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
 | `cc-1-command-center-progress` | 14 | 404 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 254 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 404 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
@@ -87,18 +87,18 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-022-registration-enforces-the-5-digit-uid-fleet-wide.md | Approved | `c47cf87` (`feat(register): redesign Register Device and enforce the 5-digit UID fleet-wide`) |
 | ADR-023-temperature-condition-uses-admin-limits.md | Approved | `a0f1223` (`feat(temperature): condition per RTL against administrator limits (ADR-023)`) |
 | ADR-024-overview-and-command-center-split-by-question.md | Approved | `2cfad36` (switch-over; built in FO-NEW-1, CC-NEW-1, CC-ACTIONS-1) |
-| ADR-025-dark-mode-is-app-wide-and-remembered.md | Approved | not yet |
+| ADR-025-dark-mode-is-app-wide-and-remembered.md | Approved | `07d1b02` (app-wide theme, store, toggle); `0503480` (components) |
 
 ## Active gate
 
-THEME-APP-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
  M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-006-route-scoped-theming-is-architecture.md
+ M docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
@@ -106,6 +106,5 @@ M docs/context/ACTIVE_GATE.md
 ?? .pytest-alarm-ack/
 ?? .pytest-command-dispatch-suite/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md
 ```
 
