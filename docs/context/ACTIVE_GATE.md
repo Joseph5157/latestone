@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: CC-NEW-1
-Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
-(commit after each green task); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** on branch
+`overview-cc-redesign` (CC-NEW-1); push **NOT granted**.
 
-## CC-NEW-1 — OPEN / IN PROGRESS
+## CC-NEW-1 — CLOSED / PASS
 
 Baseline: branch `overview-cc-redesign` at `3e30fdf`. Phase 3 of the Fleet
 Overview + Command Center redesign (internal design/plan under
@@ -47,8 +47,8 @@ Administrators and Technicians and Fleet Overview for General Users;
   `docs/decisions/ADR-004-device-scope-is-not-user-selectable.md`,
   `docs/decisions/ADR-005-auto-refresh-is-page-owned-polling.md`,
   `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
-- To be created: services/attention_service.py, components/attention.py,
-  pages/command_center_new.py, callbacks/command_center_new.py and tests.
+- `services/attention_service.py`, `components/attention.py`,
+  `pages/command_center_new.py`, `callbacks/command_center_new.py`
 
 ## Non-goals (explicit)
 
@@ -64,6 +64,40 @@ Administrators and Technicians and Fleet Overview for General Users;
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `1c5621a` route `command_center_new` (`/command-center-new`), ROUTE_POLICY
+  operational roles, `routing.landing_route_name` (role-aware `/`),
+  `navigation.active_nav_key(pathname, role)`.
+- `174d1e7` `repo.list_programming_requests_since` (fleet-scoped, bounded).
+- `adfb3f2` `services/attention_service.py`: one snapshot per poll; ranked
+  problems (D5), unacknowledged alarm events grouped per RTL and type,
+  BR008 via `build_no_data_notifications`, hottest 5, 24 h activity, 7-day
+  alarm counts; event labels from `event_semantics.display_label_for`.
+- `8a1a666` `components/attention.py` panels; `e5bd7e7` page, callback,
+  CSS, `app.py` registration; `test_equipment_selector` and
+  `test_authorization` route/layout inventories extended.
+- Follow-up fix commit: phone layout and quieter hottest list. The theme
+  callback replaces the root className, so the page class is on an inner
+  wrapper (test-guarded).
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0; `python -m pytest` exit 0 on the
+  plain seed (freshness demo re-applied afterwards).
+- Browser (Playwright, local, real data, no temperature limits set):
+  Administrator at `/` -> new Command Center, 39 problems (11 Power Down,
+  18 Battery Low, 9 Sensor Error, 1 no data > 24 h), 119 of 120 reporting,
+  hottest 5, 7 trend bars, sidebar highlights Command Center.
+  demo.tech01 at `/` -> new Command Center scoped to 24 RTLs, 4 problems.
+  demo.general01 at `/` -> Fleet Overview. No horizontal scroll at 1440 px
+  or 390 px; at 390 px the title bar wraps. Only console message is the
+  pre-existing login-page uncontrolled-input warning.
+- Not verified: Warning/Critical temperature rows in the browser (no limits
+  are stored; the logic is unit-tested and was checked in TEMP-CONDITION-1).
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 

@@ -112,8 +112,9 @@ cannot reasonably solve the requirement.
 
 ## UI requirements
 
-After login the operator workflow is: Plants overview (30 plants with
-transformer/device counts) → Plant detail (transformers) → Transformer detail
+After login, Administrators and Technicians land on the Command Center (`/`)
+and General Users on the Plants overview. The monitoring workflow is: Plants
+overview (30 plants with transformer/device counts) → Plant detail (transformers) → Transformer detail
 (devices) → Device dashboard. The device dashboard carries equipment context,
 an 8-metric snapshot strip, metric selector, period filter, aggregation-aware
 KPIs, a Plotly chart, a readings table and a freshness badge.
