@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T13:16:10Z
+Date: 2026-09-19T13:28:10Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `colour-key` = `21a5d1f` "feat(ui): one colour key across the dashboard, colour means urgency (ADR-026)" (not `main`)
-- Working tree: 10 entries — see below
+- current branch `problem-dots` = `b4f8143` "Merge branch 'colour-key': one colour key across the dashboard (ADR-026)" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2972 passed, 731 deselected in 33.01s
+- `python -m pytest -m "not db"` → 2972 passed, 731 deselected in 33.65s
 
 ## Branches
 
@@ -31,6 +31,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `cc-severity-cards`
 - `cc-visuals`
 - `click-to-filter`
+- `colour-key`
 - `ctx-1-context-architecture`
 - `dark-mode-polish`
 - `ent-6-ui-and-live-simulator`
@@ -41,6 +42,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `overview-cc-polish`
 - `overview-cc-redesign`
 - `overview-stats-cards`
+- `problem-dots`
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
@@ -54,10 +56,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 414 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 264 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 414 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `colour-key` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 418 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 268 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 418 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -94,13 +95,12 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+COLOUR-KEY-2 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/DECISION_INDEX.md
  M docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/

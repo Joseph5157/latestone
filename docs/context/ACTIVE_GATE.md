@@ -1,10 +1,41 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (COLOUR-KEY-1); push **NOT granted**.
+Gate: COLOUR-KEY-2
+Commit/push permission: commit on branch `problem-dots` and local merge to
+`main` **GRANTED**; push **NOT granted**.
+
+## COLOUR-KEY-2 — OPEN / IN PROGRESS
+
+Baseline: `main` at `b4f8143`, branch `problem-dots`. ADR-026 (amended).
+
+## Task
+
+Command Center Needs-attention Problem column: plain text after a coloured
+dot instead of a badge; the badge-vs-dot rule recorded in ADR-026.
+
+## Relevant files
+
+- `components/status_colors.py`, `components/attention.py`,
+  `assets/app.css`, `tests/test_attention_components.py`,
+  `tests/test_status_colors.py`
+- `docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md`
+
+## Non-goals (explicit)
+
+- Badges elsewhere (Hottest now, Overview rows) unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px, dark and light: the Needs-attention list.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## COLOUR-KEY-1 — CLOSED / PASS
 
@@ -61,7 +92,7 @@ None.
   open; tags, bars and key match; text-contrast audit clean on both pages
   and the device page.
 
-## Next implementation gate: NONE
+## Next implementation gate: COLOUR-KEY-2 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
