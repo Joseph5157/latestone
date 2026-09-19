@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: PROBLEM-GROUPS-1
-Commit/push permission: commit on branch `problem-groups` and local merge to
-`main` **GRANTED**; push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (PROBLEM-GROUPS-1); push **NOT granted**.
 
-## PROBLEM-GROUPS-1 — OPEN / IN PROGRESS
+## PROBLEM-GROUPS-1 — CLOSED / PASS
 
 Baseline: `main` at `d7470b9`, branch `problem-groups`. ADR-024 (amended).
 
@@ -37,6 +37,24 @@ unchanged (D5). Headings do not fold (user decision).
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `f02069b` `_grouped_rows()` in `components/attention.py` inserts an
+  `.attention-group` heading (label + count, kind tone via
+  `status_text_class`) wherever the kind changes, inside the one
+  `.attention-problems` list; rows moved into `_problem_row()` unchanged.
+  Headings are sticky while the list scrolls. ADR-024 amended.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes.
+- `python -m pytest`: only the 3 known `tests/test_seed_integrity.py`
+  row-count tests fail (local DB not on the plain seed); nothing else.
+- Browser 1440 px, dark and light: six headings in rank order with counts
+  2 / 8 / 1 / 14 / 18 / 9; heading stays pinned while the list scrolls.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 

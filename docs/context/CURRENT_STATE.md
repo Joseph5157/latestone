@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T14:05:04Z
+Date: 2026-09-19T15:06:30Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `working-card` = `aabbc5e` "feat(ui): Command Center 'Working N of M' card (ADR-024 amended, WORKING-CARD-1)" (not `main`)
-- Working tree: 9 entries — see below
+- current branch `problem-groups` = `f02069b` "feat(ui): Needs-attention list grouped by kind with counts (PROBLEM-GROUPS-1)" (not `main`)
+- Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2984 passed, 731 deselected in 34.17s
+- `python -m pytest -m "not db"` → 2987 passed, 731 deselected in 35.96s
 
 ## Branches
 
@@ -50,6 +50,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `severity-palette`
 - `tech-workspace-1`
 - `ui-1-frontend-audit`
+- `working-card`
 - `worktree-fleet-overview-visual-v2`
 - `worktree-plant-monitoring-architecture`
 
@@ -57,10 +58,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 426 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 276 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 426 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `working-card` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 429 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 279 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 429 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `problem-groups` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -103,7 +104,6 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
