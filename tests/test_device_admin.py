@@ -21,7 +21,6 @@ from callbacks.device_admin import (
     build_device_admin_rows,
     device_row_target,
 )
-from components.needs_attention import needs_attention
 from services.monitoring_service import (
     Freshness,
     FleetHealth,

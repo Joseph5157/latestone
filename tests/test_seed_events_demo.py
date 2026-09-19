@@ -20,8 +20,11 @@ from config.events import (
     EVENT_TYPE_STARTUP,
 )
 from db import seed_events_demo as seed
-from services import command_center_service as svc
 from services import event_semantics
+
+#: The old Command Center's recent-events panel bound (removed in
+#: SWITCH-OVER-1); the demo seed was sized against it.
+RECENT_EVENT_ROWS = 10
 
 NOW = datetime(2026, 8, 29, 14, 30, tzinfo=timezone.utc)
 
@@ -152,7 +155,7 @@ class TestBatchCoverage:
         LOOKED at, so the window is what has to be covered.
         """
         visible = sorted(seed.DEMO_EVENTS, key=lambda e: e.minutes_ago)[
-            : svc.RECENT_EVENT_ROWS
+            : RECENT_EVENT_ROWS
         ]
         types = {e.event_type for e in visible}
         assert EVENT_TYPE_POWER_DOWN in types     # Critical
@@ -164,7 +167,7 @@ class TestBatchCoverage:
     def test_the_batch_overflows_the_panel_so_the_bound_is_visible(self):
         """More events than the panel shows, so newest-first truncation and
         the scroll region are looked at rather than only unit-tested."""
-        assert len(seed.DEMO_EVENTS) > svc.RECENT_EVENT_ROWS
+        assert len(seed.DEMO_EVENTS) > RECENT_EVENT_ROWS
 
     def test_timestamps_are_distinct_so_ordering_is_observable(self):
         offsets = [e.minutes_ago for e in seed.DEMO_EVENTS]

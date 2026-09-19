@@ -1,4 +1,4 @@
-"""The redesigned Fleet Overview's rendering (FO-NEW-1).
+"""The Fleet Overview's rendering (FO-NEW-1).
 
 Pure render functions over `services.fleet_overview_service` values. Plants
 expand inline with the browser's own disclosure element (`<details>`), so
@@ -58,7 +58,7 @@ def when(moment: datetime | None) -> str:
 def condition_chip(condition: TemperatureCondition) -> html.Span:
     return html.Span(
         CONDITION_LABELS[condition],
-        className=f"fleet-new-chip fleet-new-chip--{_TONE[condition]}",
+        className=f"fleet-overview-chip fleet-overview-chip--{_TONE[condition]}",
     )
 
 
@@ -67,12 +67,12 @@ def limits_line(limits: TemperatureLimits | None) -> html.P:
         return html.P(
             "Temperature limits are not set, so no RTL can be rated Normal, "
             "Warning or Critical. An administrator sets them under Settings.",
-            className="fleet-new-limits fleet-new-limits--unset",
+            className="fleet-overview-limits fleet-overview-limits--unset",
         )
     return html.P(
         f"Warning at {format_limit(limits.warning_c)} °C · Critical at "
         f"{format_limit(limits.critical_c)} °C · {LIMIT_SOURCE_NOTE}",
-        className="fleet-new-limits",
+        className="fleet-overview-limits",
     )
 
 
@@ -97,13 +97,13 @@ def summary_line(view: FleetOverview) -> str:
 def _logger_row(t: DeviceTemperature, now: datetime) -> html.Tr:
     return html.Tr([
         html.Td(dcc.Link(t.device_code, href=device_href(t.device_id),
-                         className="fleet-new-link"), **{"data-label": "RTL"}),
-        html.Td(temperature(t.value), className="fleet-new-num",
+                         className="fleet-overview-link"), **{"data-label": "RTL"}),
+        html.Td(temperature(t.value), className="fleet-overview-num",
                 **{"data-label": "Latest"}),
         html.Td(condition_chip(t.condition), **{"data-label": "Condition"}),
         html.Td(ago(t.reading_ts, now), **{"data-label": "Last reading"}),
         html.Td(dcc.Link("Electrical readings →", href=device_href(t.device_id),
-                         className="fleet-new-electrical")),
+                         className="fleet-overview-electrical")),
     ])
 
 
@@ -113,12 +113,12 @@ def transformer_block(tv: TransformerView, now: datetime) -> html.Div:
     else:
         by = f" (RTL {tv.max_30d_device_code})" if tv.max_30d_device_code else ""
         peak = f"30-day max {temperature(tv.max_30d)} on {when(tv.max_30d_at)}{by}"
-    return html.Div(className="fleet-new-transformer", children=[
-        html.Div(className="fleet-new-transformer__head", children=[
+    return html.Div(className="fleet-overview-transformer", children=[
+        html.Div(className="fleet-overview-transformer__head", children=[
             html.H4(f"Transformer {tv.transformer_code}"),
-            html.Span(peak, className="fleet-new-transformer__peak"),
+            html.Span(peak, className="fleet-overview-transformer__peak"),
         ]),
-        html.Table(className="fleet-new-table", children=[
+        html.Table(className="fleet-overview-table", children=[
             html.Thead(html.Tr([html.Th("RTL"), html.Th("Latest"), html.Th("Condition"),
                                 html.Th("Last reading"), html.Th("")])),
             html.Tbody([_logger_row(t, now) for t in tv.loggers]),
@@ -129,34 +129,34 @@ def transformer_block(tv: TransformerView, now: datetime) -> html.Div:
 def plant_row(plant: PlantView, now: datetime, *, limits_set: bool) -> html.Details:
     top = plant.hottest
     hottest = (
-        [html.Span(temperature(top.value), className="fleet-new-plant__temp"),
+        [html.Span(temperature(top.value), className="fleet-overview-plant__temp"),
          condition_chip(top.condition)]
-        if top else [html.Span("No recent reading", className="fleet-new-plant__temp--none")]
+        if top else [html.Span("No recent reading", className="fleet-overview-plant__temp--none")]
     )
-    return html.Details(className="fleet-new-plant", children=[
-        html.Summary(className="fleet-new-plant__summary", children=[
-            html.Span(className="fleet-new-plant__name", children=[
+    return html.Details(className="fleet-overview-plant", children=[
+        html.Summary(className="fleet-overview-plant__summary", children=[
+            html.Span(className="fleet-overview-plant__name", children=[
                 html.Strong(plant.name),
-                html.Span(plant.country or "", className="fleet-new-plant__country"),
+                html.Span(plant.country or "", className="fleet-overview-plant__country"),
             ]),
             html.Span(
                 f"{_plural(len(plant.transformers), 'transformer')} · "
                 f"{_plural(plant.logger_count, 'RTL')}",
-                className="fleet-new-plant__size",
+                className="fleet-overview-plant__size",
             ),
-            html.Span(className="fleet-new-plant__hottest", children=hottest),
+            html.Span(className="fleet-overview-plant__hottest", children=hottest),
             html.Span(counts_text(plant.counts, limits_set=limits_set),
-                      className="fleet-new-plant__counts"),
+                      className="fleet-overview-plant__counts"),
         ]),
-        html.Div(className="fleet-new-plant__body",
+        html.Div(className="fleet-overview-plant__body",
                  children=[transformer_block(tv, now) for tv in plant.transformers]),
     ])
 
 
 def plant_list(view: FleetOverview):
     if not view.plants:
-        return html.P("No plants to show for your account.", className="fleet-new-empty")
+        return html.P("No plants to show for your account.", className="fleet-overview-empty")
     limits_set = view.limits is not None
-    return html.Div(className="fleet-new-plants", children=[
+    return html.Div(className="fleet-overview-plants", children=[
         plant_row(p, view.generated_at, limits_set=limits_set) for p in view.plants
     ])

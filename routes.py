@@ -46,16 +46,6 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "audit_log": "audit_log",
     "admin_settings": "settings",
     "command_center": "command_center",
-    # The full locations view is the same destination one level deeper,
-    # so the sidebar keeps Command Center highlighted rather than losing
-    # its active item while the operator is still inside it.
-    "command_center_locations": "command_center",
-    # CC-NEW-1: the redesigned Command Center, built beside the old one until
-    # the switch-over (redesign Phase 6).
-    "command_center_new": "command_center",
-    # FO-NEW-1: the redesigned Fleet Overview, beside the old one until the
-    # switch-over (redesign Phase 6).
-    "overview_new": "overview",
 }
 
 #: Query parameter naming the device whose assignment drawer should open on
@@ -65,26 +55,10 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
 #: assignment lives, and the drawer is not a page.
 ASSIGN_PARAM = "assign"
 
-#: Command Center path, and the query parameter naming the Plant whose
-#: transformer concentration is shown.
-#:
-#: A query parameter for the same reason ASSIGN_PARAM is one: the
-#: destination is the existing page in its existing state, with one plant
-#: selected. Two further properties matter here specifically — selection
-#: survives a polling refresh by construction, since no callback owns or can
-#: clear it, and the selected view is bookmarkable and shareable. A
-#: `dcc.Store` would give neither and would need protecting from every
-#: refresh callback added later.
+#: Command Center and Fleet Overview paths (SWITCH-OVER-1: the redesigned
+#: pages took these over from the old ones).
 COMMAND_CENTER_PATH = "/command-center"
-PLANT_PARAM = "plant"
-
-#: The redesigned Command Center (CC-NEW-1). Temporary path: it moves to
-#: COMMAND_CENTER_PATH when the old page is removed (redesign Phase 6).
-COMMAND_CENTER_NEW_PATH = "/command-center-new"
-
-#: The redesigned Fleet Overview (FO-NEW-1). Temporary path, like the one
-#: above: it becomes `/plants` at the switch-over.
-FLEET_OVERVIEW_NEW_PATH = "/plants-new"
+FLEET_OVERVIEW_PATH = "/plants"
 
 
 @dataclass(frozen=True)
@@ -92,7 +66,7 @@ class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
                # "admin_devices" | "technician_devices" | "admin_assignments" |
                # "admin_users" | "reports" | "notifications" |
-               # "command_center" | "command_center_locations" | "unknown"
+               # "command_center" | "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
     device_id: str | None = None
@@ -116,17 +90,6 @@ def parse_pathname(pathname: str | None) -> Route:
     if len(parts) == 1 and parts[0] == "command-center":
         return Route(name="command_center")
 
-    if len(parts) == 1 and parts[0] == "plants-new":
-        return Route(name="overview_new")
-
-    if len(parts) == 1 and parts[0] == "command-center-new":
-        return Route(name="command_center_new")
-
-    # Only "locations" is a child of Command Center; anything else under it
-    # falls through to `unknown`, so a typo'd subpath reads as "no such page"
-    # rather than being swallowed by the parent.
-    if len(parts) == 2 and parts[0] == "command-center" and parts[1] == "locations":
-        return Route(name="command_center_locations")
 
     if len(parts) == 2 and parts[0] == "plants":
         return Route(name="plant", plant_id=parts[1])
@@ -269,30 +232,3 @@ def device_href(
         parts.append("?" + "&".join(params))
 
     return "".join(parts)
-
-
-def command_center_href(plant_id: str | None) -> str:
-    """Command Center, with `plant_id` selected. No plant -> the bare route.
-
-    The identifier is percent-encoded so a value carrying `&` or `?` cannot
-    append parameters of its own, the same guard `device_assign_href`
-    applies. It is validated on arrival: an id naming no visible plant
-    simply selects nothing.
-    """
-    if not plant_id:
-        return COMMAND_CENTER_PATH
-    return f"{COMMAND_CENTER_PATH}?{PLANT_PARAM}={quote(str(plant_id), safe='')}"
-
-
-def parse_plant_selection(search: str | None) -> str | None:
-    """The plant id a `?plant=` link names, or None.
-
-    Returns the raw value and makes no claim that it names a visible plant —
-    the caller resolves it against the freshness snapshot it already has, and
-    an unknown or out-of-scope value selects nothing rather than erroring.
-    """
-    if not search:
-        return None
-    params = parse_qs(search.lstrip("?"))
-    value = params.get(PLANT_PARAM, [None])[0]
-    return value or None

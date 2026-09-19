@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from dash import dcc, html
 
-from components.fleet_condition import threshold_label
 from services.freshness_threshold_service import (
     MAX_MINUTES,
     MIN_MINUTES,
@@ -18,6 +17,17 @@ MINUTES_INPUT_ID = "freshness-threshold-minutes"
 SET_BTN_ID = "freshness-threshold-set-btn"
 CLEAR_BTN_ID = "freshness-threshold-clear-btn"
 ERROR_ID = "freshness-threshold-error"
+
+
+def threshold_label(minutes: int) -> str:
+    """90 -> "90 min", 120 -> "2 hours", 1440 -> "24 hours", 2880 -> "2 days"."""
+    if minutes % (24 * 60) == 0:
+        days = minutes // (24 * 60)
+        return "24 hours" if days == 1 else f"{days} days"
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        return f"{hours} hour" if hours == 1 else f"{hours} hours"
+    return f"{minutes} min"
 
 
 def _describe(minutes: int) -> str:

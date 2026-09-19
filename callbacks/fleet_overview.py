@@ -1,4 +1,4 @@
-"""The redesigned Fleet Overview's one callback (FO-NEW-1).
+"""The Fleet Overview's one callback (FO-NEW-1, SWITCH-OVER-1).
 
 One page load = one scope resolution (ADR-004) = one
 `fleet_overview_service` snapshot = every output. A failed read shows the
@@ -14,13 +14,13 @@ from dash import Input, Output, no_update
 
 from components import fleet_overview as ui
 from components.status_panels import error_panel
-from pages import plants_overview_new as page
+from pages import plants_overview as page
 from services.device_scope import current_device_scope
 from services.fleet_overview_service import get_fleet_overview
 
 logger = logging.getLogger(__name__)
 
-ROUTE = "overview_new"
+ROUTE = "overview"
 OUTPUTS = 5  # summary, refreshed, limits, plants, error
 
 

@@ -23,7 +23,6 @@ from callbacks.listings import (
     PLANT_LINK_COLUMN,
     TRANSFORMER_LINK_COLUMN,
     device_row_target,
-    plant_row_target,
     transformer_row_target,
 )
 
@@ -35,33 +34,6 @@ def cell(column_id: str, row: int = 0, row_id: str | None = None) -> dict:
     return {"row": row, "column_id": column_id, "row_id": row_id}
 
 
-class TestPlantRowNavigation:
-    def test_navigates_to_the_clicked_plant(self):
-        target = plant_row_target(cell(PLANT_LINK_COLUMN, row=0, row_id="plant-07"))
-        assert target == "/plants/plant-07"
-
-    def test_sorted_viewport_still_navigates_to_the_visible_row(self):
-        """The regression: viewport row 0 is not base-order row 0.
-
-        Sorting Plant descending puts `plant-30` at the top; its index in the
-        unsorted `data` is 29. Navigation must follow the id, not the index.
-        """
-        target = plant_row_target(cell(PLANT_LINK_COLUMN, row=0, row_id="plant-30"))
-        assert target == "/plants/plant-30"
-
-    def test_filtered_viewport_still_navigates_to_the_visible_row(self):
-        target = plant_row_target(cell(PLANT_LINK_COLUMN, row=0, row_id="plant-12"))
-        assert target == "/plants/plant-12"
-
-    def test_click_outside_the_link_column_does_not_navigate(self):
-        assert plant_row_target(cell("country", row_id="plant-07")) is no_update
-
-    def test_no_active_cell_does_not_navigate(self):
-        assert plant_row_target(None) is no_update
-
-    def test_missing_row_id_does_not_navigate(self):
-        """Defensive: navigating on a guess is worse than not navigating."""
-        assert plant_row_target(cell(PLANT_LINK_COLUMN, row=3, row_id=None)) is no_update
 
 
 class TestTransformerRowNavigation:
@@ -103,23 +75,6 @@ class TestDeviceRowNavigation:
 class TestRowsCarryTheirIdentity:
     """`row_id` only exists if each row dict carries an `id` key."""
 
-    def test_plant_rows_expose_an_id(self):
-        from callbacks.listings import build_plant_rows
-
-        class _P:
-            def __init__(self, pid):
-                self.plant_id = pid
-                self.name = "Grand Coulee"
-                self.country = "USA"
-                self.primary_fuel = "Hydro"
-                self.capacity_mw = 6809.0
-
-        from services.monitoring_service import fleet_health_from_rows
-
-        rows = build_plant_rows(
-            [_P("plant-07")], {"plant-07": (1, 3)}, fleet_health_from_rows([])
-        )
-        assert rows[0]["id"] == "plant-07"
 
     def test_transformer_rows_expose_an_id(self):
         from callbacks.listings import build_transformer_rows

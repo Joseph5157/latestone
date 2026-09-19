@@ -10,15 +10,13 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import command_center_new, plants_overview_new
-from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, command_center_locations
+from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center
 from pages.placeholder import placeholder_layout
 from routes import (
     Route,
     device_href,
     parse_custom_range,
     parse_pathname,
-    parse_plant_selection,
     parse_query,
 )
 from services import hierarchy_service
@@ -140,7 +138,7 @@ def landing_route_name(route_name: str, pathname: str | None, role: str | None) 
     login" means for a user who signs in at `/`.
     """
     if pathname in (None, "", "/") and role in _COMMAND_CENTER_LANDING_ROLES:
-        return "command_center_new"
+        return "command_center"
     return route_name
 
 
@@ -341,26 +339,7 @@ def register(app) -> None:
                 return notifications.layout(), ctx
 
             if route.name == "command_center":
-                # The selected plant rides in page-context alongside the
-                # route, the same way metric/period do for a device. The
-                # panel callback then needs one input, not two, and cannot
-                # fire for a search change on some other route.
-                ctx = {
-                    "route": "command_center",
-                    "plant_id": parse_plant_selection(search),
-                }
-                return command_center.layout(), ctx
-
-            if route.name == "overview_new":
-                return plants_overview_new.layout(), {"route": "overview_new"}
-
-            if route.name == "command_center_new":
-                ctx = {"route": "command_center_new"}
-                return command_center_new.layout(), ctx
-
-            if route.name == "command_center_locations":
-                ctx = {"route": "command_center_locations"}
-                return command_center_locations.layout(), ctx
+                return command_center.layout(), {"route": "command_center"}
 
             if route.name in PLACEHOLDER_PAGES:
                 title, purpose = PLACEHOLDER_PAGES[route.name]
