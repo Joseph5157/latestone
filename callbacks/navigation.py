@@ -19,7 +19,7 @@ It never writes the left sidebar state, page contents, or selector values.
 """
 from __future__ import annotations
 
-from dash import Input, Output, State
+from dash import Input, Output, State, ctx, no_update
 
 from components.app_shell import (
     CONTENT_ID, UTILITY_ID, UTILITY_BODY_ID, UTILITY_STORE_ID, UTILITY_TOGGLE_ID,
@@ -33,6 +33,7 @@ from components.app_sidebar import (
     TOGGLE_ID,
     sidebar_nav,
 )
+from components import theme
 from routes import NAV_KEY_BY_ROUTE, parse_pathname
 from services.auth_service import from_session
 from services.authorization import visible_nav_keys
@@ -146,8 +147,44 @@ def utility_presentation(collapse_data, pathname) -> tuple[str, bool, str, str, 
     return class_name, collapsed, toggle_aria_expanded(collapse_data), label, label
 
 
+def theme_choice(pressed) -> dict | object:
+    """The stored value for a Dark / Light click (ADR-025)."""
+    if pressed == theme.TOGGLE_LIGHT_ID:
+        return {"theme": theme.LIGHT}
+    if pressed == theme.TOGGLE_DARK_ID:
+        return {"theme": theme.DARK}
+    return no_update
+
+
+def theme_outputs(stored) -> tuple:
+    """Root className and both toggle buttons' (className, aria-pressed)."""
+    dark_class, dark_pressed = theme.option_state(theme.DARK, stored)
+    light_class, light_pressed = theme.option_state(theme.LIGHT, stored)
+    return theme.root_class_name(stored), dark_class, light_class, dark_pressed, light_pressed
+
+
 def register(app) -> None:
     """Register sidebar callbacks on the Dash app."""
+
+    @app.callback(
+        Output(theme.STORE_ID, "data"),
+        Input(theme.TOGGLE_DARK_ID, "n_clicks"),
+        Input(theme.TOGGLE_LIGHT_ID, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def choose_theme(_dark, _light):
+        return theme_choice(ctx.triggered_id)
+
+    @app.callback(
+        Output(theme.ROOT_ID, "className"),
+        Output(theme.TOGGLE_DARK_ID, "className"),
+        Output(theme.TOGGLE_LIGHT_ID, "className"),
+        Output(theme.TOGGLE_DARK_ID, "aria-pressed"),
+        Output(theme.TOGGLE_LIGHT_ID, "aria-pressed"),
+        Input(theme.STORE_ID, "data"),
+    )
+    def apply_theme(stored):
+        return theme_outputs(stored)
 
     @app.callback(
         Output(SHELL_ID, "style"),

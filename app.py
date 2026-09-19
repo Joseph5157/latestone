@@ -13,6 +13,7 @@ from callbacks import audit_log, auth, routing, listings, device, equipment_sele
 from components.app_shell import app_shell
 from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
+from components import theme
 from config.logging_config import configure_logging
 from config.settings import flask_session
 
@@ -67,9 +68,14 @@ app.index_string = app.index_string.replace(
 # shell can claim the full viewport via CSS flex sizing — see .app-root in
 # assets/app.css.
 app.layout = html.Div(
-    className="app-root",
+    # ADR-025: the appearance class lives here, set by
+    # callbacks.navigation from the browser-local theme store.
+    id=theme.ROOT_ID,
+    className=theme.root_class_name(None),
     children=[
         dcc.Location(id="url", refresh=False),
+        # Remembered on this computer across sign-outs (ADR-025).
+        dcc.Store(id=theme.STORE_ID, storage_type="local"),
         # Session-scoped, not memory: a memory store is discarded by every full
         # page load, so an ordinary refresh signed the user out. Session
         # storage survives a reload and still ends with the tab. Signing out

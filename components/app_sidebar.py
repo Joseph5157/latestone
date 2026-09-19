@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from dash import dcc, html
 
+from components.theme import theme_toggle
 from services.authorization import visible_nav_keys
 
 SHELL_ID = "app-sidebar-shell"
@@ -199,12 +200,12 @@ def app_sidebar(active_key: str | None = None, role: str | None = None) -> html.
             # makes a bookmarked /logout sign out rather than render
             # nothing (callbacks/auth.py:132).
             html.Div(
-                html.A(
+                [theme_toggle(), html.A(
                     _item_content("Logout", "logout"),
                     href=LOGOUT_PATH,
                     className="app-sidebar__link app-sidebar__logout",
                     title="Logout",
-                ),
+                )],
                 className="app-sidebar__footer",
             ),
         ],

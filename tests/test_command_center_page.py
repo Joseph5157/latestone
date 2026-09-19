@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from dash import no_update
 
 from callbacks import command_center as cb
-from components.command_center import theme
+from components import theme
 from pages import command_center as page
 from services.attention_service import AttentionSnapshot
 
@@ -21,12 +21,14 @@ def _ids(node, out=None):
     return out
 
 
-def test_layout_carries_every_slot_and_the_shared_theme_ids():
+def test_layout_carries_every_slot_and_no_theme_controls_of_its_own():
     ids = _ids(page.layout())
     assert {page.SCOPE_ID, page.STATUS_SLOT_ID, page.PROBLEMS_ID, page.HOTTEST_ID,
             page.ACTIVITY_ID, page.TREND_ID, page.ERROR_ID, page.INTERVAL_ID,
             page.STORE_ID, page.REFRESH_STATUS_ID, page.REFRESH_NOW_ID} <= ids
-    assert {theme.ROOT_ID, theme.STORE_ID, theme.TOGGLE_DARK_ID, theme.TOGGLE_LIGHT_ID} <= ids
+    # ADR-025: the appearance is app-wide; its store and toggle live in the
+    # shell, so the page must not mount duplicates of those ids.
+    assert not ({theme.ROOT_ID, theme.STORE_ID, theme.TOGGLE_DARK_ID, theme.TOGGLE_LIGHT_ID} & ids)
 
 
 def test_other_routes_do_nothing():
@@ -59,11 +61,10 @@ def test_failed_refresh_keeps_last_good_panels():
     assert out[8] == {"last_success_at": state["last_success_at"], "failed": True}
 
 
-def test_page_class_survives_the_theme_callback():
-    """apply_theme REPLACES the root className, so nothing of this page's
-    own may live there — it would vanish on the first theme apply."""
+def test_page_root_carries_its_route_class_not_a_theme_class():
     root = page.layout()
-    assert root.className == theme.root_class_name(theme.DEFAULT_THEME)
+    assert root.className == page.ROOT_CLASS
+    assert "theme--" not in root.className
     assert root.children[0].className == "attention-page"
 
 

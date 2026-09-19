@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from dash import ALL, Input, Output, State, ctx, html, no_update
 
 from components import attention as ui
-from components.command_center import refresh, theme
+from components.command_center import refresh
 from components.command_center.primitives import scope_indicator_text
 from components.device_manage_drawer import (
     MANAGE_ACTION_STORE_ID,
@@ -279,43 +279,3 @@ def register(app) -> None:
     def open_manage_from_command_center(_clicks):
         value = ctx.triggered[0]["value"] if ctx.triggered else None
         return manage_outputs(ctx.triggered_id, value)
-
-    @app.callback(
-        Output(theme.STORE_ID, "data"),
-        Input(theme.TOGGLE_DARK_ID, "n_clicks"),
-        Input(theme.TOGGLE_LIGHT_ID, "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def choose_theme(_dark_clicks, _light_clicks):
-        """Which appearance the operator picked (ADR-006). Reads
-        `ctx.triggered_id`: click counts drift when a button re-renders."""
-        pressed = ctx.triggered_id
-        if pressed == theme.TOGGLE_LIGHT_ID:
-            return {"theme": theme.LIGHT}
-        if pressed == theme.TOGGLE_DARK_ID:
-            return {"theme": theme.DARK}
-        return no_update
-
-    @app.callback(
-        Output(theme.ROOT_ID, "className"),
-        Output(theme.TOGGLE_DARK_ID, "className"),
-        Output(theme.TOGGLE_LIGHT_ID, "className"),
-        Output(theme.TOGGLE_DARK_ID, "aria-pressed"),
-        Output(theme.TOGGLE_LIGHT_ID, "aria-pressed"),
-        Input(theme.STORE_ID, "data"),
-    )
-    def apply_theme(data):
-        """One className swap re-themes the page and the shell around it
-        (ADR-006). Driven by the store, so the stored choice is re-applied
-        whenever the page mounts. It REPLACES the root className, which is
-        why the page keeps its own class on an inner wrapper."""
-        choice = (data or {}).get("theme", theme.DEFAULT_THEME)
-        dark_class, dark_pressed = theme.option_state(theme.DARK, choice)
-        light_class, light_pressed = theme.option_state(theme.LIGHT, choice)
-        return (
-            theme.root_class_name(choice),
-            dark_class,
-            light_class,
-            dark_pressed,
-            light_pressed,
-        )

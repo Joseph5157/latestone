@@ -5993,7 +5993,7 @@ body {
    Colour still never carries meaning alone — every one of these tones has a
    word beside it in the markup (Phases 6, 9, 10). These values change what
    the word is painted in, never whether it is there. */
-.app-root:has(.page--command-center) {
+.app-root {
   /* INHERITED text must be themed, not just text that has its own rule.
      `body` sets a hardcoded light `color`, and any element without a colour
      rule of its own inherits it — the page H1 has no such rule, so in dark
@@ -6018,7 +6018,7 @@ body {
    The semantic tones are re-stated at dark-appropriate luminance: the light
    values above are chosen for contrast on white and would sit at roughly
    3:1 on #1a232e, which is below the 4.5:1 these carry on light. */
-.app-root:has(.page--command-center.cc-theme--dark) {
+.app-root.theme--dark:not(:has(.login-page)) {
   --color-bg: #121820;
   --color-surface: #1a232e;
   --color-border: #2b3949;
@@ -6044,19 +6044,19 @@ body {
 
 /* The shell surfaces. They inherit the tokens above; these rules only paint
    the two elements that carry their own background. */
-.app-root:has(.page--command-center.cc-theme--dark),
-.app-shell:has(.page--command-center.cc-theme--dark) {
+.app-root.theme--dark:not(:has(.login-page)),
+.app-root.theme--dark:not(:has(.login-page)) .app-shell {
   background: var(--color-bg);
 }
 
-.app-shell:has(.page--command-center.cc-theme--dark) .app-sidebar-shell {
+.app-root.theme--dark:not(:has(.login-page)) .app-sidebar-shell {
   background: var(--color-brand);
   border-right-color: var(--color-border);
 }
 
 /* The utility column (Asset Navigator) is chrome, not content — it follows
    the shell, and the frozen spec names it explicitly. */
-.app-shell:has(.page--command-center.cc-theme--dark) .app-shell__utility {
+.app-root.theme--dark:not(:has(.login-page)) .app-shell__utility {
   background: var(--color-surface);
   border-left-color: var(--color-border);
 }
@@ -6066,7 +6066,7 @@ body {
    ground and the pill becomes a dark surface: 1.18:1, unreadable. The
    selected state is re-expressed with the accent pair instead of inheriting
    a contrast that only worked in one appearance. */
-.app-shell:has(.page--command-center.cc-theme--dark) .app-sidebar__link--active {
+.app-root.theme--dark:not(:has(.login-page)) .app-sidebar__link--active {
   background: var(--color-accent-bg);
   color: var(--color-text);
 }
@@ -6181,7 +6181,7 @@ body {
   font-weight: 600;
 }
 
-.page--command-center.cc-theme--dark .command-center__refresh-failed {
+.app-root.theme--dark:not(:has(.login-page)) .command-center__refresh-failed {
   color: #ff8085;
 }
 
@@ -7205,3 +7205,40 @@ button.attention-severity-card.attention-counter--critical:not(.attention-counte
 button.attention-severity-card.attention-counter--critical.attention-counter--active {
   background: color-mix(in srgb, var(--sev-critical) 20%, var(--color-surface));
 }
+
+/* ==========================================================================
+   THEME-APP-1 (ADR-025): the app-wide Dark | Light control in the sidebar
+   footer. Sidebar colours, so it reads the same in both appearances.
+   ========================================================================== */
+.app-sidebar__icon--theme-dark  { -webkit-mask-image: url("/assets/icons/theme-dark.svg");  mask-image: url("/assets/icons/theme-dark.svg"); }
+.app-sidebar__icon--theme-light { -webkit-mask-image: url("/assets/icons/theme-light.svg"); mask-image: url("/assets/icons/theme-light.svg"); }
+.app-theme {
+  display: flex;
+  gap: 2px;
+  margin: 0 var(--sp-2) var(--sp-2);
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+}
+.app-theme__option {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-theme__option:hover { color: #fff; }
+.app-theme__option--active { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.app-theme__option:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
+.app-sidebar--collapsed .app-theme { flex-direction: column; margin-inline: var(--sp-1); }
+.app-sidebar--collapsed .app-theme__option { gap: 0; }
