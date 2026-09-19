@@ -165,7 +165,10 @@ class TestProblemActions:
 def test_status_bar_counts_problems_by_severity_including_zeros():
     snap = _snap(problems=[_problem(K.POWER_DOWN), _problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)])
     counters = [n for n in _walk(ui.status_bar(snap)) if "attention-counter" in (getattr(n, "className", "") or "").split()]
-    assert [text(c) for c in counters] == ["Critical 2", "Warning 1", "No data 0", "Sensor 0"]
+    assert [text(c) for c in counters] == [
+        "Critical 2 Power Down 2", "Warning 1 Battery Low 1",
+        "No data 0 None right now", "Sensor 0 None right now",
+    ]
 
 
 def test_problem_list_has_a_column_header_on_the_row_grid():
@@ -253,3 +256,10 @@ def test_selected_severity_narrows_the_list_and_offers_show_all():
 def test_no_selection_shows_everything_without_a_note():
     card = ui.problem_list([_problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)], NOW)
     assert "Showing" not in text(card)
+
+
+def test_severity_cards_break_each_tone_down_by_kind_in_rank_order():
+    snap = _snap(problems=[_problem(K.POWER_DOWN), _problem(K.TEMP_CRITICAL), _problem(K.TEMP_CRITICAL)])
+    assert ui.severity_breakdown(snap.problems)["critical"] == "Critical temperature 2 · Power Down 1"
+    cards = _by_class(ui.status_bar(snap), "attention-severity-card")
+    assert len(cards) == 4
