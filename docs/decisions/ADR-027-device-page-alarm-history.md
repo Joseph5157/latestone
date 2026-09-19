@@ -6,7 +6,7 @@ Evidence: `repositories/plant_monitoring_repository.py`
 (`list_recent_device_events`), `services/device_timeline_service.py`,
 `components/metric_chart.py`, `components/device_alarms.py`,
 `callbacks/device.py`, `services/authorization.py` (`ROUTE_POLICY`)
-Implemented-by: not yet
+Implemented-by: `6bbf26c`
 
 ## Context
 
@@ -28,7 +28,9 @@ monitor page) and three decisions on 2026-09-19.
   **4 × this RTL's median reading spacing in the shown window**. No fixed
   cadence is assumed: the application does not know any RTL's reporting
   cadence (`config/settings.py`, `resolve_freshness_stale_after_minutes`).
-  Fewer than three readings in the window: no gaps are drawn.
+  Fewer than three readings in the window: no gaps are drawn. The silence
+  after the last reading, up to the window end (never past now), counts too:
+  for an RTL that stopped reporting it is the gap that matters most.
 - **Who sees it:** Administrators and Technicians (the roles that may open
   Notifications and the Command Center, `ROUTE_POLICY`). General Users keep
   the Device page without the alarm history. Technicians see only their
