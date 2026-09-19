@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T12:44:59Z
+Date: 2026-09-19T12:54:27Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `dark-mode-polish` = `0bba5cf` "docs(context): THEME-APP-1 cites the new theme module, not the deleted one" (not `main`)
-- Working tree: 8 entries — see below
+- current branch `dark-mode-polish` = `3ad1f8f` "fix(theme): visible dark highlights, 3:1 form-field edges, dark native controls, tokenised light edges, Technician Devices icon (THEME-APP-2)" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2928 passed, 731 deselected in 32.48s
+- `python -m pytest -m "not db"` → 2951 passed, 731 deselected in 32.01s
 
 ## Branches
 
@@ -32,7 +32,6 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `cc-visuals`
 - `click-to-filter`
 - `ctx-1-context-architecture`
-- `dark-mode-polish`
 - `ent-6-ui-and-live-simulator`
 - `fix-registration-window-clock-domain`
 - `nav-1-utility-route-visibility`
@@ -57,6 +56,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 410 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 260 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 410 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `dark-mode-polish` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -92,12 +92,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-THEME-APP-2 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
