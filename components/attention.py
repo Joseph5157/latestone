@@ -13,7 +13,7 @@ from typing import Sequence
 from dash import dcc, html
 
 from components.command_center.primitives import cc_card
-from components.status_colors import CONDITION_TONE, KIND_TONE, TONE_NAME, status_chip_class
+from components.status_colors import CONDITION_TONE, KIND_TONE, TONE_NAME, status_chip_class, status_dot
 from routes import device_href
 from services.attention_service import (
     ACKNOWLEDGEABLE_KINDS,
@@ -251,7 +251,8 @@ def problem_list(
             html.Li(
                 className=f"attention-problem attention-problem--{KIND_TONE[p.kind]}",
                 children=[
-                    _chip(p.label, KIND_TONE[p.kind]),
+                    html.Span(className="attention-problem__kind",
+                              children=[status_dot(KIND_TONE[p.kind]), p.label]),
                     html.Div(className="attention-problem__main", children=[
                         _device_link(p.device_id, p.device_code),
                         html.Span(f"{p.plant_name} · {p.transformer_code}",

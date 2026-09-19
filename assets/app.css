@@ -6774,7 +6774,8 @@ body {
   font-size: var(--fs-body);
 }
 .attention-problem:first-child { border-top: 0; }
-.attention-problem > .attention-chip { grid-area: chip; }
+.attention-problem > .attention-problem__kind { grid-area: chip; }
+.attention-problem__kind { display: flex; align-items: baseline; gap: var(--sp-2); font-weight: 600; color: var(--color-text); min-width: 0; }
 .attention-problem__main { grid-area: main; display: flex; flex-direction: column; min-width: 0; }
 .attention-problem__detail { grid-area: detail; }
 .attention-problem__since { grid-area: since; }
@@ -6941,6 +6942,15 @@ body {
 .status-chip--info     { background: color-mix(in srgb, var(--sev-info) 14%, var(--color-surface));     color: var(--sev-info); }
 .status-chip--normal   { background: color-mix(in srgb, var(--sev-normal) 10%, var(--color-surface));   color: var(--sev-normal); }
 .status-chip--none     { background: color-mix(in srgb, var(--sev-none) 14%, var(--color-surface));     color: var(--color-muted); }
+
+/* ADR-026: the dot before a status that is the row's own text. */
+.status-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; transform: translateY(-1px); }
+.status-dot--critical { background: var(--sev-critical); }
+.status-dot--warning  { background: var(--sev-warning); }
+.status-dot--nodata   { background: var(--sev-nodata); }
+.status-dot--info     { background: var(--sev-info); }
+.status-dot--normal   { background: var(--sev-normal); }
+.status-dot--none     { background: var(--sev-none); }
 
 .colour-key { margin: var(--sp-2) 0 var(--sp-3); font-size: var(--fs-meta); color: var(--color-muted); }
 .colour-key__summary { cursor: pointer; width: fit-content; font-weight: 600; }

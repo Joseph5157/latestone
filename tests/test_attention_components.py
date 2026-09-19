@@ -94,9 +94,17 @@ class TestProblemList:
         assert "Alpha · T1" in text(card) and "2 h ago" in text(card)
         assert any(h.startswith("/devices/plant-01-t1-d1") for h in hrefs(card))
 
-    def test_tone_follows_the_kind(self):
-        assert "status-chip--critical" in classes(ui.problem_list([_problem(K.TEMP_CRITICAL)], NOW))
-        assert "status-chip--warning" in classes(ui.problem_list([_problem(K.BATTERY_LOW)], NOW))
+    def test_tone_follows_the_kind_as_a_dot_not_a_badge(self):
+        # ADR-026 (COLOUR-KEY-2): the problem is the row's main text, so it
+        # carries a coloured dot; badges are for a status beside a value.
+        critical = classes(ui.problem_list([_problem(K.TEMP_CRITICAL)], NOW))
+        assert "status-dot--critical" in critical
+        assert "status-dot--warning" in classes(ui.problem_list([_problem(K.BATTERY_LOW)], NOW))
+        assert not any(c.startswith("status-chip") for c in critical)
+
+    def test_the_problem_name_stays_readable_text(self):
+        card = ui.problem_list([_problem(K.POWER_DOWN)], NOW)
+        assert "Power Down" in text(card)
 
     def test_empty_state(self):
         assert "Nothing needs attention" in text(ui.problem_list([], NOW))
