@@ -47,6 +47,24 @@ _CONDITION_TONE = {
 }
 
 
+#: Status-bar counters (POLISH-1), in the order an operator reads them.
+#: Grouped by the same tone the problem chips use, so a counter and the
+#: chips it counts can never disagree about which colour a kind is.
+SEVERITY_COUNTERS = (
+    ("Critical", "critical"),
+    ("Warning", "warning"),
+    ("No data", "nodata"),
+    ("Sensor", "info"),
+)
+
+
+def severity_counts(problems: Sequence[Problem]) -> dict[str, int]:
+    counts = {tone: 0 for _label, tone in SEVERITY_COUNTERS}
+    for p in problems:
+        counts[_KIND_TONE[p.kind]] += 1
+    return counts
+
+
 #: Pattern-matching id types for the per-problem actions (CC-ACTIONS-1).
 ACK_BUTTON = "attention-ack"
 MANAGE_BUTTON = "attention-manage"
@@ -101,10 +119,19 @@ def status_bar(snapshot: AttentionSnapshot) -> html.Div:
             f"{LIMIT_SOURCE_NOTE}",
             className="attention-status__limits",
         )
+    counts = severity_counts(snapshot.problems)
+    counters = html.Div(className="attention-status__counts", children=[
+        html.Span(className=f"attention-counter attention-counter--{tone}"
+                            + (" attention-counter--zero" if not counts[tone] else ""),
+                  children=[html.Span(label, className="attention-counter__label"),
+                            html.Strong(str(counts[tone]), className="attention-counter__value")])
+        for label, tone in SEVERITY_COUNTERS
+    ])
     return html.Div(
         className="attention-status" + (" attention-status--clear" if clear else ""),
         children=[
             *headline,
+            counters,
             html.Span(
                 f"{snapshot.reporting_rtls} of {snapshot.total_rtls} RTLs reporting",
                 className="attention-status__reporting",
@@ -145,7 +172,16 @@ def problem_list(
     if not problems:
         body = [html.P("Nothing needs attention.", className="attention-empty")]
     else:
-        body = [html.Ul(className="attention-problems", children=[
+        # Column header on the same grid as the rows, so "since" and the
+        # actions read as columns (POLISH-1). Hidden on phones.
+        head = html.Div(className="attention-problem attention-problem--head",
+                        **{"aria-hidden": "true"}, children=[
+            html.Span("Problem", className="attention-problem__h-chip"),
+            html.Span("RTL · where", className="attention-problem__main"),
+            html.Span("Since", className="attention-problem__since"),
+            html.Span("", className="attention-problem__actions"),
+        ])
+        body = [head, html.Ul(className="attention-problems", children=[
             html.Li(
                 className=f"attention-problem attention-problem--{_KIND_TONE[p.kind]}",
                 children=[
