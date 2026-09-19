@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T15:34:15Z
+Date: 2026-09-19T15:53:29Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `problem-groups-fold` = `08e790e` "feat(ui): Needs-attention groups fold as an accordion (PROBLEM-GROUPS-2)" (not `main`)
+- current branch `assign-toolbar` = `c3a02f1` "feat(admin): Assignments toolbar replaces the native filter row (ASSIGN-TOOLBAR-1)" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3012 passed, 731 deselected in 35.15s
+- `python -m pytest -m "not db"` → 3030 passed, 731 deselected in 36.19s
 
 ## Branches
 
@@ -45,6 +45,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `overview-stats-cards`
 - `problem-dots`
 - `problem-groups`
+- `problem-groups-fold`
 - `problem-text-colour`
 - `role-1-session-identity`
 - `role-2-route-authorization`
@@ -60,10 +61,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 435 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 285 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 435 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `problem-groups-fold` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `assign-toolbar` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 438 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 288 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 438 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 

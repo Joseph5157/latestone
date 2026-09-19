@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: ASSIGN-TOOLBAR-1
-Commit/push permission: commit and local merge to `main` **GRANTED** (user,
-2026-09-19, after browser review); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit and local merge to `main` **GRANTED and
+exercised** (user, 2026-09-19, after browser review); push **NOT granted**.
 
-## ASSIGN-TOOLBAR-1 — OPEN
+## ASSIGN-TOOLBAR-1 — CLOSED / PASS
 
 Baseline: `main` at `e3280eb`, branch `assign-toolbar`. No ADR: this applies
 the existing `entity_table` rule ("a page carrying its own toolbar passes
@@ -57,13 +57,21 @@ User request (option A of a browser review of `/admin/assignments`):
 
 None.
 
-## Verification (2026-09-19, uncommitted)
+## Implementation
+
+- `c3a02f1` Assignments toolbar (`SEARCH_ID`, Plant/Data/Technician
+  dropdowns, Clear) feeding `filter_device_rows`; `column_filter()` moved
+  to `components/column_filter.py`; sort-arrow CSS in `assets/app.css`.
+
+## Verification (2026-09-19)
 
 - `python -m pytest -m "not db"` passes; pack `--check` CLEAN.
 - Browser 1440 px, dark and light: `three gorges` → 7 of 120 (native row
   gave 0); Technician = Unassigned → 23 of 120, matching the card; Clear
   filters → 120; workload roster unchanged under filtering; "Assigned RTLs"
   arrow 8 px after its label (was ~800 px); no arrow on Assign/Manage.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 
