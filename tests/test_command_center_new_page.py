@@ -39,7 +39,8 @@ def test_success_renders_every_panel_and_records_success():
                              activity=(), daily_alarms=(), limits=None,
                              generated_at=datetime(2026, 9, 19, tzinfo=timezone.utc))
     out = cb.populate({"route": "command_center_new"}, None,
-                      fetch=lambda scope, now: snap, scope_for=lambda: None)
+                      fetch=lambda scope, now: snap, scope_for=lambda: None,
+                      identity=lambda: None)
     assert len(out) == 9 and out[6] is None
     assert out[8]["failed"] is False and out[8]["last_success_at"]
 
@@ -64,3 +65,95 @@ def test_page_class_survives_the_theme_callback():
     root = page.layout()
     assert root.className == theme.root_class_name(theme.DEFAULT_THEME)
     assert root.children[0].className == "attention-page"
+
+
+# --- CC-ACTIONS-1 -----------------------------------------------------------
+from types import SimpleNamespace as NS
+
+from callbacks import device_manage
+from components import attention as ui
+from services.attention_service import ProblemKind
+from services.authorization import AuthorizationError
+
+
+def test_layout_mounts_the_shared_manage_drawer():
+    from components.device_manage_drawer import MANAGE_DRAWER_ID
+    assert MANAGE_DRAWER_ID in _ids(page.layout())
+    assert {page.ACTION_RESULT_ID, page.ACK_STORE_ID} <= _ids(page.layout())
+
+
+def test_drawer_output_count_matches_the_other_openers():
+    assert cb.DRAWER_OUTPUTS == device_manage._MANAGE_DRAWER_OUTPUTS
+
+
+def test_permitted_devices_asks_the_policy_per_device_with_the_scope():
+    problems = [NS(device_id="a"), NS(device_id="b")]
+    seen = []
+
+    def allow(user, action, *, device_id, scope):
+        seen.append(scope)
+        return device_id == "a"
+
+    may_ack, may_manage = cb.permitted_devices(problems, "u", "SCOPE", allow=allow)
+    assert may_ack == may_manage == frozenset({"a"})
+    assert set(seen) == {"SCOPE"}
+
+
+ACK = {"type": ui.ACK_BUTTON, "device": "d1", "kind": "power_down"}
+
+
+class TestAcknowledgeOutputs:
+    def test_rerender_is_not_a_click(self):
+        assert cb.acknowledge_outputs(ACK, 0) == (no_update, no_update)
+        assert cb.acknowledge_outputs(ACK, None) == (no_update, no_update)
+
+    def test_click_acknowledges_and_refreshes(self):
+        seen = {}
+
+        def ack(user, scope, device, kind):
+            seen.update(device=device, kind=kind)
+            return 2
+
+        notice, store = cb.acknowledge_outputs(ACK, 1, identity=lambda: "u",
+                                               scope_for=lambda: "s", ack=ack)
+        assert seen == {"device": "d1", "kind": ProblemKind.POWER_DOWN}
+        assert "Acknowledged 2 alarms" in notice.children.children
+        assert store and store["at"]
+
+    def test_refusal_shows_notice_without_refresh(self):
+        def ack(*a):
+            raise AuthorizationError("no")
+
+        notice, store = cb.acknowledge_outputs(ACK, 1, identity=lambda: "u",
+                                               scope_for=lambda: "s", ack=ack)
+        assert notice is not no_update and store is no_update
+
+    def test_unknown_kind_is_ignored(self):
+        bad = {**ACK, "kind": "nonsense"}
+        assert cb.acknowledge_outputs(bad, 1) == (no_update, no_update)
+
+
+MANAGE = {"type": ui.MANAGE_BUTTON, "device": "d1"}
+PATH = NS(device_code="29001", transformer_code="t1", plant_name="Alpha")
+
+
+class TestManageOutputs:
+    def test_opens_drawer_with_server_resolved_labels(self):
+        out = cb.manage_outputs(MANAGE, 1, identity=lambda: "u", scope_for=lambda: "s",
+                                allow=lambda *a, **k: True, paths_for=lambda ids, scope: [PATH])
+        assert len(out) == cb.DRAWER_OUTPUTS
+        assert out[0] == {"display": "block"} and out[1] == "d1" and out[2] == "menu"
+        assert out[3:6] == ("29001", "t1", "Alpha")
+
+    def test_declined_without_permission(self):
+        out = cb.manage_outputs(MANAGE, 1, identity=lambda: "u", scope_for=lambda: "s",
+                                allow=lambda *a, **k: False, paths_for=lambda ids, scope: [PATH])
+        assert out == (no_update,) * cb.DRAWER_OUTPUTS
+
+    def test_declined_when_out_of_scope(self):
+        out = cb.manage_outputs(MANAGE, 1, identity=lambda: "u", scope_for=lambda: "s",
+                                allow=lambda *a, **k: True, paths_for=lambda ids, scope: [])
+        assert out == (no_update,) * cb.DRAWER_OUTPUTS
+
+    def test_rerender_is_not_a_click(self):
+        assert cb.manage_outputs(MANAGE, 0) == (no_update,) * cb.DRAWER_OUTPUTS

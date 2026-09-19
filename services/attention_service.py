@@ -37,8 +37,8 @@ from config.events import (
 )
 from repositories import plant_monitoring_repository as repo
 from services import alarm_acknowledgement_service
-from services.action_guard import AuthorizationError, require_action
-from services.authorization import ACKNOWLEDGE_ALARM
+from services.action_guard import require_action
+from services.authorization import ACKNOWLEDGE_ALARM, AuthorizationError
 from services.device_scope import DeviceScope
 from services.event_semantics import display_label_for
 from services.hierarchy_service import list_plants

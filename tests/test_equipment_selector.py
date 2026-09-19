@@ -175,7 +175,15 @@ MOUNTABLE_IDS = GLOBAL_LAYOUT_IDS | PAGE_LAYOUT_IDS
 class TestCallbackLayoutWiring:
     def test_every_callback_id_exists_in_some_layout(self):
         """No callback may reference a component no layout ever renders."""
-        orphans = callback_reference_ids(app_module.app) - MOUNTABLE_IDS
+        # Wildcard pattern-matching ids (`ALL`/`MATCH`, CC-ACTIONS-1's per-row
+        # buttons) are rendered per data row at runtime, and Dash accepts an
+        # ALL pattern that matches zero components, so they cannot raise the
+        # ReferenceError this guards. Their rendering is pinned instead by
+        # tests/test_attention_components.py::TestProblemActions.
+        orphans = {
+            ref for ref in callback_reference_ids(app_module.app) - MOUNTABLE_IDS
+            if '["ALL"]' not in ref and '["MATCH"]' not in ref
+        }
         assert not orphans, (
             "Callbacks reference ids that exist in no layout: "
             f"{sorted(orphans)}. Every navigation would raise a Dash "

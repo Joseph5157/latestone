@@ -14,6 +14,7 @@ from __future__ import annotations
 from dash import dcc, html
 
 from components.command_center import refresh, theme
+from components.device_manage_drawer import device_manage_drawer
 
 INTERVAL_ID = "attention-refresh-interval"
 STORE_ID = "attention-refresh-store"
@@ -26,6 +27,10 @@ PROBLEMS_ID = "attention-problems-slot"
 HOTTEST_ID = "attention-hottest-slot"
 ACTIVITY_ID = "attention-activity-slot"
 TREND_ID = "attention-trend-slot"
+#: CC-ACTIONS-1: a result notice for Acknowledge, and a store the populate
+#: callback listens to so an acknowledgement refreshes the list at once.
+ACTION_RESULT_ID = "attention-action-result"
+ACK_STORE_ID = "attention-ack-store"
 
 
 def _loading(what: str) -> html.P:
@@ -67,6 +72,8 @@ def layout() -> html.Div:
                 ],
             ),
             html.Div(id=ERROR_ID, className="listing-error"),
+            dcc.Store(id=ACK_STORE_ID, storage_type="memory"),
+            html.Div(id=ACTION_RESULT_ID, className="attention-notice", **{"aria-live": "polite"}),
             html.Div(id=STATUS_SLOT_ID, children=[_loading("status")]),
             html.Div(
                 className="attention-grid",
@@ -80,5 +87,8 @@ def layout() -> html.Div:
                     ]),
                 ],
             ),
+            # The SAME drawer Device Management and a Technician's Devices
+            # page open (ADR-016); its confirm callbacks re-check authority.
+            device_manage_drawer(),
         ])],
     )
