@@ -7028,7 +7028,7 @@ body {
 
 .attention-meter {
   position: relative;
-  flex: 0 0 38%;
+  min-width: 0;
   height: 8px;
   border-radius: 999px;
   background: var(--color-border);
@@ -7054,3 +7054,11 @@ body {
 .attention-legend--warning::before  { background: var(--cc-warning); }
 .attention-legend--info::before     { background: var(--attention-info); }
 .attention-legend--nodata::before   { background: var(--cc-no-data); }
+/* Fixed columns so every meter starts and ends at the same x. */
+.attention-hottest__row {
+  display: grid;
+  grid-template-columns: 3.25rem 2.75rem minmax(0, 1fr) 3.75rem 4.5rem;
+  gap: var(--sp-2);
+}
+.attention-hottest__value { text-align: right; }
+.attention-hottest__row > .attention-chip { justify-self: end; }
