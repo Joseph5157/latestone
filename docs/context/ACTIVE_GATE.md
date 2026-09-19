@@ -1,10 +1,59 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit **GRANTED and exercised** on branch
-`overview-cc-redesign` (CC-NEW-1); push **NOT granted**.
+Gate: CC-ACTIONS-1
+Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
+(commit after each green task); push **NOT granted**.
+
+## CC-ACTIONS-1 — OPEN / IN PROGRESS
+
+Baseline: branch `overview-cc-redesign` at `9595adb`. Phase 4 of the Fleet
+Overview + Command Center redesign (redesign decision D7: full actions in
+Command Center, reusing the existing flows, never copies).
+
+## Task
+
+Each problem on the new Command Center offers:
+
+- **Acknowledge** (Power Down / Battery Low / Sensor Error problems): the
+  RTL's current unacknowledged events of that type are resolved server-side
+  and each goes through `require_action(ACKNOWLEDGE_ALARM)` +
+  `alarm_acknowledgement_service.acknowledge_alarm`, the Notification
+  Center's path. The browser names only the RTL and the kind.
+- **Manage**: opens the shared `device_manage_drawer()` (Program RTL,
+  Message Forwarding, Deactivate with its existing confirm step). Its confirm
+  callbacks and their `require_action` checks are unchanged.
+
+Buttons render only where `may_action` allows (visibility, not authority).
+
+## Relevant files
+
+- `services/attention_service.py`, `components/attention.py`,
+  `pages/command_center_new.py`, `callbacks/command_center_new.py`
+- `services/alarm_acknowledgement_service.py`, `services/action_guard.py`,
+  `services/authorization.py`, `services/hierarchy_service.py` (read only)
+- `components/device_manage_drawer.py`, `callbacks/device_manage.py`
+  (read only: drawer contract)
+- `callbacks/notifications.py` (read only: acknowledgement precedent)
+- `docs/decisions/ADR-016-operational-actions-are-shared-administration-is-not.md`
+
+## Non-goals (explicit)
+
+- No new action, no policy change, no schema change, no change to the drawer
+  or its confirm callbacks. Assignment stays out of Command Center (ADR-016).
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser: Administrator acknowledges a problem and opens Manage; Technician
+  sees actions only for their own RTLs.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## CC-NEW-1 — CLOSED / PASS
 
@@ -97,7 +146,7 @@ None.
 - Not verified: Warning/Critical temperature rows in the browser (no limits
   are stored; the logic is unit-tested and was checked in TEMP-CONDITION-1).
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-ACTIONS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
