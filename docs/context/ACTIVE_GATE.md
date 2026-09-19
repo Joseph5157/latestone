@@ -4,7 +4,63 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (CC-SEVERITY-CARDS-1); push **NOT granted**.
+exercised** (SEVERITY-PALETTE-1); push **NOT granted**.
+
+## SEVERITY-PALETTE-1 — CLOSED / PASS
+
+Baseline: `main` at `f570546`, branch `severity-palette`.
+
+## Task
+
+1. One severity palette for both pages: `--sev-critical`, `--sev-warning`,
+   `--sev-nodata`, `--sev-info`, `--sev-normal` on `:root` (light) and
+   re-stated inside the Command Center's dark scope. The Command Center's
+   `--cc-critical/-warning/-no-data` and the attention tones point at them;
+   the Fleet Overview chips and condition bar use them too (No recent data
+   gets the same purple as the Command Center's No data; Limits not set
+   stays grey).
+2. Critical is the only strong colour; Warning, No data, Sensor and Normal
+   are quieter (lower saturation). A Critical card with problems is tinted.
+
+## Relevant files
+
+- `assets/app.css`, `components/fleet_overview.py`
+
+## Non-goals (explicit)
+
+- `--state-*` tokens untouched (the old-page freshness badges and
+  `tests/test_command_center_theme.py` rely on them); no layout change.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+  Browser 1440 px: both pages, Command Center dark and light.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `548f28c` `--sev-*` on `:root` and re-stated in the Command Center dark
+  scope; `--cc-critical/-warning/-no-data` and the attention tones point at
+  them; Fleet Overview chips and condition bar use them; No recent data ->
+  "nodata" tone (purple, as on the Command Center); a Critical card with
+  problems is tinted by default.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed (no simulator running).
+- Contrast of every `--sev-*` value >= 4.9:1 on white (light) and >= 5.7:1
+  on #1a232e (dark).
+- Browser 1440 px: Command Center dark and light, Fleet Overview; Critical
+  is the one saturated tone; Warning / No data identical on both pages; no
+  console errors.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## CC-SEVERITY-CARDS-1 — CLOSED / PASS
 
@@ -52,7 +108,7 @@ None.
   3 · Power Down 8", "Warning 35", "No data 1", "Sensor 9"; Critical card ->
   11 rows, pressed; no horizontal scroll; no console errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: SEVERITY-PALETTE-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

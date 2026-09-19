@@ -41,7 +41,8 @@ _TONE = {
     TemperatureCondition.WARNING: "warning",
     TemperatureCondition.NORMAL: "normal",
     TemperatureCondition.LIMITS_NOT_SET: "none",
-    TemperatureCondition.NO_RECENT_DATA: "none",
+    # Same purple as the Command Center's "No data" (SEVERITY-PALETTE-1).
+    TemperatureCondition.NO_RECENT_DATA: "nodata",
 }
 
 
