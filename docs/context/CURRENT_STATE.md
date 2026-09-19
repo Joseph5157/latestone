@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T09:12:12Z
+Date: 2026-09-19T09:40:28Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `overview-stats-cards` = `b019a33` "feat(command-center): oldest unacknowledged alarm and 24 h acknowledgement count in the status bar" (not `main`)
+- current branch `cc-visuals` = `6e5f0ad` "Merge branch 'overview-stats-cards': Overview stat cards; Command Center acknowledgement backlog" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2913 passed, 731 deselected in 30.62s
+- `python -m pytest -m "not db"` → 2913 passed, 731 deselected in 39.00s
 
 ## Branches
 
@@ -27,6 +27,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-dashboard-final`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
+- `cc-visuals`
 - `ctx-1-context-architecture`
 - `ent-6-ui-and-live-simulator`
 - `fix-registration-window-clock-domain`
@@ -35,6 +36,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `nav-3-remaining-field-labels`
 - `overview-cc-polish`
 - `overview-cc-redesign`
+- `overview-stats-cards`
 - `role-1-session-identity`
 - `role-2-route-authorization`
 - `role-3-device-scope`
@@ -47,10 +49,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 380 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 230 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 380 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `overview-stats-cards` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 385 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 235 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 385 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -85,7 +86,7 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+CC-VISUALS-1 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 

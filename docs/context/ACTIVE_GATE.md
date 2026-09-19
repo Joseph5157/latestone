@@ -1,10 +1,47 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (STATS-CARDS-1); push **NOT granted**.
+Gate: CC-VISUALS-1
+Commit/push permission: commit **GRANTED on branch `cc-visuals`** and a
+local merge to `main` once green; push **NOT granted**.
+
+## CC-VISUALS-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `6e5f0ad`, branch `cc-visuals`.
+
+## Task
+
+Three plain-HTML visuals on the Command Center (no chart library, no new
+query; AGENTS.md forbids gauges, pie charts and animations):
+
+1. Hottest now: a horizontal bar per RTL with warning and critical limit
+   markers (no markers when limits are unset).
+2. Alarms per day: each day's bar stacked by alarm kind (Power Down,
+   Battery Low, Sensor error) with a legend.
+3. Status bar: a thin severity strip sized by the Critical / Warning /
+   No data / Sensor counts; fully "clear" when there are no problems.
+
+## Relevant files
+
+- `services/attention_service.py`, `components/attention.py`,
+  `assets/app.css`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+
+## Non-goals (explicit)
+
+- No new data read, no schema change, no change to ranking or actions.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed with
+  the live simulator stopped. Browser at 1440 px, dark and light theme.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## STATS-CARDS-1 — CLOSED / PASS
 
@@ -63,7 +100,7 @@ None.
   unacknowledged: Battery Low · 20 d ago | 4 acknowledged in the last 24 h";
   tech "6 d ago | 0". No horizontal scroll, no console errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-VISUALS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
