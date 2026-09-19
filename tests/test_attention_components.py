@@ -190,3 +190,41 @@ def test_status_bar_names_the_oldest_unacknowledged_alarm_and_the_ack_count():
 
 def test_status_bar_says_when_nothing_awaits_acknowledgement():
     assert "No unacknowledged alarms" in text(ui.status_bar(_snap()))
+
+
+def _by_class(node, cls):
+    return [n for n in _walk(node) if cls in (getattr(n, "className", "") or "").split()]
+
+
+def test_severity_strip_segments_follow_the_counts_or_read_clear():
+    busy = ui.status_bar(_snap(problems=[_problem(K.POWER_DOWN), _problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)]))
+    segs = _by_class(busy, "attention-strip__seg")
+    assert [(s.className.split("--")[-1], s.style["flexGrow"]) for s in segs] == [("critical", 2), ("warning", 1)]
+    clear = _by_class(ui.status_bar(_snap()), "attention-strip__seg")
+    assert [s.className.split("--")[-1] for s in clear] == ["normal"]
+
+
+def test_hottest_meter_places_limit_markers_and_fills_to_the_value():
+    limits = TemperatureLimits(Decimal("36"), Decimal("40"))
+    card = ui.hottest_card([_temp(40.1, C.CRITICAL), _temp(31.0, C.NORMAL)], limits)
+    marks = _by_class(card, "attention-meter__mark")
+    assert len(marks) == 4  # warning + critical on each of two rows
+    low, high = ui.temperature_scale([_temp(40.1, C.CRITICAL), _temp(31.0, C.NORMAL)], limits)
+    assert low <= 31.0 and high >= 40.1
+    fills = _by_class(card, "attention-meter__fill")
+    assert float(fills[0].style["width"].rstrip("%")) > float(fills[1].style["width"].rstrip("%"))
+    assert "Markers: Warning 36 °C · Critical 40 °C" in text(card)
+
+
+def test_hottest_meter_has_no_markers_without_limits():
+    card = ui.hottest_card([_temp(33.0, C.LIMITS_NOT_SET)])
+    assert _by_class(card, "attention-meter__mark") == []
+    assert len(_by_class(card, "attention-meter__fill")) == 1
+
+
+def test_trend_bars_stack_by_kind_with_a_legend():
+    day = DailyAlarms(date(2026, 9, 19), 3, ((K.POWER_DOWN, 1), (K.BATTERY_LOW, 2)))
+    card = ui.alarm_trend_card([day])
+    segs = _by_class(card, "attention-trend__seg")
+    assert [s.style["flexGrow"] for s in segs] == [1, 2]
+    assert "Power Down" in text(card) and "Battery Low" in text(card)

@@ -4,7 +4,65 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (STATS-CARDS-1); push **NOT granted**.
+exercised** (CC-VISUALS-1); push **NOT granted**.
+
+## CC-VISUALS-1 — CLOSED / PASS
+
+Baseline: `main` at `6e5f0ad`, branch `cc-visuals`.
+
+## Task
+
+Three plain-HTML visuals on the Command Center (no chart library, no new
+query; AGENTS.md forbids gauges, pie charts and animations):
+
+1. Hottest now: a horizontal bar per RTL with warning and critical limit
+   markers (no markers when limits are unset).
+2. Alarms per day: each day's bar stacked by alarm kind (Power Down,
+   Battery Low, Sensor error) with a legend.
+3. Status bar: a thin severity strip sized by the Critical / Warning /
+   No data / Sensor counts; fully "clear" when there are no problems.
+
+## Relevant files
+
+- `services/attention_service.py`, `components/attention.py`,
+  `assets/app.css`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`
+
+## Non-goals (explicit)
+
+- No new data read, no schema change, no change to ranking or actions.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed with
+  the live simulator stopped. Browser at 1440 px, dark and light theme.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `50caa10` `DailyAlarms.by_kind` (per-kind split, rank order, sums to
+  `count`); status-bar severity strip (flex-grow per tone, single "normal"
+  segment when clear); `temperature_scale` + per-row meter with warning /
+  critical markers (none when limits are unset); stacked day bars with a
+  legend of the kinds present.
+- `f4166eb` hottest rows on fixed grid columns so every meter spans the same
+  x range.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed with the live simulator stopped (restarted afterwards).
+- Browser 1440 px, dark and light: admin strip segments critical / warning /
+  no data / sensor sized by count; 5 meters with 10 markers, all spanning one
+  x range; 16 stacked segments with legend Power Down / Battery Low / Sensor
+  Error; demo.tech01 own scope. No horizontal scroll, no console errors.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## STATS-CARDS-1 — CLOSED / PASS
 
@@ -63,7 +121,7 @@ None.
   unacknowledged: Battery Low · 20 d ago | 4 acknowledged in the last 24 h";
   tech "6 d ago | 0". No horizontal scroll, no console errors.
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-VISUALS-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

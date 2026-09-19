@@ -94,7 +94,7 @@ def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset()) -> tupl
         scope_indicator_text(snapshot.total_rtls),
         ui.status_bar(snapshot),
         ui.problem_list(snapshot.problems, now, may_ack=may_ack, may_manage=may_manage),
-        ui.hottest_card(snapshot.hottest),
+        ui.hottest_card(snapshot.hottest, snapshot.limits),
         ui.activity_card(snapshot.activity, now),
         ui.alarm_trend_card(snapshot.daily_alarms),
     )
