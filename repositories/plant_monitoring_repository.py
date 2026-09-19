@@ -672,10 +672,16 @@ def latest_metric_readings(
     *,
     plant_id: str | None = None,
     transformer_id: str | None = None,
+    fleet: bool = False,
     allowed_device_ids: frozenset[str] | None,
     include_inactive: bool = False,
 ) -> list[DeviceMetricReading]:
     """Newest reading of ONE metric for every device beneath one entity.
+
+    `fleet=True` (TEMP-CONDITION-1) drops the entity predicate: every
+    device in `allowed_device_ids`' scope, still one bounded seek each. It
+    must be asked for explicitly and cannot be combined with an entity, so
+    a missing plant/transformer id can never silently widen a read.
 
     Covers **Monitoring Devices** — active devices under active transformers,
     the same population as `latest_reading_times`, so attribution and
@@ -701,7 +707,11 @@ def latest_metric_readings(
     this is reimplemented behind the same typed return contract, and nothing
     above the repository changes.
     """
-    if plant_id is None and transformer_id is None:
+    if fleet and (plant_id is not None or transformer_id is not None):
+        raise ValueError(
+            "latest_metric_readings takes fleet=True or an entity, not both"
+        )
+    if not fleet and plant_id is None and transformer_id is None:
         # Matches the module's no-unbounded-reading-query rule: without a scope
         # this would seek every device in the fleet.
         raise ValueError(
@@ -712,7 +722,9 @@ def latest_metric_readings(
 
     # Literal fragments, bound values — the same idiom as `latest_reading_times`
     # and `count_hierarchy_by_plant`, so this file has one way of doing it.
-    if transformer_id is not None:
+    if fleet:
+        scope_sql = ""
+    elif transformer_id is not None:
         scope_sql = " AND d.transformer_id = :transformer_id"
         params["transformer_id"] = transformer_id
     else:
