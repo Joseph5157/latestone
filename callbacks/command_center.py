@@ -55,7 +55,7 @@ from services.hierarchy_service import list_device_paths
 logger = logging.getLogger(__name__)
 
 ROUTE = "command_center"
-PANEL_OUTPUTS = 6  # scope, status, problems, hottest, activity, trend
+PANEL_OUTPUTS = 7  # scope, status, problems, hottest, activity, trend, glance
 #: The drawer's actions; assignment is deliberately not one (ADR-016).
 OPERATIONAL_ACTIONS = (PROGRAM_RTL, TOGGLE_MESSAGE_FORWARDING, DEACTIVATE_RTL)
 #: Same twelve outputs, in the same order, as callbacks/device_manage.py's
@@ -99,6 +99,7 @@ def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset(), selecte
         ui.hottest_card(snapshot.hottest, snapshot.limits),
         ui.activity_card(snapshot.activity, now),
         ui.alarm_trend_card(snapshot.daily_alarms),
+        ui.glance_card(snapshot, selected),
     )
 
 
@@ -240,6 +241,7 @@ def register(app) -> None:
         Output(page.HOTTEST_ID, "children"),
         Output(page.ACTIVITY_ID, "children"),
         Output(page.TREND_ID, "children"),
+        Output(page.GLANCE_ID, "children"),
         Output(page.ERROR_ID, "children"),
         Output(page.REFRESH_STATUS_ID, "children"),
         Output(page.STORE_ID, "data"),

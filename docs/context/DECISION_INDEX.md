@@ -2,7 +2,7 @@
 
 Status: Approved
 Date: 2026-08-29
-Last updated: 2026-09-19 — added ADR-023
+Last updated: 2026-09-19 — added ADR-028
 
 Every ADR in `docs/decisions/`, one line each. This file is the map; the ADR
 is the territory — read the ADR before acting on a decision, don't act on
@@ -42,6 +42,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-024](../decisions/ADR-024-overview-and-command-center-split-by-question.md) | Fleet Overview (`/plants`, every role) answers where everything is and how hot; Command Center (`/command-center`, Administrator/Technician) answers what needs attention now; no panel on both; `/` lands operational roles on Command Center; supersedes ADR-002/009/011/012 | Approved | `2cfad36` |
 | [ADR-025](../decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md) | Dark mode is app-wide (one class on `app-root`), Dark by default, remembered per browser (`localStorage` store); toggle in the sidebar; login stays light; supersedes ADR-006 | Approved | `07d1b02` |
 | [ADR-026](../decisions/ADR-026-one-colour-key-colour-means-urgency.md) | One colour key for the dashboard: colour means urgency (Critical red, Warning amber, No data purple, Device fault grey-blue, Normal green, Not rated grey), the label says what; blue is selection only; tones owned by `components/status_colors.py` | Approved | `21a5d1f` |
+| [ADR-028](../decisions/ADR-028-ring-gauges-for-part-of-whole-counts.md) | Ring/donut gauges allowed only for part-of-whole counts (RTLs working, problems by kind); no needle/speedometer dials, no full pies, no single-value gauges; ADR-026 tones, CSS conic-gradient | Approved | not yet |
 
 ## Reading this table
 

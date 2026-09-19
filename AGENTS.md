@@ -122,7 +122,9 @@ breadcrumb. The device dashboard carries equipment context,
 an 8-metric snapshot strip, metric selector, period filter, aggregation-aware
 KPIs, a Plotly chart, a readings table and a freshness badge.
 
-Do not add gauges, pie charts, animations or unrelated screens.
+Do not add needle or speedometer gauges, full pie charts, animations or
+unrelated screens. Ring and donut gauges are allowed only for part-of-whole
+counts (ADR-028).
 
 ## Coding style
 

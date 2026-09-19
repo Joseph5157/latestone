@@ -433,3 +433,127 @@ def alarm_trend_card(days: Sequence[DailyAlarms]) -> html.Section:
         "Alarms per day", [html.Div(className="attention-trend", children=bars), legend],
         subtitle=f"Battery, power-down and sensor alarms · last 7 days · {total} total",
     )
+
+
+# --- CC-GAUGES-1 (ADR-028): Fleet at a glance --------------------------------
+
+#: The CSS variable each tone's ring slice is painted with: the same
+#: variables the strip's segment classes use, so a slice and the strip
+#: segment it mirrors cannot disagree about a colour.
+RING_TONE_VAR = {
+    "critical": "--cc-critical",
+    "warning": "--cc-warning",
+    "nodata": "--cc-no-data",
+    "info": "--attention-info",
+    "normal": "--attention-normal",
+}
+_TRACK = "var(--color-border)"
+
+
+def ring_stops(counts: Sequence[tuple[str, int]]) -> list[tuple[str, float, float]]:
+    """(tone, start %, end %) per non-zero count, contiguous, ending at 100.
+
+    Cumulative rather than per-slice rounding, so rounding never leaves a
+    sliver of track at the end of the ring.
+    """
+    total = sum(n for _tone, n in counts if n > 0)
+    if not total:
+        return []
+    stops, start, running = [], 0.0, 0
+    for tone, n in counts:
+        if n <= 0:
+            continue
+        running += n
+        end = round(100 * running / total, 2)
+        stops.append((tone, start, end))
+        start = end
+    return stops
+
+
+def _tone_colour(tone: str, dim: bool = False) -> str:
+    colour = f"var({RING_TONE_VAR[tone]})"
+    # A filtered-out slice fades like its strip segment does.
+    return f"color-mix(in srgb, {colour} 30%, transparent)" if dim else colour
+
+
+def working_arc(snapshot: AttentionSnapshot) -> html.Div:
+    """Half ring filled by the share of RTLs with a recent reading.
+
+    Calm tone only (ADR-026/ADR-028): the problem cards say what is wrong;
+    this says how much of the fleet is heard from.
+    """
+    total, working = snapshot.total_rtls, snapshot.reporting_rtls
+    fill = round(50 * working / total, 2) if total else 0.0
+    not_working = total - working
+    return html.Div(className="attention-arc", children=[
+        html.Div(className="attention-arc__frame", children=[
+            html.Div(
+                className="attention-arc__ring", role="img",
+                **{"aria-label": f"{working} of {total} RTLs working"},
+                style={"background": (
+                    "conic-gradient(from 270deg, "
+                    f"var(--attention-normal) 0% {fill}%, "
+                    f"{_TRACK} {fill}% 50%, transparent 50% 100%)"
+                )},
+            ),
+            html.Div(className="attention-arc__centre", children=[
+                html.Strong(f"{working} of {total}", className="attention-gauge__value"),
+                html.Span("RTLs working", className="attention-gauge__caption"),
+            ]),
+        ]),
+        html.Span(f"{not_working} not reporting" if not_working else "All RTLs reporting",
+                  className="attention-gauge__detail"),
+    ])
+
+
+def problem_donut(snapshot: AttentionSnapshot, selected: str | None = None) -> html.Div:
+    """Problems by tone, total in the centre; each label filters the list
+    exactly as its severity card does (CLICK-FILTER-1)."""
+    counts = severity_counts(snapshot.problems)
+    total = sum(counts.values())
+    stops = ring_stops([(tone, counts[tone]) for _label, tone in SEVERITY_COUNTERS])
+    if stops:
+        background = "conic-gradient(" + ", ".join(
+            f"{_tone_colour(tone, dim=bool(selected) and selected != tone)} {start}% {end}%"
+            for tone, start, end in stops
+        ) + ")"
+        centre = [html.Strong(str(total), className="attention-gauge__value"),
+                  html.Span("problem" if total == 1 else "problems",
+                            className="attention-gauge__caption")]
+        described = f"{_plural(total, 'problem')}: " + ", ".join(
+            f"{label} {counts[tone]}" for label, tone in SEVERITY_COUNTERS if counts[tone])
+    else:
+        background = "conic-gradient(var(--attention-normal) 0% 100%)"
+        centre = [html.Strong("All clear", className="attention-gauge__value")]
+        described = "No problems"
+    labels = html.Div(className="attention-donut__labels", children=[
+        html.Button(
+            type="button", n_clicks=0, disabled=not counts[tone],
+            id={"type": SEVERITY_BUTTON, "tone": tone, "part": "donut"},
+            className=f"attention-donut__label attention-legend attention-legend--{tone}"
+                      + (" attention-donut__label--active" if selected == tone else "")
+                      + (" attention-donut__label--dim" if selected and selected != tone else ""),
+            title=("Show all problems" if selected == tone else f"Show only {label}"),
+            **{"aria-pressed": "true" if selected == tone else "false"},
+            children=[html.Span(label), html.Strong(str(counts[tone]))],
+        )
+        for label, tone in SEVERITY_COUNTERS
+    ])
+    return html.Div(className="attention-donut", children=[
+        html.Div(className="attention-donut__frame", children=[
+            html.Div(className="attention-donut__ring", role="img",
+                     **{"aria-label": described}, style={"background": background}),
+            html.Div(className="attention-donut__centre", children=centre),
+        ]),
+        labels,
+    ])
+
+
+def glance_card(snapshot: AttentionSnapshot, selected: str | None = None) -> html.Section:
+    return cc_card(
+        "Fleet at a glance",
+        [html.Div(className="attention-glance", children=[
+            working_arc(snapshot), problem_donut(snapshot, selected),
+        ])],
+        subtitle="RTLs working · problems by kind — pick a kind to filter the list",
+    )

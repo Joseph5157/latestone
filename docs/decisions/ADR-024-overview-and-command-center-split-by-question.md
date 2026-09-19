@@ -39,6 +39,9 @@ tracked).
   changes (amended 2026-09-19, PROBLEM-GROUPS-1). Each group folds on
   its heading, independently, all open by default; the folded set is kept
   for the browser tab (amended 2026-09-19, PROBLEM-GROUPS-2, by user
+  request). Above the list sits a "Fleet at a glance" panel: a half-arc of
+  RTLs working and a donut of problems by kind whose labels filter the
+  list, as the cards do (amended 2026-09-19, CC-GAUGES-1, ADR-028, by user
   request).
 - **No panel appears on both pages** — one exception (amended
   2026-09-19, WORKING-CARD-1, by user request): the working count ("N of M

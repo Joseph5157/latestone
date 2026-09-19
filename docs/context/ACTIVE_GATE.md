@@ -1,10 +1,63 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (user, 2026-09-19); push **NOT granted**.
+Gate: CC-GAUGES-1
+Commit/push permission: commit and local merge to `main` **GRANTED** (user,
+2026-09-19, after browser review); push **NOT granted**.
+
+## CC-GAUGES-1 — OPEN
+
+Baseline: `main` at `f2a86fa`, branch `cc-gauges`. ADR-028 (new),
+ADR-024 (amended), ADR-026 (tones, unchanged).
+
+## Task
+
+User request: a "Fleet at a glance" panel at the top of the Command
+Center's left column, above Needs attention: a half-arc of RTLs working
+(`reporting_rtls` of `total_rtls`) and a donut of problems by tone with the
+total in the centre. The donut's labels filter Needs attention exactly as
+the severity cards do (`SEVERITY_BUTTON`, `part="donut"`). Live: re-rendered
+by `populate` on every refresh from the same snapshot as the cards. Drawn
+with CSS `conic-gradient` (user chose this over Plotly).
+
+## Relevant files
+
+- `components/attention.py`, `pages/command_center.py`,
+  `callbacks/command_center.py`, `assets/app.css`
+- `tests/test_attention_components.py`, `tests/test_command_center_page.py`
+- `docs/decisions/ADR-028-ring-gauges-for-part-of-whole-counts.md`,
+  `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md`,
+  `AGENTS.md`
+
+## Non-goals (explicit)
+
+- No change to services, queries, cards, strip or the right column.
+- No Plotly, SVG or new dependency; no clickable ring slices or arc.
+- No Overview change; no phone layout.
+
+## Required tests
+
+- `python -m pytest -m "not db"`.
+- Browser 1440 px, dark and light: panel above Needs attention; a donut
+  label filters the list and presses the matching card; the filter survives
+  a refresh; the numbers match the cards.
+
+## Known ambiguity
+
+None.
+
+## Verification (2026-09-19, uncommitted)
+
+- `python -m pytest -m "not db"` passes; pack `--check` CLEAN.
+- Browser 1440 px against the running app: panel above Needs attention
+  (16 px gap); arc "0 of 120 · 120 not reporting" and donut "36" with
+  Critical 8 / Warning 18 / No data 1 / Device fault 9 match the cards;
+  donut Warning → list shows only Battery Low 18, card and label both
+  pressed; Critical held across Refresh now (16:27:56 → 16:28:13); other
+  slices and labels fade; light mode correct.
+
+## Prior gate record
 
 ## AUTH-SIDEBAR-1 — CLOSED / PASS
 
@@ -61,7 +114,7 @@ None.
   no sidebar; new tab, same cookie: page without sidebar → with sidebar;
   login, Logout and revisit unchanged and correct.
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-GAUGES-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

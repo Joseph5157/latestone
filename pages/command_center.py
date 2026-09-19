@@ -23,6 +23,8 @@ SCOPE_ID = "attention-scope"
 ERROR_ID = "attention-error"
 STATUS_SLOT_ID = "attention-status-slot"
 PROBLEMS_ID = "attention-problems-slot"
+#: CC-GAUGES-1 (ADR-028): working half-arc + problem donut, above the list.
+GLANCE_ID = "attention-glance-slot"
 HOTTEST_ID = "attention-hottest-slot"
 ACTIVITY_ID = "attention-activity-slot"
 TREND_ID = "attention-trend-slot"
@@ -84,8 +86,10 @@ def layout() -> html.Div:
             html.Div(
                 className="attention-grid",
                 children=[
-                    html.Div(id=PROBLEMS_ID, className="attention-grid__main",
-                             children=[_loading("problems")]),
+                    html.Div(className="attention-grid__main", children=[
+                        html.Div(id=GLANCE_ID, children=[_loading("fleet summary")]),
+                        html.Div(id=PROBLEMS_ID, children=[_loading("problems")]),
+                    ]),
                     html.Div(className="attention-grid__side", children=[
                         html.Div(id=HOTTEST_ID, children=[_loading("temperatures")]),
                         html.Div(id=TREND_ID, children=[_loading("alarm trend")]),
