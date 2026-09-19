@@ -268,20 +268,42 @@ def test_counters_are_filter_buttons_and_the_active_one_is_pressed():
     assert counters["critical"].__dict__["aria-pressed"] == "true"
     assert counters["warning"].__dict__["aria-pressed"] == "false"
     assert counters["nodata"].disabled is True  # nothing to show
-    strip = [n for n in _walk(bar) if isinstance(getattr(n, "id", None), dict) and n.id.get("part") == "strip"]
-    assert "attention-strip__seg--dim" in strip[1].className  # warning dimmed while critical is selected
+    # CC-FILTER-FAST-1: the pressed/dimmed look is the page's filter class
+    # (CSS), never a per-button class that a browser-side change would strand.
+    assert not any("--active" in (n.className or "") or "--dim" in (n.className or "")
+                   for n in _walk(bar) if isinstance(getattr(n, "id", None), dict))
 
 
-def test_selected_severity_narrows_the_list_and_offers_show_all():
+def test_the_list_is_always_whole_with_one_hidden_note_per_tone():
+    """CC-FILTER-FAST-1: filtering hides groups in the browser; the server
+    draws every group, tagged with its tone, and each tone's note."""
     problems = [_problem(K.POWER_DOWN), _problem(K.BATTERY_LOW), _problem(K.TEMP_CRITICAL)]
     card = ui.problem_list(problems, NOW, selected="critical")
-    assert len(_by_class(card, "attention-problem")) == 3  # header + 2 critical rows
-    assert "Showing Critical only · 2 problems" in text(card)
-    assert any(isinstance(getattr(n, "id", None), dict) and n.id.get("tone") == "all" for n in _walk(card))
+    assert len(_by_class(card, "attention-problem")) == 4  # header + all 3 rows
+    items = _by_class(card, "attention-group-item")
+    # One group per kind; Power Down and Critical temperature share a tone.
+    assert [c for i in items for c in i.className.split() if c.startswith("attention-group-item--")] == [
+        "attention-group-item--critical", "attention-group-item--warning",
+        "attention-group-item--critical",
+    ]
+    notes = _by_class(card, "attention-filter-note")
+    assert [text(n) for n in notes] == [
+        "Showing Critical only · 2 problems Show all",
+        "Showing Warning only · 1 problem Show all",
+    ]
+    assert "attention-filter-note--critical" in notes[0].className.split()
+    clears = [n.id for n in _walk(card) if isinstance(getattr(n, "id", None), dict)
+              and n.id.get("tone") == "all"]
+    assert [c["part"] for c in clears] == ["clear-critical", "clear-warning"]
 
 
-def test_no_selection_shows_everything_without_a_note():
-    card = ui.problem_list([_problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)], NOW)
+def test_a_selected_tone_emptied_by_a_refresh_keeps_its_show_all():
+    card = ui.problem_list([_problem(K.BATTERY_LOW)], NOW, selected="critical")
+    assert "Showing Critical only · 0 problems" in text(card)
+
+
+def test_no_problems_has_no_notes():
+    card = ui.problem_list([], NOW)
     assert "Showing" not in text(card)
 
 
@@ -312,12 +334,6 @@ def test_problem_list_heads_each_kind_with_its_count_in_list_order():
 def test_problem_group_heading_takes_the_kind_tone():
     heads = _by_class(ui.problem_list([_problem(K.BATTERY_LOW)], NOW), "attention-group")
     assert "attention-group--warning" in heads[0].className.split()
-
-
-def test_filtered_list_shows_only_its_own_groups():
-    problems = [_problem(K.TEMP_CRITICAL), _problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)]
-    heads = _by_class(ui.problem_list(problems, NOW, selected="warning"), "attention-group")
-    assert [text(h) for h in heads] == ["Battery Low 1"]
 
 
 # PROBLEM-GROUPS-2: the groups fold (accordion), independently, open by default.
@@ -408,9 +424,9 @@ class TestProblemDonut:
     def test_slices_follow_the_severity_counts(self):
         ring = find_by_class(_glance(self.PROBLEMS), "attention-donut__ring")
         background = ring.style["background"]
-        assert "var(--cc-critical) 0.0% 50.0%" in background
-        assert "var(--cc-warning) 50.0% 75.0%" in background
-        assert "var(--attention-info) 75.0% 100.0%" in background
+        assert "var(--ring-critical, var(--cc-critical)) 0.0% 50.0%" in background
+        assert "var(--ring-warning, var(--cc-warning)) 50.0% 75.0%" in background
+        assert "var(--ring-info, var(--attention-info)) 75.0% 100.0%" in background
         assert "--cc-no-data" not in background
 
     def test_no_problems_is_a_calm_full_ring_reading_all_clear(self):
@@ -427,16 +443,15 @@ class TestProblemDonut:
         assert by_tone["nodata"].disabled is True
         assert by_tone["critical"].disabled is False
 
-    def test_selected_tone_is_pressed_and_the_others_dim(self):
+    def test_selected_tone_is_pressed_and_slices_paint_through_fadeable_variables(self):
         card = _glance(self.PROBLEMS, selected="warning")
         by_tone = {b.id["tone"]: b for b in _donut_labels(card)}
         assert getattr(by_tone["warning"], "aria-pressed") == "true"
         assert getattr(by_tone["critical"], "aria-pressed") == "false"
-        assert "attention-donut__label--dim" in by_tone["critical"].className
-        assert "attention-donut__label--dim" not in by_tone["warning"].className
-        ring = find_by_class(card, "attention-donut__ring")
-        assert "color-mix(in srgb, var(--cc-critical)" in ring.style["background"]
-        assert "var(--cc-warning) 50.0% 75.0%" in ring.style["background"]
+        assert not any("--dim" in b.className or "--active" in b.className for b in by_tone.values())
+        background = find_by_class(card, "attention-donut__ring").style["background"]
+        assert "var(--ring-critical, var(--cc-critical)) 0.0% 50.0%" in background
+        assert "var(--ring-warning, var(--cc-warning)) 50.0% 75.0%" in background
 
 
 def test_glance_card_holds_both_gauges_side_by_side():

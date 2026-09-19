@@ -252,6 +252,9 @@ def _populate_outputs():
                 return fn
             return register
 
+        def clientside_callback(self, *args, **kwargs):
+            pass
+
     capture = Capture()
     cb.register(capture)
     return [a for a in capture.specs["populate_attention"] if isinstance(a, Output)]
@@ -271,3 +274,102 @@ def test_gauge_rings_have_a_cut_out_hole_and_no_animation():
     assert "mask: radial-gradient(farthest-side, transparent" in block
     assert ".attention-arc__frame" in block and "overflow: hidden" in block
     assert "animation:" not in block and "transition:" not in block
+
+
+# --- CC-FILTER-FAST-1 ---------------------------------------------------------
+
+
+class _Recorder:
+    """Records both server and clientside registrations."""
+
+    def __init__(self):
+        self.server = {}
+        self.clientside = []
+
+    def callback(self, *args, **kwargs):
+        def register(fn):
+            self.server[fn.__name__] = args
+            return fn
+        return register
+
+    def clientside_callback(self, function, *args, **kwargs):
+        self.clientside.append((function, args, kwargs))
+
+
+def _recorded():
+    rec = _Recorder()
+    cb.register(rec)
+    return rec
+
+
+def _deps(args, kind):
+    from dash import Input, Output, State
+    cls = {"in": Input, "out": Output, "state": State}[kind]
+    return [(a.component_id, a.component_property) for a in args if isinstance(a, cls)]
+
+
+def test_a_filter_change_does_not_refetch_the_snapshot():
+    args = _recorded().server["populate_attention"]
+    assert (page.SEVERITY_STORE_ID, "data") not in _deps(args, "in")
+    assert (page.SEVERITY_STORE_ID, "data") in _deps(args, "state")
+
+
+def test_button_families_reach_the_server_only_through_real_click_stores():
+    rec = _recorded()
+    gates = {_deps(args, "out")[0][0]: _deps(args, "in")[0][0]
+             for fn, args, _kw in rec.clientside if fn.function_name == "realClick"}
+    assert gates == {
+        page.SEVERITY_CLICK_ID: cb._ALL_IDS[ui.SEVERITY_BUTTON],
+        page.ACK_CLICK_ID: cb._ALL_IDS[ui.ACK_BUTTON],
+        page.MANAGE_CLICK_ID: cb._ALL_IDS[ui.MANAGE_BUTTON],
+        page.FOLD_CLICK_ID: cb._ALL_IDS[ui.GROUP_TOGGLE],
+    }
+    for name, store in (("select_severity", page.SEVERITY_CLICK_ID),
+                        ("acknowledge_from_command_center", page.ACK_CLICK_ID),
+                        ("open_manage_from_command_center", page.MANAGE_CLICK_ID),
+                        ("fold_group", page.FOLD_CLICK_ID)):
+        assert _deps(rec.server[name], "in") == [(store, "data")], name
+    # No server callback listens to a button family directly any more.
+    for args in rec.server.values():
+        assert not any(isinstance(cid, dict) for cid, _prop in _deps(args, "in"))
+
+
+def test_the_filter_is_painted_in_the_browser_from_the_store():
+    rec = _recorded()
+    painters = [(args, fn) for fn, args, _kw in rec.clientside if fn.function_name == "filterClass"]
+    assert len(painters) == 1
+    args, fn = painters[0]
+    assert fn.namespace == "command_center"
+    assert _deps(args, "in") == [(page.SEVERITY_STORE_ID, "data")]
+    assert _deps(args, "out") == [(page.FILTER_ROOT_ID, "className")]
+
+
+def test_click_store_payloads_unpack_to_the_existing_decisions():
+    click = {"id": {"type": ui.SEVERITY_BUTTON, "tone": "warning", "part": "donut"}, "n": 1, "at": 5}
+    assert cb.severity_selection(*cb._click_args(click), None) == "warning"
+    assert cb._click_args(None) == (None, None)
+    assert cb.severity_selection(*cb._click_args(None), "warning") is no_update
+
+
+def test_the_page_root_carries_the_filter_id_and_the_click_stores():
+    ids = _ids(page.layout())
+    assert {page.FILTER_ROOT_ID, page.SEVERITY_CLICK_ID, page.ACK_CLICK_ID,
+            page.MANAGE_CLICK_ID, page.FOLD_CLICK_ID} <= ids
+
+
+def test_the_browser_script_defines_both_functions():
+    from pathlib import Path
+    js = Path("assets/command_center.js").read_text(encoding="utf-8")
+    assert "command_center" in js and "realClick" in js and "filterClass" in js
+    assert '"attention-page" + (selected ? " attention-filter--" + selected : "")' in js
+
+
+def test_filter_css_hides_other_groups_and_shows_one_note_per_tone():
+    from pathlib import Path
+    css = Path("assets/app.css").read_text(encoding="utf-8")
+    for tone in ("critical", "warning", "nodata", "info"):
+        assert (f".attention-filter--{tone} .attention-group-item:not(.attention-group-item--{tone})"
+                in css)
+        assert f".attention-filter--{tone} .attention-filter-note--{tone}" in css
+        assert (f".attention-filter--{tone} button.attention-severity-card.attention-counter--{tone}"
+                in css)

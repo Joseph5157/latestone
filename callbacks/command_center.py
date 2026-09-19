@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from dash import ALL, Input, Output, State, ctx, html, no_update
+from dash import ALL, ClientsideFunction, Input, Output, State, html, no_update
 
 from components import attention as ui
 from components.command_center import refresh
@@ -233,6 +233,22 @@ def manage_outputs(
     )
 
 
+#: The pattern-matching ids each button family renders with.
+_ALL_IDS = {
+    ui.SEVERITY_BUTTON: {"type": ui.SEVERITY_BUTTON, "tone": ALL, "part": ALL},
+    ui.ACK_BUTTON: {"type": ui.ACK_BUTTON, "device": ALL, "kind": ALL},
+    ui.MANAGE_BUTTON: {"type": ui.MANAGE_BUTTON, "device": ALL},
+    ui.GROUP_TOGGLE: {"type": ui.GROUP_TOGGLE, "kind": ALL},
+}
+
+
+def _click_args(click) -> tuple:
+    """(button id, n_clicks) from a click store written by `realClick`."""
+    if not isinstance(click, dict):
+        return None, None
+    return click.get("id"), click.get("n")
+
+
 def register(app) -> None:
     @app.callback(
         Output(page.SCOPE_ID, "children"),
@@ -249,44 +265,66 @@ def register(app) -> None:
         Input(page.INTERVAL_ID, "n_intervals"),
         Input(page.REFRESH_NOW_ID, "n_clicks"),
         Input(page.ACK_STORE_ID, "data"),
-        Input(page.SEVERITY_STORE_ID, "data"),
         State(page.STORE_ID, "data"),
         # State, not Input: folding is instant in the browser and must not
         # refetch the snapshot; the next refresh just draws the same.
+        # CC-FILTER-FAST-1: the severity filter likewise — it is applied in
+        # the browser (filter_class below), read here only so a refresh
+        # draws the same pressed state and keeps the selected tone's note.
+        State(page.SEVERITY_STORE_ID, "data"),
         State(page.FOLDED_STORE_ID, "data"),
     )
-    def populate_attention(context, _ticks, _clicks, _acked, selected, refresh_state, folded):
+    def populate_attention(context, _ticks, _clicks, _acked, refresh_state, selected, folded):
         return populate(context, refresh_state, selected, folded)
+
+    # CC-FILTER-FAST-1: each button family's re-render "clicks" (n_clicks 0
+    # on every poll) are dropped in the browser; only real clicks reach the
+    # server callbacks below, through these stores.
+    for button_type, click_store in (
+        (ui.SEVERITY_BUTTON, page.SEVERITY_CLICK_ID),
+        (ui.ACK_BUTTON, page.ACK_CLICK_ID),
+        (ui.MANAGE_BUTTON, page.MANAGE_CLICK_ID),
+        (ui.GROUP_TOGGLE, page.FOLD_CLICK_ID),
+    ):
+        app.clientside_callback(
+            ClientsideFunction(namespace="command_center", function_name="realClick"),
+            Output(click_store, "data"),
+            Input(_ALL_IDS[button_type], "n_clicks"),
+            prevent_initial_call=True,
+        )
+
+    app.clientside_callback(
+        ClientsideFunction(namespace="command_center", function_name="filterClass"),
+        Output(page.FILTER_ROOT_ID, "className"),
+        Input(page.SEVERITY_STORE_ID, "data"),
+    )
 
     @app.callback(
         Output(page.FOLDED_STORE_ID, "data"),
-        Input({"type": ui.GROUP_TOGGLE, "kind": ALL}, "n_clicks"),
+        Input(page.FOLD_CLICK_ID, "data"),
         State(page.FOLDED_STORE_ID, "data"),
         prevent_initial_call=True,
     )
-    def fold_group(_clicks, current):
-        value = ctx.triggered[0]["value"] if ctx.triggered else None
-        return fold_selection(ctx.triggered_id, value, current)
+    def fold_group(click, current):
+        return fold_selection(*_click_args(click), current)
 
     @app.callback(
         Output(page.SEVERITY_STORE_ID, "data"),
-        Input({"type": ui.SEVERITY_BUTTON, "tone": ALL, "part": ALL}, "n_clicks"),
+        Input(page.SEVERITY_CLICK_ID, "data"),
         State(page.SEVERITY_STORE_ID, "data"),
         prevent_initial_call=True,
     )
-    def select_severity(_clicks, current):
-        value = ctx.triggered[0]["value"] if ctx.triggered else None
-        return severity_selection(ctx.triggered_id, value, current)
+    def select_severity(click, current):
+        return severity_selection(*_click_args(click), current)
 
     @app.callback(
         Output(page.ACTION_RESULT_ID, "children"),
         Output(page.ACK_STORE_ID, "data"),
-        Input({"type": ui.ACK_BUTTON, "device": ALL, "kind": ALL}, "n_clicks"),
+        Input(page.ACK_CLICK_ID, "data"),
         prevent_initial_call=True,
     )
-    def acknowledge_from_command_center(_clicks):
-        value = ctx.triggered[0]["value"] if ctx.triggered else None
-        return acknowledge_outputs(ctx.triggered_id, value)
+    def acknowledge_from_command_center(click):
+        return acknowledge_outputs(*_click_args(click))
 
     @app.callback(
         Output(MANAGE_DRAWER_ID, "style", allow_duplicate=True),
@@ -301,9 +339,8 @@ def register(app) -> None:
         Output("manage-action-menu", "style", allow_duplicate=True),
         Output(PROGRAM_RTL_UID_ID, "value", allow_duplicate=True),
         Output(PROGRAM_RTL_TRANSFORMER_ID, "value", allow_duplicate=True),
-        Input({"type": ui.MANAGE_BUTTON, "device": ALL}, "n_clicks"),
+        Input(page.MANAGE_CLICK_ID, "data"),
         prevent_initial_call=True,
     )
-    def open_manage_from_command_center(_clicks):
-        value = ctx.triggered[0]["value"] if ctx.triggered else None
-        return manage_outputs(ctx.triggered_id, value)
+    def open_manage_from_command_center(click):
+        return manage_outputs(*_click_args(click))

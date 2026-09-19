@@ -7248,10 +7248,12 @@ button.attention-counter { background: none; font: inherit; font-size: var(--fs-
 button.attention-counter:hover:not(:disabled) { background: color-mix(in srgb, currentColor 12%, transparent); }
 button.attention-counter:disabled { cursor: default; }
 button.attention-counter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.attention-counter--active { background: color-mix(in srgb, currentColor 22%, transparent); box-shadow: inset 0 0 0 1px currentColor; }
 button.attention-strip__seg { border: 0; padding: 0; cursor: pointer; }
 .attention-strip { height: 10px; }
-.attention-strip__seg--dim { opacity: 0.3; }
+.attention-filter--critical .attention-strip__seg:not(.attention-strip__seg--critical),
+.attention-filter--warning .attention-strip__seg:not(.attention-strip__seg--warning),
+.attention-filter--nodata .attention-strip__seg:not(.attention-strip__seg--nodata),
+.attention-filter--info .attention-strip__seg:not(.attention-strip__seg--info) { opacity: 0.3; }
 .attention-filter-note {
   display: flex;
   align-items: center;
@@ -7317,7 +7319,10 @@ button.attention-severity-card:hover:not(:disabled) { border-color: currentColor
   text-overflow: ellipsis;
 }
 button.attention-severity-card.attention-counter--zero { color: var(--color-muted); border-left-color: var(--color-border); }
-button.attention-severity-card.attention-counter--active {
+.attention-filter--critical button.attention-severity-card.attention-counter--critical,
+.attention-filter--warning button.attention-severity-card.attention-counter--warning,
+.attention-filter--nodata button.attention-severity-card.attention-counter--nodata,
+.attention-filter--info button.attention-severity-card.attention-counter--info {
   background: color-mix(in srgb, currentColor 14%, var(--color-surface));
   border-color: currentColor;
   box-shadow: inset 0 0 0 1px currentColor;
@@ -7328,7 +7333,7 @@ button.attention-severity-card.attention-counter--active {
 button.attention-severity-card.attention-counter--critical:not(.attention-counter--zero) {
   background: color-mix(in srgb, var(--sev-critical) 10%, var(--color-surface));
 }
-button.attention-severity-card.attention-counter--critical.attention-counter--active {
+.attention-filter--critical button.attention-severity-card.attention-counter--critical {
   background: color-mix(in srgb, var(--sev-critical) 20%, var(--color-surface));
 }
 
@@ -7406,12 +7411,42 @@ button.attention-donut__label:hover:not(:disabled) { background: var(--color-bg)
 button.attention-donut__label:focus-visible { box-shadow: var(--focus-ring); outline: none; }
 button.attention-donut__label:disabled { color: var(--color-muted); cursor: default; }
 button.attention-donut__label:disabled::before { background: var(--color-border); }
-button.attention-donut__label--active {
+.attention-filter--critical button.attention-donut__label.attention-legend--critical,
+.attention-filter--warning button.attention-donut__label.attention-legend--warning,
+.attention-filter--nodata button.attention-donut__label.attention-legend--nodata,
+.attention-filter--info button.attention-donut__label.attention-legend--info {
   border-color: currentColor;
   box-shadow: inset 0 0 0 1px currentColor;
   background: color-mix(in srgb, currentColor 10%, var(--color-surface));
 }
-button.attention-donut__label--dim { opacity: 0.45; }
+.attention-filter--critical button.attention-donut__label:not(.attention-legend--critical),
+.attention-filter--warning button.attention-donut__label:not(.attention-legend--warning),
+.attention-filter--nodata button.attention-donut__label:not(.attention-legend--nodata),
+.attention-filter--info button.attention-donut__label:not(.attention-legend--info) { opacity: 0.45; }
+
+/* CC-FILTER-FAST-1: the severity filter is one class on the page root
+   (`attention-filter--<tone>`, set in the browser by assets/command_center.js).
+   The list is always rendered whole; these rules show only that tone's
+   groups and note, and fade the other ring slices. No refetch, no redraw. */
+.attention-filter-note { display: none; }
+.attention-filter--critical .attention-filter-note--critical,
+.attention-filter--warning .attention-filter-note--warning,
+.attention-filter--nodata .attention-filter-note--nodata,
+.attention-filter--info .attention-filter-note--info { display: flex; }
+.attention-filter--critical .attention-group-item:not(.attention-group-item--critical),
+.attention-filter--warning .attention-group-item:not(.attention-group-item--warning),
+.attention-filter--nodata .attention-group-item:not(.attention-group-item--nodata),
+.attention-filter--info .attention-group-item:not(.attention-group-item--info) { display: none; }
+[class*="attention-filter--"] .attention-donut__ring {
+  --ring-critical: color-mix(in srgb, var(--cc-critical) 30%, transparent);
+  --ring-warning: color-mix(in srgb, var(--cc-warning) 30%, transparent);
+  --ring-nodata: color-mix(in srgb, var(--cc-no-data) 30%, transparent);
+  --ring-info: color-mix(in srgb, var(--attention-info) 30%, transparent);
+}
+.attention-filter--critical .attention-donut__ring { --ring-critical: var(--cc-critical); }
+.attention-filter--warning .attention-donut__ring { --ring-warning: var(--cc-warning); }
+.attention-filter--nodata .attention-donut__ring { --ring-nodata: var(--cc-no-data); }
+.attention-filter--info .attention-donut__ring { --ring-info: var(--attention-info); }
 
 /* ==========================================================================
    THEME-APP-1 (ADR-025): the app-wide Dark | Light control in the sidebar

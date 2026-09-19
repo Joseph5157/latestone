@@ -38,6 +38,15 @@ ROOT_CLASS = "page page--monitoring page--command-center"
 SEVERITY_STORE_ID = "attention-severity-store"
 #: PROBLEM-GROUPS-2: the problem kinds folded away, kept for the browser tab.
 FOLDED_STORE_ID = "attention-folded-store"
+#: CC-FILTER-FAST-1: the element whose `attention-filter--<tone>` class
+#: applies the severity filter in the browser (assets/command_center.js).
+FILTER_ROOT_ID = "attention-filter-root"
+#: CC-FILTER-FAST-1: real clicks only ({id, n, at}), written in the browser;
+#: re-render "clicks" (n_clicks 0) never reach the server.
+SEVERITY_CLICK_ID = "attention-severity-click"
+ACK_CLICK_ID = "attention-ack-click"
+MANAGE_CLICK_ID = "attention-manage-click"
+FOLD_CLICK_ID = "attention-fold-click"
 
 
 def _loading(what: str) -> html.P:
@@ -50,7 +59,7 @@ def layout() -> html.Div:
         # The appearance is app-wide now (ADR-025): the theme class lives on
         # `app-root`, not here.
         className=ROOT_CLASS,
-        children=[html.Div(className="attention-page", children=[
+        children=[html.Div(id=FILTER_ROOT_ID, className="attention-page", children=[
             dcc.Interval(id=INTERVAL_ID, interval=refresh.interval_ms(), n_intervals=0),
             dcc.Store(id=STORE_ID, data={"last_success_at": None, "failed": False},
                       storage_type="memory"),
@@ -80,6 +89,8 @@ def layout() -> html.Div:
             dcc.Store(id=ACK_STORE_ID, storage_type="memory"),
             dcc.Store(id=SEVERITY_STORE_ID, data=None, storage_type="memory"),
             dcc.Store(id=FOLDED_STORE_ID, data=[], storage_type="session"),
+            *(dcc.Store(id=click_id, storage_type="memory")
+              for click_id in (SEVERITY_CLICK_ID, ACK_CLICK_ID, MANAGE_CLICK_ID, FOLD_CLICK_ID)),
             html.Div(id=ACTION_RESULT_ID, className="attention-notice", **{"aria-live": "polite"}),
             html.Div(id=STATUS_SLOT_ID, children=[_loading("status")]),
             colour_key(),

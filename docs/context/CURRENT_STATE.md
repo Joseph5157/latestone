@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T16:42:56Z
+Date: 2026-09-19T16:51:50Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-gauges` = `7973853` "feat(cc): Fleet at a glance gauges above Needs attention (ADR-028, CC-GAUGES-1)" (not `main`)
-- Working tree: 10 entries — see below
+- current branch `cc-filter-fast` = `059fcc0` "perf(cc): severity filter applied in the browser; no-op requests gated (CC-FILTER-FAST-1)" (not `main`)
+- Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3054 passed, 731 deselected in 36.57s
+- `python -m pytest -m "not db"` → 3061 passed, 731 deselected in 37.38s
 
 ## Branches
 
@@ -31,6 +31,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `auth-sidebar-sync`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
+- `cc-gauges`
 - `cc-severity-cards`
 - `cc-visuals`
 - `click-to-filter`
@@ -63,10 +64,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 445 | REVIEW — unexpected divergence |
-| `cc-gauges` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
-| `client-demo-1` | 7 | 295 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 445 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 448 | REVIEW — unexpected divergence |
+| `cc-filter-fast` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `client-demo-1` | 7 | 298 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 448 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -111,8 +112,6 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ```
 M docs/context/ACTIVE_GATE.md
- M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-028-ring-gauges-for-part-of-whole-counts.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

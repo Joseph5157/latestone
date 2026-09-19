@@ -66,6 +66,9 @@ class _CapturingApp:
 
         return decorator
 
+    def clientside_callback(self, *args, **kwargs):
+        pass
+
 
 @pytest.fixture
 def handlers():

@@ -4,7 +4,75 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (user, 2026-09-19, after browser review); push **NOT granted**.
+exercised** (user, 2026-09-19, "commit and do this now"); push **NOT granted**.
+
+## CC-FILTER-FAST-1 — CLOSED / PASS
+
+Baseline: `main` at `fa56aad`, branch `cc-filter-fast`. No ADR: applies
+PROBLEM-GROUPS-2's rule (a browser-side view change must not refetch the
+snapshot) to the severity filter; ADR-024 and ADR-028 unchanged.
+
+## Task
+
+User request, after measuring a filter click: (1) a severity filter click
+must re-filter the list already on screen, not refetch the snapshot and
+re-render every panel; (2) stop the no-op server requests that pattern-
+matching ALL callbacks send whenever the list re-renders (Acknowledge,
+Manage; also fold and severity, same cause).
+
+Design: `populate` reads the severity store as State. The list is always
+rendered whole (groups tagged with their tone, one note per tone), and a
+clientside `filterClass` puts `attention-filter--<tone>` on the page root;
+app.css hides the other groups, shows the note, presses and fades the
+controls. A clientside `realClick` gate per button family writes only real
+clicks to a store; the server callbacks listen to those stores. Selection
+logic stays in Python (`severity_selection`, `fold_selection`,
+`acknowledge_outputs`, `manage_outputs`).
+
+## Relevant files
+
+- `callbacks/command_center.py`, `components/attention.py`,
+  `pages/command_center.py`, `assets/command_center.js`, `assets/app.css`
+- `tests/test_attention_components.py`, `tests/test_command_center_page.py`,
+  `tests/test_command_center_refresh.py`
+
+## Non-goals (explicit)
+
+- No change to services, queries, ranking or what the panels show.
+- The `localhost` vs `127.0.0.1` connection delay (Windows IPv6 fallback)
+  is environmental, not code; not changed here.
+
+## Required tests
+
+- `python -m pytest -m "not db"`.
+- Browser: a filter click sends no populate request; a poll refresh sends
+  no Acknowledge/Manage/fold/severity request; filter survives a refresh;
+  Acknowledge and Manage still work.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `059fcc0` `realClick`/`filterClass` in `assets/command_center.js`; four
+  click stores + `FILTER_ROOT_ID` on the page; server callbacks on the
+  stores; severity store is State for `populate`; filter CSS on
+  `attention-filter--<tone>`.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` passes; pack CLEAN.
+- Browser against the running app: donut Warning click → 1 request
+  (severity store), no populate; only Battery Low shown, its note shown,
+  card and label aria-pressed; Refresh now → 1 request (populate only, was
+  5), filter held; Manage opens the drawer (29033); folding a group holds
+  across a refresh. Acknowledge not clicked (writes the DB); covered by
+  unit tests.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## CC-GAUGES-1 — CLOSED / PASS
 
@@ -63,7 +131,7 @@ None.
   pressed; Critical held across Refresh now (16:27:56 → 16:28:13); other
   slices and labels fade; light mode correct.
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-FILTER-FAST-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
