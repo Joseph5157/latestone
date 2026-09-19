@@ -1,12 +1,12 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-19
-Gate: CC-ACTIONS-1
-Commit/push permission: commit **GRANTED on branch `overview-cc-redesign`**
-(commit after each green task); push **NOT granted**.
+Gate: NONE
+Commit/push permission: commit **GRANTED and exercised** on branch
+`overview-cc-redesign` (CC-ACTIONS-1); push **NOT granted**.
 
-## CC-ACTIONS-1 — OPEN / IN PROGRESS
+## CC-ACTIONS-1 — CLOSED / PASS
 
 Baseline: branch `overview-cc-redesign` at `9595adb`. Phase 4 of the Fleet
 Overview + Command Center redesign (redesign decision D7: full actions in
@@ -52,6 +52,37 @@ Buttons render only where `may_action` allows (visibility, not authority).
 ## Known ambiguity
 
 None.
+
+## Implementation
+
+- `ae6a4ff` `attention_service.acknowledge_problem` +
+  `ACKNOWLEDGEABLE_KINDS`: open events resolved server-side within scope;
+  each through `require_action(ACKNOWLEDGE_ALARM)` then `acknowledge_alarm`.
+- `d370bdb` `components/attention.py`: pattern-matching Acknowledge / Manage
+  buttons, rendered only for `may_ack` / `may_manage` device sets.
+- `1b76508` page mounts `device_manage_drawer()`, result notice and ack
+  store; callbacks `acknowledge_outputs` (ignores re-render fires; refusal ->
+  `action_refused_notice`), `manage_outputs` (drawer's 12 outputs, labels
+  from `list_device_paths` in scope), `permitted_devices` (uses the
+  resolved scope, no per-row reads). `test_equipment_selector` wiring test
+  skips wildcard pattern ids (Dash allows ALL to match nothing).
+- Follow-up: two-line problem rows so the buttons never squeeze the text.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` exit 0; `python -m pytest` exit 0 on the
+  plain seed (freshness demo re-applied afterwards).
+- Browser (Playwright, local, real data): Administrator saw 39 problems, 38
+  Acknowledge buttons (none on the no-data problem) and 39 Manage buttons;
+  Acknowledge on 29012 (Power Down) -> "Acknowledged 1 alarm", headline 39 ->
+  38, and the acknowledgement appeared in Recent activity. Manage opened the
+  shared drawer for 29007 / Three Gorges Dam, themed. demo.tech01: 4
+  problems, 4 + 4 buttons, own scope only. No console errors; no horizontal
+  scroll at 1440 px or 390 px.
+- One real acknowledgement was written to the local dev DB (synthetic event
+  on 29012) as part of this check.
+
+## Next implementation gate: NONE
 
 ## Prior gate record
 

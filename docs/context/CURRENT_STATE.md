@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T05:54:52Z
+Date: 2026-09-19T06:06:12Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `overview-cc-redesign` = `9595adb` "docs(context): close CC-NEW-1; AGENTS.md landing rule" (not `main`)
-- Working tree: 8 entries — see below
+- current branch `overview-cc-redesign` = `5748af6` "fix(command-center): two-line problem rows so actions never squeeze the text" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3468 passed, 731 deselected in 31.55s
+- `python -m pytest -m "not db"` → 3487 passed, 731 deselected in 31.26s
 
 ## Branches
 
@@ -48,7 +48,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 14 | 338 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 188 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 338 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `overview-cc-redesign` | 20 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `overview-cc-redesign` | 25 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -82,12 +82,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CC-ACTIONS-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md
+ M docs/context/ACTIVE_GATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
