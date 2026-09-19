@@ -74,6 +74,7 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "command_center": _OPERATIONAL_ROLES,
     "command_center_locations": _OPERATIONAL_ROLES,
     "command_center_new": _OPERATIONAL_ROLES,
+    "overview_new": _EVERY_ROLE,
     # Administration: managing what exists and who exists.
     "admin_devices": _ADMIN_ONLY,
     # A Technician's own operate-equipment surface (ADR-016): assigned

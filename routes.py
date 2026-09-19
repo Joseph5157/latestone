@@ -53,6 +53,9 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     # CC-NEW-1: the redesigned Command Center, built beside the old one until
     # the switch-over (redesign Phase 6).
     "command_center_new": "command_center",
+    # FO-NEW-1: the redesigned Fleet Overview, beside the old one until the
+    # switch-over (redesign Phase 6).
+    "overview_new": "overview",
 }
 
 #: Query parameter naming the device whose assignment drawer should open on
@@ -78,6 +81,10 @@ PLANT_PARAM = "plant"
 #: The redesigned Command Center (CC-NEW-1). Temporary path: it moves to
 #: COMMAND_CENTER_PATH when the old page is removed (redesign Phase 6).
 COMMAND_CENTER_NEW_PATH = "/command-center-new"
+
+#: The redesigned Fleet Overview (FO-NEW-1). Temporary path, like the one
+#: above: it becomes `/plants` at the switch-over.
+FLEET_OVERVIEW_NEW_PATH = "/plants-new"
 
 
 @dataclass(frozen=True)
@@ -108,6 +115,9 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 1 and parts[0] == "command-center":
         return Route(name="command_center")
+
+    if len(parts) == 1 and parts[0] == "plants-new":
+        return Route(name="overview_new")
 
     if len(parts) == 1 and parts[0] == "command-center-new":
         return Route(name="command_center_new")

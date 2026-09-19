@@ -10,7 +10,7 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import command_center_new
+from pages import command_center_new, plants_overview_new
 from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, command_center_locations
 from pages.placeholder import placeholder_layout
 from routes import (
@@ -350,6 +350,9 @@ def register(app) -> None:
                     "plant_id": parse_plant_selection(search),
                 }
                 return command_center.layout(), ctx
+
+            if route.name == "overview_new":
+                return plants_overview_new.layout(), {"route": "overview_new"}
 
             if route.name == "command_center_new":
                 ctx = {"route": "command_center_new"}
