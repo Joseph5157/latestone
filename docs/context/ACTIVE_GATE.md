@@ -1,10 +1,45 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **OPEN / IN PROGRESS**
 Date: 2026-09-19
-Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (THEME-APP-2); push **NOT granted**.
+Gate: COLOUR-KEY-1
+Commit/push permission: commit on branch `colour-key` and local merge to
+`main` **GRANTED**; push **NOT granted**.
+
+## COLOUR-KEY-1 — OPEN / IN PROGRESS
+
+Baseline: `main` at `a582d08`, branch `colour-key`. ADR-026.
+
+## Task
+
+One colour key for the dashboard (ADR-026): shared tone maps and key in
+`components/status_colors.py`; one `.status-chip` style; `--sev-none`
+token; "Limits not set" grey on both pages; labels that name what a colour
+covers; Command Center "Sensor" card -> "Device fault"; Overview Hottest-now
+card no longer accent blue; a "Colour key" disclosure on both pages.
+
+## Relevant files
+
+- `components/fleet_overview.py` (and a new `status_colors` module),
+  `components/attention.py`, `pages/plants_overview.py`,
+  `pages/command_center.py`, `assets/app.css`
+- `docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md`
+
+## Non-goals (explicit)
+
+- No change to how conditions or problems are computed; the Overview stays
+  temperature-only.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px, dark and light: Overview and Command Center side by side.
+
+## Known ambiguity
+
+None.
+
+## Prior gate record
 
 ## THEME-APP-2 — CLOSED / PASS
 
@@ -62,7 +97,7 @@ None.
   audits clean apart from intended accent fills and colour segments;
   Notifications and Reports in light unchanged apart from the icon.
 
-## Next implementation gate: NONE
+## Next implementation gate: COLOUR-KEY-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
