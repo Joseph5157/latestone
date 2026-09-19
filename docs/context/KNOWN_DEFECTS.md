@@ -2,7 +2,7 @@
 
 Status: Approved
 Date: 2026-08-30
-Last updated: 2026-09-18 — ADMIN-PANEL-LOAD-ERROR-1 added and resolved
+Last updated: 2026-09-19 — TABLE-SORT-TEXT-1 added (open)
 
 Defects found during gated work that were deliberately **not** fixed in the
 tranche that found them. Each carries the evidence that established it and
@@ -16,6 +16,7 @@ leaves when a commit fixes it — not when someone decides it is unimportant.
 |---|---|---|---|
 | ~~SEED-RESET-1~~ | `seed_plant_monitoring --reset` cannot complete: FK dependents of `devices` are not cleared first | CC-1 Phase 10 (2026-08-30) | **RESOLVED 2026-08-30** — ADR-010 |
 | ~~ADMIN-PANEL-LOAD-ERROR-1~~ | Temperature Threshold panel shows "Warning is required." on page load before any click; Vibration Contract panel has the same code path | FRESHNESS-CONFIG-1 browser check (2026-09-18) | **RESOLVED 2026-09-18** — SETTINGS-PAGE-1 |
+| TABLE-SORT-TEXT-1 | `entity_table` native sort compares rendered text: Last reading puts `5d 3h` before `8 min`; Data sorts labels A–Z, not by severity | ASSIGN-TOOLBAR-1 browser review (2026-09-19) | Unscheduled — user deferred 2026-09-19 |
 
 ---
 
@@ -132,3 +133,35 @@ value is falsy (`n_clicks` 0/None), with a regression test
 TestActions::test_panel_insertion_with_zero_clicks_is_not_a_click`). The
 same one-line guard and test apply to both affected callbacks. It was left
 out of FRESHNESS-CONFIG-1 to keep that gate's scope to the freshness panel.
+
+---
+
+## TABLE-SORT-TEXT-1 — Last reading and Data columns sort by their text
+
+**Status:** OPEN · **Found:** ASSIGN-TOOLBAR-1 browser review of
+`/admin/assignments`, 2026-09-19 · **Fix before:** unscheduled; the user
+deferred it explicitly.
+
+### The defect
+
+`components/entity_table.py` sets `sort_action="native"`, and dash_table's
+native sort orders a column by the value it renders:
+
+- **Last reading** holds `format_age()` strings (`8 min`, `2h 17m`,
+  `5d 3h`), so ascending order is `2h 17m` < `5d 3h` < `8 min` — a
+  five-day-old reading sorts above an eight-minute-old one.
+- **Data** holds the freshness label (`Stale · 8 of 8 metrics`, `No data`),
+  so it sorts alphabetically. Rows already carry a hidden `_severity` rank
+  (`callbacks/device_admin.py`, `build_device_admin_rows`), but native sort
+  cannot sort one column by another key.
+
+Affects every table built from those rows: Device Management and
+Assignments, and any other `entity_table` with an age or label column.
+
+### Scope when it is fixed
+
+Native sort cannot do this. It needs `sort_action="custom"` with a callback
+that sorts on hidden keys (`_severity`, a numeric age), applied to each
+`entity_table` page that has these columns. The pages' default row order
+(`_device_sort_key` on Assignments) must survive when no sort is chosen.
+
