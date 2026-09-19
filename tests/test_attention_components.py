@@ -176,3 +176,17 @@ def test_problem_list_has_a_column_header_on_the_row_grid():
 
 def test_empty_problem_list_has_no_header():
     assert "attention-problem--head" not in classes(ui.problem_list([], NOW))
+
+
+def test_status_bar_names_the_oldest_unacknowledged_alarm_and_the_ack_count():
+    snap = _snap(problems=[_problem(K.POWER_DOWN, hours=3), _problem(K.BATTERY_LOW, hours=50),
+                           _problem(K.NO_DATA_24H, hours=90)])
+    snap = AttentionSnapshot(**{**snap.__dict__, "acknowledged_24h": 4})
+    content = text(ui.status_bar(snap))
+    # No-data is not an alarm to acknowledge, so the 90 h one is skipped.
+    assert "Oldest unacknowledged: Battery Low · 2 d ago" in content
+    assert "4 acknowledged in the last 24 h" in content
+
+
+def test_status_bar_says_when_nothing_awaits_acknowledgement():
+    assert "No unacknowledged alarms" in text(ui.status_bar(_snap()))

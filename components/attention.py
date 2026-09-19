@@ -21,6 +21,7 @@ from services.attention_service import (
     Problem,
     ProblemKind,
     format_limit,
+    oldest_unacknowledged,
 )
 from services.temperature_condition_service import (
     CONDITION_LABELS,
@@ -127,11 +128,22 @@ def status_bar(snapshot: AttentionSnapshot) -> html.Div:
                             html.Strong(str(counts[tone]), className="attention-counter__value")])
         for label, tone in SEVERITY_COUNTERS
     ])
+    oldest = oldest_unacknowledged(snapshot.problems)
+    backlog = html.Div(className="attention-status__backlog", children=[
+        html.Span(
+            f"Oldest unacknowledged: {oldest.label} · {ago(oldest.since, snapshot.generated_at)}"
+            if oldest else "No unacknowledged alarms",
+            className="attention-status__oldest",
+        ),
+        html.Span(f"{snapshot.acknowledged_24h} acknowledged in the last 24 h",
+                  className="attention-status__acked"),
+    ])
     return html.Div(
         className="attention-status" + (" attention-status--clear" if clear else ""),
         children=[
             *headline,
             counters,
+            backlog,
             html.Span(
                 f"{snapshot.reporting_rtls} of {snapshot.total_rtls} RTLs reporting",
                 className="attention-status__reporting",

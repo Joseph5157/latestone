@@ -154,6 +154,9 @@ class AttentionSnapshot:
     limits: TemperatureLimits | None
     generated_at: datetime
     temperatures: tuple[DeviceTemperature, ...] = field(default=(), repr=False)
+    #: Alarms acknowledged in the last 24 h (STATS-CARDS-1), counted over the
+    #: same bounded event read as the activity list.
+    acknowledged_24h: int = 0
 
 
 def locations(
@@ -272,6 +275,18 @@ def activity_items(events, requests, where: Mapping[str, Location], *, now: date
     return items[:ACTIVITY_ROWS]
 
 
+def acknowledged_count(events, *, now: datetime) -> int:
+    """Events acknowledged within ACTIVITY_WINDOW (not capped at ACTIVITY_ROWS)."""
+    since = now - ACTIVITY_WINDOW
+    return sum(1 for e in events if e.acknowledged_at is not None and e.acknowledged_at >= since)
+
+
+def oldest_unacknowledged(problems: Iterable[Problem]) -> Problem | None:
+    """The alarm problem that has waited longest for an acknowledgement."""
+    alarms = [p for p in problems if p.kind in ACKNOWLEDGEABLE_KINDS and p.since is not None]
+    return min(alarms, key=lambda p: p.since, default=None)
+
+
 def daily_alarm_counts(events, *, now: datetime) -> list[DailyAlarms]:
     """Alarm events per UTC day for the last TREND_DAYS days, today last."""
     today = now.astimezone(timezone.utc).date()
@@ -325,6 +340,7 @@ def get_attention_snapshot(
         limits=limits,
         generated_at=now,
         temperatures=tuple(temps),
+        acknowledged_24h=acknowledged_count(events, now=now),
     )
 
 
