@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T15:53:29Z
+Date: 2026-09-19T16:11:25Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `assign-toolbar` = `c3a02f1` "feat(admin): Assignments toolbar replaces the native filter row (ASSIGN-TOOLBAR-1)" (not `main`)
+- current branch `auth-sidebar-sync` = `a6e4828` "fix(auth): keep auth-store in step with the trusted session (AUTH-SIDEBAR-1)" (not `main`)
 - Working tree: 8 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3030 passed, 731 deselected in 36.19s
+- `python -m pytest -m "not db"` → 3037 passed, 731 deselected in 36.38s
 
 ## Branches
 
@@ -27,6 +27,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `admin-dashboard-final`
 - `alarm-history`
 - `app-dark-mode`
+- `assign-toolbar`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
 - `cc-severity-cards`
@@ -61,10 +62,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `assign-toolbar` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
-| `cc-1-command-center-progress` | 14 | 438 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 288 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 438 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `auth-sidebar-sync` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 14 | 442 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 292 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 442 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
