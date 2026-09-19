@@ -4,7 +4,53 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (user, 2026-09-19, "commit and do this now"); push **NOT granted**.
+exercised** (user, 2026-09-19, "update all documents"); push **NOT
+granted**.
+
+## LEDGER-SYNC-2 — CLOSED / PASS
+
+Baseline: `main` at `e17ddbc`, branch `docs-sync`. Documentation only; no
+application code, test or ADR decision changed.
+
+## Task
+
+Bring the living documents level with `main` after the 2026-09-18/19 gates:
+`PROJECT_LEDGER.md` §10 rows 45–72 and a 2026-09-19 amendment (pushed vs
+local state); `DECISION_INDEX.md` gains the missing ADR-027 row;
+`UI_SPEC.md` and `MOBBIN_UX_REFERENCE.md` stop describing gauges/donuts as
+banned outright (ADR-028); `README.md` and `docs/GETTING_STARTED.md` point
+at `127.0.0.1:8050` and explain the Windows `localhost` delay.
+
+## Relevant files
+
+- `docs/context/PROJECT_LEDGER.md`, `docs/context/DECISION_INDEX.md`,
+  `docs/context/MOBBIN_UX_REFERENCE.md`, `UI_SPEC.md`, `README.md`,
+  `docs/GETTING_STARTED.md`
+
+## Non-goals (explicit)
+
+- The frozen `command center/` pack, `docs/archive/` and dated historical
+  reports are not edited: they record what was true when written.
+- No push.
+
+## Required tests
+
+- Pack CLEAN; `tests/test_context_pack_gate_guard.py` passes.
+
+## Known ambiguity
+
+None.
+
+## Verification (2026-09-19)
+
+- Every new ledger row's SHA and summary is taken from that gate's record
+  in this file; pushed/local status checked with
+  `git merge-base --is-ancestor <sha> origin/main` (`origin/main` =
+  `78fde0e`).
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## CC-FILTER-FAST-1 — CLOSED / PASS
 
@@ -70,7 +116,7 @@ None.
   across a refresh. Acknowledge not clicked (writes the DB); covered by
   unit tests.
 
-## Next implementation gate: NONE
+## Next implementation gate: LEDGER-SYNC-2 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

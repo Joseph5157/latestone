@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T16:51:50Z
+Date: 2026-09-19T17:00:32Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-filter-fast` = `059fcc0` "perf(cc): severity filter applied in the browser; no-op requests gated (CC-FILTER-FAST-1)" (not `main`)
-- Working tree: 8 entries — see below
+- current branch `docs-sync` = `e17ddbc` "Merge branch 'cc-filter-fast': Command Center filter without refetch (CC-FILTER-FAST-1)" (not `main`)
+- Working tree: 14 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3061 passed, 731 deselected in 37.38s
+- `python -m pytest -m "not db"` → 3061 passed, 731 deselected in 37.48s
 
 ## Branches
 
@@ -31,6 +31,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `auth-sidebar-sync`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
+- `cc-filter-fast`
 - `cc-gauges`
 - `cc-severity-cards`
 - `cc-visuals`
@@ -38,6 +39,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `colour-key`
 - `ctx-1-context-architecture`
 - `dark-mode-polish`
+- `docs-sync`
 - `ent-6-ui-and-live-simulator`
 - `fix-registration-window-clock-domain`
 - `nav-1-utility-route-visibility`
@@ -64,10 +66,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 448 | REVIEW — unexpected divergence |
-| `cc-filter-fast` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
-| `client-demo-1` | 7 | 298 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 448 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 451 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 301 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 451 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -111,7 +112,13 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+M README.md
+ M UI_SPEC.md
+ M docs/GETTING_STARTED.md
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/DECISION_INDEX.md
+ M docs/context/MOBBIN_UX_REFERENCE.md
+ M docs/context/PROJECT_LEDGER.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/

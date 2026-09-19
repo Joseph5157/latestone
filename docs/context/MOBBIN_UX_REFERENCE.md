@@ -131,10 +131,11 @@ invented progress bar.
 
 ## Explicitly rejected / avoid
 
-- Donut charts, gauges, and progress rings — `AGENTS.md` already prohibits
-  gauges and pie charts by name; donuts and rings are the same family.
-  (Seen in Toggl Track's and ClickUp's dashboards during research — not
-  adopted for this reason.)
+- Needle or speedometer gauges, zoned dials and full pie charts. (Amended
+  2026-09-19: donuts and rings were on this list under `AGENTS.md`'s old
+  blanket ban; ADR-028 now allows them for part-of-whole counts, and the
+  Command Center's "Fleet at a glance" panel uses a half-arc and a donut.
+  Toggl Track's and ClickUp's dashboard donuts were first seen here.)
 - Decorative animation of any kind.
 - Audit or activity histograms / "events over time" bar charts (seen in
   Okta's System Log) — flagged during research as a genuinely good pattern
