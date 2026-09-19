@@ -98,3 +98,15 @@ def test_the_alarm_legend_names_the_level_before_the_alarm():
 def test_the_hottest_card_is_not_painted_as_a_selection():
     from inspect import getsource
     assert "accent=True" not in getsource(fleet_overview.stat_cards)
+
+
+@pytest.mark.parametrize("tone", sorted(KEY_TONES))
+def test_every_tone_has_a_dot_on_its_token(tone):
+    rule = re.search(rf"\.status-dot--{tone}\s*\{{([^}}]*)\}}", CSS)
+    assert rule and f"var({sc.TONE_TOKEN[tone]})" in rule.group(1)
+
+
+def test_the_dot_is_decorative():
+    dot = sc.status_dot("critical")
+    assert dot.className == "status-dot status-dot--critical"
+    assert getattr(dot, "aria-hidden") == "true"

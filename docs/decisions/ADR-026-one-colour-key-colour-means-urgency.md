@@ -5,7 +5,7 @@ Date: 2026-09-19
 Evidence: `components/status_colors.py` (the key and both tone maps),
 `components/fleet_overview.py`, `components/attention.py`,
 `assets/app.css` (`--sev-*` tokens, `.status-chip`)
-Implemented-by: `21a5d1f`
+Implemented-by: `21a5d1f`; `0a84648` (badge-vs-dot)
 
 ## Context
 
@@ -44,7 +44,12 @@ Colour states **how urgent**; the label states **what**. One key, one module:
   never a status.
 - `components/status_colors.py` owns the key, `CONDITION_TONE` and
   `KIND_TONE`; no page keeps its own table.
-- Every status tag is one `.status-chip` style; every status colour is a
+- A **badge** (`.status-chip`) marks a status beside a value (a
+  temperature, a plant row). When the status is the row's own main text —
+  the Command Center's Needs-attention Problem column — it is plain text
+  after a **coloured dot** (`.status-dot`), so a list of urgent rows does
+  not become a column of red pills (COLOUR-KEY-2, 2026-09-19).
+- Every status badge is one `.status-chip` style; every status colour is a
   `--sev-*` token (including `--sev-none`), restated for dark.
 - Labels name the coverage where a colour covers more than one thing
   ("Critical temperature", "Critical · Power Down").
