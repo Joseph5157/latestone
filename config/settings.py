@@ -11,7 +11,7 @@ import json
 import os
 import re
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
@@ -482,6 +482,12 @@ class LiveSimSettings:
     device_ids: tuple[str, ...] = _parse_csv_list("LIVE_SIM_DEVICE_IDS")
     metrics: tuple[str, ...] = _parse_csv_list("LIVE_SIM_METRICS")
     noise_scale: float = _get_float("LIVE_SIM_NOISE_SCALE", 1.0)
+    #: Average simulated RTL events per day across the simulated fleet
+    #: (DATA-REFRESH-1). 0 = no events, so a deployment that never sets it
+    #: keeps its readings-only behaviour. Read per instance, not at import.
+    events_per_day: float = field(
+        default_factory=lambda: _get_float("LIVE_SIM_EVENTS_PER_DAY", 0.0)
+    )
 
 
 database = DatabaseSettings()
