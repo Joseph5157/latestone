@@ -15,7 +15,7 @@ import math
 import random
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Sequence
+from typing import Callable, Mapping, Sequence
 
 from config.events import (
     EVENT_TYPE_BATTERY_LOW,
@@ -24,6 +24,11 @@ from config.events import (
     EVENT_TYPE_SENSOR_ERROR,
     EVENT_TYPE_STARTUP,
 )
+from services import simulated_event_source
+
+#: `source` on every event this module emits, so they are distinguishable
+#: from db/seed_events_demo.py's fixed batch and from real traffic.
+LIVE_SIM_SOURCE = "live_simulator"
 
 #: Relative weights. Routine traffic (check-in) dominates; power-down and
 #: sensor errors are rarer.
@@ -93,3 +98,26 @@ def plan_events(
             )
         )
     return sorted(planned, key=lambda e: e.event_ts)
+
+
+def emit_planned(
+    planned: Sequence[PlannedEvent],
+    transformer_of: Mapping[str, str],
+    emit: Callable[..., object] = simulated_event_source.emit,
+) -> int:
+    """Submit each planned event through simulated_event_source.emit().
+
+    Returns the number submitted. `transformer_of` maps device_id ->
+    transformer_id; the canonical ingestion validates the pair.
+    """
+    for event in planned:
+        emit(
+            event.event_type,
+            event_ts=event.event_ts,
+            device_id=event.device_id,
+            transformer_id=transformer_of[event.device_id],
+            battery_voltage=event.battery_voltage,
+            temperature=event.temperature,
+            source=LIVE_SIM_SOURCE,
+        )
+    return len(planned)

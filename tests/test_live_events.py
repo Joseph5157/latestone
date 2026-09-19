@@ -59,3 +59,33 @@ class TestPlanEvents:
 
     def test_no_devices_plans_nothing(self):
         assert plan_events(random.Random(1), [], T0 - timedelta(days=1), T0, 12) == []
+
+
+from db.live_events import LIVE_SIM_SOURCE, PlannedEvent, emit_planned
+
+
+class TestEmitPlanned:
+    def test_forwards_every_field_to_emit(self):
+        calls = []
+        planned = [PlannedEvent("battery_low", "plant-01-t1-d1", T0, battery_voltage=3.7)]
+        n = emit_planned(
+            planned, {"plant-01-t1-d1": "plant-01-t1"},
+            emit=lambda t, **kw: calls.append((t, kw)),
+        )
+        assert n == 1
+        event_type, kw = calls[0]
+        assert event_type == "battery_low"
+        assert kw == {
+            "event_ts": T0, "device_id": "plant-01-t1-d1",
+            "transformer_id": "plant-01-t1", "battery_voltage": 3.7,
+            "temperature": None, "source": LIVE_SIM_SOURCE,
+        }
+
+    def test_nothing_planned_emits_nothing(self):
+        assert emit_planned([], {}, emit=lambda *a, **k: 1 / 0) == 0
+
+    def test_default_emitter_is_the_canonical_simulated_source(self):
+        import inspect
+        from services import simulated_event_source
+        default = inspect.signature(emit_planned).parameters["emit"].default
+        assert default is simulated_event_source.emit
