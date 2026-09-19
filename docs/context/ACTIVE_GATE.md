@@ -4,7 +4,67 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (THEME-APP-1); push **NOT granted**.
+exercised** (THEME-APP-2); push **NOT granted**.
+
+## THEME-APP-2 — CLOSED / PASS
+
+Baseline: `main` at `0bba5cf`, branch `dark-mode-polish`. ADR-025.
+
+## Task
+
+Dark-mode follow-up after a contrast review and a Technician report that
+Devices, Notification Center and Report Center are not fully dark:
+hover/selected highlights visible (accent-bg), form-field and dropdown
+borders at least 3:1, cards a step lighter than the canvas; native controls
+dark (`color-scheme`); hard-coded light borders (badges, freshness column
+rule, device-page controls) tokenised; disabled secondary buttons and the
+table filter case toggle dark; the Technician "Devices" sidebar icon (no
+mask rule, rendered as a solid square in both themes).
+
+## Relevant files
+
+- `assets/app.css`, `tests/test_app_theme.py`
+- `docs/decisions/ADR-025-dark-mode-is-app-wide-and-remembered.md`
+
+## Non-goals (explicit)
+
+- No layout or behaviour change; light-mode values unchanged.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px: Technician Devices / Notifications / Reports and the
+  admin pages, bright-background and contrast audits, dark and light.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `3ad1f8f` dark tokens: surface `#1e2835` (1.2:1 off the canvas),
+  accent-bg `#24406b` (visible on surface, canvas and sidebar), new
+  `--color-input-border` (light `#aeb7c2`, the literal it replaces; dark
+  `#63768c`, >= 3:1); `color-scheme: dark` and `accent-color` on the dark
+  root; accent inset marker on the active sidebar link; `#cbd2d9` literals
+  now `var(--color-border-strong)`; dark rules for the remaining light
+  literal edges, disabled secondary buttons and the dash_table filter case
+  toggle; `.app-sidebar__icon--my-devices` mask rule (Technician "Devices"
+  icon was a solid square in both themes). Tests in
+  `tests/test_app_theme.py` compute the contrast of the dark tokens.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed.
+- Browser 1440 px: Technician Devices / Notifications / Reports / Overview /
+  Command Center and admin's 13 pages, bright-background and text-contrast
+  audits clean apart from intended accent fills and colour segments;
+  Notifications and Reports in light unchanged apart from the icon.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## THEME-APP-1 — CLOSED / PASS
 
@@ -68,7 +128,7 @@ None.
   page keeps its own design; Light -> sign out -> sign in stays Light;
   light mode screenshots unchanged.
 
-## Next implementation gate: NONE
+## Next implementation gate: THEME-APP-2 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

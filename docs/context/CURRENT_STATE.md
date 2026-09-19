@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T12:32:54Z
+Date: 2026-09-19T12:54:27Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `f96689f` "Merge branch 'app-dark-mode': app-wide dark mode, Dark by default, remembered per browser (ADR-025)"
-- Working tree: 8 entries — see below
+- current branch `dark-mode-polish` = `3ad1f8f` "fix(theme): visible dark highlights, 3:1 form-field edges, dark native controls, tokenised light edges, Technician Devices icon (THEME-APP-2)" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 2928 passed, 731 deselected in 33.61s
+- `python -m pytest -m "not db"` → 2951 passed, 731 deselected in 32.01s
 
 ## Branches
 
@@ -53,9 +53,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 409 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 259 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 409 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 410 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 260 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 410 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `dark-mode-polish` | 2 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -97,6 +98,7 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ```
 M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/
 ?? .pytest-alarm-ack-full/
