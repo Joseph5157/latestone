@@ -1,8 +1,8 @@
 """The redesigned Command Center's panels (CC-NEW-1).
 
 Pure render functions over `services.attention_service` values. They decide
-nothing: kinds, conditions and ranking arrive already decided, and the only
-mapping here is kind/condition -> visual tone.
+nothing: kinds, conditions and ranking arrive already decided, and every
+visual tone comes from `components.status_colors` (ADR-026).
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from typing import Sequence
 from dash import dcc, html
 
 from components.command_center.primitives import cc_card
+from components.status_colors import CONDITION_TONE, KIND_TONE, TONE_NAME, status_chip_class
 from routes import device_href
 from services.attention_service import (
     ACKNOWLEDGEABLE_KINDS,
@@ -32,24 +33,6 @@ from services.temperature_condition_service import (
     TemperatureCondition,
 )
 
-_KIND_TONE = {
-    ProblemKind.TEMP_CRITICAL: "critical",
-    ProblemKind.POWER_DOWN: "critical",
-    ProblemKind.NO_DATA_24H: "nodata",
-    ProblemKind.TEMP_WARNING: "warning",
-    ProblemKind.BATTERY_LOW: "warning",
-    ProblemKind.SENSOR_ERROR: "info",
-}
-
-_CONDITION_TONE = {
-    TemperatureCondition.CRITICAL: "critical",
-    TemperatureCondition.WARNING: "warning",
-    TemperatureCondition.NORMAL: "normal",
-    TemperatureCondition.LIMITS_NOT_SET: "info",
-    TemperatureCondition.NO_RECENT_DATA: "nodata",
-}
-
-
 #: Status-bar counters (POLISH-1), in the order an operator reads them.
 #: Grouped by the same tone the problem chips use, so a counter and the
 #: chips it counts can never disagree about which colour a kind is.
@@ -57,7 +40,7 @@ SEVERITY_COUNTERS = (
     ("Critical", "critical"),
     ("Warning", "warning"),
     ("No data", "nodata"),
-    ("Sensor", "info"),
+    ("Device fault", "info"),
 )
 
 
@@ -67,7 +50,7 @@ SEVERITY_BUTTON = "attention-severity"
 
 
 def tone_of(p: Problem) -> str:
-    return _KIND_TONE[p.kind]
+    return KIND_TONE[p.kind]
 
 
 def severity_breakdown(problems: Sequence[Problem]) -> dict[str, str]:
@@ -78,14 +61,14 @@ def severity_breakdown(problems: Sequence[Problem]) -> dict[str, str]:
     out = {tone: [] for _label, tone in SEVERITY_COUNTERS}
     for kind in ProblemKind:
         if per_kind.get(kind):
-            out[_KIND_TONE[kind]].append(f"{KIND_LABELS[kind]} {per_kind[kind]}")
+            out[KIND_TONE[kind]].append(f"{KIND_LABELS[kind]} {per_kind[kind]}")
     return {tone: " · ".join(parts) for tone, parts in out.items()}
 
 
 def severity_counts(problems: Sequence[Problem]) -> dict[str, int]:
     counts = {tone: 0 for _label, tone in SEVERITY_COUNTERS}
     for p in problems:
-        counts[_KIND_TONE[p.kind]] += 1
+        counts[KIND_TONE[p.kind]] += 1
     return counts
 
 
@@ -109,8 +92,12 @@ def ago(moment: datetime | None, now: datetime) -> str:
     return f"{int(seconds // 86400)} d ago"
 
 
+def condition_chip(condition: TemperatureCondition) -> html.Span:
+    return _chip(CONDITION_LABELS[condition], CONDITION_TONE[condition])
+
+
 def _chip(label: str, tone: str) -> html.Span:
-    return html.Span(label, className=f"attention-chip attention-chip--{tone}")
+    return html.Span(label, className=f"attention-chip {status_chip_class(tone)}")
 
 
 def _device_link(device_id: str, device_code: str) -> dcc.Link:
@@ -262,9 +249,9 @@ def problem_list(
         ])
         body = filter_note + [head, html.Ul(className="attention-problems", children=[
             html.Li(
-                className=f"attention-problem attention-problem--{_KIND_TONE[p.kind]}",
+                className=f"attention-problem attention-problem--{KIND_TONE[p.kind]}",
                 children=[
-                    _chip(p.label, _KIND_TONE[p.kind]),
+                    _chip(p.label, KIND_TONE[p.kind]),
                     html.Div(className="attention-problem__main", children=[
                         _device_link(p.device_id, p.device_code),
                         html.Span(f"{p.plant_name} · {p.transformer_code}",
@@ -319,14 +306,14 @@ def hottest_card(temps: Sequence[DeviceTemperature], limits=None) -> html.Sectio
                 html.Span(t.transformer_code, className="attention-hottest__where"),
                 # CC-VISUALS-1: how close to the limits, not just the number.
                 html.Div(className="attention-meter", **{"aria-hidden": "true"}, children=[
-                    html.Div(className=f"attention-meter__fill attention-meter__fill--{_CONDITION_TONE[t.condition]}",
+                    html.Div(className=f"attention-meter__fill attention-meter__fill--{CONDITION_TONE[t.condition]}",
                              style={"width": f"{_pct(t.value, scale)}%"}),
                     *markers,
                 ]),
                 html.Span(f"{t.value:.1f} °C", className="attention-hottest__value"),
                 # Only a real finding earns a chip; "Limits not set" is said
                 # once in the status bar, not repeated on every row.
-                *([_chip(CONDITION_LABELS[t.condition], _CONDITION_TONE[t.condition])]
+                *([condition_chip(t.condition)]
                   if t.condition in _FLAGGED else []),
             ])
             for t in temps
@@ -369,7 +356,7 @@ def alarm_trend_card(days: Sequence[DailyAlarms]) -> html.Section:
                     style={"height": f"{round(100 * d.count / peak)}%"},
                     title=", ".join(f"{KIND_LABELS[k]} {n}" for k, n in d.by_kind) or None,
                     children=[
-                        html.Div(className=f"attention-trend__seg attention-trend__seg--{_KIND_TONE[k]}",
+                        html.Div(className=f"attention-trend__seg attention-trend__seg--{KIND_TONE[k]}",
                                  style={"flexGrow": n})
                         for k, n in d.by_kind
                     ],
@@ -381,7 +368,9 @@ def alarm_trend_card(days: Sequence[DailyAlarms]) -> html.Section:
     ]
     seen = {k for d in days for k, _n in d.by_kind}
     legend = html.Div(className="attention-trend__legend", children=[
-        html.Span(KIND_LABELS[k], className=f"attention-legend attention-legend--{_KIND_TONE[k]}")
+        # ADR-026: the level first, so red reads as "Critical", not as "Power Down".
+        html.Span(f"{TONE_NAME[KIND_TONE[k]]} · {KIND_LABELS[k]}",
+                  className=f"attention-legend attention-legend--{KIND_TONE[k]}")
         for k in ProblemKind if k in seen
     ])
     total = sum(d.count for d in days)

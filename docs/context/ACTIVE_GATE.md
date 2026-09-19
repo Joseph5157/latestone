@@ -4,7 +4,66 @@ Status: **CLOSED / PASS**
 Date: 2026-09-19
 Gate: NONE
 Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (THEME-APP-2); push **NOT granted**.
+exercised** (COLOUR-KEY-1); push **NOT granted**.
+
+## COLOUR-KEY-1 — CLOSED / PASS
+
+Baseline: `main` at `a582d08`, branch `colour-key`. ADR-026.
+
+## Task
+
+One colour key for the dashboard (ADR-026): shared tone maps and key in
+`components/status_colors.py`; one `.status-chip` style; `--sev-none`
+token; "Limits not set" grey on both pages; labels that name what a colour
+covers; Command Center "Sensor" card -> "Device fault"; Overview Hottest-now
+card no longer accent blue; a "Colour key" disclosure on both pages.
+
+## Relevant files
+
+- `components/status_colors.py` (new), `components/fleet_overview.py`,
+  `components/attention.py`, `pages/plants_overview.py`,
+  `pages/command_center.py`, `assets/app.css`
+- `docs/decisions/ADR-026-one-colour-key-colour-means-urgency.md`
+
+## Non-goals (explicit)
+
+- No change to how conditions or problems are computed; the Overview stays
+  temperature-only.
+
+## Required tests
+
+- `python -m pytest -m "not db"`; `python -m pytest` on the plain seed.
+- Browser 1440 px, dark and light: Overview and Command Center side by side.
+
+## Known ambiguity
+
+None.
+
+## Implementation
+
+- `cedd4c9` ADR-026.
+- `21a5d1f` `components/status_colors.py`: `COLOUR_KEY`, `CONDITION_TONE`,
+  `KIND_TONE`, `TONE_TOKEN`, `status_chip_class`, `colour_key()`; both
+  pages' own tone tables removed; one `.status-chip` style (soft fill) for
+  every status tag; `--sev-none` (light `#9ca3af`, the literal it replaces;
+  dark `#8b95a3`); Limits not set -> grey on both pages; condition bar and
+  Command Center strip both 10 px; Overview labels "Critical/Warning
+  temperature", Hottest-now card no longer accent blue; Command Center
+  "Sensor" -> "Device fault", Alarms-per-day legend "Critical · Power Down"
+  etc.; a closed "Colour key" disclosure on both pages.
+  `tests/test_status_colors.py`.
+
+## Verification (2026-09-19)
+
+- `python -m pytest -m "not db"` and `python -m pytest` pass on the plain
+  seed.
+- Browser 1440 px, dark and light: Overview and Command Center with the key
+  open; tags, bars and key match; text-contrast audit clean on both pages
+  and the device page.
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## THEME-APP-2 — CLOSED / PASS
 
@@ -62,7 +121,7 @@ None.
   audits clean apart from intended accent fills and colour segments;
   Notifications and Reports in light unchanged apart from the icon.
 
-## Next implementation gate: NONE
+## Next implementation gate: COLOUR-KEY-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

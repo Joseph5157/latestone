@@ -12,6 +12,7 @@ from dash import dcc, html
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.fleet_overview import SORT_OPTIONS
+from components.status_colors import colour_key
 from routes import FLEET_OVERVIEW_PATH
 from services.fleet_overview_service import FILTER_ALL, SORT_NAME
 
@@ -40,6 +41,7 @@ def layout() -> html.Div:
             # STATS-CARDS-1: four temperature stat cards, filled by the callback.
             html.Div(id=STATS_ID),
             html.Div(id=CONDITION_ID),
+            colour_key(),
             html.Div(id=LIMITS_ID),
             html.Div(id=ERROR_ID, className="listing-error"),
             # POLISH-1: options (with counts) are written by the callback from

@@ -95,8 +95,8 @@ class TestProblemList:
         assert any(h.startswith("/devices/plant-01-t1-d1") for h in hrefs(card))
 
     def test_tone_follows_the_kind(self):
-        assert "attention-chip--critical" in classes(ui.problem_list([_problem(K.TEMP_CRITICAL)], NOW))
-        assert "attention-chip--warning" in classes(ui.problem_list([_problem(K.BATTERY_LOW)], NOW))
+        assert "status-chip--critical" in classes(ui.problem_list([_problem(K.TEMP_CRITICAL)], NOW))
+        assert "status-chip--warning" in classes(ui.problem_list([_problem(K.BATTERY_LOW)], NOW))
 
     def test_empty_state(self):
         assert "Nothing needs attention" in text(ui.problem_list([], NOW))
@@ -109,7 +109,7 @@ class TestHottest:
 
     def test_no_chip_when_nothing_is_flagged(self):
         card = ui.hottest_card([_temp(30.0, C.LIMITS_NOT_SET), _temp(30.0, C.NORMAL)])
-        assert not any(c.startswith("attention-chip--") for c in classes(card))
+        assert not any(c.startswith("status-chip--") for c in classes(card))
 
     def test_empty(self):
         assert "No recent temperature readings" in text(ui.hottest_card([]))
@@ -167,7 +167,7 @@ def test_status_bar_counts_problems_by_severity_including_zeros():
     counters = [n for n in _walk(ui.status_bar(snap)) if "attention-counter" in (getattr(n, "className", "") or "").split()]
     assert [text(c) for c in counters] == [
         "Critical 2 Power Down 2", "Warning 1 Battery Low 1",
-        "No data 0 None right now", "Sensor 0 None right now",
+        "No data 0 None right now", "Device fault 0 None right now",
     ]
 
 

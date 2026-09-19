@@ -13,6 +13,7 @@ from dash import dcc, html
 
 from components.command_center import refresh
 from components.device_manage_drawer import device_manage_drawer
+from components.status_colors import colour_key
 
 INTERVAL_ID = "attention-refresh-interval"
 STORE_ID = "attention-refresh-store"
@@ -76,6 +77,7 @@ def layout() -> html.Div:
             dcc.Store(id=SEVERITY_STORE_ID, data=None, storage_type="memory"),
             html.Div(id=ACTION_RESULT_ID, className="attention-notice", **{"aria-live": "polite"}),
             html.Div(id=STATUS_SLOT_ID, children=[_loading("status")]),
+            colour_key(),
             html.Div(
                 className="attention-grid",
                 children=[
