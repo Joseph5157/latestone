@@ -158,12 +158,21 @@ def test_utility_callbacks_do_not_reset_values_or_rerender_content():
     assert toggle["state"] == [{"id": UTILITY_STORE_ID, "property": "data"}]
     assert toggle["prevent_initial_call"] is True
     presentation = next(c for c in callbacks if f"{UTILITY_BODY_ID}.hidden" in c["output"])
-    # Collapse state and the route, and nothing else: the column's allocation
-    # follows the URL, but it still never reads or writes the selector values.
+    # Collapse state, the route, and the session — and nothing else. The
+    # guarantee being pinned is that this callback never reads or writes the
+    # selector values and never re-renders page content, not that its input
+    # count is frozen. `auth-store` joined in ASSET-NAV-ROUTE-1 because `/`
+    # renders a different page per role (ADR-024), so the route alone cannot
+    # say whether this column belongs on screen.
     assert presentation["inputs"] == [
         {"id": UTILITY_STORE_ID, "property": "data"},
         {"id": "url", "property": "pathname"},
+        {"id": "auth-store", "property": "data"},
     ]
+    assert presentation["state"] == []
+    # The thing the exact list above is really defending.
+    read_ids = {i["id"] for i in presentation["inputs"]}
+    assert read_ids.isdisjoint({SHELL_ID, PLANT_ID, TRANSFORMER_ID, DEVICE_ID, "page-content"})
     outputs = set(presentation["output"].strip(".").split("..."))
     assert outputs == {
         f"{UTILITY_ID}.className", f"{UTILITY_BODY_ID}.hidden",

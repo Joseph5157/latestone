@@ -126,11 +126,32 @@ def toggle_aria_label(collapse_data) -> str:
 UTILITY_ROUTES = frozenset({"overview", "plant", "transformer", "device"})
 
 
-def utility_is_visible(pathname) -> bool:
-    return parse_pathname(pathname).name in UTILITY_ROUTES
+def utility_is_visible(pathname, role: str | None = None) -> bool:
+    """Whether the route on screen is one the Asset Navigator belongs on.
+
+    Role-aware for the same reason `active_nav_key` above is, and resolved
+    through the same function: `/` is not one page. ADR-024 lands
+    Administrators and Technicians on the Command Center there and General
+    Users on the Fleet Overview, so the raw `parse_pathname` name answers
+    the wrong question for two roles out of three — it says `overview` for
+    every one of them.
+
+    Reading the raw name is what put the navigator on the Command Center at
+    `/` while `/command-center` correctly hid it: the same page, two
+    answers. Asking `landing_route_name` is what keeps this column from
+    disagreeing with the page that actually rendered.
+    """
+    # Deferred for the same reason as in `active_nav_key`: callbacks.routing
+    # imports pages, which must not load for a sidebar-only import.
+    from callbacks.routing import landing_route_name
+
+    route_name = landing_route_name(parse_pathname(pathname).name, pathname, role)
+    return route_name in UTILITY_ROUTES
 
 
-def utility_presentation(collapse_data, pathname) -> tuple[str, bool, str, str, str]:
+def utility_presentation(
+    collapse_data, pathname, role: str | None = None
+) -> tuple[str, bool, str, str, str]:
     """Dock allocation, body visibility and accessible toggle state, never values.
 
     Route governs the column's allocation; the collapse store governs its
@@ -141,7 +162,7 @@ def utility_presentation(collapse_data, pathname) -> tuple[str, bool, str, str, 
     class_name = "app-shell__utility"
     if collapsed:
         class_name += " app-shell__utility--collapsed"
-    if not utility_is_visible(pathname):
+    if not utility_is_visible(pathname, role):
         class_name += " app-shell__utility--hidden"
     label = "Expand Asset Navigator" if collapsed else "Collapse Asset Navigator"
     return class_name, collapsed, toggle_aria_expanded(collapse_data), label, label
@@ -246,6 +267,21 @@ def register(app) -> None:
         Output(UTILITY_TOGGLE_ID, "title"),
         Input(UTILITY_STORE_ID, "data"),
         Input("url", "pathname"),
+        Input("auth-store", "data"),
     )
-    def _apply_utility_collapse(collapse_data, pathname):
-        return utility_presentation(collapse_data, pathname)
+    def _apply_utility_collapse(collapse_data, pathname, auth_data):
+        """`auth-store` is an Input, not a State, for the same reason it is
+        one on `_render_active_state`: the column has to re-resolve the
+        moment the session changes, because `/` renders a different page for
+        a General User than for an Administrator and the pathname does not
+        move when they sign in.
+
+        The browser-side store is the right source *here* and this is not an
+        AUTH-HARDEN-1 regression. The value decides whether a column of
+        chrome is painted, never what is queried or who may query it:
+        authentication gating stays
+        `callbacks.equipment_selector.selector_visibility`'s job and data
+        scope stays `services/device_scope.py`'s, both server-side. A
+        tampered store reveals an empty three-dropdown panel, nothing more.
+        """
+        return utility_presentation(collapse_data, pathname, session_role(auth_data))
