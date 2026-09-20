@@ -3,13 +3,322 @@
 Status: **CLOSED / PASS**
 Date: 2026-09-20
 Gate: NONE
-Commit/push permission: commit **GRANTED** (user, 2026-09-20, "commit")
-and exercised on `cc-banner-retire`. Merge to `main` was granted, taken,
-and then **REVERTED at the user's instruction** the same day ("we are
-working on this cc-banner-retire branch only, main should not be
-disturbed"): `main` is back at `b84567e` and must be left there. All work,
-including the user's own `ef7c38d` (LOGIN-PATH-1), lives on
-`cc-banner-retire`. Do not merge or push without asking again.
+Commit/push permission: commit **NOT GRANTED**. `main` stays at `b84567e`
+— the earlier merge was reverted at the user's instruction and must not be
+retaken. All work continues on `cc-banner-retire`, including the
+uncommitted ASSET-NAV-ROUTE-1 change. Ask before commit, merge or push.
+
+## ASSET-NAV-DEFECTS-1 — CLOSED / PASS
+
+Baseline: `main` at `b84567e`, branch `cc-banner-retire` at `0e4504e` plus
+ASSET-NAV-ROUTE-1's uncommitted working-tree change. No new ADR: every item
+below is a rendering defect measured against the behaviour the existing
+comments already claim, not a new decision.
+
+## Task
+
+The second half of the user's 2026-09-20 Asset Navigator review. ROUTE-1
+took the panel off the Command Center; these are the defects it carries on
+the four routes where it does belong — Overview, Plant, Transformer,
+Device. User chose "fix the defects only": no redesign of the three-dropdown
+cascade, which stays exactly as it is.
+
+All figures measured in the browser at 1600x950, Administrator, `/plants`.
+
+**D1 — a long option overprints the one below it.** The menu is a
+`react-virtualized` list of fixed 35 px rows (`optionHeight`'s default) and
+nothing stops an option's text wrapping. `MONTALTO (Alessandro Volta)`
+wraps to three lines in a 35 px row and its third line paints over
+`Niederaussem power station`. Text on text, reproducible every time, and
+the wider the name list the worse it gets.
+
+**D2 — the last visible row is cut through the glyphs.** `maxHeight`
+defaults to 200 px against those 35 px rows: 200 / 35 = 5.71 rows, so the
+sixth is sliced at 25 px of 35. A menu whose own two size defaults are not
+multiples of each other.
+
+**D3 — opening the menu grows a second scrollbar.**
+`assets/app.css:722` puts `max-height` + `overflow-y: auto` on
+`.app-shell__utility-inner`. `overflow` makes that box clip **every**
+overflowing descendant, including the absolutely-positioned
+`.Select-menu-outer`. The box shrink-wraps the card at 247 px, so opening a
+menu pushes its `scrollHeight` to 299 px and a 15 px scrollbar appears
+beside the menu's own. Two adjacent scrollbars for one list.
+
+The comment above that rule says it exists so "only the contents scroll on
+short viewports". Its contents are a title and three fixed-height fields —
+247 px total — on a desktop-only application. It guards a case that cannot
+arise at the cost of a defect that arises on every single use.
+
+**D4 — you cannot read what is selected.** `.Select-value-label` gets a
+144 px box; `Niederaussem power station` needs 206 px, so it renders as
+`Niederaussem po…`, and react-select v1 sets no `title`, so hovering
+recovers nothing. Two compounding causes: the card is 200 px wide, and the
+control inherits the global **16 px** body size — three to four steps above
+the panel's own 12 px title and 11 px field labels, which is the vendor
+default leaking in rather than a choice anyone made for this panel.
+
+**D5 — in dark mode the card is invisible.** `.asset-navigator` paints
+`var(--color-surface)`, and `assets/app.css:6122` paints the column it sits
+in `var(--color-surface)` too. Identical token, identical computed
+`rgb(30, 40, 53)`, separated only by a 1 px `#2b3949` border. This also
+reproduces the exact outcome `assets/app.css:650-663` says was rejected —
+"a tall blank panel reaching the bottom of the page, reading as unused
+space" — because dark mode reinstates the full-height fill that comment
+describes removing.
+
+## Relevant files
+
+- `components/equipment_selector.py` (D1, D2)
+- `assets/app.css` — `.app-shell__utility`, `.app-shell__utility-inner`,
+  the Asset Navigator block from line 1077, the dark-mode block at 6121
+- `tests/test_shell_width.py` (pins the 200 px allocation, `:45`)
+- `tests/test_equipment_selector.py`, `tests/test_utility_route_visibility.py`
+- `docs/decisions/ADR-006-route-scoped-theming-is-architecture.md` (read for
+  D5, not edited)
+
+## Non-goals (explicit)
+
+- **No redesign.** Three dropdowns, same ids, same cascade, same callbacks.
+  `SHELL_ID`, `PLANT_ID`, `TRANSFORMER_ID`, `DEVICE_ID` and every callback
+  in `callbacks/equipment_selector.py` are untouched — the constraint that
+  has governed this component since `docs/CODE_AUDIT.md` finding 2.
+- **Copy is not touched.** The duplicated label/placeholder pairs
+  (`PLANT` / "Plant…") and the `RTL DEVICE` / "Device…" mismatch were found
+  in the same review and are deliberately left: they are wording, not
+  defects, and belong to whatever gate the user opens for polish.
+- **The detached collapse toggle is not moved.** Same reason.
+- **The empty column below the card is not filled.** ROUTE-1 already
+  removed the worst instance (the Command Center); what remains is the
+  `.page-action-area` slot's deliberate design (`assets/app.css:731`).
+- No change to route visibility — that was ROUTE-1 and it is closed.
+- `command center/` is not edited (standing non-goal).
+- No commit, merge or push without a fresh grant.
+
+## Required tests
+
+- `python -m pytest -m "not db" -v` green; pack CLEAN at open and close.
+- D1/D2 need an assertion that `maxHeight` is an exact multiple of
+  `optionHeight` — the defect is the relationship between the two numbers,
+  so pinning either one alone would not have caught it.
+
+## Known ambiguity — resolved by measurement
+
+D4's fix widens the column, which takes width from `.app-shell__content` on
+four monitoring pages. Opened with no basis for choosing the number; closed
+with one. All 30 plant names were measured in the browser at the control's
+14 px: median 106 px, p75 133 px, **p90 189 px**, and a long tail of two.
+A 280 px card yields a 192 px label, so p90 reads in full. Covering the
+other two — `Senoko I-VII CCGT Power Plants Singapore` (270 px) and
+`Itaipu Binacional Dam (Paraguay part)` (239 px) — needs a 354 px card, a
+fifth of a 1600 px window for two rows. They ellipsise; the menu, which
+carries no button inset, shows them whole.
+
+Net: the column goes 216 px -> 296 px, and `.app-shell__content` at
+1600x950 goes 1151 px -> 1056 px.
+
+## What the tests could not see
+
+Two defects in this gate were invisible to source assertions, and both were
+caught only in the browser. Recording them because the pattern is the point,
+not the two instances:
+
+1. **A specificity loss.** `.hierarchy-selector .Select-value` (0,3,0 — no,
+   0,2,0) lost to the vendor's own
+   `.Select--single > .Select-control .Select-value` (0,3,0) wherever it sat
+   in the sheet. The test asserting `padding-right: 42px` passed while the
+   browser still painted the label over the clear button. The rule now
+   repeats the vendor's ancestry to reach (0,4,0), and the test pins that
+   ancestry rather than only the value.
+2. **A stale comment treated as fact.** The `.Select-value-label` block
+   states that `.Select-value` "already reserves `padding-right: 42px`".
+   The served stylesheet computes **10 px**. Every `.Select-value-label`
+   measurement in this repo that trusted the 42 px has been off by 32 px;
+   it only ever looked right because the old 144 px label ellipsised short
+   of the buttons. Same lesson as ENERGY-SPARK-1: read the browser's copy,
+   not the package's.
+
+## Verification (2026-09-20)
+
+- Eight tests written first, all eight red for their own reason, then green.
+- D2's test asserts `maxHeight % optionHeight == 0` rather than either
+  number, because the defect was the relationship — 200/35 = 5.71 rows.
+  Pinning either value alone would pass over it.
+- `python -m pytest -m "not db"`: **3105 passed**. Pack CLEAN at open and
+  close.
+- One test elsewhere went red and was right to: `test_shell_width.py:42`
+  pinned `width: calc(200px + var(--sp-4))` literally. It now pins the
+  *shape* — one card width plus exactly one outer gutter — and the width
+  itself moved to the test that owns the reason for it.
+- **Browser, `127.0.0.1:8050/plants`, Administrator, 1600x950:**
+
+  | | Before | After |
+  |---|---|---|
+  | Menu rows visible | 5.71 (6th sliced at 25/35 px) | **8**, exact |
+  | Long option | 3 lines in a 35 px row, overprinting the next | one line, ellipsised |
+  | Scrollbars on an open menu | **2** (`utility-inner` scrollHeight 299 > 247) | **1** |
+  | `.Select-value-label` box | 144 px | **192 px** |
+  | `Niederaussem power station` (180 px) | `Niederaussem po…` | reads in full |
+  | `MONTALTO (Alessandro Volta)` (189 px, p90) | overprinted its neighbour | reads in full |
+  | Label vs clear button | **-32 px** (painting over it) | 0 px, no overlap |
+  | Dark: card vs column | both `rgb(30, 40, 53)` | `rgb(18, 24, 32)` on `rgb(30, 40, 53)` |
+
+- Both themes screenshotted. Light: white card on the page ground,
+  unchanged in kind. Dark: the card is now a recessed panel with
+  `--color-border-strong`, and is visible for the first time.
+- `python -c "import app"` succeeds; the three dropdowns' new
+  `optionHeight`/`maxHeight` props are accepted by dcc.Dropdown 2.17.1.
+
+**Not committed.** Commit permission was not granted; this and
+ASSET-NAV-ROUTE-1 both sit in the working tree on `cc-banner-retire`.
+
+## Next implementation gate: NONE
+
+## Prior gate record
+
+## ASSET-NAV-ROUTE-1 — CLOSED / PASS
+
+Baseline: `main` at `b84567e`, branch `cc-banner-retire` at `0e4504e`.
+Restores a rule the code already states; no new decision principle, so no
+new ADR.
+
+## Task
+
+User request (2026-09-20), continuing the Command Center review: the Asset
+Navigator on the Command Center "is not up to the mark". Review found that
+it is not supposed to be on that page at all, and appears there only
+through a route-name disagreement between two callbacks.
+
+`callbacks/navigation.py:126` states the rule:
+
+```python
+UTILITY_ROUTES = frozenset({"overview", "plant", "transformer", "device"})
+```
+
+with the reason written directly above it — the Asset Navigator's
+destination is a device *dashboard*, so on any other route completing its
+cascade abandons the task on screen.
+
+`utility_is_visible` (`callbacks/navigation.py:130`) tests that set against
+the **raw** parsed route: `parse_pathname("/")` is `overview`. But
+`callbacks/routing.py:158` makes `/` render the **Command Center** for
+Administrators and Technicians, which ADR-024 states as the landing rule
+("`/` renders the Command Center for Administrators and Technicians and the
+Fleet Overview for General Users"). The two callbacks therefore disagree
+about which page `/` is, and the Command Center shows the navigator at `/`
+while hiding it at `/command-center`.
+
+Verified in the browser, Administrator, 1600x950:
+
+| URL | Page rendered | `.app-shell__utility` |
+|---|---|---|
+| `/` | Command Center | no `--hidden` class, column painted |
+| `/command-center` | Command Center | `app-shell__utility--hidden`, `display: none` |
+
+**The fix is the pattern this same module already uses.**
+`active_nav_key` (`callbacks/navigation.py:78-88`) solves the identical
+problem for the sidebar highlight: it calls
+`landing_route_name(parse_pathname(pathname).name, pathname, role)` behind
+a deferred import, precisely so the sidebar "can never disagree with the
+page that rendered about where we are". That is why the sidebar correctly
+highlights `Command Center` at `/` while the utility column does not.
+`utility_is_visible` simply never got the same treatment.
+
+**No ADR is amended.** ADR-024 already states the landing rule this change
+makes the utility column obey; nothing in it, ADR-004 or ADR-006 requires
+the navigator to be present on any particular route. `UTILITY_ROUTES` and
+its written justification are unchanged — only the route name compared
+against them is corrected.
+
+**Role source, and why `auth-store` is the right one here.** The new role
+argument comes from `session_role(auth_data)`, the browser-side store,
+matching `_render_active_state` immediately above it. This is deliberate
+and is not an AUTH-HARDEN-1 regression: the value decides whether a column
+of *chrome* is painted, never what data is read or who may read it.
+Authentication gating stays `callbacks.equipment_selector.selector_visibility`'s
+job and data scope stays `services/device_scope.py`'s; a tampered store can
+reveal an empty three-dropdown panel and nothing else.
+
+## Relevant files
+
+- `callbacks/navigation.py` (`utility_is_visible`, `utility_presentation`,
+  `_apply_utility_collapse`)
+- `tests/test_utility_route_visibility.py`
+- `docs/decisions/ADR-024-overview-and-command-center-split-by-question.md` (read,
+  not edited)
+
+## Non-goals (explicit)
+
+- `UTILITY_ROUTES` membership is not changed. The Command Center is not
+  added to it; Overview / Plant / Transformer / Device keep the navigator.
+- No change to what the navigator *looks like* or how it behaves once
+  visible — the panel's own defects are ASSET-NAV-DEFECTS-1, a separate
+  gate.
+- No change to `landing_route_name` itself, to routing, or to any
+  authorization path.
+- `command center/` is not edited (standing non-goal from earlier gates).
+- No commit, merge or push without a fresh grant.
+
+## Required tests
+
+- `python -m pytest -m "not db" -v` green; pack CLEAN at open and close.
+- `tests/test_utility_route_visibility.py` must distinguish roles at `/`.
+
+## Known ambiguity
+
+`"/"` currently sits in that test's `MONITORING_ROUTES` with no role, which
+still passes after the fix (no role and General User both land on Fleet
+Overview at `/`). A role-blind test therefore cannot catch this bug in
+either direction, which is why it did not. The parametrisation has to carry
+the role or the coverage is theatre.
+
+## Verification (2026-09-20)
+
+- Tests were written first and failed on the **signature**, not the
+  behaviour, so the role argument was added as an unused pass-through and
+  the suite re-run. That isolated **exactly six** failures — `/`, `""` and
+  `None` for Administrator and Technician — every one of them the bug
+  itself. Nothing else in the file moved, which is what proves the change
+  is as narrow as it claims.
+- Two tests elsewhere then went red and both were right to:
+  - `tests/test_context_pack_gate_guard.py` — this gate's own block had
+    named a successor while still open, giving the file two open
+    `## Next implementation gate:` declarations. An open gate names no
+    successor; the pointer is written at close. Fixed here, not worked
+    around.
+  - `tests/test_shell_width.py:154` pinned the presentation callback's
+    Input list exactly. Updated to include `auth-store`, and the guarantee
+    it actually exists to defend — that this callback reads no selector id
+    and no `page-content` — is now asserted directly rather than implied by
+    the list's length.
+- `python -m pytest -m "not db"`: **3096 passed**. Pack CLEAN at open and
+  close.
+- `python -c "import app"` succeeds — Dash validates callback registration
+  at import, so the added `auth-store` Input is proven wired, not just
+  typed.
+- **Browser, `127.0.0.1:8050`, 1600x950, all three personas:**
+
+  | Signed in as | `/` renders | `.app-shell__utility` |
+  |---|---|---|
+  | Administrator (`admin`) | Command Center | `--hidden`, `display: none` |
+  | Technician (`demo.tech01`) | Command Center | `--hidden`, `display: none` |
+  | General User (`demo.general01`) | Fleet Overview | shown, `display: flex` |
+
+- Administrator route sweep, same session: `/plants`, `/plants/plant-01`
+  and `/devices/plant-01-t1-d1` still show the navigator; `/`,
+  `/command-center` and `/admin/users` hide it. The landing correction
+  reaches `/` and nothing else.
+- Unplanned benefit, visible in the screenshot: the Command Center reclaims
+  the column's `calc(200px + var(--sp-4))`. `Niederaussem power station ·
+  ge01` and `VINDH_CHAL STPS` each stop wrapping to two lines, and the five
+  severity cards gain the width evenly.
+
+**Not committed.** Commit permission was not granted for this gate; the
+change sits in the working tree on `cc-banner-retire`.
+
+## Next implementation gate: ASSET-NAV-DEFECTS-1 — OPEN / IN PROGRESS
+
+## Prior gate record
 
 ## CC-HEADER-TRIM-1 — CLOSED / PASS
 
@@ -123,7 +432,7 @@ this gate's business. Untouched by these gates and green as of this run.
 The dev server on `:8050` was found down mid-session and was restarted
 from this session (`python app.py`, backgrounded); it is still running.
 
-## Next implementation gate: NONE
+## Next implementation gate: ASSET-NAV-ROUTE-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 

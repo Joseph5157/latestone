@@ -436,3 +436,165 @@ class TestDropdownValuePresentation:
         for prop in ("overflow: hidden", "text-overflow: ellipsis",
                      "white-space: nowrap", "display: block"):
             assert prop in block, prop
+
+
+class TestMenuGeometry:
+    """ASSET-NAV-DEFECTS-1 — D1 and D2.
+
+    dcc.Dropdown's two size defaults are not multiples of each other:
+    `maxHeight` 200 against `optionHeight` 35 is 5.71 rows, so the browser
+    slices the sixth option through its glyphs. And nothing stops an option
+    wrapping inside its fixed-height row, so a long plant name
+    (`MONTALTO (Alessandro Volta)`) takes three lines in a 35px slot and
+    paints its third line over the option below it.
+
+    The defect in D2 is the *relationship* between the two numbers, so both
+    have to be pinned together — asserting either one alone passes while the
+    bug is still there.
+    """
+
+    import pathlib as _pathlib
+    import re as _re
+
+    #: Comments stripped: they quote the selectors under test by name.
+    CSS_TEXT = _re.sub(r"/\*.*?\*/", "", (
+        _pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+    ).read_text(encoding="utf-8"), flags=_re.S)
+
+    def _dropdowns(self):
+        from components.equipment_selector import equipment_selector
+        found = []
+
+        def walk(node):
+            if isinstance(node, Component):
+                if getattr(node, "id", None) in (sel.PLANT_ID, sel.TRANSFORMER_ID, sel.DEVICE_ID):
+                    found.append(node)
+                for child in (getattr(node, "children", None) or []) if isinstance(
+                    getattr(node, "children", None), (list, tuple)
+                ) else [getattr(node, "children", None)]:
+                    walk(child)
+
+        walk(equipment_selector())
+        return found
+
+    def test_all_three_fields_declare_both_sizes(self):
+        fields = self._dropdowns()
+        assert len(fields) == 3
+        for field in fields:
+            assert getattr(field, "optionHeight", None), field.id
+            assert getattr(field, "maxHeight", None), field.id
+
+    def test_the_menu_holds_a_whole_number_of_options(self):
+        """No sliced last row: every field's menu height divides by its row
+        height exactly. This is what the vendor defaults (200 / 35) fail."""
+        for field in self._dropdowns():
+            assert field.maxHeight % field.optionHeight == 0, (
+                f"{field.id}: maxHeight {field.maxHeight} is "
+                f"{field.maxHeight / field.optionHeight:.2f} rows"
+            )
+
+    def test_the_menu_is_deep_enough_to_be_worth_opening(self):
+        """30 plants behind a 5-row window is a scroll tube, not a list."""
+        for field in self._dropdowns():
+            assert field.maxHeight // field.optionHeight >= 8, field.id
+
+    def test_an_option_can_never_wrap_onto_the_row_below(self):
+        """The rows are fixed-height and absolutely positioned, so a wrap is
+        not a taller row — it is text painted over the next option."""
+        blocks = [
+            body for selectors, body in self._re.findall(
+                r"([^{}]+)\{([^}]*)\}", self.CSS_TEXT
+            )
+            if ".hierarchy-selector .VirtualizedSelectOption" in selectors
+        ]
+        assert blocks, "no rule constrains the navigator's menu options"
+        declared = " ".join(blocks)
+        for prop in ("white-space: nowrap", "overflow: hidden",
+                     "text-overflow: ellipsis"):
+            assert prop in declared, prop
+
+
+class TestPanelReadability:
+    """ASSET-NAV-DEFECTS-1 — D3, D4 and D5."""
+
+    import pathlib as _pathlib
+    import re as _re
+
+    #: Comments stripped: they quote the selectors under test by name.
+    CSS_TEXT = _re.sub(r"/\*.*?\*/", "", (
+        _pathlib.Path(__file__).resolve().parent.parent / "assets" / "app.css"
+    ).read_text(encoding="utf-8"), flags=_re.S)
+
+    def _block(self, selector):
+        """Every declaration in every rule whose selector list names this
+        selector. A grouped rule is still a rule, and the stylesheet groups
+        these freely, so matching only `selector {` would fail on where the
+        property actually lives rather than on whether it is set."""
+        declared = " ".join(
+            body for selectors, body in self._re.findall(
+                r"([^{}]+)\{([^}]*)\}", self.CSS_TEXT
+            )
+            if selector in selectors
+        )
+        assert declared.strip(), f"missing rule: {selector}"
+        return declared
+
+    def test_the_dock_does_not_clip_an_open_menu(self):
+        """D3. `overflow` on this box makes it a clipping container for the
+        absolutely-positioned `.Select-menu-outer` inside it, and since the
+        box shrink-wraps the 247px card, opening a menu grows a second
+        scrollbar beside the menu's own."""
+        block = self._block(".app-shell__utility-inner")
+        assert "overflow-y: auto" not in block
+        assert "max-height" not in block
+
+    def test_the_control_is_sized_for_its_panel(self):
+        """D4. The control inherits the 16px body size into a card whose own
+        title is 12px and whose field labels are 11px — three steps of
+        mismatch, and 62px of `Niederaussem power station` lost to it."""
+        block = self._block(".hierarchy-selector .Select-control")
+        size = int(self._re.search(r"font-size:\s*(\d+)px", block).group(1))
+        assert 13 <= size <= 14
+
+    def test_the_value_cannot_paint_over_the_clear_and_arrow_buttons(self):
+        """The `.Select-value-label` comment claims the vendor reserves 42px
+        on `.Select-value`. The served stylesheet computes 10px, so the
+        label's box always ran under both buttons — invisible only while the
+        card was narrow enough for the ellipsis to fall short of them.
+
+        The rule must also out-specify the vendor's own
+        `.Select--single > .Select-control .Select-value` (0,3,0), which a
+        plain `.hierarchy-selector .Select-value` (0,2,0) loses to wherever
+        it sits in the sheet. That loss is invisible to a source assertion —
+        the first version of this test passed against a browser that still
+        rendered the overlap — so the ancestry is pinned, not just the
+        value.
+        """
+        block = self._block(
+            ".hierarchy-selector .Select--single > .Select-control .Select-value"
+        )
+        reserve = int(self._re.search(r"padding-right:\s*(\d+)px", block).group(1))
+        assert reserve >= 42
+
+    def test_the_card_is_wide_enough_for_a_real_plant_name(self):
+        """D4. 200px gave `.Select-value-label` a 144px box for a 206px
+        string."""
+        utility = self._block(".app-shell__utility")
+        width = int(self._re.search(r"width:\s*calc\((\d+)px", utility).group(1))
+        assert width >= 260
+
+    def test_the_card_is_visible_against_its_column_in_dark_mode(self):
+        """D5. Both painted `var(--color-surface)` — the same token, the same
+        computed `rgb(30, 40, 53)` — so the card read as nothing at all."""
+        column = self._re.search(
+            r"\.app-root\.theme--dark[^{]*\.app-shell__utility\s*\{([^}]*)\}",
+            self.CSS_TEXT, self._re.S,
+        )
+        card = self._re.search(
+            r"\.app-root\.theme--dark[^{]*\.asset-navigator\s*\{([^}]*)\}",
+            self.CSS_TEXT, self._re.S,
+        )
+        assert card, "dark mode gives the card no ground of its own"
+        column_bg = self._re.search(r"background:\s*([^;]+);", column.group(1)).group(1)
+        card_bg = self._re.search(r"background:\s*([^;]+);", card.group(1)).group(1)
+        assert column_bg.strip() != card_bg.strip()

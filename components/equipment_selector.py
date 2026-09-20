@@ -27,6 +27,22 @@ DEVICE_ID = "equip-device"
 
 HIDDEN_STYLE = {"display": "none"}
 
+#: Menu geometry, stated rather than inherited (ASSET-NAV-DEFECTS-1).
+#:
+#: dcc.Dropdown defaults to `optionHeight` 35 and `maxHeight` 200, and 200/35
+#: is 5.71 rows — the browser sliced the sixth option through its glyphs on
+#: every open. The two numbers have to be chosen together, so they are named
+#: together here and the tests assert the multiple, not either value.
+#:
+#: 8 rows of a 30-plant list is a list; the 5.71 it replaces was a scroll
+#: tube. `OPTION_HEIGHT` keeps the vendor's 35 px because
+#: `react-virtualized` positions rows by this number alone — the stylesheet
+#: does not get a say — so changing it without measuring the rendered row
+#: would reintroduce the overlap from the other direction.
+OPTION_HEIGHT = 35
+MENU_ROWS = 8
+MENU_MAX_HEIGHT = OPTION_HEIGHT * MENU_ROWS
+
 
 def _field_group(label: str, dropdown: dcc.Dropdown) -> html.Div:
     return html.Div(
@@ -55,6 +71,8 @@ def equipment_selector() -> html.Div:
                     options=[],
                     placeholder="Plant...",
                     searchable=True,
+                    optionHeight=OPTION_HEIGHT,
+                    maxHeight=MENU_MAX_HEIGHT,
                     className="hierarchy-selector__field",
                 ),
             ),
@@ -66,6 +84,8 @@ def equipment_selector() -> html.Div:
                     placeholder="Transformer...",
                     searchable=True,
                     disabled=True,
+                    optionHeight=OPTION_HEIGHT,
+                    maxHeight=MENU_MAX_HEIGHT,
                     className="hierarchy-selector__field",
                 ),
             ),
@@ -80,6 +100,8 @@ def equipment_selector() -> html.Div:
                     placeholder="Device...",
                     searchable=True,
                     disabled=True,
+                    optionHeight=OPTION_HEIGHT,
+                    maxHeight=MENU_MAX_HEIGHT,
                     className="hierarchy-selector__field",
                 ),
             ),

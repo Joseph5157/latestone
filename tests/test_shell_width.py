@@ -40,9 +40,15 @@ def test_login_collapses_utility_allocation_not_only_its_child(css):
 
 
 def test_utility_reserves_card_and_only_one_outer_gutter(css):
+    """The number is the card; the `+ var(--sp-4)` is the single outer
+    gutter. What is pinned here is that shape — one card width plus exactly
+    one gutter, with the matching one-sided padding — not the card's width,
+    which ASSET-NAV-DEFECTS-1 moved 200 -> 280 so a real plant name fits.
+    `tests/test_equipment_selector.py::TestPanelReadability` owns the width
+    itself, and owns the reason."""
     utility = rule(css, ".app-shell__utility")
     assert "flex: 0 0 auto" in utility
-    assert "width: calc(200px + var(--sp-4))" in utility
+    assert re.search(r"width: calc\(\d+px \+ var\(--sp-4\)\);", utility)
     assert "padding: var(--sp-2) var(--sp-4) var(--sp-5) 0" in utility
 
 

@@ -658,12 +658,28 @@ body {
    column now sizes to its own content height (the shell's default
    `align-items: flex-start`) and carries no background/border of its own;
    `.asset-navigator` below is the actual card, and everything past its
-   bottom edge is just ordinary page canvas. Reserve only the existing
-   200px card and the outer gutter: the page already supplies the gap on
-   the left, so another utility-side gutter needlessly narrows the Fleet. */
+   bottom edge is just ordinary page canvas. Reserve only the card and the
+   outer gutter: the page already supplies the gap on the left, so another
+   utility-side gutter needlessly narrows the Fleet.
+
+   Widened 200px -> 276px (ASSET-NAV-DEFECTS-1, D4). At 200px the card gave
+   `.Select-value-label` a 144px box and the selected plant was cut to
+   `Niederaussem po…`, with no `title` on react-select v1's label to
+   recover it by hover. The other half of that fix is the control's own
+   font-size, below.
+
+   280 is measured, not picked. All 30 plant names rendered at the
+   control's 14px measure: median 106px, p75 133px, p90 189px. A 280px card
+   yields a 192px label in the browser (card, less 32px card padding, the
+   control's borders, the vendor's 10px left inset and the 42px button
+   reserve below), which reads 28 of the 30 in full — p90 included. The two
+   it does not, `Senoko I-VII CCGT Power Plants Singapore` at 270px and
+   `Itaipu Binacional Dam (Paraguay part)` at 239px, would need a 354px
+   card: a fifth of a 1600px window spent on two rows. They ellipsise, and
+   the menu — which carries no button inset — shows them in full anyway. */
 .app-shell__utility {
   flex: 0 0 auto;
-  width: calc(200px + var(--sp-4));
+  width: calc(280px + var(--sp-4));
   position: sticky;
   top: 0;
   display: flex;
@@ -717,11 +733,24 @@ body {
 
 /* 8px top gutter + 32px toggle + 12px gap places the card at y=52,
    beside Fleet's y=51 heading. The outer dock is sticky, so its toggle
-   stays reachable even while the long page scrolls. Only the contents
-   scroll on short viewports; the card never becomes a full-height strip. */
+   stays reachable even while the long page scrolls.
+
+   This box previously carried `max-height: calc(100vh - 72px)` and
+   `overflow-y: auto` so that "only the contents scroll on short
+   viewports". Both are gone (ASSET-NAV-DEFECTS-1, D3). `overflow` makes an
+   element a clipping container for *every* overflowing descendant,
+   including an absolutely-positioned one — and `.Select-menu-outer` is
+   exactly that. The box shrink-wraps its contents at 247px, so opening any
+   of the three menus pushed `scrollHeight` to 299px and grew a 15px
+   scrollbar immediately beside the menu's own: two adjacent scrollbars for
+   one list, every time.
+
+   Nothing is lost by removing them. The contents are a title and three
+   fixed-height fields — 247px total, a fixed number, not content-driven —
+   in a desktop-only application, so the short-viewport case the scroll
+   guard protected cannot arise, while the defect it caused arose on every
+   single use. */
 .app-shell__utility-inner {
-  max-height: calc(100vh - 72px);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
@@ -1132,6 +1161,76 @@ body {
   max-width: 260px;
 }
 .hierarchy-selector__field { width: 100%; }
+
+/* The control's own type scale (ASSET-NAV-DEFECTS-1, D4).
+
+   Left alone, `.Select-control` inherits the 16px body size into a card
+   whose title is 12px and whose field labels are 11px — three steps of
+   mismatch, and it was never a decision: it is the global default reaching
+   a component nobody scoped. 16px cost `.Select-value-label` 62px of
+   `Niederaussem power station` on its own, before the card's width was even
+   in question.
+
+   Scoped to `.hierarchy-selector`, matching how the device dashboard's
+   metric dropdown and the admin form dropdowns are each sized: this
+   stylesheet never restyles `.Select-control` globally, because four
+   different surfaces mount one. */
+.hierarchy-selector .Select-control,
+.hierarchy-selector .Select-placeholder,
+.hierarchy-selector .Select-value-label,
+.hierarchy-selector .Select-input > input,
+.hierarchy-selector .VirtualizedSelectOption {
+  font-size: 14px;
+}
+
+/* An option may never wrap onto the option below it (D1).
+
+   `react-virtualized` gives every row a fixed height and an absolute
+   position from `optionHeight` alone — the stylesheet gets no say in it. So
+   a wrapped label does not make a taller row; it paints over its
+   neighbour. `MONTALTO (Alessandro Volta)` took three lines in a 35px slot
+   and overprinted `Niederaussem power station`, reproducibly, and the
+   longer the name the worse it got.
+
+   Clipping the row is the fix that holds for *any* label, at any panel
+   width, rather than a width chosen to fit today's 30 plant names. The
+   field is searchable, so a name too long to read is still a name you can
+   type. */
+.hierarchy-selector .VirtualizedSelectOption {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Keep the value clear of the clear/arrow buttons — for real this time.
+
+   The `.Select-value-label` rule further down says "`.Select-value` already
+   reserves `padding-right: 42px`". The **served** stylesheet does not: it
+   computes to `10px` (measured on the running app; cf. the ENERGY-SPARK-1
+   lesson about reading the browser's copy rather than the package's). So
+   the label's box has always run under the two buttons, and only the
+   ellipsis landing near them by luck hid it — at 200px the text was cut
+   short of the collision. Widening the card to 260px exposed it:
+   `Niederaussem power station` ended 32px past the clear zone's left edge,
+   painting over the `x`.
+
+   42px is measured, not guessed — the clear and arrow zones together span
+   exactly that. Scoped to `.hierarchy-selector` rather than fixing
+   `.Select-value` globally: three other surfaces mount a dcc.Dropdown and
+   none of them asked for this gate.
+
+   The selector repeats the vendor's own `.Select--single > .Select-control`
+   ancestry deliberately. Its rule is
+   `.Select--single > .Select-control .Select-value` — specificity (0,3,0),
+   which beat a plain `.hierarchy-selector .Select-value` at (0,2,0) no
+   matter where either sat in the sheet. Adding the scope class on top is
+   (0,4,0) and wins on specificity, so this needs no `!important`: unlike
+   the `.Select-input > input` overrides above, the selectors here are not
+   identical, so the cascade can be won honestly. Verified in the browser —
+   a source assertion cannot see a specificity loss. */
+.hierarchy-selector .Select--single > .Select-control .Select-value {
+  padding-right: 42px;
+}
 
 /* react-select's search input ships `padding: 8px 0 12px` on a content-box
    element. That is 37 px of input inside a 36 px control — it overflows its own
@@ -6123,6 +6222,22 @@ body {
 .app-root.theme--dark:not(:has(.login-page)) .app-shell__utility {
   background: var(--color-surface);
   border-left-color: var(--color-border);
+}
+
+/* ...which left the card with no ground of its own (ASSET-NAV-DEFECTS-1,
+   D5). `.asset-navigator` paints `var(--color-surface)` and the rule above
+   paints the column it sits in the same token — identical computed
+   `rgb(30, 40, 53)`, separated by one 1px `#2b3949` border. In dark mode
+   the card simply was not there.
+
+   The column keeps its fill, because that is this rule's decision and
+   ADR-006's ("the selected appearance covers the whole visible shell").
+   The card is recessed onto it instead, with the page tone it would have
+   stood on in light mode, and the stronger border weight. No new colour —
+   both tokens already exist in the dark block above. */
+.app-root.theme--dark:not(:has(.login-page)) .asset-navigator {
+  background: var(--color-bg);
+  border-color: var(--color-border-strong);
 }
 
 /* The active nav item is a light pill with brand-navy text — a pairing that
