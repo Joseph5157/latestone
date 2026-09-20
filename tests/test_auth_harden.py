@@ -488,8 +488,8 @@ class TestLogoutClearsTrustedState:
         with trusted_session(monkeypatch, user_id=104, role="technician"):
             assert auth_service.current_identity() is not None
 
-            _sign_out = _handlers(auth_callbacks)["_sign_out"]
-            _sign_out(LOGOUT_PATH)
+            _path_command = _handlers(auth_callbacks)["_path_command"]
+            _path_command(LOGOUT_PATH)
 
             assert auth_service.current_identity() is None, (
                 "the real logout callback must clear the trusted server "
@@ -497,12 +497,14 @@ class TestLogoutClearsTrustedState:
             )
 
     def test_navigating_elsewhere_does_not_end_the_session(self, monkeypatch):
-        """`_sign_out` fires on every pathname change (it is how a bookmarked
-        /logout still works on a cold load) — it must only clear the trusted
-        session when the path really is /logout."""
+        """`_path_command` fires on every pathname change (it is how a
+        bookmarked /logout still works on a cold load) — it must only clear
+        the trusted session when the path really is /logout. /login runs
+        through this same callback now, so this also pins that asking for
+        the login page never ends the session you already have."""
         with trusted_session(monkeypatch, user_id=104, role="technician"):
-            _sign_out = _handlers(auth_callbacks)["_sign_out"]
-            _sign_out("/plants")
+            _path_command = _handlers(auth_callbacks)["_path_command"]
+            _path_command("/plants")
 
             assert auth_service.current_identity() is not None, (
                 "an ordinary navigation must not sign the operator out"

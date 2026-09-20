@@ -58,3 +58,41 @@ class TestSidebarHighlight:
 
     def test_existing_behaviour_without_role(self):
         assert active_nav_key("/plants") == "overview"
+
+
+class TestSigningInAtTheLoginPath:
+    """`/login` is not a route, so `parse_pathname` hands the router
+    `unknown` for it. Signed out that is harmless — the router substitutes
+    the login form for every path when nobody is signed in. But the moment
+    the operator signs in AT `/login`, the pathname never changes, so the
+    URL-driven redirect in `callbacks.auth` cannot fire: only `auth-store`
+    changed. The router re-renders, resolves `unknown`, and falls through
+    to the not-found panel — on the app's single most-typed address.
+
+    Resolving it here rather than with a second redirect callback: this
+    function's whole job is already "which route does this path render for
+    this role", and the two are different events, not one bug fixed twice.
+    """
+
+    @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN])
+    def test_operational_roles_land_on_command_center(self, role):
+        assert landing_route_name("unknown", "/login", role) == "command_center"
+
+    def test_general_user_lands_on_fleet_overview(self):
+        """Not `unknown`: a General User has no Command Center, but they do
+        have somewhere to land, and falling through would show them the
+        not-found panel for signing in successfully."""
+        assert landing_route_name("unknown", "/login", GENERAL) == "overview"
+
+    def test_a_signed_out_visitor_is_left_alone(self):
+        """Still `unknown` — and that is correct. The router never reaches
+        the dispatch chain for a signed-out visitor; it returns the login
+        form first."""
+        assert landing_route_name("unknown", "/login", None) == "unknown"
+
+    def test_deep_links_are_still_untouched(self):
+        """Only the literal `/login` resolves to a landing page. A deep link
+        must survive signing in, which is why the router substitutes the
+        form for the requested path rather than redirecting to `/login`."""
+        for role in (ADMINISTRATOR, TECHNICIAN, GENERAL):
+            assert landing_route_name("plant", "/plants/3", role) == "plant"

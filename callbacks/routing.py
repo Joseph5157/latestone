@@ -21,6 +21,7 @@ from routes import (
 )
 from services import hierarchy_service
 from services.hierarchy_service import entity_in_scope
+from callbacks.auth import LOGIN_PATH
 from services.auth_service import AuthenticatedUser, current_identity
 from services.authorization import (
     ADMINISTRATOR,
@@ -129,14 +130,31 @@ _COMMAND_CENTER_LANDING_ROLES = frozenset({ADMINISTRATOR, TECHNICIAN})
 
 
 def landing_route_name(route_name: str, pathname: str | None, role: str | None) -> str:
-    """The route `/` renders for this role (CC-NEW-1, redesign D3).
+    """The route a landing path renders for this role (CC-NEW-1, redesign D3).
 
-    Only the bare root changes: Administrators and Technicians land on the
-    Command Center, everyone else on Fleet Overview. `/plants` stays Fleet
-    Overview for every role, so the sidebar's Overview link always works.
-    Login does not redirect (deep links survive), so this is what "after
-    login" means for a user who signs in at `/`.
+    Two paths are landing paths and nothing else changes: the bare root, and
+    `/login`. Administrators and Technicians land on the Command Center,
+    everyone else on Fleet Overview. `/plants` stays Fleet Overview for every
+    role, so the sidebar's Overview link always works.
+
+    Signing in still does not redirect, so a deep link survives it — this is
+    what "after login" means only for someone who signed in at one of those
+    two paths, which are the two that name no page of their own.
     """
+    if role is not None and pathname == LOGIN_PATH:
+        # `/login` is not a route — `parse_pathname` returns `unknown` — so
+        # without this an operator who signs in AT `/login` is answered with
+        # the not-found panel for succeeding. `callbacks.auth`'s redirect
+        # cannot cover this one: signing in changes `auth-store`, not the
+        # pathname, so a URL-driven callback never fires. Different event,
+        # not the same bug twice.
+        #
+        # Falls through to Fleet Overview rather than `route_name` for a
+        # General User: they have no Command Center, but they do have
+        # somewhere to land.
+        if role in _COMMAND_CENTER_LANDING_ROLES:
+            return "command_center"
+        return "overview"
     if pathname in (None, "", "/") and role in _COMMAND_CENTER_LANDING_ROLES:
         return "command_center"
     return route_name

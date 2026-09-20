@@ -12,8 +12,21 @@ import pytest
 from dash import no_update
 
 import app as app_module
-from callbacks.auth import LOGOUT_PATH, sign_out_outputs
+from callbacks.auth import (
+    LOGIN_PATH,
+    LOGOUT_PATH,
+    login_path_redirect,
+    sign_out_outputs,
+)
+from services.auth_service import AuthenticatedUser
 from tests.dash_tree import find_by_id
+
+#: Any active identity will do — the helper branches on presence, not
+#: on role: every role lands somewhere, and `landing_route_name` is
+#: what decides where.
+_SIGNED_IN = AuthenticatedUser(
+    user_id=1, username="demo.admin01", full_name="Demo Admin", role="administrator"
+)
 
 
 class TestStoreLifetime:
@@ -156,3 +169,89 @@ class TestStoreFollowsTheTrustedSession:
             and {i["id"] for i in c["inputs"]} == {"url", "auth-store"}
         )
         assert reconcile["prevent_initial_call"] is False
+
+
+class TestLoginPathWhenAlreadySignedIn:
+    """`/login` is not a route (`parse_pathname` returns `unknown`), so a
+    signed-in user asking for it fell through the router's whole dispatch
+    chain to `not_found_panel("page")` — the same answer a typo'd URL gets.
+
+    Signed out, every path renders the login form, `/login` included, which
+    is what teaches an operator that `/login` is a real address. Answering
+    that same address with "Not found" once they are signed in is the
+    contradiction being closed here. The destination is `/`, not a named
+    page: `landing_route_name` already decides where each role lands, and a
+    second place deciding that is a second place for it to drift.
+    """
+
+    def test_a_signed_in_user_is_sent_to_their_landing_page(self):
+        assert login_path_redirect(LOGIN_PATH, _SIGNED_IN) == "/"
+
+    def test_a_signed_out_visitor_still_sees_the_form(self):
+        """`no_update`, not `/`: the router renders the login form for this
+        path already. Redirecting here would bounce a visitor off the very
+        page they need."""
+        assert login_path_redirect(LOGIN_PATH, None) is no_update
+
+    @pytest.mark.parametrize("pathname", ["/", "/plants", "/admin/devices", "/logout", None])
+    def test_every_other_route_is_untouched(self, pathname):
+        assert login_path_redirect(pathname, _SIGNED_IN) is no_update
+
+    def test_deep_links_still_survive_login(self):
+        """The router substitutes the login form for whatever path was
+        asked for rather than redirecting to `/login`, so a deep link is
+        still there after signing in. Only the literal `/login` moves."""
+        assert login_path_redirect("/plants/3/transformers/7", None) is no_update
+
+
+class TestTheRedirectIsActuallyWired:
+    """The helper above is pure, so it passes whether or not anything calls
+    it. These check the app really registered it."""
+
+    def _path_command(self):
+        """The one callback driven by `url.pathname` alone that rewrites it.
+
+        Every other `url.pathname` writer is a table-click handler driven by
+        a cell, not by the URL."""
+        matches = [
+            c
+            for c in app_module.app._callback_list
+            if [i["id"] + "." + i["property"] for i in c["inputs"]] == ["url.pathname"]
+            and "url.pathname" in str(c["output"])
+        ]
+        assert len(matches) == 1, f"expected exactly one, found {len(matches)}"
+        return matches[0]
+
+    def test_one_callback_owns_both_path_commands(self):
+        """/logout and /login share a callback because Dash forces it: an
+        `allow_duplicate` output id is a hash of the INPUTS alone
+        (`dash/_utils.py:create_callback_id`), so a second callback writing
+        `url.pathname` off this same lone input collides byte-for-byte.
+        Splitting them again reintroduces "Duplicate callback outputs"."""
+        assert "auth-store.data" in str(self._path_command()["output"])
+
+    def test_it_fires_on_a_cold_load(self):
+        """Both paths are typed or bookmarked, so they arrive as fresh page
+        loads rather than as route changes. Dash records the source's
+        "initial_duplicate" as False here; False is the meaning that
+        matters — it fires on the first render."""
+        assert self._path_command()["prevent_initial_call"] is False
+
+
+class TestNoDuplicateCallbackOutputs:
+    def test_every_output_id_is_unique(self):
+        """A regression guard, not a style check. Dash raises "Duplicate
+        callback outputs" at import when two `allow_duplicate` outputs hash
+        to the same id, and because the hash covers only the inputs, that is
+        easy to do by accident: any new callback writing an existing
+        duplicate-output prop from the same single input trips it. The app
+        serves a broken page rather than failing loudly in the suite."""
+        seen = {}
+        for callback in app_module.app._callback_list:
+            for output_id in str(callback["output"]).strip(".").split("..."):
+                if not output_id:
+                    continue
+                assert output_id not in seen, (
+                    f"two callbacks both write {output_id!r}"
+                )
+                seen[output_id] = callback

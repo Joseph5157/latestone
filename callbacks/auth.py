@@ -70,6 +70,44 @@ def sign_out_outputs(pathname):
     return {"authenticated": False}, "/"
 
 
+#: The address operators type or bookmark to sign in. It is NOT a route:
+#: `parse_pathname` returns `unknown` for it, and the router never dispatches
+#: on it — the login form is what `callbacks/routing.py` substitutes for
+#: WHATEVER path was asked for when there is no trusted identity, which is
+#: also what lets a deep link survive signing in.
+#:
+#: That substitution is why this constant has to exist. Signed out, `/login`
+#: renders the form like any other path, so the app teaches an operator that
+#: `/login` is a real address; signed in, the same address fell through the
+#: dispatch chain to `not_found_panel("page")` — the answer a typo gets. One
+#: URL, two contradictory answers, and only this half can move: the signed-out
+#: half is every path, not this one.
+LOGIN_PATH = "/login"
+
+
+def login_path_redirect(pathname, user):
+    """Where `/login` sends someone who is already signed in, or `no_update`.
+
+    `/` rather than a named page, deliberately: `landing_route_name` already
+    decides that Administrators and Technicians land on the Command Center and
+    everyone else on Fleet Overview. Naming a destination here would be a
+    second place that decides where a role lands, free to disagree with the
+    first.
+
+    Guarded on the identity, not just the path. Returning `/` for a signed-out
+    visitor would bounce them off the one page they actually need, since the
+    router is rendering the login form at this very path.
+
+    Takes the resolved identity as an argument rather than calling
+    `current_identity()` itself — the caller has already paid for that lookup,
+    and a helper that answers from its arguments alone is one the tests can
+    ask about every path without a session.
+    """
+    if pathname != LOGIN_PATH or user is None:
+        return no_update
+    return "/"
+
+
 def reconciled_auth_store(pathname, auth_data, user):
     """The auth-store payload that matches the trusted session, or no_update.
 
@@ -156,16 +194,50 @@ def register(app) -> None:
         Input("url", "pathname"),
         # Not False: Dash refuses `allow_duplicate` with an unguarded initial
         # call. "initial_duplicate" is the form that still fires on the first
-        # render, which this needs — /logout arrives as a page load.
+        # render, which this needs — /logout and /login both arrive as page
+        # loads, typed or bookmarked rather than navigated to.
         prevent_initial_call="initial_duplicate",
     )
-    def _sign_out(pathname):
-        # AUTH-HARDEN-1: clears the trusted server session, not just the
-        # browser's auth-store. Guarded on the same condition
-        # `sign_out_outputs` checks internally — this fires on every pathname
-        # change, and only /logout should end the session.
+    def _path_command(pathname):
+        """The two paths that are commands rather than pages.
+
+        `/logout` ends a session; `/login` is the address operators type to
+        start one. Neither is a route — `parse_pathname` returns `unknown`
+        for both, and the router dispatches on neither.
+
+        ONE callback, not two, and that is forced rather than chosen. Dash
+        derives an `allow_duplicate` output's id from a hash of the INPUTS
+        alone (`dash/_utils.py:create_callback_id`), so a second callback
+        writing `url.pathname` off this same single `Input("url",
+        "pathname")` generates a byte-identical output id and the app dies
+        at import with "Duplicate callback outputs". Splitting these would
+        mean giving one of them an extra input that nothing reads, purely to
+        perturb a hash. They belong together anyway: both answer "this path
+        is an instruction, not a page."
+        """
         if pathname == LOGOUT_PATH:
+            # AUTH-HARDEN-1: clears the trusted server session, not just the
+            # browser's auth-store.
             auth_service.end_trusted_session()
+            return sign_out_outputs(pathname)
+
+        if pathname == LOGIN_PATH:
+            # Asks the server session, not `auth-store`: this decides a
+            # navigation, and AUTH-HARDEN-1's rule is that anything the
+            # browser can edit never decides one.
+            try:
+                user = auth_service.current_identity()
+            except Exception:
+                # Cannot tell who is asking: leave the path alone and let the
+                # router answer it. It falls back to the login form when it
+                # cannot resolve an identity either, which is the safe answer.
+                logger.exception("Could not resolve the trusted session for %r", pathname)
+                return no_update, no_update
+            return no_update, login_path_redirect(pathname, user)
+
+        # Every other path: not this callback's business. `sign_out_outputs`
+        # is the one that already says so, rather than a second literal pair
+        # of `no_update`s that could drift from it.
         return sign_out_outputs(pathname)
 
     @app.callback(
