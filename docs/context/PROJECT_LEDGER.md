@@ -795,6 +795,8 @@ Work that can be implemented without unresolved client/external decisions:
 | 70 | **AUTH-SIDEBAR-1** | 🟢 CLOSED, local `main` only (`a6e4828`, 2026-09-19) | `auth-store` follows the trusted session, so the sidebar no longer shows beside the login page. |
 | 71 | **CC-GAUGES-1** | 🟢 CLOSED, local `main` only (`7973853`, 2026-09-19) | Command Center "Fleet at a glance": RTLs-working half-arc and problems donut whose labels filter the list (ADR-028). |
 | 72 | **CC-FILTER-FAST-1** | 🟢 CLOSED, local `main` only (`059fcc0`, 2026-09-19) | Command Center severity filter applied in the browser (no refetch); no-op requests from re-renders gated out. |
+| 73 | **CC-BANNER-RETIRE-1** | 🟢 CLOSED, branch `cc-banner-retire` only (`eba42bf`, 2026-09-20) | Command Center status banner retired — the donut (ADR-028) already drew it. Backlog figures move to the glance card, temperature limits to Hottest now. Supersedes CC-SEVERITY-CARDS-1's "the severity strip stays". |
+| 74 | **CC-HEADER-TRIM-1** | 🟢 CLOSED, branch `cc-banner-retire` only (`a51b80d`, 2026-09-20) | Command Center title bar loses the tagline and the scope indicator; the latter showed `snapshot.total_rtls`, the same integer the Working card already renders. ADR-004 noted, not breached. |
 
 ### Blocked / Waiting for Client or Integration
 

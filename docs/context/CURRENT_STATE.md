@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-19T17:00:32Z
+Date: 2026-09-20T04:34:38Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `docs-sync` = `e17ddbc` "Merge branch 'cc-filter-fast': Command Center filter without refetch (CC-FILTER-FAST-1)" (not `main`)
-- Working tree: 14 entries — see below
+- current branch `cc-banner-retire` = `a51b80d` "feat(cc): drop the tagline and scope indicator from the title bar (CC-HEADER-TRIM-1)" (not `main`)
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3061 passed, 731 deselected in 37.48s
+- `python -m pytest -m "not db"` → 3075 passed, 731 deselected in 42.43s
 
 ## Branches
 
@@ -66,9 +66,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 451 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 301 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 451 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 14 | 453 | REVIEW — unexpected divergence |
+| `cc-banner-retire` | 3 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `client-demo-1` | 7 | 303 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 453 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -112,12 +113,7 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M README.md
- M UI_SPEC.md
- M docs/GETTING_STARTED.md
- M docs/context/ACTIVE_GATE.md
- M docs/context/DECISION_INDEX.md
- M docs/context/MOBBIN_UX_REFERENCE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/PROJECT_LEDGER.md
 ?? .pytest-alarm-ack-check/
 ?? .pytest-alarm-ack-failure/

@@ -1,11 +1,225 @@
 # Active Gate
 
 Status: **CLOSED / PASS**
-Date: 2026-09-19
+Date: 2026-09-20
 Gate: NONE
-Commit/push permission: commit and local merge to `main` **GRANTED and
-exercised** (user, 2026-09-19, "update all documents"); push **NOT
-granted**.
+Commit/push permission: commit **GRANTED** (user, 2026-09-20, "commit") for
+CC-BANNER-RETIRE-1 and CC-HEADER-TRIM-1 on `cc-banner-retire`. Merge to
+`main` **NOT** covered by that word and deliberately not taken: the branch
+also carries the user's own `ef7c38d` (LOGIN-PATH-1), which a merge would
+move to `main` as a side effect. Push **NOT granted**.
+
+## CC-HEADER-TRIM-1 — CLOSED / PASS
+
+Baseline: `main` at `b84567e`, branch `cc-banner-retire` (shared with
+CC-BANNER-RETIRE-1, which is closed but uncommitted). Adds a note to
+ADR-004; no new decision principle, so no new ADR.
+
+## Task
+
+User request (2026-09-20), continuing the Command Center review: the two
+lines under the `Command Center` heading — the tagline "What needs
+attention now." and the scope indicator "Current access · 120 monitored
+RTLs" — are not needed.
+
+The scope indicator is **provably** the same integer twice.
+`callbacks/command_center.py:95` passes `snapshot.total_rtls` to
+`scope_indicator_text`, and the Working severity card renders that same
+field as its denominator ("0 of 120"). This holds for a Technician too:
+`services/attention_service.py:350` sets `total_rtls = len(temps)` from
+already-scope-filtered rows, so a Technician sees their scoped count in
+both places. There is no role for which the two differ.
+
+The tagline is not duplicated data — it is removed as a preference, the
+`Needs attention` panel heading below already saying the same thing.
+
+**ADR-004 does not block this, and was checked before editing.** ADR-004
+forbids the scope indicator from becoming a *selector* ("No dropdown. No
+scope-changing behavior."); it never requires one to exist. A rule about
+how an element must behave cannot be breached by removing it. ADR-004's
+"Affected areas" gains a note recording that the Command Center no longer
+renders the indicator it bound.
+
+**Frozen pack divergence, recorded not resolved.** `command center/
+components/CC01_HEADER.md` lists the scope indicator as header content.
+That pack is rung 4 under `SOURCE_AUTHORITY.md` ("A frozen document can
+still be wrong. Freezing stops edits; it does not promote the document
+above the code it describes"), and not editing it is a standing non-goal
+from earlier gates. It is left exactly as written.
+
+## Relevant files
+
+- `pages/command_center.py`, `callbacks/command_center.py`
+- `components/command_center/primitives.py`
+- `tests/test_command_center_components.py`, `tests/test_command_center_page.py`
+- `docs/decisions/ADR-004-device-scope-is-not-user-selectable.md`
+
+## Non-goals (explicit)
+
+- The `Command Center` heading and the right-hand controls (`Auto refresh`,
+  `Last updated`, `Refresh now`) stay. Only the two text lines go.
+- `command center/` is not edited (see Task).
+- No data, service or authorization change. `services/device_scope.py`
+  remains the sole scope authority; this removes a *display* of what it
+  returns, not a use of it.
+- No push.
+
+## Required tests
+
+- `python -m pytest -m "not db" -v` green; pack CLEAN at open and close.
+
+## Known ambiguity
+
+None. The one non-obvious consequence — the `no_update` at
+`callbacks/command_center.py:130` being positional — is called out below so
+it is not discovered by accident.
+
+## Implementation note
+
+`populate`'s failed-first-load path returns
+`(no_update,) + ([],) * (PANEL_OUTPUTS - 1)`. That leading `no_update` is
+the scope slot. With scope gone it would land on the status bar and strand
+its "Loading status…" placeholder beside the error panel, which no test
+asserts directly. It becomes `([],) * PANEL_OUTPUTS`.
+
+## Verification (2026-09-20)
+
+- Tests changed first, failed for the right reasons (slot-id assertion and
+  the strengthened failed-first-load assertion), then passed.
+- `test_failed_first_load_shows_error` now asserts `out[:P] == ([],) * P`,
+  which is what makes the positional change above a caught error rather
+  than a silent one.
+- A second positional break surfaced and was fixed:
+  `test_populate_draws_folded_groups_closed` read the problems panel as
+  `out[2]`; with scope gone it is `out[1]`. Replaced with a named local and
+  a comment, not another bare index.
+- `python -m pytest -m "not db"` exits 0. Pack CLEAN at open and close.
+- `python -c "import app"` succeeds — Dash validates callback registration
+  at import, so the reduced Output list is proven wired, not just typed.
+- Browser, Administrator, `127.0.0.1:8050/command-center`: the title bar is
+  `Command Center` plus the refresh controls; both text lines gone. The
+  severity cards and everything below move up by roughly the two lines'
+  height.
+
+**Committed** on 2026-09-20 after the user granted it: CC-BANNER-RETIRE-1
+at `eba42bf`, CC-HEADER-TRIM-1 at `a51b80d`, both on `cc-banner-retire`.
+`PROJECT_LEDGER.md` §10 rows 73 and 74 record them. Not merged to `main`
+and not pushed — see the header for why the merge was left alone.
+
+## Environment note
+
+The user's own login work (`_sign_out` renamed to `_path_command`, plus
+`LOGIN_PATH`/`login_path_redirect`) was completed during this session and
+committed as `ef7c38d` — **onto `cc-banner-retire`**, the branch these two
+gates share, because that was the checked-out branch at the time. It is
+therefore not on `main`, and merging this branch would carry LOGIN-PATH-1
+along with the two Command Center gates. Flagged for the user; not moved
+from this session, since rewriting someone else's commit history is not
+this gate's business. Untouched by these gates and green as of this run.
+
+The dev server on `:8050` was found down mid-session and was restarted
+from this session (`python app.py`, backgrounded); it is still running.
+
+## Next implementation gate: NONE
+
+## Prior gate record
+
+## CC-BANNER-RETIRE-1 — CLOSED / PASS
+
+Baseline: `main` at `b84567e`, branch `cc-banner-retire`. Amends ADR-028's
+Consequences; no new decision principle, so no new ADR.
+
+## Task
+
+User request (2026-09-20), reviewing the Command Center in the browser: the
+status banner above the severity cards repeats what "Fleet at a glance"
+already shows, so retire it.
+
+Evidence the overlap is real and was created by ADR-028, not designed in:
+ADR-028 records that the old "no gauges, no pie charts" rule *"turned down a
+donut in CC-VISUALS-1"* — the severity strip was the stand-in for a donut
+that was forbidden at the time. CC-GAUGES-1 then built the donut
+(`fa56aad`) and nobody removed the stand-in. The banner's headline
+(`36 problems`), its strip and its `All clear` state are each drawn a second
+time by `problem_donut` (`components/attention.py:520`).
+
+**Supersedes a prior ruling, deliberately.** CC-SEVERITY-CARDS-1 (this file,
+under `## CC-SEVERITY-CARDS-1`) said "The status line keeps the headline,
+backlog, reporting and limits; the severity strip stays." That gate merged
+at `f570546`, *before* the donut existed at `fa56aad`. The user overrode it
+on 2026-09-20 with the donut on screen.
+
+Three facts in the banner are **not** drawn anywhere else and must survive
+the removal rather than be deleted with it:
+
+1. `Oldest unacknowledged: <kind> · <age>` → moves to the Fleet at a glance
+   card footer, next to the donut that counts the same problems.
+2. `<n> acknowledged in the last 24 h` → same footer.
+3. The temperature-limits line, **both** forms → moves to the Hottest now
+   card, where temperature lives. The unset form matters most: it is the
+   only place the app tells an Administrator that high temperature cannot
+   be flagged at all, and it must show even when there are no readings —
+   which is the state the app is in right now.
+
+`hottest_card` already prints a `Markers: Warning … Critical …` legend, but
+only when there *are* readings. The limits line replaces and subsumes that
+legend so the numbers are stated exactly once, in both states.
+
+The five severity stat cards stay as they are: they carry a per-kind
+breakdown line ("Power Down 8") the donut legend does not.
+
+## Relevant files
+
+- `components/attention.py` (`status_bar`, `glance_card`, `hottest_card`)
+- `assets/app.css`
+- `tests/test_attention_components.py`
+- `docs/decisions/ADR-028-ring-gauges-for-part-of-whole-counts.md`
+
+## Non-goals (explicit)
+
+- No data, service, callback or store change. `status_bar` keeps its name
+  and its slot so `callbacks/command_center.py` is untouched.
+- The severity stat cards are not folded into the donut. Raised and
+  declined in the same exchange; a separate gate if it is ever wanted.
+- The severity filter (CLICK-FILTER-1 / CC-FILTER-FAST-1) keeps working
+  from the cards and the donut labels. The strip's segments were
+  `aria-hidden` and `tabIndex="-1"` duplicates, so nothing keyboard- or
+  screen-reader-reachable is lost.
+- No push.
+
+## Required tests
+
+- `python -m pytest -m "not db" -v` green, and the pack CLEAN at open and
+  at close.
+
+## Known ambiguity
+
+None. The one judgement call — folding the `Markers:` legend into the new
+limits line rather than showing both — is recorded under Task above.
+
+## Verification (2026-09-20)
+
+- Pack CLEAN at open and after the change. `pytest -m "not db"` exits 0.
+- Tests were changed first and failed for the right reason (6 failures:
+  banner-gone guard, three `hottest_card` limits tests, two glance backlog
+  tests), then passed against the implementation.
+- Browser, Administrator, `127.0.0.1:8050/command-center`: banner absent;
+  the page now opens on the severity cards. "Fleet at a glance" shows
+  `Oldest unacknowledged: Battery Low · 21 d ago · 4 acknowledged in the
+  last 24 h`. "Hottest now" shows `Warning 36 °C · Critical 40 °C · Limits
+  set by an administrator` **with no readings on screen** — the case the
+  move existed to protect.
+- Severity filter re-checked without the strip: clicking the Critical card
+  gives "Showing Critical only · 8 problems", presses both the card and the
+  donut label, dims the other slices; clicking again clears it.
+- `document.documentElement` reports no horizontal overflow at 2133 px.
+
+**Committed** at `eba42bf` on `cc-banner-retire` (2026-09-20), recorded
+as `PROJECT_LEDGER.md` §10 row 73. Not merged to `main`, not pushed.
+
+## Next implementation gate: CC-HEADER-TRIM-1 — OPEN / IN PROGRESS
+
+## Prior gate record
 
 ## LEDGER-SYNC-2 — CLOSED / PASS
 
@@ -48,7 +262,7 @@ None.
   `git merge-base --is-ancestor <sha> origin/main` (`origin/main` =
   `78fde0e`).
 
-## Next implementation gate: NONE
+## Next implementation gate: CC-BANNER-RETIRE-1 — OPEN / IN PROGRESS
 
 ## Prior gate record
 
