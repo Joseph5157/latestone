@@ -3,10 +3,98 @@
 Status: **CLOSED / PASS**
 Date: 2026-09-20
 Gate: NONE
-Commit/push permission: commit **NOT GRANTED**. `main` stays at `b84567e`
-— the earlier merge was reverted at the user's instruction and must not be
-retaken. All work continues on `cc-banner-retire`, including the
-uncommitted ASSET-NAV-ROUTE-1 change. Ask before commit, merge or push.
+Commit/push permission: commit, merge and push to `origin` **GRANTED**
+2026-09-20 for the integration below. This supersedes the earlier "main
+stays at `b84567e`" hold: that hold existed because a merge had been
+reverted, and the user has now asked for the branch to be integrated
+deliberately. The grant covers `origin` only — the `client` remote is a
+separately paced delivery and is not touched. Permission does not carry
+to the next gate; ask again.
+
+## INTEGRATION 2026-09-20
+
+`cc-banner-retire` fast-forwards `main` from `b84567e` to the branch tip
+(9 commits: LOGIN-PATH-1, CC-BANNER-RETIRE-1, CC-HEADER-TRIM-1,
+ASSET-NAV-ROUTE-1, ASSET-NAV-DEFECTS-1, APP-NAME-1, plus context docs).
+`main` then fast-forwards `origin/main` from `78fde0e`, which had never
+been pushed and was 115 commits behind local `main` before this gate.
+
+## APP-NAME-1 — CLOSED / PASS
+
+Baseline: branch `cc-banner-retire` at `78cfc16`; `main` untouched at
+`b84567e`. No ADR: this renames displayed text, it decides nothing.
+
+## Task
+
+User request (2026-09-20), looking at the dashboard: "this is not
+powerplant". The application is Eskom's Remote Temperature Logger system —
+it monitors transformer temperatures via RTLs — but three surfaces still
+carry the repository's own working name.
+
+The user chose **"RTL Monitoring"** from three offered names, over
+"Transformer Temperature Monitoring" (too long for the header beside the
+logo) and "Remote Temperature Logger" (repeats the spec's full term beside
+UI copy that already says RTL). It matches the language the UI uses
+everywhere else — "120 monitored RTLs", "0 of 120 RTLs working",
+"Managed RTLs".
+
+Three surfaces, all user-visible:
+
+| Where | Was | Becomes |
+|---|---|---|
+| Browser tab, every page (`app.py`) | Power Plant Monitoring | RTL Monitoring |
+| Login screen eyebrow (`pages/login.py`) | Power Plant Monitoring | RTL Monitoring |
+| Header brand, 14 pages (`components/app_header.py`) | Powerplant Dashboard | RTL Monitoring |
+
+The header brand and the tab title said two different things; they are now
+the same string, which is the point of naming it once.
+
+## Relevant files
+
+- `app.py`, `pages/login.py`, `components/app_header.py`
+- `tests/test_login_page.py` (pins the header brand text)
+
+## Non-goals (explicit)
+
+- The repository directory, module names, git remote and package paths keep
+  the `powerplant` spelling. Renaming those is a different and much larger
+  change, and none of it is visible to an operator.
+- Documentation, ADRs, the frozen `command center/` pack and the PDF
+  generator scripts keep their existing wording — they are records of what
+  was written when, not UI.
+- `plants`/`plant_id` domain vocabulary is unchanged: the hierarchy really
+  does group RTLs by plant. Only the product name was wrong.
+- No push, and no merge to `main`.
+
+## Required tests
+
+- `python -m pytest -m "not db" -v` green; pack CLEAN at open and close.
+
+## Known ambiguity
+
+None.
+
+## Verification (2026-09-20)
+
+- Test changed first and failed for the right reason
+  (`assert 'RTL Monitoring' in 'Powerplant Dashboard'`), then passed.
+- `python -m pytest -m "not db"` exits 0. Pack CLEAN at open and close.
+- Served page: `<title>` fetched from `127.0.0.1:8050` reads
+  `RTL Monitoring`.
+- Rendered components: `app_header()` and `login_layout()` both contain
+  "RTL Monitoring" and neither contains "Powerplant", "Power Plant" or
+  "POWER PLANT".
+- A grep over `app.py`, `pages/`, `components/`, `callbacks/` and
+  `assets/` finds no remaining visible occurrence.
+- Browser screenshot **not** taken: the Chrome extension disconnected
+  mid-gate. The served title and the rendered trees were checked instead,
+  which covers all three surfaces this gate touched.
+
+**Committed** as part of the 2026-09-20 integration (see the header).
+
+## Next implementation gate: NONE
+
+## Prior gate record
 
 ## ASSET-NAV-DEFECTS-1 — CLOSED / PASS
 
@@ -172,7 +260,7 @@ not the two instances:
 **Not committed.** Commit permission was not granted; this and
 ASSET-NAV-ROUTE-1 both sit in the working tree on `cc-banner-retire`.
 
-## Next implementation gate: NONE
+## Next implementation gate: APP-NAME-1 — CLOSED / PASS
 
 ## Prior gate record
 

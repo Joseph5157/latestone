@@ -90,7 +90,9 @@ def login_layout():
                                 className="login-logo-mark",
                             ),
                             html.P(
-                                "Power Plant Monitoring",
+                                # APP-NAME-1: same string as the tab title
+                                # (app.py) and the header brand.
+                                "RTL Monitoring",
                                 className="login-eyebrow",
                             ),
                             html.H1("Welcome back", className="login-heading"),

@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .env
 .pytest_cache/
+# Named pytest cache dirs from `-p cacheprovider` / --basetemp runs, e.g.
+# .pytest-alarm-ack/. Test artefacts, never application content.
+.pytest-*/
 *.egg-info/
 .DS_Store
 *.zip

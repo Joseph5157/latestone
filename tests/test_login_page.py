@@ -380,12 +380,14 @@ class TestBrandLogos:
         assert imgs[0].alt.strip()
 
     def test_header_brand_text_is_unchanged(self):
-        """The logo is additive — the existing brand text must still render
-        exactly as before, just alongside the mark now."""
+        """The logo is additive — the brand text must still render alongside
+        the mark. APP-NAME-1 renamed that text to "RTL Monitoring"; the point
+        of this test is that the logo did not displace it."""
         from components.app_header import app_header
 
         header = app_header()
-        assert "Powerplant Dashboard" in text_of(header)
+        assert "RTL Monitoring" in text_of(header)
+        assert "Powerplant" not in text_of(header)
 
 
 class TestHeroAsset:

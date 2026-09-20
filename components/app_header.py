@@ -31,7 +31,11 @@ def app_header(
                     alt="Eskom",
                     className="header__logo",
                 ),
-                html.Span("Powerplant Dashboard"),
+                # APP-NAME-1: the same string as the browser tab title in
+                # app.py and the login eyebrow. This is Eskom's Remote
+                # Temperature Logger system, not a power-plant dashboard;
+                # "RTL" is the word the rest of the UI already uses.
+                html.Span("RTL Monitoring"),
             ],
             className="header__brand",
         ),

@@ -19,7 +19,9 @@ from config.settings import flask_session
 
 configure_logging()
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True, title="Power Plant Monitoring")
+#: APP-NAME-1: the browser tab title, and the same string the header brand
+#: (components/app_header.py) and the login eyebrow (pages/login.py) show.
+app = dash.Dash(__name__, suppress_callback_exceptions=True, title="RTL Monitoring")
 server = app.server
 # AUTH-HARDEN-1: signs the trusted server-side session `services.auth_service`
 # uses to identify the logged-in user. Distinct from and more trustworthy than
