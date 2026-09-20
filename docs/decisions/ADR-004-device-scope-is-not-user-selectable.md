@@ -36,7 +36,17 @@ Center must follow that same call discipline, not re-resolve scope per panel.
   versa; keep the two separate per the module's own "SCOPE" section
   (`services/authorization.py:28-34`)
 - `command center/components/CC01_HEADER.md` — the header scope indicator
-  this ADR binds
+  this ADR binds. **No longer rendered** (2026-09-20, CC-HEADER-TRIM-1): the
+  indicator showed `snapshot.total_rtls`, the same integer the Working
+  severity card already renders as its denominator, for every role —
+  `services/attention_service.py` scopes that field, so a Technician saw
+  their own count twice too. This ADR is unaffected in substance: it forbids
+  the indicator from becoming a *selector* and never required one to exist,
+  so removing it cannot breach it. Should a scope indicator ever return, this
+  ADR still governs it — read-only, derived from `scope_for()`, no dropdown.
+  The frozen pack still lists it and is deliberately left as written
+  (`SOURCE_AUTHORITY.md`: freezing does not promote a document above the
+  code it describes).
 - Any future Command Center service — must call `scope_for()` once per render
   and filter through the returned `DeviceScope`, never write a new query
   predicate

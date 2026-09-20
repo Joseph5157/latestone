@@ -19,7 +19,10 @@ INTERVAL_ID = "attention-refresh-interval"
 STORE_ID = "attention-refresh-store"
 REFRESH_STATUS_ID = "attention-refresh-status"
 REFRESH_NOW_ID = "attention-refresh-now"
-SCOPE_ID = "attention-scope"
+#: CC-HEADER-TRIM-1: no SCOPE_ID. The scope indicator showed
+#: `snapshot.total_rtls` — the same integer the Working severity card already
+#: renders as its denominator, for every role. ADR-004 forbids the indicator
+#: becoming a *selector*; it never required one to exist.
 ERROR_ID = "attention-error"
 STATUS_SLOT_ID = "attention-status-slot"
 PROBLEMS_ID = "attention-problems-slot"
@@ -68,11 +71,7 @@ def layout() -> html.Div:
                 children=[
                     html.Div(
                         className="command-center__titlebar-text",
-                        children=[
-                            html.H1("Command Center"),
-                            html.P("What needs attention now.", className="page__subtitle"),
-                            html.Div(id=SCOPE_ID, className="command-center__scope-indicator"),
-                        ],
+                        children=[html.H1("Command Center")],
                     ),
                     html.Div(
                         className="command-center__titlebar-controls",

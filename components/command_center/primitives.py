@@ -18,14 +18,12 @@ from __future__ import annotations
 from dash import html
 
 
-def scope_indicator_text(monitored_device_count: int) -> str:
-    """The header's read-only scope indicator (ADR-004).
-
-    Not a selector - authorization already decided this number
-    (services.device_scope); this only states it.
-    """
-    noun = "RTL" if monitored_device_count == 1 else "RTLs"
-    return f"Current access · {monitored_device_count} monitored {noun}"
+#: CC-HEADER-TRIM-1 removed `scope_indicator_text`. Its count was
+#: `snapshot.total_rtls`, which the Working severity card already renders as
+#: its denominator ("0 of 120") for every role — `services/
+#: attention_service.py` scopes that field, so a Technician saw their own
+#: number twice as well. ADR-004 still governs any future indicator: it may
+#: only ever be a read-only statement of `scope_for()`, never a selector.
 
 
 def cc_card(title: str, children: list, *, subtitle: str | None = None) -> html.Section:

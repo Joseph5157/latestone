@@ -24,7 +24,6 @@ from dash import ALL, ClientsideFunction, Input, Output, State, html, no_update
 
 from components import attention as ui
 from components.command_center import refresh
-from components.command_center.primitives import scope_indicator_text
 from components.device_manage_drawer import (
     MANAGE_ACTION_STORE_ID,
     MANAGE_DEVICE_ID,
@@ -55,7 +54,7 @@ from services.hierarchy_service import list_device_paths
 logger = logging.getLogger(__name__)
 
 ROUTE = "command_center"
-PANEL_OUTPUTS = 7  # scope, status, problems, hottest, activity, trend, glance
+PANEL_OUTPUTS = 6  # status, problems, hottest, activity, trend, glance
 #: The drawer's actions; assignment is deliberately not one (ADR-016).
 OPERATIONAL_ACTIONS = (PROGRAM_RTL, TOGGLE_MESSAGE_FORWARDING, DEACTIVATE_RTL)
 #: Same twelve outputs, in the same order, as callbacks/device_manage.py's
@@ -92,7 +91,6 @@ def render_panels(snapshot, may_ack=frozenset(), may_manage=frozenset(), selecte
                   folded=()) -> tuple:
     now = snapshot.generated_at
     return (
-        scope_indicator_text(snapshot.total_rtls),
         ui.status_bar(snapshot, selected),
         ui.problem_list(snapshot.problems, now, may_ack=may_ack, may_manage=may_manage,
                         selected=selected, folded=frozenset(folded or ())),
@@ -127,7 +125,11 @@ def populate(
         logger.exception("Failed to load the Command Center snapshot")
         last = _last_success(refresh_state)
         if last is None:
-            return (no_update,) + ([],) * (PANEL_OUTPUTS - 1) + (
+            # Every panel blanks so the error stands alone. CC-HEADER-TRIM-1:
+            # this was `(no_update,) + ([],) * (PANEL_OUTPUTS - 1)`, the
+            # leading no_update belonging to the removed scope slot; left
+            # as-is it would have stranded the status bar's placeholder.
+            return ([],) * PANEL_OUTPUTS + (
                 error_panel(),
                 refresh.refresh_status(None, failed=False),
                 {"last_success_at": None, "failed": True},
@@ -251,7 +253,6 @@ def _click_args(click) -> tuple:
 
 def register(app) -> None:
     @app.callback(
-        Output(page.SCOPE_ID, "children"),
         Output(page.STATUS_SLOT_ID, "children"),
         Output(page.PROBLEMS_ID, "children"),
         Output(page.HOTTEST_ID, "children"),

@@ -23,9 +23,13 @@ def _ids(node, out=None):
 
 def test_layout_carries_every_slot_and_no_theme_controls_of_its_own():
     ids = _ids(page.layout())
-    assert {page.SCOPE_ID, page.STATUS_SLOT_ID, page.GLANCE_ID, page.PROBLEMS_ID, page.HOTTEST_ID,
+    assert {page.STATUS_SLOT_ID, page.GLANCE_ID, page.PROBLEMS_ID, page.HOTTEST_ID,
             page.ACTIVITY_ID, page.TREND_ID, page.ERROR_ID, page.INTERVAL_ID,
             page.STORE_ID, page.REFRESH_STATUS_ID, page.REFRESH_NOW_ID} <= ids
+    # CC-HEADER-TRIM-1: the scope indicator is gone, so the id must be too —
+    # a slot left mounted with nothing writing to it is dead markup. The
+    # refresh controls beside it stay.
+    assert "attention-scope" not in ids
     # ADR-025: the appearance is app-wide; its store and toggle live in the
     # shell, so the page must not mount duplicates of those ids.
     assert not ({theme.ROOT_ID, theme.STORE_ID, theme.TOGGLE_DARK_ID, theme.TOGGLE_LIGHT_ID} & ids)
@@ -53,6 +57,12 @@ def test_failed_first_load_shows_error():
                       fetch=lambda *a, **k: 1 / 0, scope_for=lambda: None)
     P = cb.PANEL_OUTPUTS
     assert out[P] is not None and out[P + 2] == {"last_success_at": None, "failed": True}
+    # CC-HEADER-TRIM-1: EVERY panel blanks, so the error panel stands alone.
+    # This used to be `(no_update,) + ([],) * (P - 1)` because the first slot
+    # was the scope text. With scope removed that leading no_update would have
+    # landed on the status bar and stranded its "Loading status…" placeholder
+    # beside the error — a positional bug no assertion here would have caught.
+    assert out[:P] == ([],) * P
 
 
 def test_failed_refresh_keeps_last_good_panels():
@@ -191,7 +201,11 @@ def test_populate_draws_folded_groups_closed():
     out = cb.populate({"route": "command_center"}, None, None, ["power_down"],
                       fetch=lambda scope, now: snap, scope_for=lambda: None,
                       identity=lambda: None)
-    groups = [n for n in _walk_all(out[2]) if "attention-group-details" in (getattr(n, "className", "") or "").split()]
+    # Panel order is the one PANEL_OUTPUTS documents: status, problems,
+    # hottest, activity, trend, glance. Named, not a bare index — this was
+    # `out[2]` until CC-HEADER-TRIM-1 removed the scope slot ahead of it.
+    problems = out[1]
+    groups = [n for n in _walk_all(problems) if "attention-group-details" in (getattr(n, "className", "") or "").split()]
     assert [g.open for g in groups] == [False]
 
 

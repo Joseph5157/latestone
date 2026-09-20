@@ -8,22 +8,13 @@ from __future__ import annotations
 from components.command_center.primitives import (
     cc_card,
     panel_not_yet_built,
-    scope_indicator_text,
 )
 from tests.dash_tree import find_by_exact_class, text_of
 
-
-class TestScopeIndicatorText:
-    def test_singular_device(self):
-        assert scope_indicator_text(1) == "Current access · 1 monitored RTL"
-
-    def test_plural_devices(self):
-        assert scope_indicator_text(120) == "Current access · 120 monitored RTLs"
-
-    def test_zero_devices(self):
-        """Zero is a real, distinct count - not the same as Unavailable
-        (ADR-001). An empty scope is a legitimate state to say plainly."""
-        assert scope_indicator_text(0) == "Current access · 0 monitored RTLs"
+# CC-HEADER-TRIM-1: `scope_indicator_text` and its three tests are gone. The
+# count it formatted was `snapshot.total_rtls` — the same integer the Working
+# severity card renders as its denominator, for every role (Technician
+# included: `services/attention_service.py` scopes `total_rtls` already).
 
 
 class TestCcCard:
