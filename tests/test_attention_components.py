@@ -75,8 +75,7 @@ class TestStatusBar:
     def test_counts_and_problems(self):
         bar = ui.status_bar(_snap([_problem()]))
         assert "RTLs reporting" not in text(bar)  # WORKING-CARD-1: now a card
-        assert "1 problem" in text(bar)
-        assert "attention-status--clear" not in classes(bar)
+        assert "Power Down 1" in text(bar)
 
     def test_working_card_counts_reporting_rtls(self):
         bar = ui.status_bar(_snap([_problem()]))
@@ -92,18 +91,23 @@ class TestStatusBar:
         assert "All RTLs reporting" in text(card)
         assert "attention-working--short" not in classes(card)
 
-    def test_all_clear_is_deliberate(self):
+    def test_the_banner_is_gone_leaving_only_the_severity_cards(self):
+        """CC-BANNER-RETIRE-1: the headline, backlog, limits line and strip
+        were each drawn a second time by Fleet at a glance (ADR-028), so the
+        banner was retired and its unique facts moved (see the two tests
+        below and TestGlanceBacklog)."""
+        bar = ui.status_bar(_snap([_problem()],
+                                  limits=TemperatureLimits(Decimal("36"), Decimal("40"))))
+        assert not classes(bar) & {"attention-status", "attention-strip",
+                                   "attention-strip__seg"}
+        for gone in ("1 problem", "All clear", "Oldest unacknowledged",
+                     "Limits set by an administrator"):
+            assert gone not in text(bar)
+        assert "attention-working" in classes(bar)  # the cards themselves stay
+
+    def test_all_clear_leaves_the_cards_at_zero(self):
         bar = ui.status_bar(_snap([], limits=TemperatureLimits(Decimal("36"), Decimal("40"))))
-        assert "All clear" in text(bar)
-        assert "attention-status--clear" in classes(bar)
-
-    def test_limits_not_set_is_said_out_loud(self):
-        assert "Temperature limits not set" in text(ui.status_bar(_snap([])))
-
-    def test_limits_carry_their_source(self):
-        bar = ui.status_bar(_snap([], limits=TemperatureLimits(Decimal("36.5"), Decimal("40"))))
-        assert "Warning 36.5 °C" in text(bar) and "Critical 40 °C" in text(bar)
-        assert "Limits set by an administrator" in text(bar)
+        assert "None right now" in text(bar)
 
 
 class TestProblemList:
@@ -140,6 +144,24 @@ class TestHottest:
 
     def test_empty(self):
         assert "No recent temperature readings" in text(ui.hottest_card([]))
+
+    # CC-BANNER-RETIRE-1: the limits line moved here from the retired banner,
+    # because this is where temperature lives. It must survive the empty
+    # state — "no readings and no limits" is exactly when an Administrator
+    # needs telling, and it was the live state when the banner was retired.
+    def test_limits_carry_their_source(self):
+        card = ui.hottest_card([_temp(30.0, C.NORMAL)],
+                               TemperatureLimits(Decimal("36.5"), Decimal("40")))
+        assert "Warning 36.5 °C" in text(card) and "Critical 40 °C" in text(card)
+        assert "Limits set by an administrator" in text(card)
+
+    def test_limits_not_set_is_said_out_loud(self):
+        assert "Temperature limits not set" in text(ui.hottest_card([_temp(30.0, C.LIMITS_NOT_SET)]))
+
+    def test_limits_are_stated_even_with_no_readings(self):
+        assert "Temperature limits not set" in text(ui.hottest_card([]))
+        set_limits = ui.hottest_card([], TemperatureLimits(Decimal("36"), Decimal("40")))
+        assert "Warning 36 °C" in text(set_limits) and "Critical 40 °C" in text(set_limits)
 
 
 class TestActivity:
@@ -208,30 +230,25 @@ def test_empty_problem_list_has_no_header():
     assert "attention-problem--head" not in classes(ui.problem_list([], NOW))
 
 
-def test_status_bar_names_the_oldest_unacknowledged_alarm_and_the_ack_count():
-    snap = _snap(problems=[_problem(K.POWER_DOWN, hours=3), _problem(K.BATTERY_LOW, hours=50),
-                           _problem(K.NO_DATA_24H, hours=90)])
-    snap = AttentionSnapshot(**{**snap.__dict__, "acknowledged_24h": 4})
-    content = text(ui.status_bar(snap))
-    # No-data is not an alarm to acknowledge, so the 90 h one is skipped.
-    assert "Oldest unacknowledged: Battery Low · 2 d ago" in content
-    assert "4 acknowledged in the last 24 h" in content
+class TestGlanceBacklog:
+    """CC-BANNER-RETIRE-1: the two figures the donut does not draw moved
+    from the retired banner into the Fleet at a glance card's footer."""
 
+    def test_names_the_oldest_unacknowledged_alarm_and_the_ack_count(self):
+        snap = _snap(problems=[_problem(K.POWER_DOWN, hours=3), _problem(K.BATTERY_LOW, hours=50),
+                               _problem(K.NO_DATA_24H, hours=90)])
+        snap = AttentionSnapshot(**{**snap.__dict__, "acknowledged_24h": 4})
+        content = text(ui.glance_card(snap))
+        # No-data is not an alarm to acknowledge, so the 90 h one is skipped.
+        assert "Oldest unacknowledged: Battery Low · 2 d ago" in content
+        assert "4 acknowledged in the last 24 h" in content
 
-def test_status_bar_says_when_nothing_awaits_acknowledgement():
-    assert "No unacknowledged alarms" in text(ui.status_bar(_snap()))
+    def test_says_when_nothing_awaits_acknowledgement(self):
+        assert "No unacknowledged alarms" in text(ui.glance_card(_snap()))
 
 
 def _by_class(node, cls):
     return [n for n in _walk(node) if cls in (getattr(n, "className", "") or "").split()]
-
-
-def test_severity_strip_segments_follow_the_counts_or_read_clear():
-    busy = ui.status_bar(_snap(problems=[_problem(K.POWER_DOWN), _problem(K.POWER_DOWN), _problem(K.BATTERY_LOW)]))
-    segs = _by_class(busy, "attention-strip__seg")
-    assert [(s.className.split("--")[-1], s.style["flexGrow"]) for s in segs] == [("critical", 2), ("warning", 1)]
-    clear = _by_class(ui.status_bar(_snap()), "attention-strip__seg")
-    assert [s.className.split("--")[-1] for s in clear] == ["normal"]
 
 
 def test_hottest_meter_places_limit_markers_and_fills_to_the_value():

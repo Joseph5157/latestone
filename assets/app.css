@@ -6743,22 +6743,10 @@ body {
   --attention-info: var(--sev-info);
 }
 
-.attention-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--sp-2) var(--sp-4);
-  margin: var(--sp-3) 0 var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-left: 4px solid var(--cc-critical);
-  border-radius: var(--radius);
-}
-.attention-status--clear { border-left-color: var(--attention-normal); }
-.attention-status__headline { font-size: 1.125rem; color: var(--color-text); }
-.attention-status__limits { color: var(--color-muted); font-size: var(--fs-body); }
-.attention-status__limits--unset { color: var(--cc-warning); }
+/* CC-BANNER-RETIRE-1: `.attention-status*` and `.attention-strip*` are gone.
+   The banner they styled repeated Fleet at a glance (ADR-028); its unique
+   facts moved to `.attention-glance__backlog` and `.attention-meter__legend`
+   below. */
 
 .attention-grid {
   display: grid;
@@ -7133,36 +7121,34 @@ summary.attention-group:focus-visible { outline: 2px solid var(--color-accent); 
   .attention-problem--head { display: none; }
 }
 
-/* STATS-CARDS-1: acknowledgement backlog figures in the status bar, and the
-   Fleet Overview stat row's spacing above the limits line. */
-.attention-status__backlog {
+/* STATS-CARDS-1: the Fleet Overview stat row's spacing above the limits
+   line. CC-BANNER-RETIRE-1 moved the acknowledgement backlog figures out of
+   the retired status bar into `.attention-glance__backlog`. */
+.fleet-overview-stats { margin: var(--sp-2) 0 var(--sp-3); }
+
+/* CC-BANNER-RETIRE-1: the acknowledgement backlog, under the donut that
+   counts the same problems. */
+.attention-glance__backlog {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-1) var(--sp-3);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--color-border);
   color: var(--color-muted);
   font-size: var(--fs-body);
 }
-.attention-status__oldest { color: var(--color-text); }
-.fleet-overview-stats { margin: var(--sp-2) 0 var(--sp-3); }
+.attention-glance__oldest { color: var(--color-text); }
 
-/* CC-VISUALS-1: severity strip, temperature meters, stacked alarm bars.
-   Plain HTML bars on the Command Center's own tone tokens (no chart library;
-   rings only for part-of-whole counts, ADR-028). */
-.attention-strip {
-  flex-basis: 100%;
-  display: flex;
-  gap: 2px;
-  height: 6px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--color-border);
-}
-.attention-strip__seg { display: block; min-width: 4px; }
-.attention-strip__seg--critical, .attention-trend__seg--critical, .attention-meter__fill--critical { background: var(--cc-critical); }
-.attention-strip__seg--warning,  .attention-trend__seg--warning,  .attention-meter__fill--warning  { background: var(--cc-warning); }
-.attention-strip__seg--nodata,   .attention-trend__seg--nodata,   .attention-meter__fill--nodata   { background: var(--cc-no-data); }
-.attention-strip__seg--info,     .attention-trend__seg--info,     .attention-meter__fill--info     { background: var(--attention-info); }
-.attention-strip__seg--normal,                                     .attention-meter__fill--normal   { background: var(--attention-normal); }
+/* CC-VISUALS-1: temperature meters and stacked alarm bars. Plain HTML bars
+   on the Command Center's own tone tokens (no chart library; rings only for
+   part-of-whole counts, ADR-028). The severity strip these shared their
+   tone rules with was retired by CC-BANNER-RETIRE-1. */
+.attention-trend__seg--critical, .attention-meter__fill--critical { background: var(--cc-critical); }
+.attention-trend__seg--warning,  .attention-meter__fill--warning  { background: var(--cc-warning); }
+.attention-trend__seg--nodata,   .attention-meter__fill--nodata   { background: var(--cc-no-data); }
+.attention-trend__seg--info,     .attention-meter__fill--info     { background: var(--attention-info); }
+.attention-meter__fill--normal { background: var(--attention-normal); }
 .attention-meter__fill--none, .attention-legend--none::before { background: var(--sev-none); }
 
 .attention-meter {
@@ -7243,17 +7229,13 @@ button.fleet-overview-condition__seg:hover { filter: brightness(0.9); }
 button.fleet-overview-legend { cursor: pointer; }
 button.fleet-overview-legend:hover { text-decoration: underline; }
 
-/* CLICK-FILTER-1: Command Center severity counters / strip as filters. */
+/* CLICK-FILTER-1: Command Center severity counters as filters. The strip
+   that also filtered was retired by CC-BANNER-RETIRE-1; the donut labels
+   (`.attention-donut__label`) remain the other way in. */
 button.attention-counter { background: none; font: inherit; font-size: var(--fs-body); cursor: pointer; }
 button.attention-counter:hover:not(:disabled) { background: color-mix(in srgb, currentColor 12%, transparent); }
 button.attention-counter:disabled { cursor: default; }
 button.attention-counter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-button.attention-strip__seg { border: 0; padding: 0; cursor: pointer; }
-.attention-strip { height: 10px; }
-.attention-filter--critical .attention-strip__seg:not(.attention-strip__seg--critical),
-.attention-filter--warning .attention-strip__seg:not(.attention-strip__seg--warning),
-.attention-filter--nodata .attention-strip__seg:not(.attention-strip__seg--nodata),
-.attention-filter--info .attention-strip__seg:not(.attention-strip__seg--info) { opacity: 0.3; }
 .attention-filter-note {
   display: flex;
   align-items: center;
@@ -7271,7 +7253,6 @@ button.attention-strip__seg { border: 0; padding: 0; cursor: pointer; }
 /* CC-SEVERITY-CARDS-1: severity counters as stat cards (same shape as the
    Fleet Overview's), tone on the left edge and the number. */
 .attention-overview { margin: var(--sp-3) 0 var(--sp-4); }
-.attention-overview .attention-status { margin: 0 0 var(--sp-3); }
 .attention-severity-cards {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

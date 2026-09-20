@@ -36,3 +36,25 @@ asked for both shortlisted shapes on the Command Center (CC-GAUGES-1).
 - `AGENTS.md`'s UI rule is reworded to cite this ADR.
 - The first use is the Command Center's "Fleet at a glance" panel
   (ADR-024 amendment, CC-GAUGES-1).
+
+## Amendment (2026-09-20, CC-BANNER-RETIRE-1)
+
+Allowing the donut made the stand-in it replaced redundant, and that was
+not followed through at the time. The Command Center's status banner —
+headline, `All clear` state and severity strip — drew the same counts the
+donut draws. The strip existed *only* because this ADR's predecessor rule
+refused CC-VISUALS-1 a donut; once the donut was built (`fa56aad`), the
+strip was a second rendering of it.
+
+The banner is retired. This supersedes CC-SEVERITY-CARDS-1's "the severity
+strip stays", which predates the donut.
+
+**The rule this leaves behind:** when a gauge is introduced under this ADR,
+remove the stand-in it replaces in the same gate, or say in the gate record
+why both are kept. A part-of-whole count should be drawn once.
+
+Facts the retired banner carried alone were moved, not deleted: the
+acknowledgement backlog into "Fleet at a glance", the temperature limits
+(both the set and the **not set** form) into "Hottest now". The unset form
+is load-bearing — it is the only notice that high temperature cannot be
+flagged (ADR-023) — so it is stated even when there are no readings.

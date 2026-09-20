@@ -46,7 +46,8 @@ SEVERITY_COUNTERS = (
 
 
 #: Pattern-matching id type for the severity filter controls (CLICK-FILTER-1):
-#: counters and strip segments carry their tone; "Show all" carries "all".
+#: each counter and donut label carries its tone ("Show all" carries "all").
+#: CC-BANNER-RETIRE-1 removed the third family, the retired strip's segments.
 SEVERITY_BUTTON = "attention-severity"
 
 #: Pattern-matching id type for a problem group's fold heading
@@ -114,27 +115,18 @@ def _plural(n: int, word: str) -> str:
 
 
 def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html.Div:
-    """One line that answers "is everything OK?" before anything else."""
-    clear = not snapshot.problems
-    headline = (
-        [html.Strong("All clear", className="attention-status__headline")]
-        if clear
-        else [html.Strong(_plural(len(snapshot.problems), "problem"),
-                          className="attention-status__headline")]
-    )
-    if snapshot.limits is None:
-        limits = html.Span(
-            "Temperature limits not set — high temperature cannot be flagged "
-            "until an administrator sets them (Administration → Settings).",
-            className="attention-status__limits attention-status__limits--unset",
-        )
-    else:
-        limits = html.Span(
-            f"Warning {format_limit(snapshot.limits.warning_c)} °C · "
-            f"Critical {format_limit(snapshot.limits.critical_c)} °C · "
-            f"{LIMIT_SOURCE_NOTE}",
-            className="attention-status__limits",
-        )
+    """The row of severity stat cards (CC-SEVERITY-CARDS-1).
+
+    CC-BANNER-RETIRE-1: the status banner that used to sit above these cards
+    is gone. Its headline, `All clear` state and severity strip were each
+    drawn a second time by `glance_card`'s donut once ADR-028 allowed one —
+    the strip only ever existed because CC-VISUALS-1 was refused a donut.
+    The three facts the donut does *not* draw were moved, not deleted: the
+    acknowledgement backlog to `glance_card`, the temperature limits to
+    `hottest_card`.
+
+    Keeps its name and its slot so `callbacks/command_center.py` is unchanged.
+    """
     counts = severity_counts(snapshot.problems)
     # CLICK-FILTER-1: each counter filters the problem list; pressing it
     # again clears the filter. CC-FILTER-FAST-1: the pressed and dimmed looks
@@ -176,40 +168,7 @@ def status_bar(snapshot: AttentionSnapshot, selected: str | None = None) -> html
         )
         for label, tone in SEVERITY_COUNTERS
     ])
-    # CC-VISUALS-1: the mix of problems before any number is read.
-    strip = html.Div(
-        className="attention-strip", **{"aria-hidden": "true"},
-        children=(
-            [html.Span(className="attention-strip__seg attention-strip__seg--normal",
-                       style={"flexGrow": 1})]
-            if clear else
-            [html.Button(type="button", n_clicks=0, tabIndex="-1",
-                         id={"type": SEVERITY_BUTTON, "tone": tone, "part": "strip"},
-                         className=f"attention-strip__seg attention-strip__seg--{tone}",
-                         style={"flexGrow": counts[tone]}, title=f"{label} {counts[tone]} — show only these")
-             for label, tone in SEVERITY_COUNTERS if counts[tone]]
-        ),
-    )
-    oldest = oldest_unacknowledged(snapshot.problems)
-    backlog = html.Div(className="attention-status__backlog", children=[
-        html.Span(
-            f"Oldest unacknowledged: {oldest.label} · {ago(oldest.since, snapshot.generated_at)}"
-            if oldest else "No unacknowledged alarms",
-            className="attention-status__oldest",
-        ),
-        html.Span(f"{snapshot.acknowledged_24h} acknowledged in the last 24 h",
-                  className="attention-status__acked"),
-    ])
-    status = html.Div(
-        className="attention-status" + (" attention-status--clear" if clear else ""),
-        children=[
-            *headline,
-            backlog,
-            limits,
-            strip,
-        ],
-    )
-    return html.Div(className="attention-overview", children=[status, counters])
+    return html.Div(className="attention-overview", children=[counters])
 
 
 def _actions(p: Problem, may_ack: frozenset[str], may_manage: frozenset[str]) -> list:
@@ -353,6 +312,32 @@ def _pct(value: float, scale: tuple[float, float]) -> float:
     return round(max(0.0, min(100.0, 100 * (value - low) / (high - low))), 1)
 
 
+def _limits_line(limits, *, explains_markers: bool) -> html.P:
+    """What the limits are and who set them (CC-BANNER-RETIRE-1).
+
+    Moved here from the retired status bar: this card is where temperature
+    is read, and the unset form is the only place the app says that high
+    temperature cannot be flagged at all. Stated in both states — "no
+    readings and no limits" is precisely when it needs saying.
+
+    Subsumes CC-VISUALS-1's separate `Markers:` legend so the two numbers
+    appear once, not twice; `explains_markers` is False when there are no
+    meters for it to explain.
+    """
+    if limits is None:
+        return html.P(
+            "Temperature limits not set — high temperature cannot be flagged "
+            "until an administrator sets them (Administration → Settings).",
+            className="attention-meter__legend attention-meter__legend--unset",
+        )
+    lead = "Markers: " if explains_markers else ""
+    return html.P(
+        f"{lead}Warning {format_limit(limits.warning_c)} °C · "
+        f"Critical {format_limit(limits.critical_c)} °C · {LIMIT_SOURCE_NOTE}",
+        className="attention-meter__legend",
+    )
+
+
 def hottest_card(temps: Sequence[DeviceTemperature], limits=None) -> html.Section:
     if not temps:
         body = [html.P("No recent temperature readings.", className="attention-empty")]
@@ -378,18 +363,13 @@ def hottest_card(temps: Sequence[DeviceTemperature], limits=None) -> html.Sectio
                 ]),
                 html.Span(f"{t.value:.1f} °C", className="attention-hottest__value"),
                 # Only a real finding earns a chip; "Limits not set" is said
-                # once in the status bar, not repeated on every row.
+                # once in this card's limits line, not repeated on every row.
                 *([condition_chip(t.condition)]
                   if t.condition in _FLAGGED else []),
             ])
             for t in temps
         ])]
-        if limits is not None:
-            body.append(html.P(
-                f"Markers: Warning {format_limit(limits.warning_c)} °C · "
-                f"Critical {format_limit(limits.critical_c)} °C",
-                className="attention-meter__legend",
-            ))
+    body.append(_limits_line(limits, explains_markers=bool(temps)))
     return cc_card("Hottest now", body, subtitle="Latest reading per RTL")
 
 
@@ -449,8 +429,8 @@ def alarm_trend_card(days: Sequence[DailyAlarms]) -> html.Section:
 # --- CC-GAUGES-1 (ADR-028): Fleet at a glance --------------------------------
 
 #: The CSS variable each tone's ring slice is painted with: the same
-#: variables the strip's segment classes use, so a slice and the strip
-#: segment it mirrors cannot disagree about a colour.
+#: variables the severity cards and trend bars use, so a slice and the
+#: counter it mirrors cannot disagree about a colour.
 RING_TONE_VAR = {
     "critical": "--cc-critical",
     "warning": "--cc-warning",
@@ -558,11 +538,27 @@ def problem_donut(snapshot: AttentionSnapshot, selected: str | None = None) -> h
     ])
 
 
+def _backlog(snapshot: AttentionSnapshot) -> html.Div:
+    """The acknowledgement backlog, under the donut that counts the same
+    problems (CC-BANNER-RETIRE-1 — moved here from the retired status bar,
+    being the two figures the donut itself does not draw)."""
+    oldest = oldest_unacknowledged(snapshot.problems)
+    return html.Div(className="attention-glance__backlog", children=[
+        html.Span(
+            f"Oldest unacknowledged: {oldest.label} · {ago(oldest.since, snapshot.generated_at)}"
+            if oldest else "No unacknowledged alarms",
+            className="attention-glance__oldest",
+        ),
+        html.Span(f"{snapshot.acknowledged_24h} acknowledged in the last 24 h",
+                  className="attention-glance__acked"),
+    ])
+
+
 def glance_card(snapshot: AttentionSnapshot, selected: str | None = None) -> html.Section:
     return cc_card(
         "Fleet at a glance",
         [html.Div(className="attention-glance", children=[
             working_arc(snapshot), problem_donut(snapshot, selected),
-        ])],
+        ]), _backlog(snapshot)],
         subtitle="RTLs working · problems by kind — pick a kind to filter the list",
     )
