@@ -57,6 +57,21 @@ FORBIDDEN_FILES = {
     "scripts/generate_workflow_deep_dive_pdf.py",
     # Our deployment infrastructure, not part of the delivered application.
     "railway.json",
+    # --- added after CLIENT-SYNC-5, which found 33 files that
+    # --- docs/CLIENT_DELIVERY.md forbids by name and this guard allowed.
+    # --- They never leaked only because hand-curation happened to be
+    # --- conservative, which is not a control.
+    #
+    # Our audit of the client's own PAD, and our audit of how far their
+    # feedback has been implemented. Both are internal assessments.
+    "docs/PAD_SECTIONS_1_TO_3_4_AUDIT.md",
+    "docs/CLIENT_FEEDBACK_IMPLEMENTATION_AUDIT.md",
+    # Tests of tooling that is itself never delivered: they would fail on a
+    # clean client clone because the script under test is absent. See
+    # "A delivered test may not depend on undelivered material" in
+    # docs/CLIENT_DELIVERY.md.
+    "tests/test_build_context_pack_check.py",
+    "tests/test_context_pack_gate_guard.py",
 }
 
 #: Any path under one of these directories is internal.
@@ -70,6 +85,25 @@ FORBIDDEN_PREFIXES = (
     "scratch/",
     ".superpowers/",
     ".claude/",
+    # Internal design and acceptance artefacts. Named in
+    # docs/CLIENT_DELIVERY.md since CLIENT-DEMO-1; only enforced here from
+    # CLIENT-SYNC-5.
+    "docs/ux-baseline/",
+    "docs/wireframes/",
+)
+
+#: Prefixes that are internal regardless of the case they are written in.
+#: `docs/RTL_FUNCTIONAL_SPEC_EXTRACT.md` and
+#: `docs/rtl_current_route_inventory.md` both exist on `main`, so a
+#: case-sensitive rule would catch one and miss the other.
+FORBIDDEN_PREFIXES_CASE_INSENSITIVE = (
+    # Our working notes ON the client's specification — extracts from their
+    # PAD, trackers of what it still requires, and the list of technical
+    # input we are waiting on them for. Handing these back reads as project
+    # material and exposes what we do not know.
+    "docs/rtl_",
+    # Internal UX acceptance records for gates we ran.
+    "docs/ux_acceptance_",
 )
 
 #: Filename patterns that are internal wherever they sit.
@@ -114,6 +148,7 @@ def violations(paths: list[str]) -> list[str]:
         for path in paths
         if path in FORBIDDEN_FILES
         or path.startswith(FORBIDDEN_PREFIXES)
+        or path.lower().startswith(FORBIDDEN_PREFIXES_CASE_INSENSITIVE)
         or path.endswith(FORBIDDEN_SUFFIXES)
         or _is_secret_env_file(path)
     ]
