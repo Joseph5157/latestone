@@ -3,11 +3,12 @@
 Status: **CLOSED / PASS**
 Date: 2026-09-20
 Gate: NONE
-Commit/push permission: commit **GRANTED** (user, 2026-09-20, "commit") for
-CC-BANNER-RETIRE-1 and CC-HEADER-TRIM-1 on `cc-banner-retire`. Merge to
-`main` **NOT** covered by that word and deliberately not taken: the branch
-also carries the user's own `ef7c38d` (LOGIN-PATH-1), which a merge would
-move to `main` as a side effect. Push **NOT granted**.
+Commit/push permission: commit **GRANTED** (user, 2026-09-20, "commit")
+and local merge to `main` **GRANTED** (user, 2026-09-20, "merge to main"),
+both exercised. The merge was asked for separately and after the user was
+told it would also move their own `ef7c38d` (LOGIN-PATH-1) to `main`, that
+commit having been made onto this branch mid-session. Push **NOT
+granted**.
 
 ## CC-HEADER-TRIM-1 — CLOSED / PASS
 
@@ -103,8 +104,8 @@ asserts directly. It becomes `([],) * PANEL_OUTPUTS`.
 
 **Committed** on 2026-09-20 after the user granted it: CC-BANNER-RETIRE-1
 at `eba42bf`, CC-HEADER-TRIM-1 at `a51b80d`, both on `cc-banner-retire`.
-`PROJECT_LEDGER.md` §10 rows 73 and 74 record them. Not merged to `main`
-and not pushed — see the header for why the merge was left alone.
+`PROJECT_LEDGER.md` §10 rows 73 and 74 record them. Merged to local `main`
+on 2026-09-20; not pushed.
 
 ## Environment note
 
@@ -214,8 +215,8 @@ limits line rather than showing both — is recorded under Task above.
   donut label, dims the other slices; clicking again clears it.
 - `document.documentElement` reports no horizontal overflow at 2133 px.
 
-**Committed** at `eba42bf` on `cc-banner-retire` (2026-09-20), recorded
-as `PROJECT_LEDGER.md` §10 row 73. Not merged to `main`, not pushed.
+**Committed** at `eba42bf` (2026-09-20), recorded as
+`PROJECT_LEDGER.md` §10 row 73. Merged to local `main`; not pushed.
 
 ## Next implementation gate: CC-HEADER-TRIM-1 — OPEN / IN PROGRESS
 
