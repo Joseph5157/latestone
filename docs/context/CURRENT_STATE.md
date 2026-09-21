@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-21T05:59:35Z
+Date: 2026-09-21T06:01:07Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `live-sim-scenarios-1` = `238c9b7` "feat(live-sim): hold a spread of RTLs at Warning and Critical (LIVE-SIM-SCENARIOS-1)" (not `main`)
-- Working tree: 4 entries — see below
+- `main` = `b2af877` "Merge branch 'live-sim-scenarios-1': Warning/Critical RTL spread in the live simulator (LIVE-SIM-SCENARIOS-1)"
+- Working tree: 2 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 32.68s
+- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 36.39s
 
 ## Branches
 
@@ -44,6 +44,7 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `docs-sync`
 - `ent-6-ui-and-live-simulator`
 - `fix-registration-window-clock-domain`
+- `live-sim-scenarios-1`
 - `nav-1-utility-route-visibility`
 - `nav-2-breadcrumb-placement`
 - `nav-3-remaining-field-labels`
@@ -68,10 +69,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 463 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 313 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 463 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `live-sim-scenarios-1` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
+| `cc-1-command-center-progress` | 15 | 466 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 316 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 466 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -115,8 +115,6 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ```
