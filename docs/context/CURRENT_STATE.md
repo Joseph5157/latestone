@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-21T05:47:15Z
+Date: 2026-09-21T05:59:35Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `40dfe03` "fix(delivery): guard enforces the exclusions the delivery doc already names"
-- Working tree: 9 entries — see below
+- current branch `live-sim-scenarios-1` = `238c9b7` "feat(live-sim): hold a spread of RTLs at Warning and Critical (LIVE-SIM-SCENARIOS-1)" (not `main`)
+- Working tree: 4 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 33.10s
+- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 32.68s
 
 ## Branches
 
@@ -71,6 +71,7 @@ Diverged from `main` (has commits `main` doesn't):
 | `cc-1-command-center-progress` | 15 | 463 | REVIEW — unexpected divergence |
 | `client-demo-1` | 7 | 313 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 | `client-release` | 12 | 463 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `live-sim-scenarios-1` | 1 | 0 | current branch — this session's in-progress work, not a stale fork |
 
 ## Decisions
 
@@ -109,18 +110,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-LIVE-SIM-SCENARIOS-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M .env.example
- M config/settings.py
- M db/live_simulator.py
- M docs/context/ACTIVE_GATE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M tests/test_live_sim_settings.py
- M tests/test_live_simulator.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ```

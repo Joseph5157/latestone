@@ -1,11 +1,40 @@
 # Active Gate
 
-Status: **OPEN / IN PROGRESS**
+Status: **CLOSED / PASS**
 Date: 2026-09-21
-Gate: LIVE-SIM-SCENARIOS-1
-Commit/push permission: **NOT GRANTED** for this gate.
+Gate: NONE
+Commit/push permission: **GRANTED 2026-09-21** — the user approved committing
+to `live-sim-scenarios-1`, then approved merging that branch to `main` and
+pushing to `origin`. The grant is spent on this gate and does not carry to
+the next one. No gate is currently open; write one before starting work.
 
-## Next implementation gate: LIVE-SIM-SCENARIOS-1 — OPEN / IN PROGRESS
+### Railway change made under this grant
+
+`LIVE_SIM_EVENTS_PER_DAY=12` was set on the `live-simulator` service
+(project `powerplant-monitoring`, production environment) on the user's
+explicit approval, overriding this gate's "no Railway environment mutation"
+non-goal. It is configuration only — no code change — and it exists because
+temperature scenarios cover just two of the Command Center's six problem
+kinds; Power down, No data > 24 h, Battery alarm and Sensor error all need
+events. 12/day was chosen because `EVENT_MIX` makes half of all events
+alarms and an alarm stays a problem until acknowledged, so the rate governs
+how fast the problem list grows permanently, not merely how busy it looks.
+
+At the deployed 1800 s tick that is ~0.25 events per tick. Events accumulate
+over hours rather than appearing at once; `--backfill-events-days` fills
+history in one shot but must run against the Railway database.
+
+## Next implementation gate: NONE
+
+No gate is open. Write one before starting work; the grant recorded above is
+spent and does not carry forward.
+
+## LIVE-SIM-SCENARIOS-1 — CLOSED / PASS
+
+Merged to `main` and pushed to `origin` 2026-09-21. `origin` only — the
+`client` remote is a separately paced delivery and was not touched.
+
+## Next implementation gate: LIVE-SIM-SCENARIOS-1 — CLOSED / PASS
 
 ### Task
 
