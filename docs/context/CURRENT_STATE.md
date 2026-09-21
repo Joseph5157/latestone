@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-20T08:30:45Z
+Date: 2026-09-21T05:47:15Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- current branch `cc-banner-retire` = `2848464` "fix(nav): resolve the utility column's route through the landing correction (ASSET-NAV-ROUTE-1)" (not `main`)
-- Working tree: 13 entries — see below
+- `main` = `40dfe03` "fix(delivery): guard enforces the exclusions the delivery doc already names"
+- Working tree: 9 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3105 passed, 731 deselected in 38.89s
+- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 33.10s
 
 ## Branches
 
@@ -31,11 +31,13 @@ Fully merged into `main` — stale pointers, safe to delete, not pending work:
 - `auth-sidebar-sync`
 - `bootstrap-1-alembic-authority`
 - `cc-1-command-center-foundation`
+- `cc-banner-retire`
 - `cc-filter-fast`
 - `cc-gauges`
 - `cc-severity-cards`
 - `cc-visuals`
 - `click-to-filter`
+- `client-sync-5`
 - `colour-key`
 - `ctx-1-context-architecture`
 - `dark-mode-polish`
@@ -66,10 +68,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 14 | 453 | REVIEW — unexpected divergence |
-| `cc-banner-retire` | 7 | 0 | current branch — this session's in-progress work, not a stale fork |
-| `client-demo-1` | 7 | 303 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 453 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 463 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 313 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 463 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -108,23 +109,19 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+LIVE-SIM-SCENARIOS-1 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M assets/app.css
- M components/equipment_selector.py
+M .env.example
+ M config/settings.py
+ M db/live_simulator.py
  M docs/context/ACTIVE_GATE.md
- M docs/context/PROJECT_LEDGER.md
- M tests/test_equipment_selector.py
- M tests/test_shell_width.py
-?? .pytest-alarm-ack-check/
-?? .pytest-alarm-ack-failure/
-?? .pytest-alarm-ack-full/
-?? .pytest-alarm-ack-suite/
-?? .pytest-alarm-ack/
-?? .pytest-command-dispatch-suite/
+ M docs/context/CURRENT_STATE.md
+ M tests/test_live_sim_settings.py
+ M tests/test_live_simulator.py
+?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ```
 
