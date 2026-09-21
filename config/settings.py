@@ -482,6 +482,21 @@ class LiveSimSettings:
     device_ids: tuple[str, ...] = _parse_csv_list("LIVE_SIM_DEVICE_IDS")
     metrics: tuple[str, ...] = _parse_csv_list("LIVE_SIM_METRICS")
     noise_scale: float = _get_float("LIVE_SIM_NOISE_SCALE", 1.0)
+    #: Keep one Warning and one Critical RTL visible in the live simulator so
+    #: operational dashboard states can be exercised. Values are derived from
+    #: the Administrator-configured limits; no stored limits means no override.
+    temperature_scenarios: bool = field(
+        default_factory=lambda: _get_bool("LIVE_SIM_TEMPERATURE_SCENARIOS", True)
+    )
+    #: How many scoped RTLs the scenario layer holds in each condition. Read
+    #: per instance so a deployment can widen or narrow the spread without a
+    #: code change; ignored entirely when temperature_scenarios is off.
+    warning_rtls: int = field(
+        default_factory=lambda: _get_int("LIVE_SIM_WARNING_RTLS", 7)
+    )
+    critical_rtls: int = field(
+        default_factory=lambda: _get_int("LIVE_SIM_CRITICAL_RTLS", 3)
+    )
     #: Average simulated RTL events per day across the simulated fleet
     #: (DATA-REFRESH-1). 0 = no events, so a deployment that never sets it
     #: keeps its readings-only behaviour. Read per instance, not at import.

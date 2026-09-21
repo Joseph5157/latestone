@@ -1,9 +1,123 @@
 # Active Gate
 
 Status: **CLOSED / PASS**
-Date: 2026-09-20
+Date: 2026-09-21
 Gate: NONE
-Commit/push permission: commit, merge and push to `origin` **GRANTED**
+Commit/push permission: **GRANTED 2026-09-21** — the user approved committing
+to `live-sim-scenarios-1`, then approved merging that branch to `main` and
+pushing to `origin`. The grant is spent on this gate and does not carry to
+the next one. No gate is currently open; write one before starting work.
+
+### Railway change made under this grant
+
+`LIVE_SIM_EVENTS_PER_DAY=12` was set on the `live-simulator` service
+(project `powerplant-monitoring`, production environment) on the user's
+explicit approval, overriding this gate's "no Railway environment mutation"
+non-goal. It is configuration only — no code change — and it exists because
+temperature scenarios cover just two of the Command Center's six problem
+kinds; Power down, No data > 24 h, Battery alarm and Sensor error all need
+events. 12/day was chosen because `EVENT_MIX` makes half of all events
+alarms and an alarm stays a problem until acknowledged, so the rate governs
+how fast the problem list grows permanently, not merely how busy it looks.
+
+At the deployed 1800 s tick that is ~0.25 events per tick. Events accumulate
+over hours rather than appearing at once; `--backfill-events-days` fills
+history in one shot but must run against the Railway database.
+
+## Next implementation gate: NONE
+
+No gate is open. Write one before starting work; the grant recorded above is
+spent and does not carry forward.
+
+## LIVE-SIM-SCENARIOS-1 — CLOSED / PASS
+
+Merged to `main` and pushed to `origin` 2026-09-21. `origin` only — the
+`client` remote is a separately paced delivery and was not touched.
+
+## Next implementation gate: LIVE-SIM-SCENARIOS-1 — CLOSED / PASS
+
+### Task
+
+The Railway deployment uses `db.live_simulator` for fresh measurements, but
+its plausible nominal generator leaves every recent RTL looking normal. Add a
+small deterministic scenario layer to the live simulator so a spread of RTLs
+in its validated scope continuously demonstrate Warning and Critical
+temperature conditions. All other measurements keep their existing coherent,
+mostly-normal generator behaviour.
+
+The scenario values must be derived from the current Administrator-configured
+warning/critical limits. They must not introduce hardcoded Eskom thresholds,
+persist events, or bypass `temperature_condition_service` classification.
+With no stored limits, the simulator must leave generated temperatures alone
+and the dashboard must continue to say Limits not set.
+
+### Distribution and value decisions (2026-09-21, user-approved)
+
+The first cut assigned exactly two RTLs — both on Plant 01 / Transformer 1 —
+which proved the mechanism but left the Fleet Overview and the Command
+Center's ranking almost empty. Widened on the user's approval:
+
+1. **One hot spot plus a scatter.** The first plant in scope carries
+   `HOT_SPOT_DEVICE_COUNT` (3) problem RTLs, so a plant-level rollup has
+   something to roll up and one plant reads as the worst. The remaining
+   problem RTLs take one plant each on a stride across the rest of the fleet,
+   so the map is sprinkled rather than bunched at the top.
+2. **Criticals are spaced, not grouped**, so no single plant owns every
+   Critical.
+3. **Counts are configuration, not constants**: `LIVE_SIM_WARNING_RTLS` (7)
+   and `LIVE_SIM_CRITICAL_RTLS` (3). A deployment can widen or narrow the
+   spread without a code change.
+4. **Values vary per RTL.** Each scenario RTL takes a stable offset derived
+   from its own device id, so ten RTLs do not all report an identical reading
+   and make the hottest-RTL panel look fabricated. The offset is expressed as
+   a *share of the Administrator's own Warning..Critical band*, not in fixed
+   degrees, so a narrow band still lands every RTL on its intended side.
+5. **A collapsed band is left alone.** `set_threshold_config` forbids
+   `warning >= critical`, but if one is ever seen the simulator returns no
+   override rather than inventing a value it cannot place correctly.
+6. **Graceful degradation.** A scope too small to meet both quotas keeps
+   their ratio instead of spending every slot on Critical, and a single-plant
+   scope still demonstrates both conditions.
+
+This is synthetic development data shaping inside a dev tool, not a change to
+how the application classifies anything — no new ADR. ADR-023 still owns the
+semantics and `temperature_condition_service` still does all classifying.
+
+### Decisions this gate depends on
+
+- `docs/decisions/ADR-023-temperature-condition-uses-admin-limits.md`
+  (Approved): limits remain Administrator-owned; temperature condition remains
+  derived, not a persisted alarm/event.
+
+### Relevant files
+
+- `config/settings.py`
+- `db/live_simulator.py`
+- `tests/test_live_simulator.py`
+- `tests/test_live_sim_settings.py`
+- `.env.example`
+
+### Non-goals
+
+- No invented Eskom warning/critical values.
+- No high-temperature event or notification; ADR-023 explicitly separates
+  derived temperature condition from events.
+- No changes to the historical seed, the eight-metric generator, freshness
+  simulation, or the outgoing RTL programming simulator.
+- No Railway environment mutation, deployment, commit, or push.
+
+### Required verification
+
+- Focused simulator tests.
+- `python -m pytest -m "not db" -v`.
+- Context pack CLEAN at gate open and close.
+
+## Prior closed gate / integration record
+
+The 2026-09-20 APP-NAME-1 integration below is closed. Its commit/push grant
+was exercised and does not apply to LIVE-SIM-SCENARIOS-1.
+
+Historical grant: commit, merge and push to `origin` was granted
 2026-09-20 for the integration below. This supersedes the earlier "main
 stays at `b84567e`" hold: that hold existed because a merge had been
 reverted, and the user has now asked for the branch to be integrated
@@ -92,7 +206,7 @@ None.
 
 **Committed** as part of the 2026-09-20 integration (see the header).
 
-## Next implementation gate: NONE
+## Next implementation gate at APP-NAME-1 close: NONE
 
 ## Prior gate record
 

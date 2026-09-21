@@ -49,3 +49,31 @@ class TestEventsPerDaySetting:
         monkeypatch.setenv("LIVE_SIM_EVENTS_PER_DAY", "12")
         from config.settings import LiveSimSettings
         assert LiveSimSettings().events_per_day == 12.0
+
+
+class TestTemperatureScenariosSetting:
+    def test_defaults_on_for_dashboard_showcase_states(self, monkeypatch):
+        monkeypatch.delenv("LIVE_SIM_TEMPERATURE_SCENARIOS", raising=False)
+        from config.settings import LiveSimSettings
+        assert LiveSimSettings().temperature_scenarios is True
+
+    def test_can_be_disabled_for_nominal_only_simulation(self, monkeypatch):
+        monkeypatch.setenv("LIVE_SIM_TEMPERATURE_SCENARIOS", "false")
+        from config.settings import LiveSimSettings
+        assert LiveSimSettings().temperature_scenarios is False
+
+
+class TestScenarioCountSettings:
+    def test_defaults_populate_the_fleet_map_without_swamping_it(self, monkeypatch):
+        monkeypatch.delenv("LIVE_SIM_WARNING_RTLS", raising=False)
+        monkeypatch.delenv("LIVE_SIM_CRITICAL_RTLS", raising=False)
+        from config.settings import LiveSimSettings
+        settings = LiveSimSettings()
+        assert (settings.warning_rtls, settings.critical_rtls) == (7, 3)
+
+    def test_counts_are_configurable_without_a_code_change(self, monkeypatch):
+        monkeypatch.setenv("LIVE_SIM_WARNING_RTLS", "12")
+        monkeypatch.setenv("LIVE_SIM_CRITICAL_RTLS", "5")
+        from config.settings import LiveSimSettings
+        settings = LiveSimSettings()
+        assert (settings.warning_rtls, settings.critical_rtls) == (12, 5)
