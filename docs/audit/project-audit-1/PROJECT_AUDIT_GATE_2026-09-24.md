@@ -1,7 +1,10 @@
 # PROJECT-AUDIT-1 — Structured Full-Project Audit Gate
 
-Status: OPEN — AUDIT EXECUTION ONLY
+Status: CLOSED — AUDIT EXECUTION ONLY (integrity PASS, see `PROJECT_AUDIT_1_RESULTS.md`)
 Opened: 2026-09-24
+Closed: 2026-09-25 — Prompt 15 (`AUDIT_PACK_MANIFEST.md`) recorded integrity
+PASS; this header field was not flipped at the time and was corrected in
+DOC-CLEANUP-1.
 Planning baseline: `41c81c0e91f17c601f54116f74d5b782a3758244`
 Repository: `Joseph5157/powerplant-monitoring`
 Target branch for audit evidence: `main`

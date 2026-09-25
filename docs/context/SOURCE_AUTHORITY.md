@@ -42,7 +42,7 @@ prose and were factually impossible against the code:
 | Approved in prose | Killed by | What the code actually says |
 |---|---|---|
 | `<3.61V` / `<3.75V` numeric Critical/Warning thresholds | `services/event_semantics.py:11-15` | EVT-D4 forbids consumers holding numeric thresholds; an incoming `battery_low` row is *already a classified fact*, and `battery_voltage` is display payload only |
-| Requires Attention includes a third bucket | `components/fleet_condition.py:3-4` | "Attention remains Stale + No Data" |
+| Requires Attention includes a third bucket | `services/monitoring_service.py:32-35` | `Freshness` has exactly three members (fresh/stale/no_data); `get_fleet_health` (line 470) is the sole classification entry point, so nothing FRESH can only be Stale or No Data |
 | Location has Zone / Feeder / GIS levels | `plants` table | plants carry country / lat / long only |
 
 All three read as reasonable in the document. None was discoverable without

@@ -24,17 +24,18 @@ summary.
   BLOCKED_EXTERNAL are all real, non-zero categories in a passing audit.
 
 Note on the audit's own gate record: `PROJECT_AUDIT_GATE_2026-09-24.md`'s
-header field still reads `Status: OPEN — AUDIT EXECUTION ONLY`. This is a
-field that was never flipped after closeout, not a substantive
-contradiction — the gate's own stated completion condition ("ready for
-review only when Prompt 15 passes") is met, and `AUDIT_PACK_MANIFEST.md`
-(Prompt 15) records integrity PASS. `docs/context/ACTIVE_GATE.md` (the
-repository's normal single active-gate record) does not mention
-PROJECT-AUDIT-1 at all — the audit ran as a separate, self-contained gate
-file rather than through the usual `ACTIVE_GATE.md` flow. Treat this
-document and the result pack under `results/` as authoritative for the
-audit's own status; `ACTIVE_GATE.md` still correctly reflects that no
-*implementation* gate is currently open.
+header field read `Status: OPEN — AUDIT EXECUTION ONLY` until DOC-CLEANUP-1
+(2026-09-25) flipped it to `CLOSED`. This was always a field that had never
+been flipped after closeout, never a substantive contradiction — the gate's
+own stated completion condition ("ready for review only when Prompt 15
+passes") was met, and `AUDIT_PACK_MANIFEST.md` (Prompt 15) records integrity
+PASS. `docs/context/ACTIVE_GATE.md` (the repository's normal single
+active-gate record) does not mention PROJECT-AUDIT-1 at all — the audit ran
+as a separate, self-contained gate file rather than through the usual
+`ACTIVE_GATE.md` flow. Treat this document and the result pack under
+`results/` as authoritative for the audit's own status; `ACTIVE_GATE.md`
+still correctly reflects that no *implementation* gate was open before
+DOC-CLEANUP-1.
 
 ## Requirement status snapshot
 

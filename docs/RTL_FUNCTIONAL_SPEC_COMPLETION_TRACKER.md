@@ -2,10 +2,22 @@
 
 **Project:** Powerplant / Remote Temperature Logger (RTL) Monitoring Dashboard
 **Client authority:** `Remote Temperature Logger Functional Specification RTL v0.3.pdf` only — Unique Identifier `240-137264801`, Revision `1`, 18 pages.
-**Audit baseline:** `Joseph5157/powerplant-monitoring` `main` @ `1fa20ee2e2dd76dfc318ead15590dffdd0280e19` (2026-09-16).
+**Audit baseline:** `Joseph5157/powerplant-monitoring` `main` @ `1fa20ee2e2dd76dfc318ead15590dffdd0280e19` (2026-09-16). Section 15's changelog is current through `2cfad36` / `SWITCH-OVER-1` (2026-09-19) — its last entry.
 **Purpose:** The living requirements-completion ledger for RTL functionality against the authoritative Functional Specification. Repository state remains in `docs/context/CURRENT_STATE.md`; this tracker records what remains against the client specification.
 
 > Earlier PADs, planning documents, historical audits, architecture material and internal development assumptions are historical/reference material only. They must not supply, change, or override RTL client requirements.
+
+> **Staleness disclosure (2026-09-25, PROJECT-AUDIT-1 / DOC-CLEANUP-1).**
+> Roughly a dozen gates have landed since this tracker's last changelog entry
+> (`2cfad36`, 2026-09-19) — including the Fleet Overview/Command Center
+> polish gates, `ASSIGN-TOOLBAR-1`, `ASSET-NAV-ROUTE-1`/`ASSET-NAV-DEFECTS-1`,
+> `APP-NAME-1`, `LIVE-SIM-SCENARIOS-1`, `EVENT-SEMANTICS-TESTFIX-1` and
+> `TABLE-SORT-TEXT-1` — with no corresponding row or changelog update. None
+> of the BR/UI/PROG/REP/GM status values below have been re-verified against
+> that work. Do not treat a `PARTIAL`/`COMPLETE` status here as current
+> without checking it against the code or `docs/context/ACTIVE_GATE.md`'s
+> gate history first. A full row-by-row re-verification pass is its own
+> piece of work, not performed by this disclosure.
 
 ## 1. Maintenance rules
 

@@ -5,7 +5,122 @@ Date: 2026-09-25
 Gate: NONE
 Commit/push permission: **NOT YET GRANTED** — ask before commit/push.
 
-## TABLE-SORT-TEXT-1 — CLOSED / PASS
+## DOC-CLEANUP-1 — CLOSED / PASS
+
+Fixed 2026-09-25, all six items (see detail below): `action_guard.py`'s
+docstring drift, `SOURCE_AUTHORITY.md`'s dead `fleet_condition.py` citation,
+the PAD audit doc's unnamed superseded auth/role claim, the FS completion
+tracker's staleness now made explicit rather than silent, the audit gate's
+stale `OPEN` header, and this file's own stale "not yet committed" note for
+TABLE-SORT-TEXT-1. Documentation only — zero application/runtime code
+changed. Full non-DB baseline unchanged at 3150 passed, 731 deselected, 0
+failed (expected: no application code touched). Context pack regenerated
+CLEAN. Not yet committed or pushed.
+
+## Next implementation gate: NONE
+
+No gate is open. Write one before starting work. Per
+`docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md`'s recommended
+sequencing, documentation reconciliation (this gate) is now done; next is
+the client clarification session (C-05 first, then C-06/C-07/C-10/C-02),
+which is not a code gate — read `docs/context/CLIENT_QUESTIONS.md` before
+proposing one.
+
+## Prior gate record: DOC-CLEANUP-1 (detail)
+
+### Task
+
+Fix the documentation-only drift `docs/audit/project-audit-1/
+PROJECT_AUDIT_1_RESULTS.md`'s "Confirmed defects" table identified
+alongside TABLE-SORT-TEXT-1 — third in the audit's recommended sequencing
+("Documentation reconciliation"). Every item here is a stale citation or
+stale claim; none changes application behaviour.
+
+1. `services/action_guard.py` module docstring — states three of the four
+   `require_action`-gated actions (Program RTL, message forwarding,
+   deactivate) "have no domain service at all." False at this baseline:
+   `rtl_programming_service.record_request`, `message_forwarding_service.
+   set_forwarding` and `rtl_deactivation_service.deactivate_rtl` are all
+   real, persisting domain services (`callbacks/device_manage.py:354,416,
+   486`). Correct the docstring; the guard's own runtime behaviour needs no
+   change.
+2. `docs/context/SOURCE_AUTHORITY.md:45` — cites `components/
+   fleet_condition.py:3-4`, deleted at `2cfad36` (SWITCH-OVER-1). The claim
+   it supports ("Requires Attention" has exactly two buckets, Stale + No
+   Data, never a third) remains true — `Freshness` (`services/
+   monitoring_service.py:32-35`) has exactly three members, so anything not
+   FRESH is structurally Stale or No Data — but the file citation is dead.
+   Repoint it to a citation that still resolves.
+3. `docs/PAD_SECTIONS_1_TO_3_4_AUDIT.md` — already self-labels superseded
+   via its 2026-08-18 status note, but that note doesn't name its most
+   materially wrong claim: "Demo auth only... single hardcoded credential
+   pair" / "no role model," superseded by ROLE-3/ROLE-4's persisted
+   credential-map and role architecture (ADR-015). Strengthen the existing
+   note to name this specifically, rather than rewriting the historical
+   table body (which is a record of what was true on 2026-08-18, not a
+   living document).
+4. `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md` — its changelog and
+   "Audit baseline" line stop at `2cfad36` / SWITCH-OVER-1 (2026-09-19);
+   roughly a dozen gates and 2026-09-25's own baseline have landed since
+   with no changelog entry. A full BR/UI row-by-row re-verification against
+   every one of those gates is its own piece of work, not a documentation
+   cleanup — out of scope here (see Non-goals). This gate only makes the
+   staleness explicit and accurate: update the baseline line and add a
+   disclosure naming the last-covered commit and date, so a reader is
+   warned rather than misled into treating post-`2cfad36` state as covered.
+5. `docs/audit/project-audit-1/PROJECT_AUDIT_GATE_2026-09-24.md` header —
+   still reads `Status: OPEN — AUDIT EXECUTION ONLY`, never flipped after
+   the audit's own Prompt 15 closeout (`AUDIT_PACK_MANIFEST.md` records
+   integrity PASS; `PROJECT_AUDIT_1_RESULTS.md` already notes this
+   discrepancy is "a field that was never flipped... not a substantive
+   contradiction"). Flip it.
+6. This file's own TABLE-SORT-TEXT-1 closing note (below) said "Not yet
+   committed or pushed" — stale as of this gate's own opening edit; that
+   work is committed and pushed at `dff5a1d`. Corrected in the same edit
+   that opens this gate, since rewriting this file's top section is already
+   this step's job.
+
+### Relevant files
+
+- `services/action_guard.py` — module docstring only.
+- `docs/context/SOURCE_AUTHORITY.md` — line 45 citation only.
+- `docs/PAD_SECTIONS_1_TO_3_4_AUDIT.md` — status note only.
+- `docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md` — baseline/staleness
+  metadata only.
+- `docs/audit/project-audit-1/PROJECT_AUDIT_GATE_2026-09-24.md` — header
+  `Status` field only.
+- `docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md` — one paragraph
+  only (the "Note on the audit's own gate record," updated past tense once
+  item 5 above fixes the discrepancy it describes — not a change to any
+  audit finding, count, or evidence citation).
+- `docs/context/ACTIVE_GATE.md` — this gate's own record.
+
+### Non-goals
+
+- No application/runtime code changes anywhere — every file above is
+  documentation, and `action_guard.py`'s edit is confined to its module
+  docstring (no change to `require_action`/`require_capability` logic).
+- No full row-by-row re-verification of
+  `RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md` against the ~12 gates since
+  `2cfad36` — that is a re-audit-sized task, named as a disclosure here,
+  not performed.
+- No rewrite of `PAD_SECTIONS_1_TO_3_4_AUDIT.md`'s historical table body —
+  it stays a record of 2026-08-18, corrected only by a stronger pointer to
+  current status.
+- No change to `results/` — that pack is frozen/closed audit evidence.
+  `PROJECT_AUDIT_1_RESULTS.md` itself gets one narrow past-tense correction
+  (see Relevant files) so it doesn't immediately go stale the moment item 5
+  lands; no finding, count, or evidence citation in it changes.
+
+### Required verification
+
+- `python -m pytest -m "not db" -v` — full non-DB baseline stays green (no
+  application code changed, so this should be a no-op confirmation).
+- Context pack CLEAN (`python scripts/build_context_pack.py`) at gate
+  close, confirming no citation broke across the whole repo, not just the
+  five lines touched.
+
+## Prior gate: TABLE-SORT-TEXT-1 — CLOSED / PASS
 
 Fixed 2026-09-25 across all five affected pages (Device Management,
 Assignments, Plant detail, Transformer detail, Technician Devices).
@@ -14,14 +129,8 @@ deselected, 0 failed). Verified live in a browser against real dev-DB data
 (two temporary readings inserted to create a genuine minutes/hours/days
 age spread, then removed — DB confirmed back to its original two-timestamp
 state afterward). Context pack regenerated CLEAN.
-`docs/context/KNOWN_DEFECTS.md` closed out. Not yet committed or pushed.
-
-## Next implementation gate: NONE
-
-No gate is open. Write one before starting work. Candidates per
-`docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md`'s recommended
-sequencing: `DOC-CLEANUP-1` next (the four documentation-drift defects and
-the audit gate's stale OPEN header), then the client clarification session.
+`docs/context/KNOWN_DEFECTS.md` closed out. Committed and pushed at
+`dff5a1d`.
 
 ## Prior gate record: TABLE-SORT-TEXT-1 (detail)
 

@@ -14,11 +14,12 @@ placeholder id would make "no device" indistinguishable from "some device",
 which is the same conflation ACTION_POLICY's two sets exist to avoid.
 
 WHERE ENFORCEMENT ACTUALLY IS. This guard runs at the CALLBACK boundary. It is
-not domain-service enforcement and this module does not pretend to be: the
-mutation services remain callable without an authorization context, and three
-of the four gated actions (Program RTL, message forwarding, deactivate) have
-no domain service at all — the manage drawer is prototype-only and changes no
-state, so there is currently nothing below the callback to enforce in.
+not domain-service enforcement and this module does not pretend to be: every
+gated action's domain service (`rtl_programming_service`,
+`message_forwarding_service`, `rtl_deactivation_service`,
+`alarm_acknowledgement_service`, `prototype_assignments`) remains callable
+without an authorization context — nothing below the callback enforces this
+policy.
 
 Enforcement moves down when the mutation services take an authenticated actor.
 That is the same change `assigned_by` needs, and ROLE-1 deferred it

@@ -10,6 +10,15 @@
 > addressed through Phases 1–9, and the frontend planning cycle is now closed at
 > the client review gate. For current status see
 > `docs/RTL_FRONTEND_CURRENT_STATUS.md` and `docs/RTL_CLIENT_REVIEW_GATE.md`.
+>
+> **Specifically superseded (2026-09-25, PROJECT-AUDIT-1):** this document's
+> body describes authentication throughout as "Demo auth only... single
+> hardcoded credential pair" and "no role model" (§1, §3). Both are now
+> factually wrong, not just superseded-in-spirit — ROLE-3/ROLE-4 landed a
+> persisted, credentialed multi-user login with a real Administrator/
+> Technician/General User role model (ADR-015: credential config names
+> logins, the `users` row names the role). Treat every auth/role claim below
+> as a snapshot of 2026-08-18, never as current behaviour.
 
 ---
 
