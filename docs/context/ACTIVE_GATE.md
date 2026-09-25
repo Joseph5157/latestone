@@ -29,6 +29,12 @@ history in one shot but must run against the Railway database.
 No gate is open. Write one before starting work; the grant recorded above is
 spent and does not carry forward.
 
+**Before writing the next gate**, read
+`docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md` — PROJECT-AUDIT-1
+closed 2026-09-24 (integrity PASS) and its recommended sequencing starts
+with `EVENT-SEMANTICS-TESTFIX-1` (the current 6-test red baseline) and
+`TABLE-SORT-TEXT-1`.
+
 ## LIVE-SIM-SCENARIOS-1 — CLOSED / PASS
 
 Merged to `main` and pushed to `origin` 2026-09-21. `origin` only — the
