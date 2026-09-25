@@ -17,6 +17,7 @@ from dash import Input, Output, State, no_update
 
 from callbacks.device_admin import (
     DEVICE_ADMIN_COLUMNS,
+    DEVICE_ADMIN_SORT_OVERRIDES,
     build_device_admin_rows,
     device_row_target,
     empty_state,
@@ -26,6 +27,7 @@ from callbacks.device_admin import (
 )
 from callbacks.device_assign import assign_drawer_open_state, find_device_row
 from components.admin_summary import admin_summary_cards
+from components.entity_table import sort_table_rows
 from components.assign_device_drawer import (
     ASSIGN_CLOSE_BTN,
     ASSIGN_DEVICE_ID,
@@ -129,10 +131,12 @@ def register(app) -> None:
         Input(PLANT_FILTER_ID, "value"),
         Input(DATA_FILTER_ID, "value"),
         Input(TECHNICIAN_FILTER_ID, "value"),
+        Input(TABLE_ID, "sort_by"),
         prevent_initial_call=True,
     )
     def populate_admin_assignments(
         context, search="", plant=None, freshness="all", technician="all",
+        sort_by=None,
     ):
         if not context or context.get("route") != "admin_assignments":
             return (no_update,) * 7
@@ -162,12 +166,21 @@ def register(app) -> None:
             all_rows = build_device_admin_rows(devices, health, assignments, now=rendered_at)
             # The filters narrow only the RTL table. The workload roster and
             # the summary cards always describe the whole fleet.
-            device_rows = sorted(
-                filter_device_rows(
-                    all_rows, search, "all",
-                    plant=plant, freshness=freshness, technician=technician,
+            #
+            # TABLE-SORT-TEXT-1: `_device_sort_key` is the default order
+            # (unassigned first) and stands until the operator clicks a
+            # column header; `sort_table_rows` is a no-op when `sort_by` is
+            # empty and overrides that order only once the operator sorts.
+            device_rows = sort_table_rows(
+                sorted(
+                    filter_device_rows(
+                        all_rows, search, "all",
+                        plant=plant, freshness=freshness, technician=technician,
+                    ),
+                    key=_device_sort_key,
                 ),
-                key=_device_sort_key,
+                sort_by,
+                DEVICE_ADMIN_SORT_OVERRIDES,
             )
             summary = admin_summary_cards(get_admin_overview(rendered_at))
         except Exception:

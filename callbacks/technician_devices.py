@@ -15,7 +15,11 @@ import logging
 
 from dash import Input, Output, State, no_update
 
-from callbacks.listings import build_my_rtls_rows, device_row_target
+from callbacks.listings import (
+    FRESHNESS_SORT_OVERRIDES,
+    build_my_rtls_rows,
+    device_row_target,
+)
 from components.device_manage_drawer import (
     MANAGE_ACTION_STORE_ID,
     MANAGE_DEVICE_ID,
@@ -23,6 +27,7 @@ from components.device_manage_drawer import (
     PROGRAM_RTL_TRANSFORMER_ID,
     PROGRAM_RTL_UID_ID,
 )
+from components.entity_table import sort_table_rows
 from components.status_panels import empty_data_panel, error_panel
 from pages.technician_devices import EMPTY_ID, TABLE_ID, TECHNICIAN_DEVICE_COLUMNS
 from services import monitoring_service
@@ -54,9 +59,10 @@ def register(app) -> None:
         Output("technician-devices-summary", "children"),
         Output(EMPTY_ID, "children"),
         Input("page-context", "data"),
+        Input(TABLE_ID, "sort_by"),
         prevent_initial_call=True,
     )
-    def populate_technician_devices(context):
+    def populate_technician_devices(context, sort_by=None):
         if not context or context.get("route") != "technician_devices":
             return (no_update,) * 5
 
@@ -76,10 +82,14 @@ def register(app) -> None:
             scope = current_device_scope()
             rendered_at = monitoring_service._now()
             health = monitoring_service.get_fleet_health(rendered_at, scope=scope)
-            rows = [
-                {**row, "manage": _MANAGE_LINK}
-                for row in build_my_rtls_rows(scope, health)
-            ]
+            rows = sort_table_rows(
+                [
+                    {**row, "manage": _MANAGE_LINK}
+                    for row in build_my_rtls_rows(scope, health)
+                ],
+                sort_by,
+                FRESHNESS_SORT_OVERRIDES,
+            )
         except Exception:
             logger.exception("Failed to load technician devices data")
             return [], TECHNICIAN_DEVICE_COLUMNS, error_panel(), "", None

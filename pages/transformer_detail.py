@@ -84,6 +84,9 @@ def layout(
                 state_column_id="freshness",
                 administrative_state_column_id="status",
                 responsive=True,
+                # TABLE-SORT-TEXT-1: Data renders a freshness label, not its
+                # own sort order — `callbacks/listings.py` sorts `data` itself.
+                sort_action="custom",
             ),
             html.Div(id="devices-empty"),
         ],

@@ -20,6 +20,7 @@ from callbacks.device_admin import UNASSIGNED
 from pages import admin_assignments as page
 from repositories import plant_monitoring_repository as repo
 from services.admin_overview_service import AdminOverviewSummary
+from services.monitoring_service import Freshness, severity_rank
 from tests.auth_test_support import trusted_session
 from tests.dash_tree import find_by_id, text_of
 
@@ -320,10 +321,12 @@ class TestAdminAssignmentsTableWiring:
 # ---------------------------------------------------------------------------
 
 
-def _row(device_id, plant_id, plant, technician, state="fresh"):
+def _row(device_id, plant_id, plant, technician, state="fresh", age_seconds=0):
     return {
         "id": device_id, "device": device_id, "plant": plant, "transformer": "T1",
         "technician": technician, "_plant_id": plant_id, "_state": state,
+        "_severity": severity_rank(Freshness(state)),
+        "_age_seconds": age_seconds,
     }
 
 
@@ -392,6 +395,23 @@ class TestAssignmentFiltering:
         result = self._devices(monkeypatch, freshness="stale")
         assert [r["id"] for r in result[1]] == ["d1"]
 
+    def test_sort_by_data_overrides_the_default_unassigned_first_order(self, monkeypatch):
+        """TABLE-SORT-TEXT-1: clicking Data must sort by `_severity`
+        (fresh < stale < no_data), not the "fresh"/"stale" label text — and
+        it must override `_device_sort_key`'s default order once chosen."""
+        result = self._devices(
+            monkeypatch,
+            sort_by=[{"column_id": "freshness", "direction": "asc"}],
+        )
+        # Default order is d1, d2, d3 (unassigned first); ascending severity
+        # (d2/d3 fresh=0, d1 stale=1) reorders it to d2, d3, d1 — proof the
+        # override, not the pre-existing default, decided this order.
+        assert [r["id"] for r in result[1]] == ["d2", "d3", "d1"]
+
+    def test_no_sort_by_keeps_the_unassigned_first_default(self, monkeypatch):
+        result = self._devices(monkeypatch)
+        assert [r["id"] for r in result[1]] == ["d1", "d2", "d3"]
+
     def test_filters_leave_the_workload_and_cards_whole(self, monkeypatch):
         full = self._devices(monkeypatch)
         narrowed = self._devices(monkeypatch, search="itaipu")
@@ -417,6 +437,7 @@ class TestAssignmentFiltering:
             (page.PLANT_FILTER_ID, "value"),
             (page.DATA_FILTER_ID, "value"),
             (page.TECHNICIAN_FILTER_ID, "value"),
+            (page.TABLE_ID, "sort_by"),
         ]
 
 

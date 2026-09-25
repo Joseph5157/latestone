@@ -63,6 +63,10 @@ def layout() -> html.Div:
                 state_column_id="freshness",
                 responsive=True,
                 filter_action="none",
+                # TABLE-SORT-TEXT-1: Data renders a freshness label, not its
+                # own sort order — `callbacks/technician_devices.py` sorts
+                # `data` itself.
+                sort_action="custom",
             ),
             html.Div(id=EMPTY_ID),
             # Same drawer `pages/device_admin.py` and `pages/device_dashboard.py`

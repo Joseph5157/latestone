@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-25T06:23:56Z
+Date: 2026-09-25T06:57:43Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `ab5464a` "docs(audit): add PROJECT-AUDIT-1 results handoff"
-- Working tree: 5 entries — see below
+- `main` = `926924a` "fix(tests): thread now=NOW through alarm_event_projections test calls"
+- Working tree: 22 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 49.89s
+- `python -m pytest -m "not db"` → 3150 passed, 731 deselected in 37.56s
 
 ## Branches
 
@@ -69,9 +69,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 470 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 320 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 470 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 471 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 321 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 471 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -110,15 +110,32 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-EVENT-SEMANTICS-TESTFIX-1 — full detail in `docs/context/ACTIVE_GATE.md`.
+NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
- M tests/test_event_semantics.py
+M callbacks/admin_assignments.py
+ M callbacks/device_admin.py
+ M callbacks/listings.py
+ M callbacks/technician_devices.py
+ M components/entity_table.py
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/KNOWN_DEFECTS.md
+ M pages/admin_assignments.py
+ M pages/device_admin.py
+ M pages/plant_detail.py
+ M pages/technician_devices.py
+ M pages/transformer_detail.py
+ M tests/test_admin_assignments.py
+ M tests/test_device_admin_column_filters.py
+ M tests/test_entity_table.py
+ M tests/test_technician_devices.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? device-admin-after-sort-asc.png
+?? device-admin-before-sort.png
+?? device-admin-sort-desc-by-age.png
 ?? docs/audit/project-audit-1/results/
 ```
 

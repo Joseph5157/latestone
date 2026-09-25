@@ -203,6 +203,10 @@ def layout() -> html.Div:
                 # The toolbar above is this page's filter surface; the native
                 # row underneath the header would be a second one.
                 filter_action="none",
+                # TABLE-SORT-TEXT-1: Data and Last reading render text that
+                # is not its own sort order (a freshness label, a formatted
+                # age) — `callbacks/device_admin.py` sorts `data` itself.
+                sort_action="custom",
                 column_widths=DEVICE_ADMIN_COLUMN_WIDTHS,
             ),
             html.Div(id=EMPTY_ID),

@@ -219,6 +219,7 @@ class TestWiring:
             ("device-admin-data-filter", "value"),
             ("device-admin-technician-filter", "value"),
             ("device-admin-reading-filter", "value"),
+            ("device-admin-table", "sort_by"),
         }
 
     def test_option_loaders_check_the_capability(self):
@@ -268,6 +269,36 @@ class TestWiring:
         assert error is None
         assert devices(rows) == ["29004"]
         assert summary == "Showing 1 of 4 devices — 3 active, 1 inactive"
+
+    def test_populate_sorts_last_reading_by_real_age_not_rendered_text(self, monkeypatch):
+        """TABLE-SORT-TEXT-1: "5d 3h" < "8 min" as text is the bug this
+        guards against — ascending must read youngest to oldest."""
+        aged_rows = [
+            {**r, "last_reading": lr, "_age_seconds": secs}
+            for r, lr, secs in zip(
+                ROWS,
+                ["5d 3h", "8 min", "2h 17m", "1 min"],
+                [5 * 86400 + 3 * 3600, 8 * 60, 2 * 3600 + 17 * 60, 60],
+            )
+        ]
+        monkeypatch.setattr(device_admin, "current_identity", lambda: SimpleNamespace(user_id=1))
+        monkeypatch.setattr(device_admin, "require_capability", lambda *a, **k: None)
+        monkeypatch.setattr(device_admin.hierarchy_service, "list_all_devices",
+                            lambda include_inactive=False: [
+                                SimpleNamespace(status=r["status"].lower()) for r in aged_rows
+                            ])
+        monkeypatch.setattr(device_admin.monitoring_service, "get_fleet_health",
+                            lambda *a, **k: None)
+        monkeypatch.setattr(device_admin.prototype_assignments, "assigned_technicians", lambda: {})
+        monkeypatch.setattr(device_admin, "build_device_admin_rows", lambda *a, **k: list(aged_rows))
+        app = _CapturingApp()
+        device_admin.register(app)
+        rows, _cols, error, _summary, _empty = app.functions["populate_device_admin"](
+            {"route": "admin_devices"}, "", "all", None, None, "all", "all", "all",
+            [{"column_id": "last_reading", "direction": "asc"}],
+        )
+        assert error is None
+        assert devices(rows) == ["29004", "29002", "29003", "29001"]
 
 
 class _CapturingApp:

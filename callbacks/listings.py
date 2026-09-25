@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from dash import Input, Output, State, no_update
 
 from components.entity_context import entity_context
+from components.entity_table import sort_table_rows
 from components.fleet_summary import (
     plant_kpi_cards,
     transformer_kpi_cards,
@@ -49,6 +50,12 @@ DEVICE_COLUMNS = [
     {"name": "Status", "id": "status"},
     {"name": "Data", "id": "freshness"},
 ]
+
+#: TABLE-SORT-TEXT-1: Data renders a freshness label, which sorts A-Z under
+#: native sort rather than by severity. Both tables above share this one
+#: override — `_severity` is the same hidden key `sort_transformer_rows_
+#: exception_first`/`sort_device_rows_exception_first` already rank on.
+FRESHNESS_SORT_OVERRIDES = {"freshness": "_severity"}
 
 # MOBBIN-UX-2: fixed operational wording — a fact about registration, not a
 # guess at cause. The same sentence for every empty plant/transformer, no
@@ -367,9 +374,10 @@ def register(app) -> None:
         Output("transformers-empty", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
+        Input("transformers-table", "sort_by"),
         prevent_initial_call=True,
     )
-    def populate_plant_detail(context, auth_data):
+    def populate_plant_detail(context, auth_data, sort_by=None):
         if not context or context.get("route") != "plant":
             return (no_update,) * 8
         plant_id = context.get("plant_id")
@@ -409,6 +417,9 @@ def register(app) -> None:
         rows, columns, error = listing_outputs(
             build, TRANSFORMER_COLUMNS, f"loading transformers for plant_id={plant_id!r}"
         )
+        # TABLE-SORT-TEXT-1: a no-op until the operator clicks a header;
+        # `build_plant_detail_view` already ran the exception-first default.
+        rows = sort_table_rows(rows, sort_by, FRESHNESS_SORT_OVERRIDES)
         # On failure `result` never got populated. The new sections render
         # blank rather than a second copy of the error message — the single
         # `transformers-error` slot above already says the page failed to
@@ -438,9 +449,10 @@ def register(app) -> None:
         Output("devices-empty", "children"),
         Input("page-context", "data"),
         State("auth-store", "data"),
+        Input("devices-table", "sort_by"),
         prevent_initial_call=True,
     )
-    def populate_transformer_detail(context, auth_data):
+    def populate_transformer_detail(context, auth_data, sort_by=None):
         if not context or context.get("route") != "transformer":
             return (no_update,) * 8
         transformer_id = context.get("transformer_id")
@@ -477,6 +489,10 @@ def register(app) -> None:
             DEVICE_COLUMNS,
             f"loading devices for transformer_id={transformer_id!r}",
         )
+        # TABLE-SORT-TEXT-1: a no-op until the operator clicks a header;
+        # `build_transformer_detail_view` already ran the exception-first
+        # default.
+        rows = sort_table_rows(rows, sort_by, FRESHNESS_SORT_OVERRIDES)
         return (
             rows,
             columns,

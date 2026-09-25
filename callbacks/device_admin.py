@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from dash import Input, Output, html, no_update
 
+from components.entity_table import sort_table_rows
 from components.status_panels import error_panel
 from routes import device_href
 from services import (
@@ -47,6 +48,21 @@ DEVICE_ADMIN_COLUMNS = [
     {"name": "Assign", "id": "assign", "presentation": "markdown"},
     {"name": "Manage", "id": "manage", "presentation": "markdown"},
 ]
+
+#: TABLE-SORT-TEXT-1: `entity_table`'s `sort_action="custom"` columns that
+#: render one value but must sort by another — Last reading renders a
+#: formatted age ("5d 3h" sorts before "8 min" as text) and Data renders a
+#: freshness label (sorts A-Z, not by severity). Every other column's
+#: rendered value already IS its sort value.
+DEVICE_ADMIN_SORT_OVERRIDES = {
+    "last_reading": "_age_seconds",
+    "freshness": "_severity",
+}
+
+#: No real reading is ever this old; a device with none at all must still
+#: sort as the worst "Last reading" in either direction, the same rule
+#: `_severity`'s NO_DATA=2 already applies to the Data column.
+_NO_READING_SORT_AGE_SECONDS = 10**9
 
 # Markdown action links — dash_table renders markdown cells. There is no
 # View link: the device name navigates (`navigate_from_device_admin_table`
@@ -127,6 +143,12 @@ def build_device_admin_rows(
             "manage": _MANAGE_LINK,
             "_state": state_value,
             "_severity": severity_rank(rollup.state) if rollup else 2,
+            # TABLE-SORT-TEXT-1: the real sort key behind "last_reading"'s
+            # formatted text.
+            "_age_seconds": (
+                age.total_seconds() if age is not None
+                else _NO_READING_SORT_AGE_SECONDS
+            ),
             # Filter keys (DEVICE-FILTERS-1). Ids, not labels: transformer
             # codes repeat across plants.
             "_plant_id": d.plant_id,
@@ -293,11 +315,13 @@ def register(app) -> None:
         Input("device-admin-data-filter", "value"),
         Input("device-admin-technician-filter", "value"),
         Input("device-admin-reading-filter", "value"),
+        Input("device-admin-table", "sort_by"),
         prevent_initial_call=True,
     )
     def populate_device_admin(
         context, search, status,
         plant=None, transformer=None, freshness="all", technician="all", reading="all",
+        sort_by=None,
     ):
         if not context or context.get("route") != "admin_devices":
             return (no_update,) * 5
@@ -341,15 +365,19 @@ def register(app) -> None:
             )
             # One bulk lookup for the whole table, not one per row.
             assignments = prototype_assignments.assigned_technicians()
-            rows = filter_device_rows(
-                build_device_admin_rows(devices, health, assignments, now=rendered_at),
-                search,
-                status,
-                plant=plant,
-                transformer=transformer,
-                freshness=freshness,
-                technician=technician,
-                reading=reading,
+            rows = sort_table_rows(
+                filter_device_rows(
+                    build_device_admin_rows(devices, health, assignments, now=rendered_at),
+                    search,
+                    status,
+                    plant=plant,
+                    transformer=transformer,
+                    freshness=freshness,
+                    technician=technician,
+                    reading=reading,
+                ),
+                sort_by,
+                DEVICE_ADMIN_SORT_OVERRIDES,
             )
             result["rows"] = rows
             result["total"] = len(devices)

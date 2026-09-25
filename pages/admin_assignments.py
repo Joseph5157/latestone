@@ -168,6 +168,10 @@ def layout() -> html.Div:
                 responsive=True,
                 # The toolbar above is this table's filter surface.
                 filter_action="none",
+                # TABLE-SORT-TEXT-1: same reason as device_admin.py — Data
+                # and Last reading render text that is not its own sort
+                # order; `callbacks/admin_assignments.py` sorts `data` itself.
+                sort_action="custom",
                 column_widths=DEVICE_TABLE_COLUMN_WIDTHS,
             ),
             html.Div(id=EMPTY_ID),

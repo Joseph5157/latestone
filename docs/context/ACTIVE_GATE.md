@@ -5,18 +5,99 @@ Date: 2026-09-25
 Gate: NONE
 Commit/push permission: **NOT YET GRANTED** — ask before commit/push.
 
-## EVENT-SEMANTICS-TESTFIX-1 — CLOSED / PASS
+## TABLE-SORT-TEXT-1 — CLOSED / PASS
 
-Fixed 2026-09-25. All 6 previously-failing tests in `tests/
-test_event_semantics.py::TestAlarmEventProjections` now pass; full non-DB
-baseline is green (3139 passed, 731 deselected, 0 failed). Context pack
-regenerated CLEAN. Not yet committed or pushed.
+Fixed 2026-09-25 across all five affected pages (Device Management,
+Assignments, Plant detail, Transformer detail, Technician Devices).
+12 new/updated tests; full non-DB baseline green (3150 passed, 731
+deselected, 0 failed). Verified live in a browser against real dev-DB data
+(two temporary readings inserted to create a genuine minutes/hours/days
+age spread, then removed — DB confirmed back to its original two-timestamp
+state afterward). Context pack regenerated CLEAN.
+`docs/context/KNOWN_DEFECTS.md` closed out. Not yet committed or pushed.
 
 ## Next implementation gate: NONE
 
 No gate is open. Write one before starting work. Candidates per
 `docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md`'s recommended
-sequencing: `TABLE-SORT-TEXT-1` next, then `DOC-CLEANUP-1`.
+sequencing: `DOC-CLEANUP-1` next (the four documentation-drift defects and
+the audit gate's stale OPEN header), then the client clarification session.
+
+## Prior gate record: TABLE-SORT-TEXT-1 (detail)
+
+### Task
+
+Fix `components/entity_table.py`'s native sort so RTL/device tables order
+by real age and real severity, not by the rendered text — the only current
+user-facing defect (`docs/context/KNOWN_DEFECTS.md`). `sort_action="native"`
+sorts a column by what it renders: "Last reading" holds `format_age()`
+strings (`8 min`, `2h 17m`, `5d 3h`), so ascending text order puts a
+five-day-old reading above an eight-minute-old one; "Data" holds a
+freshness label, so it sorts A–Z instead of by severity.
+
+**Scope (user-confirmed 2026-09-25, "all affected pages"): every
+`entity_table` with a freshness ("Data") or age ("Last reading") column** —
+not only the instance found on `/admin/assignments`:
+
+- Device Management (`device-admin-table`) — Data + Last reading.
+- Assignments (`TABLE_ID` in `admin_assignments`) — same row builder as
+  above, Data + Last reading.
+- Plant detail's Transformer inventory (`transformers-table`) — Data only.
+- Transformer detail's RTL inventory (`devices-table`) — Data only.
+- Technician Devices / My RTLs (`technician-devices-table`) — Data only.
+
+Mechanism: `sort_action="custom"` (a passthrough param on `entity_table`,
+replacing its previously dead/unused `sort_by` parameter — grep confirmed
+no caller ever passed it) plus a shared pure function,
+`sort_table_rows(rows, sort_by, overrides)`, that sorts on a hidden row key
+(`_severity` for Data, a new `_age_seconds` for Last reading) instead of
+the rendered cell. A column absent from `overrides` sorts on its own cell
+value, matching native sort's existing correct behaviour for every other
+column (Device, Plant, Transformer, Status, Technician). No `sort_by`
+(operator has not clicked a header) returns rows unchanged, so each page's
+existing default order (`_device_sort_key` on Assignments,
+sort-exception-first on Plant/Transformer detail) still stands until the
+operator sorts.
+
+### Relevant files
+
+- `components/entity_table.py` — `sort_action` passthrough, `sort_table_rows`.
+- `callbacks/device_admin.py` — `_age_seconds` on rows, sort overrides,
+  `sort_by` threaded into `populate_device_admin`.
+- `pages/device_admin.py` — `sort_action="custom"`.
+- `callbacks/admin_assignments.py` — `sort_by` threaded into
+  `populate_admin_assignments`, applied after `_device_sort_key`.
+- `pages/admin_assignments.py` — `sort_action="custom"` on `TABLE_ID` only
+  (the workload table has no age/freshness column).
+- `callbacks/listings.py` — `sort_by` threaded into `populate_plant_detail`
+  / `populate_transformer_detail`.
+- `pages/plant_detail.py`, `pages/transformer_detail.py` —
+  `sort_action="custom"`.
+- `callbacks/technician_devices.py` — `sort_by` threaded into
+  `populate_technician_devices`.
+- `pages/technician_devices.py` — `sort_action="custom"`.
+- `docs/context/KNOWN_DEFECTS.md` — close out the TABLE-SORT-TEXT-1 entry.
+
+### Non-goals
+
+- No change to filter/search logic on any of these pages.
+- No change to any column's rendered text or the underlying freshness/age
+  domain calculations (`services/monitoring_service.py`).
+- No multi-column sort (dash_table's default `sort_mode="single"` is
+  unchanged) — one column at a time, matching current behaviour.
+
+### Required verification
+
+- New/updated unit tests for `sort_table_rows` and the touched row builders.
+- `python -m pytest -m "not db" -v` — full non-DB baseline green.
+- Context pack CLEAN at gate close.
+
+## Prior gate: EVENT-SEMANTICS-TESTFIX-1 — CLOSED / PASS
+
+Fixed and committed 2026-09-25 (`926924a`). All 6 previously-failing tests
+in `tests/test_event_semantics.py::TestAlarmEventProjections` now pass;
+full non-DB baseline was green (3139 passed, 731 deselected, 0 failed) at
+close.
 
 ## Prior gate record: EVENT-SEMANTICS-TESTFIX-1 (detail)
 

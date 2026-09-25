@@ -158,6 +158,38 @@ class TestPopulateTechnicianDevicesDirectInvocation:
         assert summary == "1 assigned RTL."
         assert empty is None
 
+    def test_sort_by_data_overrides_the_default_device_id_order(self, monkeypatch):
+        """TABLE-SORT-TEXT-1: Data must sort by `_severity`, not the
+        "Fresh"/"No data" label text, and it must override
+        `build_my_rtls_rows`'s default (sorted device id) order."""
+        from services import monitoring_service as svc
+        from services.monitoring_service import Freshness
+
+        handler = self._handler(monkeypatch, device_ids=frozenset({"d1", "d2"}))
+        rollups = {
+            "d1": types.SimpleNamespace(state=Freshness.FRESH, label=lambda u: "Fresh"),
+            "d2": types.SimpleNamespace(state=Freshness.NO_DATA, label=lambda u: "No data"),
+        }
+        monkeypatch.setattr(
+            svc, "get_fleet_health",
+            lambda *a, **k: types.SimpleNamespace(devices=rollups, device_last_updated={}),
+        )
+        monkeypatch.setattr(
+            "services.hierarchy_service.list_device_paths",
+            lambda ids, scope=None: [
+                types.SimpleNamespace(device_id="d1", device_code="D1", plant_name="P", transformer_code="T"),
+                types.SimpleNamespace(device_id="d2", device_code="D2", plant_name="P", transformer_code="T"),
+            ],
+        )
+        with trusted_session(monkeypatch, user_id=104, role="technician"):
+            default_rows, *_ = handler({"route": "technician_devices"})
+            sorted_rows, *_ = handler(
+                {"route": "technician_devices"},
+                [{"column_id": "freshness", "direction": "desc"}],
+            )
+        assert [r["id"] for r in default_rows] == ["d1", "d2"]
+        assert [r["id"] for r in sorted_rows] == ["d2", "d1"]
+
     def test_manage_column_carries_the_placeholder_link_on_every_row(self, monkeypatch):
         handler = self._handler(monkeypatch, device_ids=frozenset({"d1", "d2"}))
         with trusted_session(monkeypatch, user_id=104, role="technician"):

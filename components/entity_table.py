@@ -34,11 +34,48 @@ def freshness_style_rules(column_id: str) -> list[dict]:
     ]
 
 
+def sort_table_rows(
+    rows: list[dict],
+    sort_by: list[dict] | None,
+    overrides: dict[str, str] | None = None,
+) -> list[dict]:
+    """Reorder `rows` per dash_table's `sort_by` prop, for `sort_action="custom"`.
+
+    Native sort orders a column by the value it renders, which is wrong for
+    a column whose display text is not itself orderable (TABLE-SORT-TEXT-1):
+    a formatted age ("5d 3h" vs "8 min") or a freshness label ("Stale · 8 of
+    8 metrics") sorts as text, not as age or severity. `overrides` maps such
+    a column's id to the row key that actually orders it (a raw numeric age,
+    a severity rank) so the column can render one value and sort by another.
+    A column absent from `overrides` sorts on its own cell value, matching
+    native sort's already-correct behaviour for plain text/numeric columns.
+
+    No `sort_by` (the operator has not clicked a header) returns `rows`
+    unchanged, so the caller's own default order — exception-first, an
+    assignment queue order, whatever it is — stands until the operator sorts.
+    """
+    if not sort_by:
+        return rows
+    overrides = overrides or {}
+    sorted_rows = list(rows)
+    # Applied last spec first: Python's sort is stable, so the FIRST spec in
+    # `sort_by` (the operator's chosen column) ends up deciding the final
+    # order. dash_table's default `sort_mode="single"` means there is only
+    # ever one spec today, but this stays correct if that ever changes.
+    for spec in reversed(sort_by):
+        field = overrides.get(spec.get("column_id"), spec.get("column_id"))
+        sorted_rows.sort(
+            key=lambda row, f=field: row.get(f),
+            reverse=spec.get("direction") == "desc",
+        )
+    return sorted_rows
+
+
 def entity_table(
     table_id: str,
     columns: list[dict],
     rows: list[dict],
-    sort_by: str | None = None,
+    sort_action: str = "native",
     link_column_id: str | None = None,
     state_column_id: str | None = None,
     administrative_state_column_id: str | None = None,
@@ -55,6 +92,12 @@ def entity_table(
     rows: list of row dicts. Rows may carry extra keys not listed in
         `columns` (e.g. an internal id) for a click callback to read via
         `active_cell` without rendering them as a column.
+    sort_action: "native" (the default) is right for a table whose every
+        rendered cell IS its own sort value. A table with a formatted-age
+        or freshness-label column passes "custom" (TABLE-SORT-TEXT-1) and
+        pairs it with a callback that re-sorts `data` on the table's own
+        `sort_by` prop via `sort_table_rows`, below — dash_table does no
+        sorting itself once `sort_action="custom"` is set.
     link_column_id: column id styled to look clickable; a same-tab
         navigation callback (keyed off `active_cell`) is wired separately.
         Plain cell click-to-navigate is used instead of markdown links
@@ -142,7 +185,7 @@ def entity_table(
                 id=table_id,
                 columns=columns,
                 data=rows,
-                sort_action="native",
+                sort_action=sort_action,
                 filter_action=filter_action,
                 page_size=30,
                 style_as_list_view=True,

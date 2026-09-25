@@ -1,5 +1,5 @@
 """Presentation contracts for the shared entity table."""
-from components.entity_table import entity_table, freshness_style_rules
+from components.entity_table import entity_table, freshness_style_rules, sort_table_rows
 from services.monitoring_service import Freshness
 
 
@@ -144,3 +144,67 @@ def test_markdown_target_is_opt_in_and_scoped_to_one_table():
 
     assert default.children[0].markdown_options is None
     assert same_tab.children[0].markdown_options == {"link_target": "_self"}
+
+
+def test_sort_action_defaults_to_native():
+    table = entity_table(table_id="t", columns=[], rows=[])
+    assert table.children[0].sort_action == "native"
+
+
+def test_sort_action_is_a_passthrough():
+    """TABLE-SORT-TEXT-1: a table with an age/freshness-label column opts
+    into "custom" so dash_table stops sorting by rendered text."""
+    table = entity_table(table_id="t", columns=[], rows=[], sort_action="custom")
+    assert table.children[0].sort_action == "custom"
+
+
+class TestSortTableRows:
+    """TABLE-SORT-TEXT-1: `sort_action="custom"` hands sorting entirely to
+    the app. `sort_table_rows` is the one implementation every affected page
+    shares, so "Last reading"/"Data" order by a hidden numeric key rather
+    than the text they render."""
+
+    ROWS = [
+        {"id": "a", "last_reading": "5d 3h", "_age_seconds": 5 * 86400 + 3 * 3600},
+        {"id": "b", "last_reading": "8 min", "_age_seconds": 8 * 60},
+        {"id": "c", "last_reading": "2h 17m", "_age_seconds": 2 * 3600 + 17 * 60},
+    ]
+
+    def test_no_sort_by_returns_rows_unchanged(self):
+        """The caller's own default order stands until the operator sorts —
+        `_device_sort_key`, exception-first, whatever it is."""
+        assert sort_table_rows(self.ROWS, None) == self.ROWS
+        assert sort_table_rows(self.ROWS, []) == self.ROWS
+
+    def test_overridden_column_sorts_by_the_hidden_key_not_the_rendered_text(self):
+        """Ascending "5d 3h" < "8 min" < "2h 17m" as TEXT is exactly the bug;
+        ascending by the real age must read youngest to oldest."""
+        sort_by = [{"column_id": "last_reading", "direction": "asc"}]
+        ordered = sort_table_rows(
+            self.ROWS, sort_by, overrides={"last_reading": "_age_seconds"}
+        )
+        assert [r["id"] for r in ordered] == ["b", "c", "a"]
+
+    def test_direction_desc_reverses_the_same_key(self):
+        sort_by = [{"column_id": "last_reading", "direction": "desc"}]
+        ordered = sort_table_rows(
+            self.ROWS, sort_by, overrides={"last_reading": "_age_seconds"}
+        )
+        assert [r["id"] for r in ordered] == ["a", "c", "b"]
+
+    def test_a_column_without_an_override_sorts_on_its_own_value(self):
+        """Matches native sort's already-correct behaviour for a plain
+        text/numeric column — Device, Plant, Status, a numeric count."""
+        rows = [{"id": "x", "device": "b"}, {"id": "y", "device": "a"}]
+        sort_by = [{"column_id": "device", "direction": "asc"}]
+        ordered = sort_table_rows(rows, sort_by)
+        assert [r["id"] for r in ordered] == ["y", "x"]
+
+    def test_does_not_mutate_the_input_list(self):
+        original = list(self.ROWS)
+        sort_table_rows(
+            self.ROWS,
+            [{"column_id": "last_reading", "direction": "asc"}],
+            overrides={"last_reading": "_age_seconds"},
+        )
+        assert self.ROWS == original
