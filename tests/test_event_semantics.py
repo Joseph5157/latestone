@@ -415,7 +415,7 @@ class TestAlarmEventProjections:
             FakeEvent(event_id=1, device_id="d1", transformer_id="t1"),
             FakeEvent(event_id=2, device_id="d1", transformer_id="t1"),
         ]
-        projections = sem.alarm_event_projections(events)
+        projections = sem.alarm_event_projections(events, now=NOW)
         assert len(projections) == 2                 # reports stay per-event
 
     def test_non_alarm_types_are_excluded(self):
@@ -427,7 +427,7 @@ class TestAlarmEventProjections:
 
     def test_taxonomy_fields_stay_none_per_r2d2_precedent(self):
         p = sem.alarm_event_projections(
-            [FakeEvent(event_id=1, device_id="d1", transformer_id="t1")]
+            [FakeEvent(event_id=1, device_id="d1", transformer_id="t1")], now=NOW
         )[0]
         assert p.ou is None and p.zone is None and p.sector is None
         assert p.cnc is None and p.feeder_name is None
@@ -437,7 +437,7 @@ class TestAlarmEventProjections:
         ts = NOW - timedelta(hours=3)
         p = sem.alarm_event_projections(
             [FakeEvent(event_id=1, device_id="d1", transformer_id="t1",
-                       event_ts=ts)]
+                       event_ts=ts)], now=NOW
         )[0]
         assert p.alarm_at == ts
 
@@ -447,6 +447,7 @@ class TestAlarmEventProjections:
             [FakeEvent(event_id=1, device_id="d1", transformer_id="t1",
                        temperature=85.0, battery_voltage=3.52)],
             device_metadata=meta,
+            now=NOW,
         )[0]
         assert p.uid == "29101"
         assert p.firmware_version == "v7"
@@ -456,7 +457,7 @@ class TestAlarmEventProjections:
 
     def test_unknown_metadata_projects_with_none_rather_than_dropping(self):
         p = sem.alarm_event_projections(
-            [FakeEvent(event_id=1, device_id="ghost", transformer_id="t1")]
+            [FakeEvent(event_id=1, device_id="ghost", transformer_id="t1")], now=NOW
         )[0]
         assert p.uid is None and p.firmware_version is None
 
@@ -466,7 +467,8 @@ class TestAlarmEventProjections:
         of the reading. BR009: its client-facing label is Comms Alarm."""
         p = sem.alarm_event_projections(
             [FakeEvent(event_id=1, device_id="d1", transformer_id="t1",
-                       event_type=EVENT_TYPE_SENSOR_ERROR, temperature=21.0)]
+                       event_type=EVENT_TYPE_SENSOR_ERROR, temperature=21.0)],
+            now=NOW,
         )[0]
         assert p.alarm_label == "Comms Alarm"
 

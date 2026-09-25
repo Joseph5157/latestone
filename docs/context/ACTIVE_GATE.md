@@ -1,18 +1,80 @@
 # Active Gate
 
 Status: **CLOSED / PASS**
-Date: 2026-09-21
+Date: 2026-09-25
 Gate: NONE
-Commit/push permission: **GRANTED 2026-09-21** — the user approved committing
-to `live-sim-scenarios-1`, then approved merging that branch to `main` and
-pushing to `origin`. The grant is spent on this gate and does not carry to
-the next one. No gate is currently open; write one before starting work.
+Commit/push permission: **NOT YET GRANTED** — ask before commit/push.
 
-### Railway change made under this grant
+## EVENT-SEMANTICS-TESTFIX-1 — CLOSED / PASS
+
+Fixed 2026-09-25. All 6 previously-failing tests in `tests/
+test_event_semantics.py::TestAlarmEventProjections` now pass; full non-DB
+baseline is green (3139 passed, 731 deselected, 0 failed). Context pack
+regenerated CLEAN. Not yet committed or pushed.
+
+## Next implementation gate: NONE
+
+No gate is open. Write one before starting work. Candidates per
+`docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md`'s recommended
+sequencing: `TABLE-SORT-TEXT-1` next, then `DOC-CLEANUP-1`.
+
+## Prior gate record: EVENT-SEMANTICS-TESTFIX-1 (detail)
+
+### Task
+
+Restore a green non-DB test baseline. `tests/test_event_semantics.py::
+TestAlarmEventProjections` has 6 failing tests (of 9 in that class) because
+they call `sem.alarm_event_projections(events)` without threading the
+module-level `NOW` fixture through the function's `now=` keyword; the
+function then defaults to real wall-clock time, and live wall-clock is now
+more than `ALARM_REPORT_WINDOW` (30 days) past the `NOW = datetime(2026, 8,
+25, ...)` fixture, so every fixture event falls outside the report horizon
+and gets filtered out. Root cause and scope were independently established
+by PROJECT-AUDIT-1 (`docs/audit/project-audit-1/results/
+10_TESTS_DEFECTS_TECH_DEBT.md`, `13_CONTRADICTION_VERIFICATION.md`,
+`FINAL_AUDIT_SUMMARY.md` §7) — `alarm_event_projections()` has zero
+production callers, so this is a test-only defect with no dashboard/alarm
+impact.
+
+**Scope discipline (explicit user instruction, 2026-09-25): repair only the
+six failing test call sites by adding `now=NOW`. Do not modify
+`services/event_semantics.py` or retire `alarm_event_projections()` in this
+gate** — even though it currently has no callers, deleting or changing
+production code is a separate decision needing its own evidence, not a
+side effect of a test fix.
+
+### Relevant files
+
+- `tests/test_event_semantics.py` — the only file this gate touches.
+- `services/event_semantics.py` — read-only reference for
+  `alarm_event_projections()`'s `now=` parameter; not edited.
+
+### Non-goals
+
+- No change to `services/event_semantics.py` or any production code.
+- No retirement of `alarm_event_projections()`.
+- No change to the 2 other `now=`-less call sites in this file
+  (`test_non_alarm_types_are_excluded`,
+  `test_deterministic_ordering_by_occurrence_then_id`) — both currently
+  pass, vacuously, because their assertions hold on an empty result; noted
+  as a follow-on observation, not fixed here.
+
+### Required verification
+
+- `python -m pytest tests/test_event_semantics.py -v` — all pass.
+- `python -m pytest -m "not db" -v` — full non-DB baseline green.
+- Context pack CLEAN (via `python scripts/build_context_pack.py`) at gate
+  close.
+
+## Prior gate: LIVE-SIM-SCENARIOS-1 — CLOSED / PASS
+
+Commit/push grant for that gate was exercised and does not apply here.
+
+### Railway change made under that grant
 
 `LIVE_SIM_EVENTS_PER_DAY=12` was set on the `live-simulator` service
 (project `powerplant-monitoring`, production environment) on the user's
-explicit approval, overriding this gate's "no Railway environment mutation"
+explicit approval, overriding that gate's "no Railway environment mutation"
 non-goal. It is configuration only — no code change — and it exists because
 temperature scenarios cover just two of the Command Center's six problem
 kinds; Power down, No data > 24 h, Battery alarm and Sensor error all need
@@ -23,17 +85,6 @@ how fast the problem list grows permanently, not merely how busy it looks.
 At the deployed 1800 s tick that is ~0.25 events per tick. Events accumulate
 over hours rather than appearing at once; `--backfill-events-days` fills
 history in one shot but must run against the Railway database.
-
-## Next implementation gate: NONE
-
-No gate is open. Write one before starting work; the grant recorded above is
-spent and does not carry forward.
-
-**Before writing the next gate**, read
-`docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md` — PROJECT-AUDIT-1
-closed 2026-09-24 (integrity PASS) and its recommended sequencing starts
-with `EVENT-SEMANTICS-TESTFIX-1` (the current 6-test red baseline) and
-`TABLE-SORT-TEXT-1`.
 
 ## LIVE-SIM-SCENARIOS-1 — CLOSED / PASS
 

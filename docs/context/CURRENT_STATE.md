@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-21T06:01:07Z
+Date: 2026-09-25T06:23:56Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `b2af877` "Merge branch 'live-sim-scenarios-1': Warning/Critical RTL spread in the live simulator (LIVE-SIM-SCENARIOS-1)"
-- Working tree: 2 entries — see below
+- `main` = `ab5464a` "docs(audit): add PROJECT-AUDIT-1 results handoff"
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 36.39s
+- `python -m pytest -m "not db"` → 3139 passed, 731 deselected in 49.89s
 
 ## Branches
 
@@ -69,9 +69,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 466 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 316 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 466 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 470 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 320 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 470 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -110,12 +110,15 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-NONE — full detail in `docs/context/ACTIVE_GATE.md`.
+EVENT-SEMANTICS-TESTFIX-1 — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
+M docs/context/ACTIVE_GATE.md
+ M tests/test_event_semantics.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? docs/audit/project-audit-1/results/
 ```
 
