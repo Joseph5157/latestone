@@ -15,7 +15,7 @@ stale `OPEN` header, and this file's own stale "not yet committed" note for
 TABLE-SORT-TEXT-1. Documentation only — zero application/runtime code
 changed. Full non-DB baseline unchanged at 3150 passed, 731 deselected, 0
 failed (expected: no application code touched). Context pack regenerated
-CLEAN. Not yet committed or pushed.
+CLEAN. Committed and pushed at `ab847f7`.
 
 ## Next implementation gate: NONE
 
@@ -25,6 +25,17 @@ sequencing, documentation reconciliation (this gate) is now done; next is
 the client clarification session (C-05 first, then C-06/C-07/C-10/C-02),
 which is not a code gate — read `docs/context/CLIENT_QUESTIONS.md` before
 proposing one.
+
+**CLIENT-DECISION-PACK-1 (2026-09-25):** a consolidated meeting document,
+`docs/client/CLIENT_CLARIFICATION_PACK_1.md`, has been prepared covering
+C-05 (first priority), C-06/C-07/C-10/C-02, the five enterprise-integration
+scope questions (Entra ID, SAP HR, Maximo inbound/outbound, Exchange), and
+every other open item from `CLIENT_QUESTIONS.md`/`REQ-3I_Clarification_
+Register.md`. It is **DRAFT, for internal review only** — no client
+decision is recorded as answered by this pack, and none of the development
+baselines already on record (C-01/C-02/C-04/C-15, etc.) are changed by it.
+Documentation-only; no application code, tests, or requirement statuses
+were touched.
 
 ## Prior gate record: DOC-CLEANUP-1 (detail)
 

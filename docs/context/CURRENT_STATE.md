@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-25T07:17:38Z
+Date: 2026-09-25T07:32:10Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `dff5a1d` "fix(entity_table): sort Last reading/Data by real age and severity"
-- Working tree: 11 entries — see below
+- `main` = `ab847f7` "docs: DOC-CLEANUP-1 â€” fix six documentation-drift defects from PROJECT-AUDIT-1"
+- Working tree: 6 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3150 passed, 731 deselected in 35.24s
+- `python -m pytest -m "not db"` → 3150 passed, 731 deselected in 36.15s
 
 ## Branches
 
@@ -69,9 +69,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 472 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 322 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 472 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 473 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 323 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 473 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -115,16 +115,11 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/PAD_SECTIONS_1_TO_3_4_AUDIT.md
- M docs/RTL_FUNCTIONAL_SPEC_COMPLETION_TRACKER.md
- M docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md
- M docs/audit/project-audit-1/PROJECT_AUDIT_GATE_2026-09-24.md
- M docs/context/ACTIVE_GATE.md
+M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M docs/context/SOURCE_AUTHORITY.md
- M services/action_guard.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
+?? docs/client/
 ```
 
