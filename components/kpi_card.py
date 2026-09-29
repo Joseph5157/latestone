@@ -44,7 +44,7 @@ def kpi_card(
     )
 
 
-def _at(timestamp, dated: bool = False) -> str:
+def _at(timestamp, dated: bool = False, timezone_label: str | None = "UTC") -> str:
     """When an extreme occurred: `at 13:30 UTC`, or `at 22 Jul 13:30 UTC`.
 
     Time alone is ambiguous the moment the period spans more than a day — over
@@ -55,7 +55,8 @@ def _at(timestamp, dated: bool = False) -> str:
     if not timestamp:
         return ""
     fmt = "%d %b %H:%M" if dated else "%H:%M"
-    return f"at {timestamp.strftime(fmt)} UTC"
+    suffix = f" {timezone_label}" if timezone_label else ""
+    return f"at {timestamp.strftime(fmt)}{suffix}"
 
 
 def _spans_more_than_a_day(series) -> bool:
@@ -64,7 +65,11 @@ def _spans_more_than_a_day(series) -> bool:
     return (series[-1].timestamp - series[0].timestamp) > timedelta(hours=24)
 
 
-def kpi_row(view: MetricView, period_label: str | None = None):
+def kpi_row(
+    view: MetricView,
+    period_label: str | None = None,
+    timestamp_timezone_label: str | None = "UTC",
+):
     """KPI cards for one metric.
 
     This is the ONLY component that branches on aggregation, and it branches
@@ -77,7 +82,9 @@ def kpi_row(view: MetricView, period_label: str | None = None):
     metric = view.metric
     dated = _spans_more_than_a_day(view.series)
 
-    current_secondary = format_last_reading(view.last_updated, view.age)
+    current_secondary = format_last_reading(
+        view.last_updated, view.age, timezone_label=timestamp_timezone_label
+    )
     cards = [
         kpi_card(
             "Current",
@@ -106,11 +113,11 @@ def kpi_row(view: MetricView, period_label: str | None = None):
     else:
         cards.append(
             kpi_card("Minimum", format_value(metric, view.minimum),
-                     secondary=_at(view.min_at, dated))
+                     secondary=_at(view.min_at, dated, timestamp_timezone_label))
         )
         cards.append(
             kpi_card("Maximum", format_value(metric, view.maximum),
-                     secondary=_at(view.max_at, dated))
+                     secondary=_at(view.max_at, dated, timestamp_timezone_label))
         )
         count = view.sample_count
         cards.append(

@@ -90,12 +90,12 @@ def _identity_for(session_dict) -> AuthenticatedUser | None:
     )
 
 
-def routing_render(monkeypatch, pathname: str, session=TECHNICIAN_SESSION):
+def routing_render(monkeypatch, pathname: str, session=TECHNICIAN_SESSION, search: str = ""):
     monkeypatch.setattr(routing, "current_identity", lambda: _identity_for(session))
     app = _CapturingApp()
     routing.register(app)
     route_to_page = app.functions[0]
-    return route_to_page(pathname, "", session)
+    return route_to_page(pathname, search, session)
 
 
 def _device_path(device_id: str = "mine") -> SimpleNamespace:
@@ -137,6 +137,27 @@ def test_in_scope_device_renders(monkeypatch):
 
     assert ctx["route"] == "device"
     assert ctx["device_id"] == "mine"
+
+
+def test_raw_rtl_uid_is_kept_only_for_administrator_on_an_in_scope_device(monkeypatch):
+    _patch_scope(monkeypatch, DeviceScope(None))
+    _patch_device_lookup(monkeypatch, _device_path("app-device"))
+
+    _layout, administrator_context = routing_render(
+        monkeypatch,
+        "/devices/app-device",
+        session=ADMINISTRATOR_SESSION,
+        search="?rtl_uid=29743",
+    )
+    _layout, general_context = routing_render(
+        monkeypatch,
+        "/devices/app-device",
+        session=GENERAL_SESSION,
+        search="?rtl_uid=29743",
+    )
+
+    assert administrator_context["rtl_uid"] == 29743
+    assert "rtl_uid" not in general_context
 
 
 def test_out_of_scope_device_is_forbidden_not_not_found(monkeypatch):

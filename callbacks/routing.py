@@ -17,7 +17,7 @@ from routes import (
     device_href,
     parse_custom_range,
     parse_pathname,
-    parse_query,
+    parse_query, parse_rtl_uid,
 )
 from services import hierarchy_service
 from services.hierarchy_service import entity_in_scope
@@ -304,6 +304,12 @@ def register(app) -> None:
                     return not_found_panel("device"), {"route": "unknown"}
 
                 ctx = build_device_context(device_ctx, metric_key, period_value)
+                rtl_uid = parse_rtl_uid(search)
+                # There is no approved raw-UID-to-app-device authorization map.
+                # Restrict this temporary vertical slice to Administrators on an
+                # already in-scope dashboard route; never widen technician scope.
+                if rtl_uid is not None and user.role == ADMINISTRATOR:
+                    ctx["rtl_uid"] = rtl_uid
                 return (
                     device_dashboard.layout(
                         plant_name=device_ctx.plant_name,

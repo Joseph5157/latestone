@@ -37,16 +37,18 @@ def _context_item(
     label: str,
     value,
     value_id: str | None = None,
+    label_id: str | None = None,
     modifier: str | None = None,
 ) -> html.Div:
     value_props = {"id": value_id} if value_id else {}
+    label_props = {"id": label_id} if label_id else {}
     classes = "equipment-context__item"
     if modifier:
         classes += f" equipment-context__item--{modifier}"
     return html.Div(
         className=classes,
         children=[
-            html.Span(label, className="equipment-context__label"),
+            html.Span(label, className="equipment-context__label", **label_props),
             html.Span(value, className="equipment-context__value", **value_props),
         ],
     )
@@ -133,7 +135,8 @@ def layout(
                                 "Status", device_status or "—", modifier="administrative"
                             ),
                             _context_item(
-                                "Last data (UTC)", "—", value_id="equipment-last-data"
+                                "Last data (UTC)", "—", value_id="equipment-last-data",
+                                label_id="equipment-last-data-label",
                             ),
                         ],
                     ),

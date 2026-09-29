@@ -2,8 +2,8 @@
 
 Status: **CLOSED / PASS**
 Date: 2026-09-29
-Gate: NONE
-Commit/push permission: **NOT YET GRANTED** — ask before commit/push.
+Gate: RTL-UI-03 — first real RTL temperature vertical slice
+Commit/push permission: **GRANTED and exercised.**
 
 ## DOC-CLEANUP-1 — CLOSED / PASS
 
@@ -43,7 +43,45 @@ parameterized factual fleet-directory read API only if evidence supports it.
 - No timezone or temperature validity/deduplication policy decision.
 - No mutation of client RTL data or schema, including temporary objects.
 
-## Next implementation gate: NONE
+## Next implementation gate: RTL-UI-03
+
+Integrate an explicitly supplied raw RTL UID into the existing, authorized
+device dashboard for Temperature only. The source remains the read-only RTL
+repository; no canonical fleet/mapping decision, UI redesign, or non-temperature
+integration is in scope.
+
+### Relevant files
+
+- `callbacks/device.py` — authorized device dashboard refresh.
+- `callbacks/routing.py` — trusted route context construction.
+- `routes.py` — validated explicit RTL UID query parsing.
+- `services/rtl_temperature_ui_service.py` — raw RTL temperature view adapter.
+- `pages/device_dashboard.py` — timestamp wording on the selected source path.
+- `docs/audit/rtl-ui-03/RTL_TEMPERATURE_UI_ACCEPTANCE.md` — acceptance evidence.
+- `docs/context/ACTIVE_GATE.md` — this gate record.
+
+### Non-goals
+
+- No RTL writes, schema changes, or population/mapping authority decision.
+- No non-temperature source substitution, fleet conversion, or fallback to synthetic data.
+
+### Close evidence
+
+An Administrator completed the normal browser login and opened the controlled
+`/devices/plant-01-t1-d1?rtl_uid=29743` route. The source latest fact was
+`2026-09-17 03:39:00` / `16.00`; the browser showed `2026-09-17 03:39` /
+`16.0 °C` with client-RTL provenance. The timestamp's source timezone remains
+unresolved, so the RTL path intentionally makes no UTC/SAST/IST/local-time
+claim. The 24h, 7d and 30d controls retained `rtl_uid`; unknown UID and a
+controlled source outage produced no-data/safe-error states without synthetic
+fallback. All seven non-temperature metrics stayed on their existing path.
+
+The direct source remains read-only: `rtl_app_reader` UPDATE was denied, and
+counts remained `master_temperature=2,456,901`, telemetry UIDs `400`,
+`device_list=339`, `trfr_list=185`. No canonical app-device-to-RTL-UID mapping
+was established.
+
+## NONE — CLOSED / SUPERSEDED
 
 No gate is open. Per
 `docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md`'s recommended

@@ -252,8 +252,8 @@ class TestUnassignedDeviceTelemetry:
             )
 
         assert calls == [], "an out-of-scope device must never reach the query layer"
-        # error_outputs()'s shape: 8 outputs, none of them real telemetry.
-        assert len(result) == 8
+        # error_outputs()'s shape: 9 outputs, none of them real telemetry.
+        assert len(result) == 9
 
     def test_technician_can_read_telemetry_for_an_assigned_device(self, monkeypatch):
         from services import monitoring_service as svc
@@ -280,7 +280,7 @@ class TestUnassignedDeviceTelemetry:
         # metric_key "temperature" is not in the (empty) views dict, so the
         # handler returns its early no_update tuple — still proof the scope
         # check itself did not refuse.
-        assert len(result) == 8
+        assert len(result) == 9
 
     def test_administrator_reads_telemetry_for_any_device(self, monkeypatch):
         from services import monitoring_service as svc
@@ -463,7 +463,7 @@ class TestUnauthenticatedDirectInvocation:
                 "temperature", "24h", None, None, 0,
             )
         assert calls == []
-        assert len(result) == 8
+        assert len(result) == 9
 
     def test_admin_device_list_refuses_with_no_trusted_session(self, monkeypatch):
         monkeypatch.setattr(device_admin.hierarchy_service, "list_all_devices", lambda **k: [])

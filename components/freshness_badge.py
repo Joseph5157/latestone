@@ -37,7 +37,7 @@ def freshness_badge(freshness: Freshness, component_id: str | None = None):
 UTC_FORMAT = "%d %b %Y %H:%M"
 
 
-def format_last_reading(last_updated, age) -> str:
+def format_last_reading(last_updated, age, timezone_label: str | None = "UTC") -> str:
     """Paired relative + absolute, per spec section 21.
 
     Relative alone drifts between refreshes; absolute alone is hard to scan. The
@@ -48,4 +48,5 @@ def format_last_reading(last_updated, age) -> str:
     """
     if last_updated is None:
         return "No readings"
-    return f"{format_age(age)} ago · {last_updated.strftime(UTC_FORMAT)} UTC"
+    suffix = f" {timezone_label}" if timezone_label else ""
+    return f"{format_age(age)} ago · {last_updated.strftime(UTC_FORMAT)}{suffix}"

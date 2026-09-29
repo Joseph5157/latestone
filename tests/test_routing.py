@@ -125,4 +125,10 @@ class TestDeviceHref:
         href = device_href("plant-01-t1-d1", period="24h")
         assert "?" not in href
 
+    def test_device_href_preserves_valid_explicit_raw_rtl_uid(self):
+        href = device_href("plant-01-t1-d1", period="7d", rtl_uid=29743)
+        assert href == "/devices/plant-01-t1-d1?period=7d&rtl_uid=29743"
+
+    def test_device_href_refuses_invalid_raw_rtl_uid(self):
+        assert device_href("plant-01-t1-d1", rtl_uid=0) == "/devices/plant-01-t1-d1"
 

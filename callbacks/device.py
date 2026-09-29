@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, time, timedelta, timezone
 
-from dash import Input, Output, State, no_update
+from dash import Input, Output, State, no_update, html
 
 from components.device_alarms import alarm_history
 from components.freshness_badge import format_last_reading, freshness_badge
@@ -20,6 +20,7 @@ from services import device_timeline_service as timeline
 from services import monitoring_service as svc
 from services.device_scope import current_device_scope
 from services.monitoring_service import Freshness, Period
+from services import rtl_temperature_ui_service as rtl_ui
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ def error_outputs() -> tuple:
         [],                                             # readings-table columns
         header_freshness_children(Freshness.NO_DATA),   # header-freshness
         "No readings",                                  # equipment-last-data
+        "Last data (UTC)",                              # equipment-last-data-label
         None,                                           # device-alarm-history
     )
 
@@ -109,6 +111,7 @@ def register(app) -> None:
         Output("readings-table", "columns"),
         Output("header-freshness", "children"),
         Output("equipment-last-data", "children"),
+        Output("equipment-last-data-label", "children"),
         Output("device-alarm-history", "children"),
         Input("page-context", "data"),
         Input("metric-dropdown", "value"),
@@ -120,11 +123,11 @@ def register(app) -> None:
     )
     def refresh_device_dashboard(context, metric_key, period_value, custom_start, custom_end, _n):
         if not context or context.get("route") != "device":
-            return [no_update] * 8
+            return [no_update] * 9
 
         device_id = context.get("device_id")
         if not device_id:
-            return [no_update] * 8
+            return [no_update] * 9
 
         # P0-3 (AUTH-HARDEN-1). `page-context` is Input, not State: this
         # callback is independently invokable with a forged device_id, and
@@ -139,6 +142,19 @@ def register(app) -> None:
                 device_id,
             )
             return error_outputs()
+
+        # An explicit raw UID is populated only by the router's Administrator
+        # branch. It never maps raw RTL data to a different app device.
+        rtl_uid = context.get("rtl_uid")
+        if rtl_uid is not None and metric_key == "temperature":
+            try:
+                view = rtl_ui.get_temperature_view(int(rtl_uid), period_value)
+                fig = build_metric_figure(view.metric, view.series, period_label=period_label(period_value))
+                rows = build_table_rows(view.metric, sorted(view.series, key=lambda r: r.timestamp, reverse=True))
+                return (html.Div("Temperature source: client RTL SQL Server", className="source-provenance"), kpi_row(view, period_label=period_label(period_value), timestamp_timezone_label=None), fig, rows, [{"name": "Timestamp (source timezone unresolved)", "id": "timestamp"}, {"name": "Temperature", "id": "value"}], header_freshness_children(Freshness.NO_DATA), view.last_updated.strftime("%Y-%m-%d %H:%M") if view.last_updated else "No readings", "Last data (source timezone unresolved)", None)
+            except rtl_ui.RTLTemperatureUnavailable:
+                logger.warning("RTL temperature source unavailable for raw UID %r", rtl_uid)
+                return error_outputs()
 
         try:
             # 1. Resolve period
@@ -163,7 +179,7 @@ def register(app) -> None:
             view = views.get(metric_key)
 
             if view is None:
-                return [no_update] * 8
+                return [no_update] * 9
 
             # 4. Build outputs
             # The service decides which metrics need bars and how to bin
@@ -271,6 +287,7 @@ def register(app) -> None:
             period=period_value,
             start=custom_start,
             end=custom_end,
+            rtl_uid=context.get("rtl_uid"),
         )
         _, _, query = href.partition("?")
         return f"?{query}" if query else ""

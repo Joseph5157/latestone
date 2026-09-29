@@ -173,6 +173,20 @@ def parse_custom_range(search: str | None) -> tuple[str | None, str | None]:
     return _valid("start"), _valid("end")
 
 
+def parse_rtl_uid(search: str | None) -> int | None:
+    """A strictly numeric, explicit raw RTL UID from an existing device URL.
+
+    It is not a fleet lookup or a source-to-application mapping.
+    """
+    if not search:
+        return None
+    raw = parse_qs(search.lstrip("?")).get("rtl_uid", [None])[0]
+    if raw is None or not raw.isascii() or not raw.isdecimal():
+        return None
+    value = int(raw)
+    return value if 0 < value <= 2_147_483_647 else None
+
+
 def device_assign_href(device_id: str) -> str:
     """Device Management, with this device's assignment drawer opened.
 
@@ -209,11 +223,14 @@ def device_href(
     period: str | None = None,
     start: str | None = None,
     end: str | None = None,
+    rtl_uid: int | None = None,
 ) -> str:
     """Build a device dashboard URL, omitting defaults.
 
     `start`/`end` are only meaningful alongside `period="custom"`; without them
-    a shared custom-range link opens on an empty dashboard.
+    a shared custom-range link opens on an empty dashboard.  A validated raw
+    RTL UID, when the authorized router has supplied one, must survive metric
+    and period URL synchronization; it is never inferred from ``device_id``.
     """
     parts = [f"/devices/{device_id}"]
     params = []
@@ -227,6 +244,8 @@ def device_href(
             params.append(f"start={start}")
         if end:
             params.append(f"end={end}")
+    if isinstance(rtl_uid, int) and not isinstance(rtl_uid, bool) and 0 < rtl_uid <= 2_147_483_647:
+        params.append(f"rtl_uid={rtl_uid}")
 
     if params:
         parts.append("?" + "&".join(params))

@@ -93,3 +93,13 @@ This gate does not resolve any MAP-04 decisions:
 
 No dashboard, hierarchy, alarm, technician, command, or PostgreSQL reading
 path is wired to this reader in this gate.
+
+## RTL-UI-03 vertical slice
+
+The existing device dashboard may request real temperature only when its route
+context carries an explicit `rtl_uid` populated for an Administrator. This is
+a deliberately temporary safe/test path because no approved raw-UID-to-app
+device authorization mapping exists. Temperature latest/history calls remain
+on this repository; failure is rendered as unavailable and never falls back to
+synthetic PostgreSQL temperature data. Raw `datetime2` timestamps are shown
+without timezone conversion or timezone claim.
