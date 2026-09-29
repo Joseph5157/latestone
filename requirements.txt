@@ -3,6 +3,10 @@ plotly==5.24.1
 SQLAlchemy==2.0.35
 alembic>=1.13,<2
 psycopg2-binary==2.9.9
+# SQL Server DB-API used only by repositories/rtl_temperature_repository.py.
+# The RTL client database is accessed through a separate, read-only connection;
+# this is not used by PostgreSQL, Alembic, seeders, or application writers.
+pymssql==2.3.5
 python-dotenv==1.0.1
 pandas==2.2.3
 gunicorn==23.0.0

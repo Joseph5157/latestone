@@ -26,6 +26,9 @@ _DB_AVAILABLE: bool | None = None
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "db: requires a seeded local PostgreSQL")
+    config.addinivalue_line(
+        "markers", "rtl_db: requires the local read-only RTL SQL Server when explicitly enabled"
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -37,6 +40,8 @@ def _skip_db_tests_without_database(request):
     """
     global _DB_AVAILABLE
     if not request.node.get_closest_marker("db"):
+        if request.node.get_closest_marker("rtl_db") and os.getenv("RTL_INTEGRATION_TESTS") != "1":
+            pytest.skip("set RTL_INTEGRATION_TESTS=1 to run local RTL SQL Server integration tests")
         return
     if _DB_AVAILABLE is None:
         _DB_AVAILABLE = check_connection()

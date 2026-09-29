@@ -96,6 +96,47 @@ class DatabaseSettings:
         )
 
 
+class RTLDatabaseConfigurationError(RuntimeError):
+    """Raised only when the optional, read-only RTL source is configured poorly.
+
+    Keeping this separate from ``DatabaseSettings`` prevents an absent local
+    RTL container from stopping the PostgreSQL-backed application at import
+    time. It intentionally names configuration keys, never their values.
+    """
+
+
+@dataclass(frozen=True)
+class RTLDatabaseSettings:
+    """Connection settings for the client RTL SQL Server source only.
+
+    This is deliberately not a SQLAlchemy URL and is never used by Alembic or
+    ``db.engine``. SQL Server's read-only database and least-privilege login
+    are the authoritative write protections.
+    """
+
+    host: str = os.getenv("RTL_DB_HOST", "")
+    port: int = _get_int("RTL_DB_PORT", 1433)
+    name: str = os.getenv("RTL_DB_NAME", "")
+    user: str = os.getenv("RTL_DB_USER", "")
+    password: str = os.getenv("RTL_DB_PASSWORD", "")
+
+    def require_complete(self) -> None:
+        missing = [
+            name for name, value in (
+                ("RTL_DB_HOST", self.host),
+                ("RTL_DB_NAME", self.name),
+                ("RTL_DB_USER", self.user),
+                ("RTL_DB_PASSWORD", self.password),
+            ) if not value
+        ]
+        if missing:
+            raise RTLDatabaseConfigurationError(
+                "Missing RTL read-only database configuration: " + ", ".join(missing)
+            )
+        if not 1 <= self.port <= 65535:
+            raise RTLDatabaseConfigurationError("RTL_DB_PORT must be between 1 and 65535")
+
+
 # Defaults are chosen so that an unconfigured environment is the *safe* one and
 # anything riskier has to be asked for explicitly. This is the primary
 # development application, not a throwaway, and it is destined for a government
@@ -506,6 +547,7 @@ class LiveSimSettings:
 
 
 database = DatabaseSettings()
+rtl_database = RTLDatabaseSettings()
 monitoring = MonitoringSettings()
 demo_auth = DemoAuthSettings()
 flask_session = FlaskSessionSettings()

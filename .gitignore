@@ -9,6 +9,8 @@ __pycache__/
 *.egg-info/
 .DS_Store
 *.zip
+# SQL Server backup artifacts are client-supplied evidence; never commit them.
+*.bak
 
 # Agent/tooling scratch — never part of the application
 .claude/*

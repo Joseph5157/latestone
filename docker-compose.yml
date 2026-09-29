@@ -43,5 +43,31 @@ services:
       postgres:
         condition: service_healthy
 
+  # Local, restored copy of the final client RTL SQL Server database.
+  # It is deliberately separate from the application-owned PostgreSQL service.
+  rtl_sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ${RTL_SQLSERVER_CONTAINER_NAME:-client_rtl_sqlserver}
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${RTL_SQL_SA_PASSWORD:?Set RTL_SQL_SA_PASSWORD in ignored .env}
+    ports:
+      # Bind only to loopback: the restored client database is never public.
+      - "127.0.0.1:${RTL_DB_PORT:-14333}:1433"
+    volumes:
+      # Docker-managed persistence: no database files enter the Git worktree.
+      - client_rtl_sqlserver_data:/var/opt/mssql
+      # Evidence only: no image bake/copy and no write access to the backup.
+      - ./RTL.bak:/var/opt/mssql/backup/RTL.bak:ro
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
 volumes:
   powerplant_pgdata:
+  client_rtl_sqlserver_data:
