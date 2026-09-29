@@ -2,7 +2,7 @@
 
 Status: Approved
 Date: 2026-08-29
-Last updated: 2026-09-19 — added ADR-027 and ADR-028
+Last updated: 2026-09-29 — added ADR-029
 
 Every ADR in `docs/decisions/`, one line each. This file is the map; the ADR
 is the territory — read the ADR before acting on a decision, don't act on
@@ -44,6 +44,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-026](../decisions/ADR-026-one-colour-key-colour-means-urgency.md) | One colour key for the dashboard: colour means urgency (Critical red, Warning amber, No data purple, Device fault grey-blue, Normal green, Not rated grey), the label says what; blue is selection only; tones owned by `components/status_colors.py` | Approved | `21a5d1f` |
 | [ADR-027](../decisions/ADR-027-device-page-alarm-history.md) | Device page shows the RTL's own alarms as chart markers, a read-only alarm history list, and shaded "No readings" gaps (> 4 × the RTL's median spacing in the window); Administrators and Technicians only; no new query | Approved | `6bbf26c` |
 | [ADR-028](../decisions/ADR-028-ring-gauges-for-part-of-whole-counts.md) | Ring/donut gauges allowed only for part-of-whole counts (RTLs working, problems by kind); no needle/speedometer dials, no full pies, no single-value gauges; ADR-026 tones, CSS conic-gradient | Approved | `7973853` |
+| [ADR-029](../decisions/ADR-029-sql-server-only-target-architecture.md) | Final production database is SQL Server only; PostgreSQL is transitional; client RTL DB stays read-only until an approved change proposal | Approved | not yet |
 
 ## Reading this table
 

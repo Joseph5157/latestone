@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-29T09:49:03Z
+Date: 2026-09-29T13:30:34Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `e20d2d1` "feat(ui): integrate read-only RTL temperature slice"
-- Working tree: 12 entries — see below
+- `main` = `dd3ea22` "feat(data): add RTL real-data adapter foundation"
+- Working tree: 11 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 35.97s
+- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 33.28s
 
 ## Branches
 
@@ -69,13 +69,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 477 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 327 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 477 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 478 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 328 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 478 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-28 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+29 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -107,25 +107,25 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-026-one-colour-key-colour-means-urgency.md | Approved | `21a5d1f`; `0a84648` (badge-vs-dot); `fd84225` (coloured text) |
 | ADR-027-device-page-alarm-history.md | Approved | `6bbf26c` |
 | ADR-028-ring-gauges-for-part-of-whole-counts.md | Approved | `7973853` |
+| ADR-029-sql-server-only-target-architecture.md | Approved | not yet |
 
 ## Active gate
 
-RTL-INTEGRATION-04 — real data adapter foundation (baseline `e20d2d1`) — full detail in `docs/context/ACTIVE_GATE.md`.
+SQLSERVER-TARGET-ARCH-01 — Complete Application-to-Client-Database Mapping — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+M AGENTS.md
+ D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
  M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M docs/database/RTL_READ_ONLY_ACCESS.md
- M repositories/rtl_temperature_repository.py
- M tests/test_rtl_temperature_repository.py
+ M docs/context/DECISION_INDEX.md
+ M docs/context/REPOSITORY_AND_DEPLOYMENT_MAP.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
-?? docs/audit/rtl-integration-04/
-?? services/rtl_source_facts_service.py
-?? tests/test_rtl_source_facts.py
+?? docs/decisions/ADR-029-sql-server-only-target-architecture.md
+?? docs/plans/
 ```
 

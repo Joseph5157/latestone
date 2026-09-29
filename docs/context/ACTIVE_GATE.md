@@ -1,9 +1,44 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
+Status: **PLANNED — NOT YET EXECUTED**
 Date: 2026-09-29
-Gate: RTL-INTEGRATION-04 — real data adapter foundation (baseline `e20d2d1`)
-Commit/push permission: **GRANTED and exercised** (`latestone` `main` only).
+Gate: SQLSERVER-TARGET-ARCH-01 — Complete Application-to-Client-Database Mapping
+Baseline: `dd3ea22`
+Commit/push permission: **GRANTED for the planning checkpoint only** (`latestone` `main` only; no `origin`, no `client`). The audit gate needs its own grant.
+
+## Next implementation gate: SQLSERVER-TARGET-ARCH-01 — PLANNED, NOT EXECUTED
+
+The client decided the final production database is SQL Server only
+(ADR-029). PostgreSQL is transitional. The client RTL database stays
+**READ-ONLY** until the mapping audit is done, changes are proposed with
+reasons and the client approves. The next gate is a read-only audit comparing
+the client SQL Server, the PostgreSQL application and application capabilities.
+Full scope, classifications, deliverables and the 22 audit questions:
+`docs/plans/SQLSERVER_TARGET_ARCH_01_PLAN.md`.
+
+Recorded decisions (detail in ADR-029): `device_list` = registered RTLs (339);
+Admin-managed RTL→transformer assignment wanted, `trfr_list` NOT authoritative;
+offline = "a few hours" (hours UNRESOLVED, no threshold); RTL timestamps are
+SAST/UTC+2 (this supersedes "timezone unresolved" in the records below);
+unusual temperatures shown as received; conflicting same-timestamp readings
+stay ambiguous and preserved.
+
+Workflow: `latestone/main` is the authoritative checkpoint. Verify, one bounded
+gate, test, review if high-risk, update ACTIVE_GATE/CURRENT_STATE, commit only
+gate files, push to `latestone` `main`, confirm `HEAD` = `latestone/main` =
+`git ls-remote latestone refs/heads/main`, then the next gate.
+
+Non-goals of the planning checkpoint: no SQL Server or PostgreSQL change, no
+repository/service/callback/UI change, no data migration, no Docker change.
+
+Relevant files: `docs/plans/SQLSERVER_TARGET_ARCH_01_PLAN.md`,
+`docs/decisions/ADR-029-sql-server-only-target-architecture.md`,
+`docs/database/RTL_READ_ONLY_ACCESS.md`.
+
+## RTL-INTEGRATION-04 — CLOSED / PASS (previous gate, kept for record)
+
+Note: the "source timezone unresolved" line in the close evidence below is
+superseded by ADR-029 (SAST, UTC+2).
 
 ## Next implementation gate: RTL-INTEGRATION-04 — CLOSED / PASS
 

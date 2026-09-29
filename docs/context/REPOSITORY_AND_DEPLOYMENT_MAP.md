@@ -22,6 +22,7 @@ Rules:
 
 - New application features are developed and tested here first.
 - This repository is the authoritative development source.
+- **Update 2026-09-29:** the authoritative development checkpoint is now `latestone/main` (`https://github.com/Joseph5157/latestone`); see ADR-029 and `docs/plans/SQLSERVER_TARGET_ARCH_01_PLAN.md`. Do not push planning/gate work to `origin` or `client` unless a gate says so.
 - Project context, implementation gates, and development history belong here.
 
 ## 2. Client delivery repository
@@ -64,7 +65,7 @@ Important ownership boundary:
 - The client controls Azure pipelines, Kubernetes, App Service/startup configuration, database platform choice, credentials/secrets, and deployment execution.
 - Our responsibility is to provide or copy the accepted WebApp application code into the client-provided WebApp area when requested.
 - We must not infer or redesign the client's Azure infrastructure unless explicitly asked.
-- We currently do not know whether the deployed Azure WebApp will use PostgreSQL or SQL Server; this remains a client-side integration decision.
+- Database platform: the client has decided the final production application uses SQL Server only (ADR-029, 2026-09-29). PostgreSQL is transitional. This replaces the earlier "not known" note.
 
 ## 4a. Railway demo deployment
 

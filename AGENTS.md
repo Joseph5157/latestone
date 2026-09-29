@@ -79,6 +79,8 @@ Do not expand beyond this without explicit instruction.
 ## Stack
 
 Python, Plotly Dash, Plotly, PostgreSQL, Docker Compose (local PG), SQLAlchemy.
+**Target architecture (ADR-029):** the final production database is SQL Server only; PostgreSQL is transitional and the client RTL database stays read-only until a client-approved change proposal. Nothing here changes until a migration gate says so.
+
 Do not replace Dash. Before adding a dependency, explain why the existing stack
 cannot reasonably solve the requirement.
 
