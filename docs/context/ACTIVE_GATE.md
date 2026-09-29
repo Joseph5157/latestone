@@ -1,7 +1,7 @@
 # Active Gate
 
 Status: **CLOSED / PASS**
-Date: 2026-09-25
+Date: 2026-09-29
 Gate: NONE
 Commit/push permission: **NOT YET GRANTED** — ask before commit/push.
 
@@ -17,9 +17,35 @@ changed. Full non-DB baseline unchanged at 3150 passed, 731 deselected, 0
 failed (expected: no application code touched). Context pack regenerated
 CLEAN. Committed and pushed at `ab847f7`.
 
+## RTL-FLEET-02 — CLOSED / PASS
+
+Inspected the restored client SQL Server `RTL` database only through the
+`rtl_app_reader` SELECT-only account. Document the factual device and
+transformer model, UID-set reconciliation, status/communications evidence,
+and bounded fleet latest-temperature query experiments. No RTL DDL, DML,
+index, view, statistics, schema, UI, canonical-fleet decision, commit, or
+push is in scope. The existing temperature repository may gain a narrow,
+parameterized factual fleet-directory read API only if evidence supports it.
+
+### Relevant files
+
+- `repositories/rtl_temperature_repository.py` — isolated SQL Server read boundary.
+- `tests/test_rtl_temperature_repository.py` — unit and read-only integration coverage.
+- `docs/database/RTL_READ_ONLY_ACCESS.md` — read boundary contract.
+- `docs/audit/rtl-fleet-02/FLEET_MODEL.md` — factual fleet-model evidence.
+- `docs/audit/rtl-fleet-02/FLEET_QUERY_PERFORMANCE.md` — controlled query evidence.
+- `docs/context/ACTIVE_GATE.md` — this gate record.
+
+### Non-goals
+
+- No dashboard/UI integration or synthetic PostgreSQL changes.
+- No decision of the canonical monitored UID population or `trfr_list` authority.
+- No timezone or temperature validity/deduplication policy decision.
+- No mutation of client RTL data or schema, including temporary objects.
+
 ## Next implementation gate: NONE
 
-No gate is open. Write one before starting work. Per
+No gate is open. Per
 `docs/audit/project-audit-1/PROJECT_AUDIT_1_RESULTS.md`'s recommended
 sequencing, documentation reconciliation (this gate) is now done; next is
 the client clarification session (C-05 first, then C-06/C-07/C-10/C-02),

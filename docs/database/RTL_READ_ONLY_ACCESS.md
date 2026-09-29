@@ -24,6 +24,8 @@ extra runtime dependency is `pymssql==2.3.5`.
 ```python
 get_latest_temperature(device_uid) -> RTLTemperatureReading | None
 get_temperature_range(device_uid, start_time, end_time) -> list[RTLTemperatureReading]
+get_registered_devices() -> list[RTLRegisteredDevice]
+get_transformer_mappings() -> list[RTLTransformerMapping]
 ```
 
 `RTLTemperatureReading` deliberately exposes only raw supported facts:
@@ -45,6 +47,12 @@ this narrow contract.
 
 All queries are parameterized. There is no arbitrary SQL API and no write,
 migration, schema, or seed path.
+
+`get_registered_devices()` selects only the registered UID, intentionally not
+the source cellular-contact field. `get_transformer_mappings()` selects only
+the observed UID and `trfr` code. Both methods use deterministic ordering and
+are factual source directories, not a canonical fleet or authoritative
+hierarchy decision.
 
 ## Local validation
 

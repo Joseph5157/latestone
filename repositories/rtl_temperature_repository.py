@@ -54,6 +54,30 @@ class RTLTemperatureReading:
     temperature: Decimal
 
 
+@dataclass(frozen=True)
+class RTLRegisteredDevice:
+    """A registered RTL UID from ``dbo.device_list``.
+
+    The source table also carries a cellular contact field. It is deliberately
+    outside this read model: it is not required to identify a registered RTL
+    and should not travel into application/UI data accidentally.
+    """
+
+    device_uid: int
+
+
+@dataclass(frozen=True)
+class RTLTransformerMapping:
+    """An observed UID-to-transformer-code row from ``dbo.trfr_list``.
+
+    This preserves a source fact only. It does not claim that the mapping is
+    complete, authoritative, or a canonical application hierarchy.
+    """
+
+    device_uid: int
+    transformer_code: str
+
+
 _LATEST_SQL = """
 SELECT TOP (1) device_uid, reading_timestamp, temperature
 FROM dbo.master_temperature
@@ -69,6 +93,18 @@ WHERE device_uid = %s
   AND reading_timestamp >= %s
   AND reading_timestamp <= %s
 ORDER BY reading_timestamp ASC, temperature ASC
+"""
+
+_REGISTERED_DEVICES_SQL = """
+SELECT device_uid
+FROM dbo.device_list
+ORDER BY device_uid ASC
+"""
+
+_TRANSFORMER_MAPPINGS_SQL = """
+SELECT device_uid, trfr
+FROM dbo.trfr_list
+ORDER BY device_uid ASC, trfr ASC, id ASC
 """
 
 
@@ -114,6 +150,14 @@ class RTLTemperatureRepository:
         """Return the latest timestamped raw temperature for one UID, if any."""
         return self._fetch_one(_LATEST_SQL, (device_uid,))
 
+    def get_registered_devices(self) -> list[RTLRegisteredDevice]:
+        """Return the source registered-UID directory in deterministic order."""
+        return self._fetch_registered_devices(_REGISTERED_DEVICES_SQL, ())
+
+    def get_transformer_mappings(self) -> list[RTLTransformerMapping]:
+        """Return observed source UID-to-transformer-code rows, not an authority claim."""
+        return self._fetch_transformer_mappings(_TRANSFORMER_MAPPINGS_SQL, ())
+
     def get_temperature_range(
         self,
         device_uid: int,
@@ -155,6 +199,45 @@ class RTLTemperatureRepository:
             cursor.execute(sql, parameters)
             rows = cursor.fetchall()
             return [_as_reading(row) for row in rows]
+        except pymssql.Error as exc:
+            raise RTLTemperatureRepositoryError("RTL temperature source is unavailable") from exc
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if connection is not None:
+                connection.close()
+
+    def _fetch_registered_devices(
+        self, sql: str, parameters: tuple[object, ...]
+    ) -> list[RTLRegisteredDevice]:
+        connection: _Connection | None = None
+        cursor: _Cursor | None = None
+        try:
+            connection = self._connection_factory()
+            cursor = connection.cursor()
+            cursor.execute(sql, parameters)
+            return [RTLRegisteredDevice(device_uid=int(device_uid)) for (device_uid,) in cursor.fetchall()]
+        except pymssql.Error as exc:
+            raise RTLTemperatureRepositoryError("RTL temperature source is unavailable") from exc
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if connection is not None:
+                connection.close()
+
+    def _fetch_transformer_mappings(
+        self, sql: str, parameters: tuple[object, ...]
+    ) -> list[RTLTransformerMapping]:
+        connection: _Connection | None = None
+        cursor: _Cursor | None = None
+        try:
+            connection = self._connection_factory()
+            cursor = connection.cursor()
+            cursor.execute(sql, parameters)
+            return [
+                RTLTransformerMapping(device_uid=int(device_uid), transformer_code=str(transformer_code))
+                for device_uid, transformer_code in cursor.fetchall()
+            ]
         except pymssql.Error as exc:
             raise RTLTemperatureRepositoryError("RTL temperature source is unavailable") from exc
         finally:

@@ -34,6 +34,22 @@ def test_local_rtl_reader_returns_raw_latest_and_bounded_history():
     )
 
 
+@pytest.mark.rtl_db
+def test_local_rtl_reader_returns_factual_fleet_directories():
+    """The local RTL integration contract remains SELECT-only and narrow."""
+    repository = RTLTemperatureRepository()
+
+    registered = repository.get_registered_devices()
+    mappings = repository.get_transformer_mappings()
+
+    assert len(registered) == 339
+    assert len({device.device_uid for device in registered}) == 339
+    assert [device.device_uid for device in registered] == sorted(device.device_uid for device in registered)
+    assert len(mappings) == 185
+    assert len({mapping.device_uid for mapping in mappings}) == 185
+    assert all(mapping.transformer_code for mapping in mappings)
+
+
 def _repository(*, one=None, many=None, execute_error=None):
     cursor = Mock()
     cursor.fetchone.return_value = one
@@ -95,6 +111,35 @@ def test_range_returns_empty_list_when_no_readings_match():
     repository, _, _ = _repository(many=[])
 
     assert repository.get_temperature_range(999999, datetime(2026, 1, 1), datetime(2026, 1, 2)) == []
+
+
+def test_fleet_directories_select_only_required_non_sensitive_columns_in_order():
+    repository, cursor, connection = _repository(
+        many=[(29017,), (29018,)]
+    )
+
+    registered = repository.get_registered_devices()
+
+    assert [device.device_uid for device in registered] == [29017, 29018]
+    sql, parameters = cursor.execute.call_args.args
+    assert "SELECT device_uid" in sql
+    assert "cell_number" not in sql
+    assert "ORDER BY device_uid ASC" in sql
+    assert parameters == ()
+    cursor.close.assert_called_once()
+    connection.close.assert_called_once()
+
+
+def test_transformer_mappings_select_source_facts_in_deterministic_order():
+    repository, cursor, _ = _repository(many=[(29017, "AA12")])
+
+    mappings = repository.get_transformer_mappings()
+
+    assert [(mapping.device_uid, mapping.transformer_code) for mapping in mappings] == [(29017, "AA12")]
+    sql, parameters = cursor.execute.call_args.args
+    assert "SELECT device_uid, trfr" in sql
+    assert "ORDER BY device_uid ASC, trfr ASC, id ASC" in sql
+    assert parameters == ()
 
 
 def test_range_rejects_invalid_time_order_before_opening_connection():

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-25T07:32:10Z
+Date: 2026-09-29T03:17:33Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `ab847f7` "docs: DOC-CLEANUP-1 â€” fix six documentation-drift defects from PROJECT-AUDIT-1"
-- Working tree: 6 entries — see below
+- `main` = `0d2f4fd` "feat(data): establish read-only client RTL database boundary"
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3150 passed, 731 deselected in 36.15s
+- `python -m pytest -m "not db"` → 3158 passed, 2 skipped, 731 deselected in 41.72s
 
 ## Branches
 
@@ -69,9 +69,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 473 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 323 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 473 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 475 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 325 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 475 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -115,11 +115,15 @@ NONE — full detail in `docs/context/ACTIVE_GATE.md`.
 ## Working tree
 
 ```
-M docs/context/ACTIVE_GATE.md
+D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+ M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
+ M docs/database/RTL_READ_ONLY_ACCESS.md
+ M repositories/rtl_temperature_repository.py
+ M tests/test_rtl_temperature_repository.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
-?? docs/client/
+?? docs/audit/rtl-fleet-02/
 ```
 
