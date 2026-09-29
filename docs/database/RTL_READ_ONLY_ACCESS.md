@@ -45,6 +45,10 @@ uses `reading_timestamp DESC, temperature DESC`. Exact duplicates are returned
 individually. Rows equal in all three exposed fields are indistinguishable by
 this narrow contract.
 
+The `temperature DESC` tie-break of the single-UID latest read is a technical
+ordering, not an approved business rule; conflicting same-timestamp readings must
+be addressed before relying on it (see RTL-INTEGRATION-04 adapter document).
+
 All queries are parameterized. There is no arbitrary SQL API and no write,
 migration, schema, or seed path.
 
@@ -103,3 +107,16 @@ device authorization mapping exists. Temperature latest/history calls remain
 on this repository; failure is rendered as unavailable and never falls back to
 synthetic PostgreSQL temperature data. Raw `datetime2` timestamps are shown
 without timezone conversion or timezone claim.
+
+## RTL-INTEGRATION-04 adapter foundation
+
+The repository also offers `get_latest_temperatures(uids)` (set-based, batched at
+500 UIDs; identical latest-timestamp duplicates expose the common value, conflicting
+ones leave `temperature=None` with `has_latest_ambiguity=True` and the source
+values preserved — the application never picks one), `get_registered_device_uids()`,
+`get_telemetry_device_uids(uids=None)` and `get_mapped_device_uids()`.
+`services/rtl_source_facts_service.py` layers factual, provenance-tagged results
+(`DATA`/`PARTIAL`/`NO_DATA`/`UNAVAILABLE`) on top; it is not wired to any UI and
+is not an authorization layer. See
+`docs/audit/rtl-integration-04/RTL_REAL_DATA_ADAPTER.md`. The four unresolved
+business questions above remain unresolved.

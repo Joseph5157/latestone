@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-29T06:46:17Z
+Date: 2026-09-29T09:49:03Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `15d7400` "feat(data): add read-only RTL fleet discovery"
-- Working tree: 21 entries — see below
+- `main` = `e20d2d1` "feat(ui): integrate read-only RTL temperature slice"
+- Working tree: 12 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3164 passed, 2 skipped, 731 deselected in 43.22s
+- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 35.97s
 
 ## Branches
 
@@ -69,9 +69,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 476 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 326 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 476 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 477 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 327 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 477 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -110,31 +110,22 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-RTL-UI-03 — first real RTL temperature vertical slice — full detail in `docs/context/ACTIVE_GATE.md`.
+RTL-INTEGRATION-04 — real data adapter foundation (baseline `e20d2d1`) — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M callbacks/device.py
- M callbacks/routing.py
- M components/freshness_badge.py
- M components/kpi_card.py
  M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
  M docs/database/RTL_READ_ONLY_ACCESS.md
- M pages/device_dashboard.py
- M routes.py
- M tests/test_auth_harden.py
- M tests/test_device_analytics_wiring.py
- M tests/test_freshness_slot.py
- M tests/test_route_scope.py
- M tests/test_routing.py
+ M repositories/rtl_temperature_repository.py
+ M tests/test_rtl_temperature_repository.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
-?? docs/audit/rtl-ui-03/
-?? services/rtl_temperature_ui_service.py
-?? tests/test_rtl_temperature_ui_service.py
+?? docs/audit/rtl-integration-04/
+?? services/rtl_source_facts_service.py
+?? tests/test_rtl_source_facts.py
 ```
 

@@ -123,7 +123,7 @@ def test_fleet_directories_select_only_required_non_sensitive_columns_in_order()
     assert [device.device_uid for device in registered] == [29017, 29018]
     sql, parameters = cursor.execute.call_args.args
     assert "SELECT device_uid" in sql
-    assert "cell_number" not in sql
+    assert sql.split("FROM")[0].split() == ["SELECT", "device_uid"]  # explicit, sensitive column excluded
     assert "ORDER BY device_uid ASC" in sql
     assert parameters == ()
     cursor.close.assert_called_once()

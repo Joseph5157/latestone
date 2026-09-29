@@ -2,8 +2,41 @@
 
 Status: **CLOSED / PASS**
 Date: 2026-09-29
-Gate: RTL-UI-03 — first real RTL temperature vertical slice
-Commit/push permission: **GRANTED and exercised.**
+Gate: RTL-INTEGRATION-04 — real data adapter foundation (baseline `e20d2d1`)
+Commit/push permission: **GRANTED and exercised** (`latestone` `main` only).
+
+## Next implementation gate: RTL-INTEGRATION-04 — CLOSED / PASS
+
+Factual, read-only RTL adapter: set-based latest temperatures, separate source
+UID populations, provenance-tagged device facts and DATA/PARTIAL/NO_DATA/
+UNAVAILABLE outcomes. No UI wiring and no fleet/mapping/status/timezone/quality
+decisions. Detail: `docs/audit/rtl-integration-04/RTL_REAL_DATA_ADAPTER.md`.
+
+Close evidence:
+
+- Independent review completed; duplicate-latest semantics were corrected.
+  Conflicting latest temperatures remain ambiguous (`temperature=None`,
+  `has_latest_ambiguity=True`, source values preserved); identical ties expose
+  their common value. No client data-quality policy was invented.
+- RTL remained `READ_ONLY`; `rtl_app_reader` UPDATE denied; counts unchanged
+  (`master_temperature` 2,456,901; telemetry UIDs 400; `device_list` 339;
+  `trfr_list` 185).
+- CLIENT-CLARIFICATION-02 decisions remain unresolved: canonical fleet,
+  `trfr_list` authority, status/comms rules, source timezone, temperature
+  anomaly/deduplication policy.
+
+**Deferred known limitation:** the RTL-UI-03 legacy single-UID
+`get_latest_temperature()` still orders rows tied at the latest timestamp by
+`temperature DESC`. This is NOT an approved business rule. Current RTL data has
+zero ambiguous latest UIDs, so it is safe to defer today, but it must be
+addressed before the legacy UI path is relied upon when conflicting latest
+readings exist.
+
+Relevant files: `repositories/rtl_temperature_repository.py`,
+`services/rtl_source_facts_service.py`, `tests/test_rtl_source_facts.py`,
+`docs/database/RTL_READ_ONLY_ACCESS.md`.
+
+## RTL-UI-03 — CLOSED / PASS (previous gate; committed and pushed)
 
 ## DOC-CLEANUP-1 — CLOSED / PASS
 
