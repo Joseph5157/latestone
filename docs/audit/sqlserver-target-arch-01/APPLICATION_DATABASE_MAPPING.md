@@ -1,0 +1,28 @@
+# Application-to-client-database mapping
+
+This matrix uses the approved classification vocabulary exactly. **FACT** is catalog or code evidence; **INFERENCE** is a cautious interpretation; **CLIENT DECISION REQUIRED** is not an implementation instruction.
+
+| Capability | Current application path / PostgreSQL state | Client SQL Server evidence | Classification | Safest direction and evidence |
+|---|---|---|---|---|
+| Registered RTL directory | Synthetic hierarchy/device path | `device_list.device_uid`, 339 rows | EXISTING_SQLSERVER_DIRECT | **FACT:** consume the registered UID directory. Telemetry-only UIDs are not registered merely because they occur in telemetry. |
+| Temperature telemetry | `readings`; `rtl_temperature_repository.py` | `master_temperature` (2,456,901 rows) | EXISTING_SQLSERVER_ADAPT | **FACT:** real raw temperature source. Adapt reads to its source shape; timestamps are SAST/UTC+2; preserve conflicting same-timestamp ambiguity and unusual values. |
+| Transformer / organisational hierarchy | Synthetic `plants` / `transformers` / `devices` | `trfr_list`, `tug_report`, `vw_installed_rtls`, `vw_transformer_org_hierarchy` | REVIEW_REQUIRED | **FACT:** relevant mapping/hierarchy structures exist. **CLIENT DECISION REQUIRED:** identify authority, business keys, currentness and intended operational use. |
+| Administrator RTL-to-transformer assignment | Synthetic hierarchy has an assignment effect | Same mapping/hierarchy structures | REVIEW_REQUIRED | The managed-assignment capability is confirmed, but no evidence establishes where its operational changes belong. A separate app-owned table is only a possible later design, never a confirmed requirement. |
+| Device / communications status | Derived application freshness | `device_status`, `comms_alarm` | EXISTING_SQLSERVER_ADAPT | **FACT:** source status/comms facts exist. **CLIENT DECISION REQUIRED:** field semantics, offline hours and Needs Attention rules. |
+| Source alarms and events | `device_events` projection | alarm/powerdown/sensor/startup logs and `vw_rtl_alarms_30days` | EXISTING_SQLSERVER_ADAPT | Consume/normalise source facts only. They do not show a complete application response lifecycle. |
+| Alarm acknowledgement / response history | `device_events` acknowledgement state | No observed acknowledgement/actor/time fields in source logs | SQLSERVER_GAP | A likely application-owned capability, subject to approval. Existing PostgreSQL records are not automatically production data; their migration is REVIEW_REQUIRED. |
+| Users, roles and authentication | `users` | `persons`, `roles` | REVIEW_REQUIRED | **FACT:** identity/role structures already exist. **CLIENT DECISION REQUIRED:** permitted use, auth mechanism, hash compatibility, role semantics, lifecycle and ownership. No hash/contact values were inspected or copied. |
+| Technician assignment | `user_device_assignments` | `technician_assignments`; legacy `techmician_device_list` | EXISTING_SQLSERVER_ADAPT | Adapt the enforced `technician_assignments` structure only after identity, UID and workflow confirmation. The legacy table is reference evidence, not authority. |
+| Commands / programming / activation | `rtl_programming_requests`, `rtl_commands`, `rtl_active_state` | `settings_upload_log` source history | SQLSERVER_GAP | A command lifecycle representation is needed **only if** production will issue commands. Source upload history is not request-to-result state. Existing PostgreSQL records need separate migration review. |
+| Notification / forwarding preferences | `message_forwarding`, `forwarding_auto_disable_override` | `persons`, `contact_list`, `message_forwarding_list` | REVIEW_REQUIRED | Existing contact/forwarding structures prevent declaring a gap. Client must decide ownership, consent, access, retention and forwarding behaviour. |
+| Application audit trail | `audit_log` | No complete observed application actor/change history | SQLSERVER_GAP | Strong candidate for application-owned SQL Server persistence, subject to approval; the value of existing PostgreSQL records is REVIEW_REQUIRED. |
+| Application configuration | `temperature_threshold_config`, `freshness_threshold_config` | No confirmed equivalent application configuration | SQLSERVER_GAP | Strong candidate for approved app-owned persistence. Exact offline threshold remains unresolved and is not invented here. |
+| Eight dashboard metric concepts | `readings` contains temperature plus seven synthetic metrics | Only `master_temperature` confirms continuous real telemetry | REVIEW_REQUIRED | **CLIENT DECISION REQUIRED:** identify another authoritative production source for the seven non-temperature metrics, or retire them from production. No SQL Server schema change is proposed to preserve synthetic metrics. |
+
+## Capability versus record migration
+
+`SQLSERVER_GAP` identifies a capability that may need a SQL Server representation. It does **not** mean that current PostgreSQL rows are approved for copying to the client database. The retirement matrix records both questions separately; where current rows are development/test state or their production value is unknown, **EXISTING DATA MIGRATION: REVIEW REQUIRED**.
+
+## SQL Server migration dependencies actually found
+
+**FACT:** the current application has PostgreSQL-specific `JSONB` (`007_audit_log.py`), timezone-aware timestamp definitions, `now()`, `RETURNING`, `ILIKE`, `LIMIT`, `FOR UPDATE`, PostgreSQL boolean literals, `ON CONFLICT`, schema-qualified SQL, PostgreSQL SQLAlchemy/`psycopg2` configuration, Alembic migrations, Docker PostgreSQL, and isolated-schema DB tests. A later implementation gate must adapt only these found dependencies; this audit changes none of them.

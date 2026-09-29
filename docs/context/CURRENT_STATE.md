@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-29T13:30:34Z
+Date: 2026-09-29T14:12:42Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -10,12 +10,12 @@ see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
 ## Baseline
 
-- `main` = `dd3ea22` "feat(data): add RTL real-data adapter foundation"
-- Working tree: 11 entries — see below
+- `main` = `3fcb94f` "docs(architecture): plan SQL Server target migration audit"
+- Working tree: 7 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 33.28s
+- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 42.42s
 
 ## Branches
 
@@ -69,9 +69,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 478 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 328 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 478 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 479 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 329 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 479 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -111,21 +111,17 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-SQLSERVER-TARGET-ARCH-01 — Complete Application-to-Client-Database Mapping — full detail in `docs/context/ACTIVE_GATE.md`.
+CLIENT-DB-CLARIFICATION-01 — Client SQL Server Clarification Pack — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M AGENTS.md
- D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
  M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M docs/context/DECISION_INDEX.md
- M docs/context/REPOSITORY_AND_DEPLOYMENT_MAP.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
-?? docs/decisions/ADR-029-sql-server-only-target-architecture.md
-?? docs/plans/
+?? docs/audit/sqlserver-target-arch-01/
 ```
 

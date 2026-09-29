@@ -2,11 +2,49 @@
 
 Status: **PLANNED — NOT YET EXECUTED**
 Date: 2026-09-29
-Gate: SQLSERVER-TARGET-ARCH-01 — Complete Application-to-Client-Database Mapping
-Baseline: `dd3ea22`
-Commit/push permission: **GRANTED for the planning checkpoint only** (`latestone` `main` only; no `origin`, no `client`). The audit gate needs its own grant.
+Gate: CLIENT-DB-CLARIFICATION-01 — Client SQL Server Clarification Pack
+Baseline: `3fcb94f`
+Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`).
 
-## Next implementation gate: SQLSERVER-TARGET-ARCH-01 — PLANNED, NOT EXECUTED
+## SQLSERVER-TARGET-ARCH-01 — CLOSED / PASS
+
+The read-only mapping audit and review corrections are complete. The existing
+client SQL Server provides substantially more usable application structures
+than initially assumed: the registered RTL directory, real temperature
+telemetry, status/comms facts, source logs, technician-assignment structure,
+identity/role candidates, and transformer/hierarchy candidates all require
+evidence-led adaptation or client clarification before new structures are
+considered.
+
+No SQL Server modification is authorised. The likely later application-owned
+needs are application audit, alarm acknowledgement/response, application
+configuration, and conditional command lifecycle/action state. Existing
+PostgreSQL rows are not presumed to be production records: capability/schema
+migration and record migration remain separate decisions.
+
+Closure safety recheck: RTL database `READ_ONLY`; `rtl_app_reader` UPDATE
+permission denied (`0`); counts unchanged — `master_temperature` 2,456,901,
+telemetry UIDs 400, `device_list` 339 and `trfr_list` 185. Source timestamps
+are SAST/UTC+2; unusual values remain raw and conflicting same-timestamp
+temperature values remain ambiguous.
+
+Audit deliverables: `docs/audit/sqlserver-target-arch-01/`.
+
+## Next implementation gate: CLIENT-DB-CLARIFICATION-01 — Client SQL Server Clarification Pack
+
+Status: **PLANNED — NOT YET EXECUTED**
+
+Turn the audit's unresolved authority and business questions into a concise
+client-facing clarification document. It must not modify SQL Server, design a
+final schema, implement repositories, remove PostgreSQL or migrate data.
+Priority questions: transformer mapping/hierarchy authority; status/comms and
+offline semantics; users/authentication; technician-assignment use;
+notification ownership/consent; other telemetry sources; and duplicate
+temperature rule. `device_list` as the 339-RTL registered directory is already
+resolved; whether it equals the actively monitored fleet is a separate
+operational question.
+
+## Historical planning record — SQLSERVER-TARGET-ARCH-01
 
 The client decided the final production database is SQL Server only
 (ADR-029). PostgreSQL is transitional. The client RTL database stays
