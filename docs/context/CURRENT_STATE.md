@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T07:38:36Z
+Date: 2026-09-30T08:36:46Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `5eb3644` "docs(context): finalize application realignment plan"
-- Working tree: 14 entries — see below
+- `main` = `ea94bd5` "feat(ui): align client RTL terminology"
+- Working tree: 22 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3259 passed, 3 skipped, 731 deselected in 34.16s
+- `python -m pytest -m "not db"` → 3445 passed, 3 skipped, 731 deselected in 35.91s
 
 ## Branches
 
@@ -71,13 +71,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 485 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 335 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 485 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 486 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 336 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 486 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-29 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+30 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -110,27 +110,36 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-027-device-page-alarm-history.md | Approved | `6bbf26c` |
 | ADR-028-ring-gauges-for-part-of-whole-counts.md | Approved | `7973853` |
 | ADR-029-sql-server-only-target-architecture.md | Approved | not yet |
+| ADR-030-rtl-history-windows-anchor-on-the-last-reading.md | Approved | not yet |
 
 ## Active gate
 
-CLIENT-TERMINOLOGY-NAV-01 — Client RTL terminology and navigation — full detail in `docs/context/ACTIVE_GATE.md`.
+RTL-UID-DETAIL-01 — Canonical client RTL detail by UID — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M components/app_sidebar.py
- M components/status_panels.py
+ M app.py
+ M assets/app.css
+ M callbacks/routing.py
+ M components/rtl_fleet.py
  M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
- M pages/plants_overview.py
- M tests/test_app_sidebar.py
- M tests/test_fleet_naming.py
- M tests/test_route_enforcement.py
+ M routes.py
+ M services/authorization.py
+ M tests/test_authorization.py
+ M tests/test_equipment_selector.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? docs/audit/client-terminology-nav-01/
+?? callbacks/rtl_detail.py
+?? components/rtl_detail.py
 ?? docs/audit/project-audit-1/results/
-?? tests/test_client_terminology.py
+?? docs/audit/rtl-uid-detail-01/
+?? docs/decisions/ADR-030-rtl-history-windows-anchor-on-the-last-reading.md
+?? pages/rtl_detail.py
+?? services/rtl_detail_service.py
+?? tests/test_rtl_detail_page.py
+?? tests/test_rtl_detail_route.py
+?? tests/test_rtl_detail_service.py
 ```
 

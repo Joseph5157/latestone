@@ -51,6 +51,7 @@ ROUTE_PATHS = {
     "plant": "/plants/plant-01",
     "transformer": "/plants/plant-01/plant-01-t1",
     "device": "/devices/plant-01-t1-d1",
+    "rtl_detail": "/rtls/29006",
     "notifications": "/notifications",
     "reports": "/reports",
     "admin_devices": "/admin/devices",
@@ -76,6 +77,13 @@ OPERATIONAL_ROUTES = (
 #: administration Administrator already has via admin_devices) and NOT in
 #: OPERATIONAL_ROUTES (Administrator does not share this one).
 TECHNICIAN_ONLY_ROUTES = ("technician_devices",)
+#: RTL-UID-DETAIL-01: raw client RTL facts. A shape no earlier route had —
+#: Administrator AND General User, but NOT Technician. It is not in
+#: GENERAL_READ_ROUTES (those are reachable by every role) and not in
+#: ADMIN_ONLY. The Technician exclusion is not a privilege judgement: there is
+#: no approved client-RTL-UID-to-assignment map, so there is no way to scope
+#: the page to them truthfully.
+CLIENT_RTL_ROUTES = ("rtl_detail",)
 
 
 class TestRoleConstants:
@@ -97,6 +105,15 @@ class TestTheMatrix:
         assert may_access_route(TECHNICIAN, route) is True
         assert may_access_route(GENERAL, route) is False
 
+    @pytest.mark.parametrize("route", CLIENT_RTL_ROUTES)
+    def test_only_unrestricted_scopes_reach_client_rtl_facts(self, route):
+        """RTL-UID-DETAIL-01. The Fleet page shows the client RTL directory
+        to unrestricted scopes only; the detail route must refuse the same
+        role, or typing a UID becomes the way around that restriction."""
+        assert may_access_route(ADMINISTRATOR, route) is True
+        assert may_access_route(GENERAL, route) is True
+        assert may_access_route(TECHNICIAN, route) is False
+
     @pytest.mark.parametrize("route", ADMIN_ONLY)
     def test_only_the_administrator_reaches_admin_management(self, route):
         assert may_access_route(ADMINISTRATOR, route) is True
@@ -116,8 +133,11 @@ class TestTheMatrix:
         """The General User set is exactly the §5.9 read-only route set."""
         technician = {r for r in ROUTE_POLICY if may_access_route(TECHNICIAN, r)}
         general = {r for r in ROUTE_POLICY if may_access_route(GENERAL, r)}
-        assert general == set(GENERAL_READ_ROUTES)
+        assert general == set(GENERAL_READ_ROUTES) | set(CLIENT_RTL_ROUTES)
         assert technician - general == set(OPERATIONAL_ROUTES) | set(TECHNICIAN_ONLY_ROUTES)
+        # The other direction, which the line above cannot see: the General
+        # User reaches the client RTL routes and the Technician does not.
+        assert general - technician == set(CLIENT_RTL_ROUTES)
 
     def test_administrator_reaches_every_policied_route_except_technicians_own(self):
         """The one deliberate exception: technician_devices names no

@@ -10,7 +10,7 @@ import logging
 from dash import Input, Output, html
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center
+from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail
 from pages.placeholder import placeholder_layout
 from routes import (
     Route,
@@ -30,6 +30,7 @@ from services.authorization import (
     may_access_route,
 )
 from services.device_scope import DeviceScope, current_device_scope
+from services.rtl_fleet_service import may_view_real_fleet
 
 #: What the router should do with a request, decided before anything renders.
 DECISION_LOGIN = "login"
@@ -187,6 +188,11 @@ def register(app) -> None:
                 plant_id=route.plant_id,
                 transformer_id=route.transformer_id,
                 device_id=route.device_id,
+                # Every identity field the parser set must be carried through
+                # this rebuild. Omitting one silently blanks it — `rtl_uid`
+                # was dropped here once and the detail page rendered
+                # "RTL UID None" with no error anywhere.
+                rtl_uid=route.rtl_uid,
             )
 
             # Authorization runs here, BEFORE any hierarchy lookup below. A
@@ -325,6 +331,29 @@ def register(app) -> None:
                     ),
                     ctx,
                 )
+
+            if route.name == "rtl_detail":
+                # RTL-UID-DETAIL-01. Two independent gates, both already
+                # passed before a single client SQL Server row is read:
+                #
+                # 1. `route_decision` above, against ROUTE_POLICY — which
+                #    excludes the Technician, so typing a UID cannot be used
+                #    to get around the Fleet page's restriction.
+                # 2. The same device-scope predicate the Fleet page itself
+                #    uses, below. It is not redundant: the policy answers "may
+                #    this ROLE open the route", the scope answers "may THIS
+                #    SESSION see raw client RTL facts". A future scope change
+                #    must not silently widen this page.
+                #
+                # Registration is checked after both, inside the service, and
+                # is what decides between a real RTL and not-found.
+                if not may_view_real_fleet(scope):
+                    logger.warning(
+                        "RTL detail refused: session scope may not view client RTL facts"
+                    )
+                    return forbidden_panel(), {"route": "forbidden"}
+                ctx = {"route": "rtl_detail", "rtl_uid": route.rtl_uid}
+                return rtl_detail.layout(route.rtl_uid), ctx
 
             if route.name == "admin_devices":
                 ctx = {"route": "admin_devices"}

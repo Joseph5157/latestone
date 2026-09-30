@@ -2,11 +2,127 @@
 
 Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
-Gate: CLIENT-TERMINOLOGY-NAV-01 — Client RTL terminology and navigation
-Baseline: `5eb3644`
+Gate: RTL-UID-DETAIL-01 — Canonical client RTL detail by UID
+Baseline: `ea94bd5`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: CLIENT-TERMINOLOGY-NAV-01 — Client RTL terminology and navigation
+## Next implementation gate: RTL-UID-DETAIL-01 — Canonical client RTL detail by UID
+
+Status: **CLOSED / PASS**
+
+Wave 2 of `docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md` §10. Establishes the
+canonical real-client RTL detail experience at `/rtls/<uid>`, keyed on the
+client RTL UID from `dbo.device_list`. **No synthetic PostgreSQL `device_id` is
+used or inferred for this route**, no SQL Server write, no PostgreSQL change,
+no legacy-code deletion.
+
+### What was added
+
+| Layer | File | Role |
+|---|---|---|
+| Route | `routes.py` | `/rtls/<uid>` parsing, `Route.rtl_uid`, `rtl_detail_href` |
+| Policy | `services/authorization.py` | `ROUTE_POLICY["rtl_detail"]` = Administrator + General User |
+| Service | `services/rtl_detail_service.py` (new) | registration gate, facts, history windows |
+| Page | `pages/rtl_detail.py` (new) | layout only, no queries |
+| Render | `components/rtl_detail.py` (new) | summary, network context, history |
+| Callback | `callbacks/rtl_detail.py` (new) | one snapshot per load / window change |
+| Router | `callbacks/routing.py` | route branch + device-scope gate |
+| Fleet link | `components/rtl_fleet.py` | UID cell links to `/rtls/<uid>` |
+
+No repository change: the five source reads this page needs already existed.
+The page shows RTL UID, latest temperature, last reading, current transformer
+mapping, Operating Unit / Zone / Sector / CNC / Feeder, and a temperature
+history chart over 24 h / 7 d / 30 d.
+
+### Decisions
+
+**ADR-030** (new): a history window **ends at that RTL's own latest source
+reading**, not at wall-clock now. Client telemetry stops at 17 Sep 2026 and many
+registered RTLs last reported between 2016 and 2022, so a window measured from
+today is empty for effectively the whole fleet. Anchoring to the last reading
+keeps both bounds as naive SAST source values — no timezone conversion at all —
+and the exact range is stated on screen. It sets no freshness, communication or
+lifecycle rule.
+
+Registration is the gate: a numeric UID is not enough. 81 telemetry-only UIDs
+carry real readings and have no `device_list` row; the registration check runs
+first, so an unregistered UID never causes a temperature, mapping or hierarchy
+read.
+
+### Relevant files
+
+- `routes.py`
+- `services/authorization.py`
+- `services/rtl_detail_service.py`
+- `pages/rtl_detail.py`
+- `components/rtl_detail.py`
+- `components/rtl_fleet.py`
+- `callbacks/rtl_detail.py`
+- `callbacks/routing.py`
+- `tests/test_rtl_detail_route.py`, `tests/test_rtl_detail_service.py`,
+  `tests/test_rtl_detail_page.py` (new)
+- `docs/decisions/ADR-030-rtl-history-windows-anchor-on-the-last-reading.md`
+
+### Non-goals
+
+Canonical `/rtls` list route and any `/plants` redirect, Network hierarchy
+navigation, Online/Offline or communication-state engine, alarm workflow,
+technician UID assignment mapping, lifecycle, programming, notifications, the
+seven electrical metrics, PostgreSQL retirement, dead-code cleanup, SQL Server
+writes.
+
+### Close evidence
+
+Acceptance record and screenshots: `docs/audit/rtl-uid-detail-01/`.
+
+Live at 1366×900 against the restored client SQL Server. RTL 29042 renders
+29.0 °C at 18 Sep 2022 20:20 SAST, transformer EMV35, and the real hierarchy
+KwaZulu-Natal Operating Unit · Pietermaritzburg Zone · Pietermaritzburg Sector ·
+Howick CNC · Edendale NBEC 22kV Cable Overhead Line; its 30-day window returns
+27 readings. RTL 29006 (unmapped, 2017 telemetry) returns 48 readings in its own
+24-hour window — the clearest evidence for ADR-030, since a window from today
+would return zero. RTL 29504 states every missing value in words.
+
+**UID 29002 — real telemetry, no `device_list` row — is refused** with no
+temperature, no chart, no transformer and the history control hidden. That is
+the §13 case, proven against live data rather than a fixture.
+
+Authorization: Administrator and General User see the detail; a Technician
+typing `/rtls/29042` gets the forbidden panel with no UID, temperature,
+transformer or hierarchy anywhere in the DOM. Two gates run before any read —
+`ROUTE_POLICY` (role) and `may_view_real_fleet(scope)` (session).
+
+Forbidden-word scan of every rendered detail page found no Plant terminology, no
+Online/Offline/Healthy, none of the seven metrics, and no raw null. Console 0
+errors on a clean run.
+
+Non-DB suite: **3445 passed, 3 skipped, 0 failed, 731 deselected** — the 3259
+baseline plus 186 new assertions.
+
+SQL Server verified `READ_ONLY` at closure; `rtl_app_reader`
+UPDATE/INSERT/DELETE/ALTER all `0`; counts unchanged — `master_temperature`
+2,456,901, telemetry UIDs 400, `device_list` 339, `trfr_list` 185. No
+PostgreSQL, Alembic or seed change.
+
+### Defect found by browser acceptance
+
+The first run rendered `RTL UID None`. `parse_pathname` was correct and unit
+tested; `callbacks/routing.py` rebuilds the parsed `Route` field by field and
+`rtl_uid` was not in that list, so it was silently blanked with no exception.
+Fixed, and pinned by a test that compares the router's `Route(...)` kwargs
+against the dataclass fields — so any future `Route` field fails until the
+rebuild is updated.
+
+### Remaining debt
+
+`/devices/<app-device-id>` remains legacy and synthetic and was deliberately NOT
+redirected here: there is no approved synthetic-id-to-client-UID mapping, and
+manufacturing one is what the realignment plan forbids. The canonical `/rtls`
+list route and the `/plants` compatibility redirect remain a later gate; until
+then `/plants` is the registered directory and every row links to `/rtls/<uid>`.
+The CLIENT-TERMINOLOGY-NAV-01 terminology debt list is unchanged.
+
+## CLIENT-TERMINOLOGY-NAV-01 — CLOSED / PASS (previous gate, kept for record)
 
 Status: **CLOSED / PASS**
 

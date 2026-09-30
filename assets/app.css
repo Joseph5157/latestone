@@ -7694,3 +7694,64 @@ button.attention-donut__label:disabled::before { background: var(--color-border)
 .device-alarms__kind { font-weight: 600; }
 .device-alarms__ack { color: var(--color-muted); }
 .device-alarms__ack--open { color: var(--color-text); font-weight: 600; }
+
+/* --------------------------------------------------------------------------
+   RTL-UID-DETAIL-01: the canonical client RTL detail page (/rtls/<uid>).
+   Reuses the existing kpi-row and chip controls; only the UID line, the
+   network-context list and the history framing are new. No status colour is
+   defined here on purpose — this source proves no health or communication
+   state, so there is nothing for a tone to mean.
+   -------------------------------------------------------------------------- */
+.rtl-detail-uid {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.rtl-detail-summary { margin-bottom: var(--sp-4); }
+.rtl-detail-section__title {
+  margin: var(--sp-5) 0 var(--sp-3);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.rtl-detail-context {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+}
+.rtl-detail-context .rtl-detail-section__title { margin-top: 0; }
+.rtl-detail-context__item {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: baseline;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.rtl-detail-context__item:last-child { border-bottom: none; }
+.rtl-detail-context__label { color: var(--color-muted); font-size: var(--fs-meta); }
+.rtl-detail-context__value { color: var(--color-text); }
+.rtl-detail-empty { margin: 0; color: var(--color-muted); }
+.rtl-detail-note {
+  margin: var(--sp-2) 0 0;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+}
+.rtl-detail-history-section { margin-top: var(--sp-5); }
+.rtl-detail-history { margin-top: var(--sp-3); }
+.rtl-detail-history__range {
+  margin: 0;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.rtl-detail-history__note {
+  margin: var(--sp-1) 0 var(--sp-2);
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+}
+.fleet-overview-link { color: var(--color-accent); text-decoration: none; font-weight: 600; }
+.fleet-overview-link:hover, .fleet-overview-link:focus-visible { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .rtl-detail-context__item { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

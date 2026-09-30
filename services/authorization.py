@@ -54,6 +54,15 @@ _ADMIN_ONLY = frozenset({ADMINISTRATOR})
 _OPERATIONAL_ROLES = frozenset({ADMINISTRATOR, TECHNICIAN})
 _TECHNICIAN_ONLY = frozenset({TECHNICIAN})
 
+#: RTL-UID-DETAIL-01. Roles whose device scope is unrestricted, and therefore
+#: the roles allowed to read raw client RTL facts. Mirrors
+#: `services.device_scope._UNRESTRICTED_ROLES` by intent, not by import: this
+#: is the ROUTE gate, evaluated before a scope is even resolved, so a refused
+#: request performs no client SQL Server read at all. The Fleet page's own
+#: `may_view_real_fleet(scope)` check remains in force behind it —
+#: `tests/test_rtl_detail_route.py` pins the two to the same answer.
+_UNRESTRICTED_DEVICE_SCOPE_ROLES = frozenset({ADMINISTRATOR, GENERAL})
+
 #: `routes.Route.name` -> the roles allowed to open it.
 #:
 #: Functional Specification §5.9 limits General User to log-on, transformer
@@ -69,6 +78,13 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "plant": _EVERY_ROLE,
     "transformer": _EVERY_ROLE,
     "device": _EVERY_ROLE,
+    # The canonical real-client RTL detail page (RTL-UID-DETAIL-01). NOT
+    # `_EVERY_ROLE`, unlike the synthetic monitoring routes above: this one
+    # renders raw client RTL UIDs and their telemetry, and there is no
+    # approved map from a client UID to a technician's assignments. Granting
+    # it to a Technician here would make the URL the way around the Fleet
+    # page's restriction, which is exactly what this route must not be.
+    "rtl_detail": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
     "notifications": _OPERATIONAL_ROLES,
     "reports": _EVERY_ROLE,
     "command_center": _OPERATIONAL_ROLES,

@@ -10,9 +10,10 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from dash import html
+from dash import dcc, html
 
 from components.kpi_card import kpi_card
+from routes import rtl_detail_href
 from services.rtl_fleet_service import (
     FleetSummary,
     HierarchyState,
@@ -109,7 +110,17 @@ def _row(row: RTLFleetRow) -> html.Tr:
         ", ".join(row.transformer_codes) if row.has_transformer_mapping else NO_MAPPING
     )
     return html.Tr([
-        html.Td(str(row.device_uid), className="fleet-overview-num", **{"data-label": "RTL UID"}),
+        # RTL-UID-DETAIL-01: the UID is the link, because the UID is the
+        # identity. It goes to the canonical `/rtls/<uid>` route built by the
+        # shared helper — never through `/devices/...`, which addresses a
+        # synthetic application device with no approved mapping to this RTL.
+        # Every registered row links, whatever its telemetry or mapping state:
+        # registration is what makes the detail page exist.
+        html.Td(
+            dcc.Link(str(row.device_uid), href=rtl_detail_href(row.device_uid),
+                     className="fleet-overview-link"),
+            className="fleet-overview-num", **{"data-label": "RTL UID"},
+        ),
         html.Td(_temperature_cell(row), **{"data-label": "Latest temperature"}),
         html.Td(source_time(row.last_reported), **{"data-label": "Last reading"}),
         html.Td(

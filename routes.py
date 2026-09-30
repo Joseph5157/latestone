@@ -60,16 +60,60 @@ ASSIGN_PARAM = "assign"
 COMMAND_CENTER_PATH = "/command-center"
 FLEET_OVERVIEW_PATH = "/plants"
 
+#: RTL-UID-DETAIL-01. The canonical real-client RTL detail route. Its identity
+#: is the numeric client RTL UID from `dbo.device_list` — nothing synthetic.
+#: There is deliberately no `/rtls` LIST route yet: the registered directory
+#: still answers at FLEET_OVERVIEW_PATH, and inventing a second list path
+#: before one is built would leave a dead link in the shell.
+RTL_DETAIL_PATH_PREFIX = "/rtls"
+
+#: `device_uid` is a SQL Server `int`. A value outside this range cannot name
+#: a row in any source table, so it is rejected during parsing rather than
+#: becoming a query that is guaranteed to find nothing.
+_RTL_UID_MIN, _RTL_UID_MAX = 1, 2_147_483_647
+
+
+def _as_rtl_uid(raw: str | None) -> int | None:
+    """A strictly ASCII-decimal, in-range client RTL UID, or None.
+
+    `str.isdigit()` is deliberately not used: it accepts Arabic-Indic digits
+    and superscripts, several of which `int()` then happily converts, so a
+    path segment that does not look like a UID to a human would parse as one.
+    """
+    if not raw or not raw.isascii() or not raw.isdecimal():
+        return None
+    value = int(raw)
+    return value if _RTL_UID_MIN <= value <= _RTL_UID_MAX else None
+
+
+def rtl_detail_href(device_uid: int) -> str:
+    """The canonical detail URL for one registered client RTL UID.
+
+    Refuses anything that is not a source UID — notably a `str`, which is the
+    shape a synthetic application `device_id` has. A link into this route is
+    always built from a value the client source produced.
+    """
+    if isinstance(device_uid, bool) or not isinstance(device_uid, int):
+        raise TypeError("an RTL detail link is built from an integer client RTL UID")
+    if not _RTL_UID_MIN <= device_uid <= _RTL_UID_MAX:
+        raise ValueError("RTL UID is outside the client source integer range")
+    return f"{RTL_DETAIL_PATH_PREFIX}/{device_uid}"
+
 
 @dataclass(frozen=True)
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
-               # "admin_devices" | "technician_devices" | "admin_assignments" |
-               # "admin_users" | "reports" | "notifications" |
-               # "command_center" | "unknown"
+               # "rtl_detail" | "admin_devices" | "technician_devices" |
+               # "admin_assignments" | "admin_users" | "reports" |
+               # "notifications" | "command_center" | "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
     device_id: str | None = None
+    #: Set only by the `rtl_detail` route. Deliberately a separate field from
+    #: `device_id`: a client RTL UID and a synthetic application device id are
+    #: different identities with no approved mapping between them, and sharing
+    #: one field is how that mapping would get invented by accident.
+    rtl_uid: int | None = None
 
 
 def parse_pathname(pathname: str | None) -> Route:
@@ -100,6 +144,15 @@ def parse_pathname(pathname: str | None) -> Route:
             plant_id=parts[1],
             transformer_id=parts[2],
         )
+
+    # RTL-UID-DETAIL-01. A segment that is not a well-formed client RTL UID
+    # falls through to `unknown` rather than becoming a refused RTL: a typo
+    # must keep rendering not-found, not imply something exists behind it.
+    if len(parts) == 2 and parts[0] == "rtls":
+        uid = _as_rtl_uid(parts[1])
+        if uid is not None:
+            return Route(name="rtl_detail", rtl_uid=uid)
+        return Route(name="unknown")
 
     if len(parts) == 2 and parts[0] == "devices":
         return Route(name="device", device_id=parts[1])
