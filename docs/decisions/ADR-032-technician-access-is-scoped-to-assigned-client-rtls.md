@@ -7,7 +7,7 @@ Evidence: `docs/audit/technician-assignment-forensics-01/TECHNICIAN_ASSIGNMENT_F
 `docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md` CDB-05;
 `services/rtl_scope.py`; `services/rtl_assignment_service.py`;
 `alembic/versions/016_rtl_technician_assignments.py`
-Implemented-by: not yet
+Implemented-by: `ec3be92` (`feat(technicians): scope access to assigned RTLs`; full sha ec3be9243acc54975816f79f3fcadb73018455ef — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-031 did)
 
 ## Context
 

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T13:01:55Z
+Date: 2026-09-30T13:06:12Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `274020e` "docs(audit): reconstruct technician RTL assignments"
-- Working tree: 63 entries — see below
+- `main` = `ec3be92` "feat(technicians): scope access to assigned RTLs"
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3745 passed, 3 skipped, 772 deselected in 37.06s
+- `python -m pytest -m "not db"` → 3745 passed, 3 skipped, 772 deselected in 38.17s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 495 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 345 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 495 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 496 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 346 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 496 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -112,7 +112,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-029-sql-server-only-target-architecture.md | Approved | not yet |
 | ADR-030-rtl-history-windows-anchor-on-the-last-reading.md | Approved | `bc0db73` (`feat(rtl): add UID-based real RTL detail`; full sha bc0db73f98c3ac67362ba214dbd06a7eb0ad890f — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014, ADR-015 and ADR-016 did) |
 | ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md | Approved | `428e092` (`feat(rtl): add current network context`; full sha 428e092ac65b9b2ae239c819826c55a428293491 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-030 did) |
-| ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md | Approved | not yet |
+| ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md | Approved | `ec3be92` (`feat(technicians): scope access to assigned RTLs`; full sha ec3be9243acc54975816f79f3fcadb73018455ef — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-031 did) |
 
 ## Active gate
 
@@ -122,67 +122,9 @@ TECHNICIAN-REAL-RTL-ACCESS-01 — Scope Technician access to assigned client RTL
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M README.md
- M app.py
- M callbacks/fleet_overview.py
- M callbacks/historical_events.py
- M callbacks/routing.py
- M callbacks/rtl_dashboard.py
- M callbacks/rtl_detail.py
- M callbacks/rtl_network.py
- M components/app_sidebar.py
- M components/rtl_dashboard.py
- M components/rtl_fleet.py
- M components/rtl_network.py
- M config/audit.py
- M docs/client/CLIENT_DB_CLARIFICATION_01.md
- M docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md
- M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
- M docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md
- M pages/plants_overview.py
- M pages/rtl_dashboard.py
- M repositories/plant_monitoring_repository.py
- M repositories/rtl_events_repository.py
- M routes.py
- M services/authorization.py
- M services/rtl_dashboard_service.py
- M services/rtl_detail_service.py
- M services/rtl_events_service.py
- M services/rtl_fleet_service.py
- M services/rtl_network_service.py
- M tests/test_app_sidebar.py
- M tests/test_authorization.py
- M tests/test_client_terminology.py
- M tests/test_equipment_selector.py
- M tests/test_factual_dashboard.py
- M tests/test_fleet_overview_page.py
- M tests/test_historical_events.py
- M tests/test_migration_foundation.py
- M tests/test_migration_users.py
- M tests/test_route_enforcement.py
- M tests/test_rtl_detail_page.py
- M tests/test_rtl_detail_route.py
- M tests/test_rtl_fleet.py
- M tests/test_rtl_list_route.py
- M tests/test_rtl_network.py
- M tests/test_rtl_network_use.py
+ M docs/decisions/ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? alembic/versions/016_rtl_technician_assignments.py
-?? callbacks/rtl_assignments.py
-?? components/rtl_assignments.py
 ?? docs/audit/project-audit-1/results/
-?? docs/audit/technician-real-rtl-access-01/
-?? docs/decisions/ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md
-?? pages/rtl_assignments.py
-?? repositories/rtl_assignment_source_repository.py
-?? scripts/bootstrap_rtl_assignments.py
-?? services/rtl_assignment_bootstrap.py
-?? services/rtl_assignment_service.py
-?? services/rtl_scope.py
-?? tests/test_rtl_assignments_db.py
-?? tests/test_rtl_assignments_ui.py
-?? tests/test_rtl_scope.py
 ```
 
