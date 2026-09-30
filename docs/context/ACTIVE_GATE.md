@@ -1,16 +1,21 @@
 # Active Gate
 
-Status: **PLANNING / AUDIT — CLIENT-APP-REALIGNMENT-PLAN-01**
+Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
 Gate: CLIENT-APP-REALIGNMENT-PLAN-01 — Client application realignment
 Baseline: `ce5deac`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-Planning only: create and review `docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md`.
-No application code, tests, migrations, SQL Server, PostgreSQL, route rename,
-or legacy-code deletion is authorised. Do not activate an implementation gate
-until this plan is reviewed. The nominated future gate is
-`CLIENT-TERMINOLOGY-NAV-01`; it is not active.
+## Next implementation gate: CLIENT-APP-REALIGNMENT-PLAN-01 — Client application realignment
+
+Status: **CLOSED / PASS**
+
+Planning/audit only. The authoritative plan is
+`docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md`. No application code, tests,
+migrations, SQL Server, PostgreSQL, route rename, or legacy-code deletion was
+authorised or changed. The nominated future gate is
+`CLIENT-TERMINOLOGY-NAV-01`; it is **not active** and must not begin until the
+plan is reviewed and a separate gate is opened.
 
 ## SQLSERVER-TARGET-ARCH-01 — CLOSED / PASS
 

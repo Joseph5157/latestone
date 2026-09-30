@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T07:00:04Z
+Date: 2026-09-30T07:12:51Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `ce5deac` "docs(fleet): close real RTL fleet acceptance"
-- Working tree: 4 entries — see below
+- `main` = `d61e4f8` "docs(plan): define client application realignment"
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3221 passed, 3 skipped, 731 deselected in 44.05s
+- `python -m pytest -m "not db"` → 3221 passed, 3 skipped, 731 deselected in 44.18s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 483 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 333 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 483 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 484 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 334 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 484 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -113,12 +113,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview — full detail in `docs/context/ACTIVE_GATE.md`.
+CLIENT-APP-REALIGNMENT-PLAN-01 — Client application realignment — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+ M docs/context/ACTIVE_GATE.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
