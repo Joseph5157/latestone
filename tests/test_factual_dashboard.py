@@ -18,7 +18,7 @@ from repositories.rtl_temperature_repository import RTLTransformerMapping as M
 from services import rtl_dashboard_service as svc
 from services import rtl_fleet_service as fleet
 from services import rtl_network_service as net
-from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.rtl_scope import DENIED as EMPTY, UNRESTRICTED, RtlScope as DeviceScope
 from tests.dash_tree import walk
 from tests.test_rtl_network import FakeRepo
 
@@ -44,8 +44,8 @@ def _repo(extra_registered=()):
 
 def _dash(repo=None):
     repo = repo or _repo()
-    return svc.get_dashboard(fleet_fetch=lambda: fleet.get_real_fleet(repo),
-                             network_fetch=lambda: net.get_current_network(repo))
+    return svc.get_dashboard(fleet_fetch=lambda **_: fleet.get_real_fleet(repo),
+                             network_fetch=lambda **_: net.get_current_network(repo))
 
 
 def _text(c):
@@ -95,8 +95,8 @@ class TestDataDerivedFromServices:
         repo.fail = True
         assert _dash(repo).status is svc.DashboardStatus.UNAVAILABLE
         ok = _repo()
-        d = svc.get_dashboard(fleet_fetch=lambda: fleet.get_real_fleet(ok),
-                              network_fetch=lambda: net.CurrentNetwork(net.NetworkStatus.UNAVAILABLE))
+        d = svc.get_dashboard(fleet_fetch=lambda **_: fleet.get_real_fleet(ok),
+                              network_fetch=lambda **_: net.CurrentNetwork(net.NetworkStatus.UNAVAILABLE))
         assert d.status is svc.DashboardStatus.UNAVAILABLE
 
     def test_service_has_no_sql_and_no_postgres(self):
@@ -144,7 +144,7 @@ class TestCallbackAuthorization:
     def test_permitted_scope_loads_once(self):
         calls = []
 
-        def fetch():
+        def fetch(**_):
             calls.append(1)
             return _dash()
 
@@ -152,9 +152,9 @@ class TestCallbackAuthorization:
         assert out is not None and calls == [1]
 
     def test_restricted_scopes_get_nothing_and_no_read(self):
-        for scope in (None, EMPTY, DeviceScope(frozenset({"d"}))):
+        for scope in (None, EMPTY):
             calls = []
-            out = cb.populate({"route": "rtl_dashboard"}, fetch=lambda: calls.append(1),
+            out = cb.populate({"route": "rtl_dashboard"}, fetch=lambda **_: calls.append(1),
                               scope_for=lambda s=scope: s)
             assert out is None and calls == []
 
@@ -162,7 +162,7 @@ class TestCallbackAuthorization:
         assert cb.populate({"route": "command_center"}) is no_update
 
     def test_source_failure_shows_unavailable_notice(self):
-        bad = lambda: svc.RTLDashboard(svc.DashboardStatus.UNAVAILABLE)  # noqa: E731
+        bad = lambda **_: svc.RTLDashboard(svc.DashboardStatus.UNAVAILABLE)  # noqa: E731
         out = cb.populate({"route": "rtl_dashboard"}, fetch=bad, scope_for=lambda: UNRESTRICTED)
         assert "unavailable" in _text(out).lower()
 
@@ -177,6 +177,6 @@ class TestLegacyCommandCenterIsIsolated:
     def test_routing_sends_only_real_fleet_scopes_to_the_dashboard(self):
         src = (ROOT / "callbacks/routing.py").read_text(encoding="utf-8")
         i = src.index('if route.name == "command_center":')
-        block = src[i:i + 700]
-        assert "may_view_real_fleet(scope)" in block and "rtl_dashboard.layout()" in block
+        block = src[i:i + 1200]
+        assert "may_view_real_fleet(rtl_scope)" in block and "rtl_dashboard.layout(" in block
         assert "command_center.layout()" in block

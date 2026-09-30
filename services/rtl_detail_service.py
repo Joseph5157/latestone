@@ -44,6 +44,7 @@ from repositories.rtl_temperature_repository import (
 )
 from services import rtl_network_service as network
 from services import rtl_source_facts_service as facts
+from services.rtl_scope import RtlScope, UNRESTRICTED
 from services.rtl_fleet_service import (
     HierarchyContext,
     HierarchyState,
@@ -59,6 +60,10 @@ class DetailStatus(str, Enum):
     DATA = "data"
     NOT_REGISTERED = "not_registered"  # no device_list row; nothing is exposed
     UNAVAILABLE = "unavailable"  # source unreachable; deliberately NOT "missing"
+    #: ADR-032: the UID is outside the caller's scope (a Technician's
+    #: assignments). Returned BEFORE any source read, and for a registered,
+    #: an unregistered and an unassigned UID alike, so it is not an oracle.
+    FORBIDDEN = "forbidden"
 
 
 class HistoryStatus(str, Enum):
@@ -66,6 +71,7 @@ class HistoryStatus(str, Enum):
     NO_DATA = "no_data"  # the window is real and genuinely contains no readings
     NOT_REGISTERED = "not_registered"
     UNAVAILABLE = "unavailable"
+    FORBIDDEN = "forbidden"  # outside the caller's RtlScope; no source read (ADR-032)
 
 
 @dataclass(frozen=True)
@@ -156,7 +162,8 @@ def _repo(repository: RTLTemperatureRepository | None) -> RTLTemperatureReposito
 
 
 def get_rtl_detail(
-    device_uid: int, repository: RTLTemperatureRepository | None = None
+    device_uid: int, repository: RTLTemperatureRepository | None = None, *,
+    scope: RtlScope = UNRESTRICTED,
 ) -> RTLDetailResult:
     """Facts for one registered client RTL UID, or an explicit refusal.
 
@@ -165,6 +172,9 @@ def get_rtl_detail(
     temperature, mapping or hierarchy read. That is what stops this route being
     an existence oracle for the 81 telemetry-only and 88 historical-only UIDs.
     """
+    # Scope first, before ANY source read (ADR-032).
+    if _is_source_uid(device_uid) and not scope.allows(device_uid):
+        return RTLDetailResult(DetailStatus.FORBIDDEN)
     if not _is_source_uid(device_uid):
         return RTLDetailResult(DetailStatus.NOT_REGISTERED)
 
@@ -215,6 +225,8 @@ def get_temperature_history(
     device_uid: int,
     window_key: str | None = DEFAULT_WINDOW_KEY,
     repository: RTLTemperatureRepository | None = None,
+    *,
+    scope: RtlScope = UNRESTRICTED,
 ) -> RTLHistory:
     """A bounded temperature history window for one registered RTL.
 
@@ -229,6 +241,8 @@ def get_temperature_history(
     Re-checks registration for the same reason ``get_rtl_detail`` does: a
     callback must not become a second, unguarded way into the source.
     """
+    if _is_source_uid(device_uid) and not scope.allows(device_uid):
+        return RTLHistory(HistoryStatus.FORBIDDEN, device_uid, window_key)
     window = window_for(window_key)
     if window is None or not _is_source_uid(device_uid):
         return RTLHistory(HistoryStatus.NO_DATA, window_key=window_key)

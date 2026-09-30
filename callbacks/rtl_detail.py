@@ -19,8 +19,9 @@ import logging
 from dash import Input, Output, no_update
 
 from components import rtl_detail as ui
-from components.status_panels import error_panel
+from components.status_panels import error_panel, forbidden_panel
 from pages import rtl_detail as page
+from services.rtl_scope import current_rtl_scope, may_view_real_rtls
 from services.rtl_detail_service import (
     DetailStatus,
     HistoryStatus,
@@ -40,17 +41,30 @@ def populate(
     *,
     fetch_detail=get_rtl_detail,
     fetch_history=get_temperature_history,
+    scope_for=current_rtl_scope,
 ):
-    """Body of the callback, testable without a Dash runtime."""
+    """Body of the callback, testable without a Dash runtime.
+
+    The caller's scope is resolved here as well as by the router (a callback
+    is independently invokable): nothing is fetched for a UID outside it.
+    """
     if not context or context.get("route") != ROUTE:
         return (no_update,) * OUTPUTS
 
     device_uid = context.get("rtl_uid")
     try:
-        result = fetch_detail(device_uid)
+        scope = scope_for()
+        if not may_view_real_rtls(scope) or (
+            isinstance(device_uid, int) and not scope.allows(device_uid)
+        ):
+            return forbidden_panel(), None, None, None, page.HIDDEN_STYLE
+        result = fetch_detail(device_uid, scope=scope)
     except Exception:
         logger.exception("Failed to load RTL detail")
         return None, None, None, error_panel(), page.HIDDEN_STYLE
+
+    if result.status is DetailStatus.FORBIDDEN:
+        return forbidden_panel(), None, None, None, page.HIDDEN_STYLE
 
     if result.status is DetailStatus.NOT_REGISTERED:
         # No history read at all: an unregistered UID must not reach the
@@ -67,7 +81,7 @@ def populate(
         return None, None, None, error_panel(ui.SOURCE_UNAVAILABLE), page.HIDDEN_STYLE
 
     try:
-        history = fetch_history(device_uid, window_key)
+        history = fetch_history(device_uid, window_key, scope=scope)
     except Exception:
         logger.exception("Failed to load RTL temperature history")
         history = None

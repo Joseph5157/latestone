@@ -20,8 +20,8 @@ from dash import Input, Output, no_update
 from components import rtl_fleet as ui
 from components.status_panels import error_panel
 from pages import plants_overview as page
-from services.device_scope import current_device_scope
 from services.rtl_fleet_service import FleetStatus, get_real_fleet, may_view_real_fleet
+from services.rtl_scope import current_rtl_scope, is_assigned_only
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ OUTPUTS = 5  # stat cards, refreshed, list, error, filter options
 
 
 def populate(context, filter_key=ui.FILTER_ALL, *,
-             fetch=get_real_fleet, scope_for=current_device_scope):
+             fetch=get_real_fleet, scope_for=current_rtl_scope):
     """Body of the callback, testable without a Dash runtime."""
     if not context or context.get("route") != ROUTE:
         return (no_update,) * OUTPUTS
@@ -39,7 +39,7 @@ def populate(context, filter_key=ui.FILTER_ALL, *,
         if not may_view_real_fleet(scope):
             return None, None, ui.restricted_panel(), None, []
         now = datetime.now(timezone.utc)
-        fleet = fetch()
+        fleet = fetch(scope=scope)
     except Exception:
         logger.exception("Failed to load the Fleet Overview")
         return None, None, [], error_panel(), []
@@ -48,7 +48,7 @@ def populate(context, filter_key=ui.FILTER_ALL, *,
             "The client RTL data source is unavailable. No RTL data is shown."
         ), []
     return (
-        ui.summary_block(fleet.summary),
+        ui.summary_block(fleet.summary, is_assigned_only(scope)),
         f"Updated {now.strftime('%d %b %Y %H:%M UTC')}",
         ui.fleet_table(ui.filter_rows(fleet, filter_key or ui.FILTER_ALL)),
         None,

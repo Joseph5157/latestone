@@ -56,6 +56,13 @@ The database holds people and the roles Administrator, Technician and General Us
 
 ### 5. How are technicians assigned to RTLs?
 
+**Answered - approved policy recorded 2026-09-30.** A Technician sees and works
+with only the RTLs assigned to them; one RTL has one Technician at a time; only
+an Administrator assigns, reassigns and ends assignments; assignment history is
+kept; historical events and (when programming is later approved) programming
+are limited to assigned RTLs; RTLs with no Technician are Unassigned and
+managed only by an Administrator. The questions below are kept for the record.
+
 The existing records give each of the five Technicians one or more RTLs, but
 they do not record assignment dates or earlier assignments. They also do not
 prove that assignment controlled what a Technician could view or program.

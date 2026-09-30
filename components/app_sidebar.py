@@ -53,8 +53,8 @@ from __future__ import annotations
 from dash import dcc, html
 
 from components.theme import theme_toggle
-from routes import EVENTS_PATH, RTL_LIST_PATH, RTL_NETWORK_PATH
-from services.authorization import visible_nav_keys
+from routes import EVENTS_PATH, RTL_ASSIGNMENTS_PATH, RTL_LIST_PATH, RTL_NETWORK_PATH
+from services.authorization import TECHNICIAN, visible_nav_keys
 
 SHELL_ID = "app-sidebar-shell"
 LOGOUT_PATH = "/logout"
@@ -90,17 +90,16 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
         # the route (derived from ROUTE_POLICY, never restated here).
         ("network", "Network", RTL_NETWORK_PATH, "network"),
         ("events", "Historical Events", EVENTS_PATH, "events"),
-        ("command_center", "Command Center", "/command-center", "command-center"),
+        # ADR-032: both roles that reach this route land on the factual
+        # client-RTL dashboard now, so the item is named for what it shows.
+        ("command_center", "Dashboard", "/command-center", "command-center"),
     )),
     ("Operations", (
         ("devices", "Devices", "/admin/devices", "devices"),
-        # A Technician's own assigned-devices page (ADR-016). Same label and
-        # icon concept as the Administrator's "Devices" above, deliberately:
-        # ROUTE_POLICY makes the two routes mutually exclusive per role, so
-        # exactly one of these two items is ever visible to a given session
-        # — never both, never neither, for anyone with device access at all.
-        ("technician_devices", "Devices", "/devices", "my-devices"),
-        ("assignments", "Assignments", "/admin/assignments", "assignments"),
+        # ADR-032: the Technician's synthetic "Devices" item is gone. Its route
+        # is denied to every role (services.authorization), so an item for it
+        # would be dead chrome; a Technician works from Assigned RTLs instead.
+        ("assignments", "Technician Assignments", RTL_ASSIGNMENTS_PATH, "assignments"),
         ("registration", "Registration", "/admin/devices/new", "registration"),
     )),
     ("System", (
@@ -111,6 +110,13 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
         ("settings", "Settings", "/admin/settings", "settings"),
     )),
 )
+
+
+#: ADR-032: a Technician sees only their assigned RTLs, so the same list is
+#: named for what it holds. A label, never an access rule.
+_ROLE_LABELS: dict[tuple[str, str], str] = {
+    ("overview", TECHNICIAN): "Assigned RTLs",
+}
 
 
 def _item_content(label: str, icon: str) -> list:
@@ -163,6 +169,7 @@ def sidebar_nav(active_key: str | None, role: str | None = None) -> html.Ul:
                 html.Li(section_title, className="app-sidebar__section-label")
             )
         for key, label, href, icon in section_items:
+            label = _ROLE_LABELS.get((key, role), label)
             is_active = key == active_key
             className = "app-sidebar__link"
             item_props = {}

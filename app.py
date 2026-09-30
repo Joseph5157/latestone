@@ -9,7 +9,7 @@ from __future__ import annotations
 import dash
 from dash import dcc, html
 
-from callbacks import audit_log, auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, technician_devices, admin_assignments, programming_activity, user_admin, report_center, notifications, command_center, fleet_overview, rtl_dashboard, rtl_detail, rtl_network, historical_events, freshness_threshold, temperature_threshold, vibration_contract, rtl_programming_simulation
+from callbacks import audit_log, auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, technician_devices, admin_assignments, programming_activity, user_admin, report_center, notifications, command_center, fleet_overview, rtl_dashboard, rtl_detail, rtl_network, historical_events, freshness_threshold, temperature_threshold, vibration_contract, rtl_programming_simulation, rtl_assignments
 from components.app_shell import app_shell
 from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
@@ -138,6 +138,7 @@ rtl_detail.register(app)
 rtl_network.register(app)
 historical_events.register(app)
 rtl_dashboard.register(app)
+rtl_assignments.register(app)
 freshness_threshold.register(app)
 temperature_threshold.register(app)
 vibration_contract.register(app)

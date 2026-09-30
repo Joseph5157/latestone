@@ -152,7 +152,7 @@ def restricted_panel() -> html.Div:
     return html.Div(className="status-panel status-panel--empty", children=[
         html.H3("Client RTL network not available for your account"),
         html.P(
-            "The client RTL network is shown to Administrators and General Users. "
-            "There is no approved link between client RTLs and technician assignments yet."
+            "The client RTL network is shown to Administrators, General Users and, for "
+            "the RTLs assigned to them, Technicians."
         ),
     ])

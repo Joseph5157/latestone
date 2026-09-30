@@ -22,7 +22,9 @@ from repositories.rtl_events_repository import RTLEventsRepository
 from config.settings import RTLDatabaseConfigurationError
 from repositories.rtl_temperature_repository import RTLTemperatureRepositoryError
 from services import rtl_network_service as network
+from repositories.rtl_temperature_repository import RTLTemperatureRepository
 from services.rtl_network_service import CurrentNetworkRow, NetworkStatus, may_view_real_fleet
+from services.rtl_scope import RtlScope, UNRESTRICTED
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +145,31 @@ def _parse_type(value) -> EventType | None:
         raise ValueError("unknown event type") from None
 
 
-def get_latest_event_time(repository: RTLEventsRepository | None = None) -> datetime | None:
+def _registered_uids() -> set[int]:
+    return set(RTLTemperatureRepository().get_registered_device_uids())
+
+
+def _scope_uids(scope: RtlScope, registered_fetch) -> tuple[int, ...] | None:
+    """The UID set the event reads are restricted to; None = unrestricted.
+
+    A restricted (Technician) scope is intersected with the CURRENT registered
+    directory, so events of a historical/unregistered UID are never shown to a
+    Technician even if an assignment row somehow names it (ADR-032).
+    """
+    if scope.is_unrestricted:
+        return None
+    if not scope.permitted:
+        return ()
+    return tuple(scope.restrict(registered_fetch()))
+
+
+def get_latest_event_time(
+    repository: RTLEventsRepository | None = None, *, scope: RtlScope = UNRESTRICTED,
+    registered_fetch=_registered_uids,
+) -> datetime | None:
     repo = repository if repository is not None else RTLEventsRepository()
     try:
-        return repo.get_latest_event_time()
+        return repo.get_latest_event_time(_scope_uids(scope, registered_fetch))
     except (RTLTemperatureRepositoryError, RTLDatabaseConfigurationError) as exc:
         logger.warning("Historical event window unavailable (%s)", type(exc).__name__)
         return None
@@ -156,6 +179,8 @@ def get_events_page(
     start: date, end: date, event_type=None, uid_text=None, page: int = 0, *,
     repository: RTLEventsRepository | None = None,
     network_fetch=network.get_current_network,
+    scope: RtlScope = UNRESTRICTED,
+    registered_fetch=_registered_uids,
 ) -> EventsPage:
     """One bounded, newest-first page of events for ``start..end`` inclusive.
 
@@ -174,13 +199,15 @@ def get_events_page(
     lo, hi = datetime.combine(start, time.min), datetime.combine(end + timedelta(days=1), time.min)
     types = [chosen] if chosen else list(EventType)
     try:
-        raw_counts = repo.get_event_counts(lo, hi, uid) if hasattr(repo, "get_event_counts") \
-            else repo.count_events(lo, hi, uid)
+        # Server-side scope: the UID set is part of every event query, so
+        # out-of-scope rows are never read, counted or paged (ADR-032).
+        scope_uids = _scope_uids(scope, registered_fetch)
+        raw_counts = repo.count_events(lo, hi, uid, scope_uids)
         counts = {t: raw_counts.get(t.value, 0) for t in EventType}
         total = sum(counts[t] for t in types)
         page = min(max(0, int(page or 0)), max(0, -(-total // PAGE_SIZE) - 1))
-        rows = repo.get_events(lo, hi, [t.value for t in types], uid, PAGE_SIZE, page * PAGE_SIZE) \
-            if total else []
+        rows = (repo.get_events(lo, hi, [t.value for t in types], uid, PAGE_SIZE,
+                                page * PAGE_SIZE, scope_uids) if total else [])
     except (RTLTemperatureRepositoryError, RTLDatabaseConfigurationError) as exc:
         logger.warning("Historical events unavailable (%s)", type(exc).__name__)
         return EventsPage(EventsStatus.UNAVAILABLE)

@@ -83,27 +83,21 @@ class TestSidebarItems:
             # the item's key stays `overview` (that is the routing and
             # authorization identity), only the visible word changed.
             # LATEST-NETWORK-CONTEXT-01: "Network" sits beside the list it browses.
-            "Registered RTLs", "Network", "Historical Events", "Command Center",
-            # Two "Devices" entries, ADR-016: the Administrator's
-            # admin_devices, then the Technician's own technician_devices —
-            # mutually exclusive by role (see test_app_sidebar's Icons/Items
-            # tests and tests/test_authorization.py), never both rendered
-            # to the same signed-in session.
-            "Devices", "Devices", "Assignments", "Registration",
+            # ADR-032: "Dashboard" (the factual client-RTL landing for both
+            # roles that reach it), and "Technician Assignments".
+            "Registered RTLs", "Network", "Historical Events", "Dashboard",
+            # ADR-032: the Technician's synthetic "Devices" item is retired, so
+            # only the Administrator's admin_devices remains.
+            "Devices", "Technician Assignments", "Registration",
             "Notifications", "Reports", "Users", "Audit Log", "Settings",
         ]
 
-    def test_the_two_devices_entries_have_distinct_keys_and_hrefs(self):
-        """The label collision above is intentional; the identity fields
-        that actually distinguish the two entries must never collide."""
-        devices_items = [item for item in _all_items() if item[1] == "Devices"]
-        assert len(devices_items) == 2
-        keys = {item[0] for item in devices_items}
-        hrefs = {item[2] for item in devices_items}
-        icons = {item[3] for item in devices_items}
-        assert keys == {"devices", "technician_devices"}
-        assert hrefs == {"/admin/devices", "/devices"}
-        assert len(icons) == 2
+    def test_the_retired_technician_devices_item_is_gone(self):
+        """ADR-032: no dead chrome - the route is denied to every role, so no
+        sidebar item names it."""
+        assert [i for i in _all_items() if i[0] == "technician_devices"] == []
+        assert [i for i in _all_items() if i[1] == "Devices"] == [
+            ("devices", "Devices", "/admin/devices", "devices")]
 
     def test_sections_are_grouped_operations_and_system(self):
         titles = [title for title, _items in SIDEBAR_SECTIONS]
@@ -119,7 +113,7 @@ class TestSidebarItems:
     def test_assignments_has_a_real_route(self):
         """ADMIN-ASSIGN-1: no longer a routeless placeholder (ADMIN-0)."""
         items = {key: href for key, _label, href, _icon in _all_items()}
-        assert items["assignments"] == "/admin/assignments"
+        assert items["assignments"] == "/technicians/assignments"
 
     def test_existing_routes_are_reused_not_reinvented(self):
         # Keyed by `key`, not `label`: "Devices" now names two entries (see
@@ -130,8 +124,7 @@ class TestSidebarItems:
         # compatibility for old links only and never a new navigation target.
         assert items["overview"] == "/rtls"
         assert items["devices"] == "/admin/devices"
-        assert items["technician_devices"] == "/devices"
-        assert items["assignments"] == "/admin/assignments"
+        assert items["assignments"] == "/technicians/assignments"
         assert items["registration"] == "/admin/devices/new"
         assert items["notifications"] == "/notifications"
         assert items["reports"] == "/reports"
@@ -160,6 +153,7 @@ class TestActiveNavKey:
     def test_each_destination_maps_to_its_own_item(self):
         assert nav.active_nav_key("/admin/devices") == "devices"
         assert nav.active_nav_key("/admin/assignments") == "assignments"
+        assert nav.active_nav_key("/technicians/assignments") == "assignments"
         assert nav.active_nav_key("/admin/devices/new") == "registration"
         assert nav.active_nav_key("/reports") == "reports"
         assert nav.active_nav_key("/notifications") == "notifications"
@@ -295,7 +289,7 @@ class TestSidebarLogout:
         Assignments was the only item that ever used it."""
         rendered = _admin_sidebar(None)
         assert find_by_class(rendered, "app-sidebar__link--disabled") == []
-        assert "Assignments" in [label for label, _href in links(rendered)]
+        assert "Technician Assignments" in [label for label, _href in links(rendered)]
 
     def test_assignments_lights_up_like_any_other_item(self):
         rendered = _admin_sidebar("assignments")

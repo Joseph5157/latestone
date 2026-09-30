@@ -76,32 +76,36 @@ def filter_rows(fleet: RealFleet, filter_key: str) -> tuple[RTLFleetRow, ...]:
     return tuple(r for r in fleet.rows if test(r))
 
 
-def summary_cards(summary: FleetSummary) -> html.Div:
+def summary_cards(summary: FleetSummary, assigned_only: bool = False) -> html.Div:
     with_note = f"{summary.ambiguous} with an ambiguous latest value" if summary.ambiguous else "Latest reading on record"
     return html.Div(className="kpi-row fleet-overview-stats", children=[
-        kpi_card("Registered RTLs", str(summary.registered), "Client RTL directory"),
+        (kpi_card("Assigned RTLs", str(summary.registered), "Assigned to you") if assigned_only
+         else kpi_card("Registered RTLs", str(summary.registered), "Client RTL directory")),
         kpi_card("Current transformer mappings", str(summary.mapped), "RTLs with a mapping"),
         kpi_card("With temperature data", str(summary.with_temperature), with_note),
-        kpi_card("No temperature data", str(summary.no_temperature), "Registered, no reading on record"),
+        kpi_card("No temperature data", str(summary.no_temperature),
+                 "No reading on record" if assigned_only else "Registered, no reading on record"),
     ])
 
 
-def network_coverage_line(summary: FleetSummary) -> html.P:
+def network_coverage_line(summary: FleetSummary, assigned_only: bool = False) -> html.P:
     """One factual line of network coverage with the way into the Network view.
 
     Derived from the same fleet snapshot as the cards (the fleet rows apply the
     ADR-031 mapping/hierarchy rule), so it costs no further source read.
     """
     return html.P(className="fleet-overview-limits network-coverage", children=[
-        f"Network coverage: {summary.mapped} of {summary.registered} registered RTLs have a "
+        f"Network coverage: {summary.mapped} of {summary.registered} "
+        f"{'assigned' if assigned_only else 'registered'} RTLs have a "
         f"current transformer mapping · {summary.hierarchy_resolved} hierarchy resolved · "
         f"{summary.hierarchy_unavailable} hierarchy unavailable. ",
         dcc.Link("View Network", href=RTL_NETWORK_PATH, className="fleet-overview-link"),
     ])
 
 
-def summary_block(summary: FleetSummary) -> html.Div:
-    return html.Div([summary_cards(summary), network_coverage_line(summary)])
+def summary_block(summary: FleetSummary, assigned_only: bool = False) -> html.Div:
+    return html.Div([summary_cards(summary, assigned_only),
+                     network_coverage_line(summary, assigned_only)])
 
 
 def _temperature_cell(row: RTLFleetRow):
@@ -166,7 +170,7 @@ def restricted_panel() -> html.Div:
     return html.Div(className="status-panel status-panel--empty", children=[
         html.H3("Client RTL fleet not available for your account"),
         html.P(
-            "The client RTL directory is shown to Administrators and General Users. "
-            "There is no approved link between client RTLs and technician assignments yet."
+            "Client RTL data is shown to Administrators, General Users and, for the "
+            "RTLs assigned to them, Technicians."
         ),
     ])

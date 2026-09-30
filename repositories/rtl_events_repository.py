@@ -54,13 +54,29 @@ _SOURCES: dict[str, str] = {
 }
 _UID_FILTER = " AND device_uid = %s"
 
-_LATEST_SQL = (
-    "SELECT MAX(t) FROM ("
-    "SELECT MAX(event_timestamp) AS t FROM dbo.alarm_log "
-    "UNION ALL SELECT MAX(reading_timestamp) FROM dbo.sensor_error_log "
-    "UNION ALL SELECT MAX(event_timestamp) FROM dbo.startup_msg_log WHERE status = 'Battery Low' "
-    "UNION ALL SELECT MAX(event_timestamp) FROM dbo.powerdown_log) AS m"
-)
+#: A restricted scope narrows each source to a fixed UID set (ADR-032). The
+#: values are inlined as validated integers - never caller text - so the set
+#: size cannot hit the driver's bound-parameter cap. An EMPTY set becomes
+#: `1 = 0`, never "no filter".
+def _scope_clause(uids) -> str:
+    if uids is None:
+        return ""
+    clean = sorted({int(u) for u in uids if not isinstance(u, bool)})
+    if not clean:
+        return " AND 1 = 0"
+    return " AND device_uid IN (" + ",".join(str(u) for u in clean) + ")"
+
+def _latest_sql(uids) -> str:
+    scope = _scope_clause(uids)
+    where = " WHERE 1 = 1" + scope if scope else ""
+    return (
+        "SELECT MAX(t) FROM ("
+        f"SELECT MAX(event_timestamp) AS t FROM dbo.alarm_log{where} "
+        f"UNION ALL SELECT MAX(reading_timestamp) FROM dbo.sensor_error_log{where} "
+        "UNION ALL SELECT MAX(event_timestamp) FROM dbo.startup_msg_log WHERE status = 'Battery Low'"
+        f"{scope} "
+        f"UNION ALL SELECT MAX(event_timestamp) FROM dbo.powerdown_log{where}) AS m"
+    )
 
 
 @dataclass(frozen=True)
@@ -85,8 +101,8 @@ def _selected(types) -> list[str]:
     return [t for t in _SOURCES if t in set(types)]
 
 
-def _union(types: list[str], with_uid: bool) -> str:
-    suffix = _UID_FILTER if with_uid else ""
+def _union(types: list[str], with_uid: bool, uids=None) -> str:
+    suffix = (_UID_FILTER if with_uid else "") + _scope_clause(uids)
     return " UNION ALL ".join(_SOURCES[t] + suffix for t in types)
 
 
@@ -114,15 +130,19 @@ class RTLEventsRepository:
             if connection is not None:
                 connection.close()
 
-    def get_latest_event_time(self) -> datetime | None:
-        """The newest recorded event time across the four sources."""
-        rows = self._read(_LATEST_SQL, ())
+    def get_latest_event_time(self, uids=None) -> datetime | None:
+        """The newest recorded event time across the four sources.
+
+        ``uids`` (None = every UID) restricts it to a scope's UIDs.
+        """
+        rows = self._read(_latest_sql(uids), ())
         return rows[0][0] if rows and rows[0][0] is not None else None
 
-    def count_events(self, start: datetime, end: datetime, uid: int | None = None) -> dict[str, int]:
-        """Events per class in ``[start, end)``, optionally for one UID."""
+    def count_events(self, start: datetime, end: datetime, uid: int | None = None,
+                     uids=None) -> dict[str, int]:
+        """Events per class in ``[start, end)``, optionally for one UID / a UID set."""
         types = list(_SOURCES)
-        sql = (f"SELECT event_type, COUNT_BIG(*) FROM ({_union(types, uid is not None)}) AS e "
+        sql = (f"SELECT event_type, COUNT_BIG(*) FROM ({_union(types, uid is not None, uids)}) AS e "
                "GROUP BY event_type")
         counts = {t: 0 for t in types}
         for event_type, n in self._read(sql, _params(types, start, end, uid)):
@@ -130,14 +150,14 @@ class RTLEventsRepository:
         return counts
 
     def get_events(self, start: datetime, end: datetime, types, uid: int | None,
-                   limit: int, offset: int) -> list[RTLEventRow]:
+                   limit: int, offset: int, uids=None) -> list[RTLEventRow]:
         """One page of events, newest first; ties break by class then UID."""
         chosen = _selected(types)
         if not chosen:
             return []
         limit, offset = max(1, int(limit)), max(0, int(offset))
         sql = (f"SELECT event_type, device_uid, trfr, recorded_at, recorded_value "
-               f"FROM ({_union(chosen, uid is not None)}) AS e "
+               f"FROM ({_union(chosen, uid is not None, uids)}) AS e "
                "ORDER BY recorded_at DESC, event_type, device_uid "
                "OFFSET %s ROWS FETCH NEXT %s ROWS ONLY")
         params = _params(chosen, start, end, uid) + (offset, limit)

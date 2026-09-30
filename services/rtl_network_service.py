@@ -28,7 +28,9 @@ Deliberately absent: Online/Offline/active/health, lifecycle, transformer
 movement history, TUG-derived asset status, the seven electrical metrics,
 PostgreSQL and any fallback when the source is unavailable.
 
-Authorization: same as the real fleet (``may_view_real_fleet``).
+Authorization: same as the real fleet (ADR-032). ``get_current_network`` takes an
+``RtlScope`` and builds rows only for in-scope registered UIDs, so every
+hierarchy option and count derives from the caller's own subset.
 """
 from __future__ import annotations
 
@@ -46,6 +48,7 @@ from repositories.rtl_temperature_repository import (
     RTLTransformerHierarchy,
 )
 from services.rtl_fleet_service import HierarchyContext, HierarchyState, may_view_real_fleet
+from services.rtl_scope import RtlScope, UNRESTRICTED
 
 __all__ = [
     "CurrentNetworkRow", "CurrentNetwork", "EvidenceSource", "MappingStatus",
@@ -207,7 +210,9 @@ def build_rows(
     return tuple(rows)
 
 
-def get_current_network(repository: RTLTemperatureRepository | None = None) -> CurrentNetwork:
+def get_current_network(
+    repository: RTLTemperatureRepository | None = None, *, scope: RtlScope = UNRESTRICTED
+) -> CurrentNetwork:
     """The current network context, from a fixed six set-based reads.
 
     Registered directory, current mappings, hierarchy view, and the latest
@@ -216,7 +221,7 @@ def get_current_network(repository: RTLTemperatureRepository | None = None) -> C
     """
     repo = repository if repository is not None else RTLTemperatureRepository()
     try:
-        registered = repo.get_registered_device_uids()
+        registered = scope.restrict(repo.get_registered_device_uids())
         mapping_rows = repo.get_transformer_mappings()
         hierarchy_rows = repo.get_transformer_hierarchy()
         evidence = {

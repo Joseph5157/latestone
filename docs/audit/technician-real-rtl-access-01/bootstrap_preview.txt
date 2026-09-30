@@ -1,0 +1,66 @@
+Legacy Technician assignment bootstrap - PREVIEW
+  candidate current assignments to import : 64
+  already present (same Technician)       : 0
+  skipped (assignment history exists)     : 0
+  excluded historical/unregistered UIDs   : 4
+  Technician persons needing an app user  : 5
+  blocking problems                       : 0
+
+Candidates (UID -> client person id, name):
+  29021	2	Senzo Mpungose
+  29025	2	Senzo Mpungose
+  29037	2	Senzo Mpungose
+  29039	2	Senzo Mpungose
+  29042	2	Senzo Mpungose
+  29049	4	Nhlakanipho Ndwandwe
+  29059	2	Senzo Mpungose
+  29075	2	Senzo Mpungose
+  29091	2	Senzo Mpungose
+  29530	2	Senzo Mpungose
+  29532	2	Senzo Mpungose
+  29536	2	Senzo Mpungose
+  29538	2	Senzo Mpungose
+  29539	2	Senzo Mpungose
+  29542	4	Nhlakanipho Ndwandwe
+  29543	2	Senzo Mpungose
+  29545	4	Nhlakanipho Ndwandwe
+  29550	4	Nhlakanipho Ndwandwe
+  29559	4	Nhlakanipho Ndwandwe
+  29562	4	Nhlakanipho Ndwandwe
+  29569	4	Nhlakanipho Ndwandwe
+  29573	4	Nhlakanipho Ndwandwe
+  29576	4	Nhlakanipho Ndwandwe
+  29577	2	Senzo Mpungose
+  29580	4	Nhlakanipho Ndwandwe
+  29581	4	Nhlakanipho Ndwandwe
+  29583	4	Nhlakanipho Ndwandwe
+  29585	4	Nhlakanipho Ndwandwe
+  29586	2	Senzo Mpungose
+  29594	2	Senzo Mpungose
+  29595	4	Nhlakanipho Ndwandwe
+  29596	4	Nhlakanipho Ndwandwe
+  29597	4	Nhlakanipho Ndwandwe
+  29598	4	Nhlakanipho Ndwandwe
+  29608	4	Nhlakanipho Ndwandwe
+  29609	4	Nhlakanipho Ndwandwe
+  29611	4	Nhlakanipho Ndwandwe
+  29612	2	Senzo Mpungose
+  29623	3	Reginald Tshabalala
+  29624	3	Reginald Tshabalala
+  29625	4	Nhlakanipho Ndwandwe
+  29626	4	Nhlakanipho Ndwandwe
+  29627	3	Reginald Tshabalala
+  29639	4	Nhlakanipho Ndwandwe
+  29641	4	Nhlakanipho Ndwandwe
+  29650	3	Reginald Tshabalala
+  29651	2	Senzo Mpungose
+  29652	3	Reginald Tshabalala
+  29653	3	Reginald Tshabalala
+  29654	3	Reginald Tshabalala
+  29664	3	Reginald Tshabalala
+  29665	3	Reginald Tshabalala
+  29666	3	Reginald Tshabalala
+  29667	3	Reginald Tshabalala
+  29668	4	Nhlakanipho Ndwandwe
+  29669	3	Reginald Tshabalala
+  

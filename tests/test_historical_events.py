@@ -18,7 +18,7 @@ from repositories.rtl_temperature_repository import RTLTransformerHierarchy as H
 from repositories.rtl_temperature_repository import RTLTransformerMapping as M
 from services import rtl_events_service as svc
 from services import rtl_network_service as net
-from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.rtl_scope import DENIED as EMPTY, UNRESTRICTED, RtlScope as DeviceScope
 from tests.dash_tree import walk
 from tests.test_rtl_network import FakeRepo
 
@@ -46,24 +46,27 @@ class EventsRepo:
     def __init__(self, rows=ROWS, latest=datetime(2026, 8, 12, 9, 0), fail=False):
         self.rows, self.latest, self.fail, self.calls = list(rows), latest, fail, []
 
-    def _sel(self, start, end, uid):
-        return [r for r in self.rows if start <= r.recorded_at < end and (uid is None or r.device_uid == uid)]
+    def _sel(self, start, end, uid, uids=None):
+        return [r for r in self.rows if start <= r.recorded_at < end
+                and (uid is None or r.device_uid == uid)
+                and (uids is None or r.device_uid in uids)]
 
-    def get_latest_event_time(self):
+    def get_latest_event_time(self, uids=None):
+        self.latest_uids = uids
         return self.latest
 
-    def count_events(self, start, end, uid=None):
+    def count_events(self, start, end, uid=None, uids=None):
         self.calls.append("count")
         if self.fail:
             raise svc.RTLTemperatureRepositoryError("down")
         out = {t.value: 0 for t in svc.EventType}
-        for r in self._sel(start, end, uid):
+        for r in self._sel(start, end, uid, uids):
             out[r.event_type] += 1
         return out
 
-    def get_events(self, start, end, types, uid, limit, offset):
+    def get_events(self, start, end, types, uid, limit, offset, uids=None):
         self.calls.append("page")
-        rows = sorted((r for r in self._sel(start, end, uid) if r.event_type in types),
+        rows = sorted((r for r in self._sel(start, end, uid, uids) if r.event_type in types),
                       key=lambda r: (-r.recorded_at.timestamp(), r.event_type, r.device_uid))
         return rows[offset:offset + limit]
 
@@ -325,26 +328,27 @@ class TestAuthorizationAndCallbacks:
     def test_policy_matches_the_network_route(self):
         from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN, may_access_route
         assert may_access_route(ADMINISTRATOR, "historical_events") and may_access_route(GENERAL, "historical_events")
-        assert not may_access_route(TECHNICIAN, "historical_events")
+        # ADR-032: admitted at the route; the shared scope filters the events.
+        assert may_access_route(TECHNICIAN, "historical_events")
         assert not may_access_route(None, "historical_events")
 
     def test_routing_checks_scope_before_the_layout(self):
         src = (ROOT / "callbacks/routing.py").read_text(encoding="utf-8")
-        block = src[src.index('if route.name == "historical_events":'):][:600]
-        assert block.index("may_view_real_fleet(scope)") < block.index("historical_events.layout()")
+        block = src[src.index('if route.name == "historical_events":'):][:1000]
+        assert block.index("may_view_real_fleet(current_rtl_scope())") < block.index("historical_events.layout()")
 
     def test_restricted_scopes_read_nothing(self):
-        for scope in (None, EMPTY, DeviceScope(frozenset({"d"}))):
+        for scope in (None, EMPTY):
             calls = []
             ctx = {"route": "historical_events"}
-            assert cb.initial_window(ctx, latest=lambda: calls.append(1), scope_for=lambda s=scope: s) == (None, None)
+            assert cb.initial_window(ctx, latest=lambda **_: calls.append(1), scope_for=lambda s=scope: s) == (None, None)
             out = cb.render(ctx, "2026-01-01", "2026-02-01", "all", "", None, 0,
-                            fetch=lambda *a: calls.append(1), scope_for=lambda s=scope: s)
+                            fetch=lambda *a, **k: calls.append(1), scope_for=lambda s=scope: s)
             assert out == (None, 0) and calls == []
 
     def test_permitted_scope_sets_window_and_renders(self):
         ctx = {"route": "historical_events"}
-        w = cb.initial_window(ctx, latest=lambda: datetime(2026, 8, 12, 9), scope_for=lambda: UNRESTRICTED)
+        w = cb.initial_window(ctx, latest=lambda **_: datetime(2026, 8, 12, 9), scope_for=lambda: UNRESTRICTED)
         assert w == ("2026-07-14", "2026-08-12")
         body, pg = cb.render(ctx, "2026-01-01", "2026-12-31", "all", "", None, 0,
                              fetch=lambda *a, **k: fetch_page(None, *a, **k), scope_for=lambda: UNRESTRICTED)
@@ -358,9 +362,9 @@ class TestAuthorizationAndCallbacks:
         seen = []
         ctx = {"route": "historical_events"}
 
-        def fetch(s, e, t, u, p):
+        def fetch(s, e, t, u, p, **k):
             seen.append(p)
-            return fetch_page(None, s, e, t, u, p)
+            return fetch_page(None, s, e, t, u, p, **k)
 
         kw = dict(fetch=fetch, scope_for=lambda: UNRESTRICTED)
         cb.render(ctx, "2026-01-01", "2026-12-31", "all", "", page.NEXT_ID, 0, **kw)

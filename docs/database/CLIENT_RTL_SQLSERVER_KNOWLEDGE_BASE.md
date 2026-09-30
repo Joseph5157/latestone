@@ -625,6 +625,40 @@ actor, start/end and history; multiplicity, visibility and permitted actions
 remain client decisions. Full evidence:
 `docs/audit/technician-assignment-forensics-01/TECHNICIAN_ASSIGNMENT_FORENSICS.md`.
 
+### Approved application policy (ADR-032, 2026-09-30) - NOT legacy behaviour
+
+This is a **new application rule**, recorded as CDB-05 ANSWERED. Nothing above
+shows the legacy data or system enforcing it, and none of it may be described
+as historical fact:
+
+- a Technician sees and works with only the RTLs currently assigned to them;
+- one RTL has one current Technician; a Technician may hold many RTLs;
+- only an Administrator assigns, reassigns and ends assignments;
+- assignment history is retained;
+- Historical Events are limited to assigned RTLs; Program RTL will be limited to
+  assigned RTLs (a rule for the later programming gate - not implemented);
+- registered RTLs with no Technician are **Unassigned**, an Administrator-only
+  assignment pool. Absence of a legacy row is not a denial fact about the RTL.
+
+### Transitional application-owned implementation (TECHNICIAN-REAL-RTL-ACCESS-01)
+
+- The assignment store is **PostgreSQL** `rtl_technician_assignments` (keyed on
+  the client RTL UID, never the synthetic `device_id`), with a partial unique
+  index allowing one open row per UID and retained closed rows. SQL Server stays
+  `READ_ONLY`: `technician_assignments` and `techmician_device_list` are never
+  written.
+- Identity bridge: `users.client_person_id` holds the SQL Server
+  `persons.person_id`. It is set by the bootstrap, never by display-name
+  matching at authorization time.
+- The 64 currently registered legacy assignments are adopted once by an explicit
+  command (`python -m scripts.bootstrap_rtl_assignments`, preview by default) as
+  provenance `LEGACY_IMPORT`: no assigned date and no assigned-by (unknown, not
+  invented), with the import time stored separately. The four
+  historical/unregistered UIDs (29024, 29046, 29071, 29544) are **not** imported.
+- Every other registered RTL remains Unassigned; nothing is auto-distributed.
+- If the client later approves migrating assignments into SQL Server, that is a
+  separate write/migration gate (ADR-029).
+
 ---
 
 ## 20. NOTIFICATIONS AND FORWARDING
@@ -752,13 +786,11 @@ Do not present as authoritative yet:
    - How should Administrator / Technician / General User identities authenticate?
    - Account creation, activation, deactivation, password/SSO policy?
 
-5. **Technician assignment**
-   - Should Technicians see/work with only assigned registered RTLs?
-   - Can one RTL have multiple simultaneous Technicians?
-   - Who may assign, reassign and end assignments?
-   - Must reassignment preserve history and a reason?
-   - Are programming and historical-event access limited to assigned RTLs?
-   - How should registered RTLs with no Technician assignment be handled?
+5. **Technician assignment** - ANSWERED (CDB-05, ADR-032, 2026-09-30): assigned-only
+   visibility and work; one current Technician per RTL; Administrator assigns;
+   history retained; events (and future programming) limited to assigned RTLs;
+   unassigned RTLs are an Administrator-only pool. Not answered and not
+   implemented: a mandatory reason for reassignment.
 
 6. **Program RTL**
    - Does the new application actually transmit configuration to devices?

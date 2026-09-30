@@ -1,0 +1,2 @@
+updateability b'READ_ONLY'
+{'master_temperature': 2456901, 'device_list': 339, 'techmician_device_list': 68, 'technician_assignments': 0, 'persons': 8, 'settings_upload_log': 3400, 'write_perms': 0}

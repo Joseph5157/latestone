@@ -53,6 +53,7 @@ _EVERY_ROLE = frozenset(CONFIRMED_ROLES)
 _ADMIN_ONLY = frozenset({ADMINISTRATOR})
 _OPERATIONAL_ROLES = frozenset({ADMINISTRATOR, TECHNICIAN})
 _TECHNICIAN_ONLY = frozenset({TECHNICIAN})
+_NO_ROLE_ROUTE: frozenset[str] = frozenset()
 
 #: RTL-UID-DETAIL-01. Roles whose device scope is unrestricted, and therefore
 #: the roles allowed to read raw client RTL facts. Mirrors
@@ -62,6 +63,12 @@ _TECHNICIAN_ONLY = frozenset({TECHNICIAN})
 #: `may_view_real_fleet(scope)` check remains in force behind it —
 #: `tests/test_rtl_detail_route.py` pins the two to the same answer.
 _UNRESTRICTED_DEVICE_SCOPE_ROLES = frozenset({ADMINISTRATOR, GENERAL})
+
+#: TECHNICIAN-REAL-RTL-ACCESS-01 (ADR-032). Every role that may open the real
+#: client-RTL routes. A Technician is admitted at the ROUTE gate only because
+#: `services.rtl_scope` then restricts every read to that Technician's current
+#: assignments - the role check alone never grants a UID.
+_REAL_RTL_ROLES = _EVERY_ROLE
 
 #: `routes.Route.name` -> the roles allowed to open it.
 #:
@@ -78,21 +85,19 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "plant": _EVERY_ROLE,
     "transformer": _EVERY_ROLE,
     "device": _EVERY_ROLE,
-    # The canonical real-client RTL detail page (RTL-UID-DETAIL-01). NOT
-    # `_EVERY_ROLE`, unlike the synthetic monitoring routes above: this one
-    # renders raw client RTL UIDs and their telemetry, and there is no
-    # approved map from a client UID to a technician's assignments. Granting
-    # it to a Technician here would make the URL the way around the Fleet
-    # page's restriction, which is exactly what this route must not be.
-    "rtl_detail": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
-    # The current Network view (LATEST-NETWORK-CONTEXT-01) renders the same raw
-    # client RTL UIDs, so it carries exactly the detail route's roles. The
-    # callback re-checks the device scope as well.
-    "rtl_network": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
-    # Historical Events (HISTORICAL-EVENTS-01) lists raw client RTL UIDs, so it
-    # carries the same roles as the detail and Network routes; the callback
-    # re-checks the device scope. A Technician gets neither.
-    "historical_events": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
+    # The canonical real-client RTL detail page (RTL-UID-DETAIL-01). Every
+    # role passes THIS gate, but it renders raw client RTL UIDs and telemetry,
+    # so the page/callback then check `services.rtl_scope` (ADR-032): a
+    # Technician reaches only a UID currently assigned to them, before any
+    # client SQL Server read. The route gate alone grants no UID.
+    "rtl_detail": _REAL_RTL_ROLES,
+    # The current Network view (LATEST-NETWORK-CONTEXT-01): same raw client
+    # UIDs, so the same shape - route gate for every role, then the shared UID
+    # scope narrows a Technician to assigned RTLs.
+    "rtl_network": _REAL_RTL_ROLES,
+    # Historical Events (HISTORICAL-EVENTS-01): same shape; a Technician sees
+    # only events of currently assigned UIDs, filtered server-side.
+    "historical_events": _REAL_RTL_ROLES,
     "notifications": _OPERATIONAL_ROLES,
     "reports": _EVERY_ROLE,
     "command_center": _OPERATIONAL_ROLES,
@@ -102,12 +107,18 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     # devices only, the shared device_manage_drawer(), never assignment or
     # registration. Deliberately its own route, not a role branch inside
     # "admin_devices" — see that ADR's "boundary by meaning, not location".
-    "technician_devices": _TECHNICIAN_ONLY,
+    # ADR-032: the synthetic Plant/Transformer "Devices" page is retired from
+    # the Technician's client-facing path. Denied to every role (default deny)
+    # rather than deleted: removing the code is a separate cleanup gate.
+    "technician_devices": _NO_ROLE_ROUTE,
     # The technician workload roster + reassignment surface — a real route
     # replacing the sidebar's former routeless "Assignments" placeholder.
     # Admin-only, same as admin_devices: it reads/reassigns the whole fleet's
     # technician assignments, never a technician's own scope.
     "admin_assignments": _ADMIN_ONLY,
+    # ADR-032: the client-RTL Technician assignment workflow (Administrator
+    # only). Assign, reassign and history for real client RTL UIDs.
+    "rtl_assignments": _ADMIN_ONLY,
     "device_register": _ADMIN_ONLY,
     "admin_users": _ADMIN_ONLY,
     "audit_log": _ADMIN_ONLY,
@@ -195,6 +206,11 @@ TOGGLE_MESSAGE_FORWARDING = "toggle_message_forwarding"
 DEACTIVATE_RTL = "deactivate_rtl"
 ACKNOWLEDGE_ALARM = "acknowledge_alarm"
 MANAGE_ASSIGNMENT = "manage_assignment"
+# ADR-032: assigning/reassigning client RTL UIDs to Technicians. Device-less
+# capability (the target is a client UID, not a synthetic device_id) and
+# Administrator only: a Technician who could assign could grant themselves
+# access. Mirrors ROUTE_POLICY["rtl_assignments"] without being derived from it.
+MANAGE_RTL_ASSIGNMENTS = "manage_rtl_assignments"
 # THRESH-CONFIG-1 (C-01, framework only): setting/clearing the single
 # global warning/critical temperature threshold. Device-less because there
 # is exactly one global configuration, never a per-device one.
@@ -222,6 +238,7 @@ CAPABILITY_POLICY: dict[str, frozenset[str]] = {
     MANAGE_DEVICES: _ADMIN_ONLY,
     VIEW_OWN_DEVICES: _TECHNICIAN_ONLY,
     MANAGE_USERS: _ADMIN_ONLY,
+    MANAGE_RTL_ASSIGNMENTS: _ADMIN_ONLY,
     VIEW_AUDIT_LOG: _ADMIN_ONLY,
     # ADR-013, moved from ACTION_POLICY where it read
     # `(_EVERY_ROLE, _NO_ROLE)`. The empty assigned-only set was the tell:

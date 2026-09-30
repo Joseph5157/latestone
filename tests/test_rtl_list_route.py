@@ -56,7 +56,8 @@ from services.authorization import (
     TECHNICIAN,
     may_access_route,
 )
-from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.device_scope import UNRESTRICTED as DEVICE_UNRESTRICTED
+from services.rtl_scope import DENIED as EMPTY, UNRESTRICTED, RtlScope as DeviceScope
 from tests.dash_tree import walk
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -249,6 +250,7 @@ class TestHttpRedirect:
 
         monkeypatch.setattr(routing, "current_identity", _forbidden)
         monkeypatch.setattr(routing, "current_device_scope", _forbidden)
+        monkeypatch.setattr(routing, "current_rtl_scope", _forbidden)
         monkeypatch.setattr(fleet_overview, "get_real_fleet", _forbidden)
         assert client.get("/plants").status_code == 302
 
@@ -300,6 +302,7 @@ class TestRouterIgnoresTheAlias:
 
         monkeypatch.setattr(routing, "current_identity", _forbidden)
         monkeypatch.setattr(routing, "current_device_scope", _forbidden)
+        monkeypatch.setattr(routing, "current_rtl_scope", _forbidden)
         monkeypatch.setattr(routing, "may_view_real_fleet", _forbidden)
         assert route_to_page(path, "?filter=x", {}) == (no_update, no_update)
 
@@ -311,7 +314,8 @@ class TestRouterIgnoresTheAlias:
         is applied inside the page by scope (see TestTechnicianRestriction).
         Both are exactly as they were at `/plants`."""
         monkeypatch.setattr(routing, "current_identity", lambda: _user(role))
-        monkeypatch.setattr(routing, "current_device_scope", lambda: UNRESTRICTED)
+        monkeypatch.setattr(routing, "current_device_scope", lambda: DEVICE_UNRESTRICTED)
+        monkeypatch.setattr(routing, "current_rtl_scope", lambda: UNRESTRICTED)
         layout, context = route_to_page("/rtls", "", {})
         assert context["route"] == "overview"
         assert "page--fleet-overview" in layout.className
@@ -327,11 +331,20 @@ class TestRouterIgnoresTheAlias:
         _layout, context = route_to_page("/rtls", "", {})
         assert context == {"route": "forbidden"}
 
-    def test_the_technician_is_still_refused_the_detail(self, route_to_page, monkeypatch):
+    def test_the_technician_is_refused_an_unassigned_detail(self, route_to_page, monkeypatch):
+        """ADR-032: the route gate admits a Technician, the RTL scope decides."""
         monkeypatch.setattr(routing, "current_identity", lambda: _user(TECHNICIAN))
-        monkeypatch.setattr(routing, "current_device_scope", lambda: DeviceScope(frozenset()))
+        monkeypatch.setattr(routing, "current_device_scope", lambda: DEVICE_UNRESTRICTED)
+        monkeypatch.setattr(routing, "current_rtl_scope", lambda: DeviceScope(frozenset()))
         _layout, context = route_to_page(f"/rtls/{A_UID}", "", {})
         assert context == {"route": "forbidden"}
+
+    def test_the_technician_reaches_an_assigned_detail(self, route_to_page, monkeypatch):
+        monkeypatch.setattr(routing, "current_identity", lambda: _user(TECHNICIAN))
+        monkeypatch.setattr(routing, "current_device_scope", lambda: DEVICE_UNRESTRICTED)
+        monkeypatch.setattr(routing, "current_rtl_scope", lambda: DeviceScope(frozenset({A_UID})))
+        _layout, context = route_to_page(f"/rtls/{A_UID}", "", {})
+        assert context["route"] == "rtl_detail"
 
     def test_the_rebuild_still_carries_every_route_field(self):
         """RTL-UID-DETAIL-01's safeguard, restated for this gate: the router's
@@ -373,7 +386,7 @@ class TestAuthorizationUnchanged:
         assert set(ROUTE_POLICY) == {
             "overview", "plant", "transformer", "device", "rtl_detail", "rtl_network", "historical_events",
             "notifications", "reports", "admin_devices", "technician_devices",
-            "admin_assignments", "device_register", "admin_users", "audit_log",
+            "admin_assignments", "rtl_assignments", "device_register", "admin_users", "audit_log",
             "admin_settings", "command_center",
         }
 
@@ -387,7 +400,7 @@ class TestTechnicianRestriction:
         return {"route": parse_pathname(path).name}
 
     def test_technician_at_rtls_gets_the_restricted_panel_and_no_read(self):
-        def _no_read():
+        def _no_read(**_):
             raise AssertionError("the client RTL source must not be read for a Technician")
 
         outputs = fleet_overview.populate(
@@ -400,7 +413,7 @@ class TestTechnicianRestriction:
     def test_the_alias_context_never_reaches_the_fleet_callback(self):
         """If `/plants` ever produced page-context it would be this — and the
         Fleet callback would ignore it, reading nothing."""
-        def _no_read():
+        def _no_read(**_):
             raise AssertionError("the alias must not load the fleet")
 
         outputs = fleet_overview.populate(
@@ -421,7 +434,7 @@ class TestOneFleetPath:
     def test_rtls_loads_the_fleet_exactly_once(self):
         calls = []
 
-        def _fetch():
+        def _fetch(**_):
             calls.append(1)
             raise RuntimeError("stop after counting")
 
@@ -462,7 +475,7 @@ class TestNavigationAndLinks:
     def test_no_other_sidebar_item_changed_destination(self):
         items = {key: href for _t, group in SIDEBAR_SECTIONS for key, _l, href, _i in group}
         assert items["devices"] == "/admin/devices"
-        assert items["technician_devices"] == "/devices"
+        assert "technician_devices" not in items  # retired by ADR-032
         assert items["command_center"] == "/command-center"
 
     def test_the_rtls_path_highlights_registered_rtls(self):

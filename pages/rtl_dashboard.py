@@ -12,10 +12,16 @@ BODY_ID = "rtl-dashboard-body"
 ROOT_CLASS = "page page--monitoring page--rtl-dashboard"
 
 
-def layout() -> html.Div:
+def layout(assigned_only: bool = False) -> html.Div:
+    subtitle = (
+        "The RTLs assigned to you, their current network mapping and the temperature "
+        "data on record."
+        if assigned_only
+        else "Registered client RTLs, their current network mapping and the temperature "
+        "data on record."
+    )
     return html.Div(className=ROOT_CLASS, children=[
         html.H1("Dashboard"),
-        html.P("Registered client RTLs, their current network mapping and the temperature "
-               "data on record.", className="page__subtitle"),
+        html.P(subtitle, className="page__subtitle"),
         html.Div(id=BODY_ID, children=[html.P("Loading…", className="command-center__loading")]),
     ])

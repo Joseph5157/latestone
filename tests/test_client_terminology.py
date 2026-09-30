@@ -167,7 +167,8 @@ class TestNavigationWording:
     def test_every_role_that_sees_the_item_sees_the_client_wording(self, role):
         rendered = dict(links(sidebar_nav(None, role)))
         if FLEET_OVERVIEW_PATH in rendered.values():
-            assert REGISTERED_RTLS in rendered
+            # ADR-032: a Technician's list is named for what it holds.
+            assert ("Assigned RTLs" if role == TECHNICIAN else REGISTERED_RTLS) in rendered
 
     @pytest.mark.parametrize("word", ("Plant", "Plants"))
     def test_no_navigation_item_is_named_for_the_synthetic_hierarchy(self, word):
@@ -238,7 +239,8 @@ class TestIdentityAndAuthorizationAreUnchanged:
                     "notifications",
                     "reports",
                     "command_center",
-                    "technician_devices",
+                    "network",
+                    "events",
                 },
             ),
         ],
@@ -248,11 +250,11 @@ class TestIdentityAndAuthorizationAreUnchanged:
 
     def test_administrator_navigation_is_unchanged(self):
         keys = {key for key, _label, _href, _icon in _all_sidebar_items()}
-        assert visible_nav_keys(ADMINISTRATOR) == keys - {"technician_devices"}
+        assert visible_nav_keys(ADMINISTRATOR) == keys
 
     def test_the_restricted_panel_still_refuses_unapproved_scopes(self):
         """Wording changed nowhere near this. The panel must still say the
         directory is not available, not show it."""
         text = text_of(rtl_fleet.restricted_panel())
         assert "not available for your account" in text
-        assert "no approved link" in text.lower()
+        assert "assigned to them" in text

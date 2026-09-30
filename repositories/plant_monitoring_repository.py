@@ -1503,6 +1503,8 @@ def delete_all_users() -> None:
     need delete_all_assignments() first, as before.
     """
     with session_scope() as session:
+        # TECHNICIAN-REAL-RTL-ACCESS-01: client-RTL assignments FK to users.
+        session.execute(text(f"DELETE FROM {_SCHEMA}.rtl_technician_assignments"))
         session.execute(text(f"DELETE FROM {_SCHEMA}.audit_log"))
         session.execute(text(f"DELETE FROM {_SCHEMA}.users"))
 
@@ -4414,3 +4416,247 @@ def activate_device_active_state(
         return _run(session)
     with session_scope() as own:
         return _run(own)
+
+
+# ---------------------------------------------------------------------------
+# Client-RTL Technician assignments (TECHNICIAN-REAL-RTL-ACCESS-01, ADR-032)
+#
+# Application-owned. Keyed on the CLIENT RTL UID, never on the synthetic
+# `devices.device_id`. The client SQL Server is never written: nothing here
+# touches it, and it cannot (this module has no SQL Server connection).
+# ---------------------------------------------------------------------------
+
+PROVENANCE_APPLICATION = "APPLICATION"
+PROVENANCE_LEGACY_IMPORT = "LEGACY_IMPORT"
+
+_RTL_ASSIGNMENT_SELECT = (
+    "SELECT a.assignment_id, a.device_uid, a.technician_user_id, "
+    "t.username, t.full_name, a.provenance, a.assigned_at, a.assigned_by, "
+    "ab.full_name, a.imported_at, a.ended_at, a.ended_by "
+    "FROM {schema}.rtl_technician_assignments a "
+    "JOIN {schema}.users t ON t.user_id = a.technician_user_id "
+    "LEFT JOIN {schema}.users ab ON ab.user_id = a.assigned_by "
+)
+
+
+@dataclass(frozen=True)
+class RtlAssignmentRecord:
+    """One assignment row. ``ended_at is None`` is the single "current" marker.
+
+    ``assigned_at``/``assigned_by`` are None for LEGACY_IMPORT rows: the
+    original date and actor are unknown and are not invented.
+    """
+
+    assignment_id: int
+    device_uid: int
+    technician_user_id: int
+    technician_username: str
+    technician_name: str
+    provenance: str
+    assigned_at: datetime | None
+    assigned_by: int | None
+    assigned_by_name: str | None
+    imported_at: datetime | None
+    ended_at: datetime | None
+    ended_by: int | None
+
+    @property
+    def is_current(self) -> bool:
+        return self.ended_at is None
+
+
+def _to_rtl_assignment(row) -> RtlAssignmentRecord:
+    return RtlAssignmentRecord(*row)
+
+
+def _rtl_assignment_select() -> str:
+    return _RTL_ASSIGNMENT_SELECT.format(schema=_SCHEMA)
+
+
+def list_current_rtl_assignment_uids(technician_user_id: int) -> list[int]:
+    """Client RTL UIDs currently assigned to one application user."""
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"SELECT device_uid FROM {_SCHEMA}.rtl_technician_assignments "
+                "WHERE technician_user_id = :uid AND ended_at IS NULL "
+                "ORDER BY device_uid"
+            ),
+            {"uid": technician_user_id},
+        ).all()
+    return [int(r[0]) for r in rows]
+
+
+def list_current_rtl_assignments() -> list[RtlAssignmentRecord]:
+    """Every open assignment, ordered by UID."""
+    with session_scope() as session:
+        rows = session.execute(
+            text(_rtl_assignment_select() + "WHERE a.ended_at IS NULL ORDER BY a.device_uid")
+        ).all()
+    return [_to_rtl_assignment(r) for r in rows]
+
+
+def count_current_rtl_assignments() -> int:
+    with session_scope() as session:
+        return int(session.execute(
+            text(f"SELECT COUNT(*) FROM {_SCHEMA}.rtl_technician_assignments WHERE ended_at IS NULL")
+        ).scalar_one())
+
+
+def count_rtl_assignments_by_provenance(provenance: str) -> int:
+    with session_scope() as session:
+        return int(session.execute(
+            text(f"SELECT COUNT(*) FROM {_SCHEMA}.rtl_technician_assignments "
+                 "WHERE provenance = :p"),
+            {"p": provenance},
+        ).scalar_one())
+
+
+def list_rtl_assignment_history(device_uid: int) -> list[RtlAssignmentRecord]:
+    """Every assignment the RTL has had; the current row first, then newest."""
+    with session_scope() as session:
+        rows = session.execute(
+            text(_rtl_assignment_select()
+                 + "WHERE a.device_uid = :uid "
+                   "ORDER BY (a.ended_at IS NULL) DESC, a.ended_at DESC, a.assignment_id DESC"),
+            {"uid": device_uid},
+        ).all()
+    return [_to_rtl_assignment(r) for r in rows]
+
+
+def get_current_rtl_assignment(device_uid: int, *, session, lock: bool = False):
+    """The open assignment for a UID inside the caller's transaction, or None.
+
+    ``lock=True`` takes a row lock so a concurrent reassignment of the same
+    RTL waits instead of racing.
+    """
+    row = session.execute(
+        text(_rtl_assignment_select()
+             + "WHERE a.device_uid = :uid AND a.ended_at IS NULL"
+             + (" FOR UPDATE OF a" if lock else "")),
+        {"uid": device_uid},
+    ).first()
+    return _to_rtl_assignment(row) if row else None
+
+
+def insert_rtl_assignment(
+    *,
+    session,
+    device_uid: int,
+    technician_user_id: int,
+    provenance: str,
+    assigned_by: int | None = None,
+) -> int:
+    """Open an assignment. The partial unique index refuses a second open row.
+
+    APPLICATION rows take ``assigned_at = now()``; LEGACY_IMPORT rows record
+    ``imported_at = now()`` and leave the historical date/actor NULL.
+    """
+    legacy = provenance == PROVENANCE_LEGACY_IMPORT
+    row = session.execute(
+        text(
+            f"""
+            INSERT INTO {_SCHEMA}.rtl_technician_assignments
+                (device_uid, technician_user_id, provenance,
+                 assigned_at, assigned_by, imported_at)
+            VALUES
+                (:device_uid, :tech, :prov,
+                 CASE WHEN :legacy THEN NULL ELSE now() END, :by,
+                 CASE WHEN :legacy THEN now() ELSE NULL END)
+            RETURNING assignment_id
+            """
+        ),
+        {"device_uid": device_uid, "tech": technician_user_id, "prov": provenance,
+         "legacy": legacy, "by": None if legacy else assigned_by},
+    ).first()
+    return int(row[0])
+
+
+def end_rtl_assignment(*, session, assignment_id: int, ended_by: int) -> bool:
+    """Close one open assignment. False means it was already closed (stale)."""
+    row = session.execute(
+        text(
+            f"UPDATE {_SCHEMA}.rtl_technician_assignments "
+            "SET ended_at = now(), ended_by = :by "
+            "WHERE assignment_id = :id AND ended_at IS NULL RETURNING assignment_id"
+        ),
+        {"id": assignment_id, "by": ended_by},
+    ).first()
+    return row is not None
+
+
+def list_active_technician_users() -> list[tuple[int, str, str, int | None]]:
+    """(user_id, username, full_name, client_person_id) of active Technicians."""
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                f"SELECT user_id, username, full_name, client_person_id "
+                f"FROM {_SCHEMA}.users WHERE role = 'technician' AND status = 'active' "
+                "ORDER BY full_name, user_id"
+            )
+        ).all()
+    return [(int(r[0]), r[1], r[2], r[3]) for r in rows]
+
+
+def get_active_technician_user_id(user_id: int, *, session) -> int | None:
+    """The id back if `user_id` is a currently active Technician, else None."""
+    row = session.execute(
+        text(f"SELECT user_id FROM {_SCHEMA}.users "
+             "WHERE user_id = :u AND role = 'technician' AND status = 'active'"),
+        {"u": user_id},
+    ).first()
+    return int(row[0]) if row else None
+
+
+def list_user_ids_by_client_person_id() -> dict[int, int]:
+    """client persons.person_id -> application users.user_id (mapped users only)."""
+    with session_scope() as session:
+        rows = session.execute(
+            text(f"SELECT client_person_id, user_id FROM {_SCHEMA}.users "
+                 "WHERE client_person_id IS NOT NULL")
+        ).all()
+    return {int(r[0]): int(r[1]) for r in rows}
+
+
+def provision_technician_user_for_person(
+    *, session, client_person_id: int, username: str, full_name: str
+) -> int:
+    """Create a login-less Technician user bound to one client person.
+
+    No credential is created anywhere: signing in also needs a configured
+    credential (ADR-015), so this row alone grants no access.
+    """
+    row = session.execute(
+        text(
+            f"INSERT INTO {_SCHEMA}.users "
+            "(username, full_name, role, status, client_person_id) "
+            "VALUES (:username, :full_name, 'technician', 'active', :pid) "
+            "RETURNING user_id"
+        ),
+        {"username": username, "full_name": full_name, "pid": client_person_id},
+    ).first()
+    return int(row[0])
+
+
+def list_rtl_assignment_uid_state() -> dict[int, tuple[int | None, bool]]:
+    """device_uid -> (technician_user_id of the OPEN row or None, has any history).
+
+    Every UID that has ever had an assignment appears, so a bootstrap can tell
+    "never assigned" from "was assigned and later ended" and never resurrect
+    the latter.
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                "SELECT device_uid, "
+                "MAX(technician_user_id) FILTER (WHERE ended_at IS NULL) "
+                f"FROM {_SCHEMA}.rtl_technician_assignments GROUP BY device_uid"
+            )
+        ).all()
+    return {int(r[0]): (int(r[1]) if r[1] is not None else None, True) for r in rows}
+
+
+def username_exists(username: str, *, session) -> bool:
+    return session.execute(
+        text(f"SELECT 1 FROM {_SCHEMA}.users WHERE username = :u"), {"u": username}
+    ).first() is not None

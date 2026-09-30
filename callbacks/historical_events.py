@@ -13,7 +13,7 @@ from dash import Input, Output, State, ctx, no_update
 from components import historical_events as ui
 from pages import historical_events as page
 from services import rtl_events_service as svc
-from services.device_scope import current_device_scope
+from services.rtl_scope import current_rtl_scope
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +27,15 @@ def _day(value) -> date | None:
         return None
 
 
-def initial_window(context, *, latest=svc.get_latest_event_time, scope_for=current_device_scope):
+def initial_window(context, *, latest=svc.get_latest_event_time, scope_for=current_rtl_scope):
     """(start, end) ISO dates for the default window, or no_update."""
     if not context or context.get("route") != ROUTE:
         return no_update, no_update
     try:
-        if not svc.may_view_real_fleet(scope_for()):
+        scope = scope_for()
+        if not svc.may_view_real_fleet(scope):
             return None, None
-        window = svc.default_window(latest())
+        window = svc.default_window(latest(scope=scope))
     except Exception:
         logger.exception("Failed to set the Historical Events window")
         return None, None
@@ -44,12 +45,13 @@ def initial_window(context, *, latest=svc.get_latest_event_time, scope_for=curre
 
 
 def render(context, start, end, event_type, uid_text, trigger, current_page, *,
-           fetch=svc.get_events_page, scope_for=current_device_scope):
+           fetch=svc.get_events_page, scope_for=current_rtl_scope):
     """(body, page). ``trigger`` is the id of the input that fired, if any."""
     if not context or context.get("route") != ROUTE:
         return no_update, no_update
     try:
-        if not svc.may_view_real_fleet(scope_for()):
+        scope = scope_for()
+        if not svc.may_view_real_fleet(scope):
             return None, 0
     except Exception:
         logger.exception("Historical Events scope check failed")
@@ -66,7 +68,7 @@ def render(context, start, end, event_type, uid_text, trigger, current_page, *,
         wanted = 0  # any filter change starts from the newest events
     kind = None if event_type in (None, page.ALL_TYPES) else event_type
     try:
-        result = fetch(start_day, end_day, kind, uid_text, wanted)
+        result = fetch(start_day, end_day, kind, uid_text, wanted, scope=scope)
     except Exception:
         logger.exception("Failed to load Historical Events")
         return ui.message("Historical events are unavailable right now."), 0

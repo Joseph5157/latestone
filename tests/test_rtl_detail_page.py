@@ -365,6 +365,17 @@ class TestHistoryPanel:
 
 
 class TestCallback:
+    @pytest.fixture(autouse=True)
+    def _administrator_scope(self, monkeypatch):
+        """The callback resolves its own RTL scope (ADR-032); these tests are
+        about rendering, so the caller is an Administrator (unrestricted)."""
+        from services.auth_service import AuthenticatedUser
+
+        monkeypatch.setattr(
+            "services.rtl_scope.current_identity",
+            lambda: AuthenticatedUser(user_id=1, username="a", full_name="A", role="administrator"),
+        )
+
     def _context(self, uid=A_UID, route="rtl_detail"):
         return {"route": route, "rtl_uid": uid}
 

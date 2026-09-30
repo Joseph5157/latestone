@@ -21,21 +21,22 @@ from components import rtl_network as ui
 from components.status_panels import error_panel
 from pages import rtl_network as page
 from services import rtl_network_service as svc
-from services.device_scope import current_device_scope
+from services.rtl_scope import current_rtl_scope
 
 logger = logging.getLogger(__name__)
 
 ROUTE = "rtl_network"
 
 
-def load(context, *, fetch=svc.get_current_network, scope_for=current_device_scope):
+def load(context, *, fetch=svc.get_current_network, scope_for=current_rtl_scope):
     """Body of the load callback: (store payload, error children)."""
     if not context or context.get("route") != ROUTE:
         return no_update, no_update
     try:
-        if not svc.may_view_real_fleet(scope_for()):
+        scope = scope_for()
+        if not svc.may_view_real_fleet(scope):
             return None, ui.restricted_panel()
-        network = fetch()
+        network = fetch(scope=scope)
     except Exception:
         logger.exception("Failed to load the Network view")
         return None, error_panel()

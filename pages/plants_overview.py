@@ -28,14 +28,21 @@ LIST_ID = "fleet-overview-list"
 FILTER_ID = "fleet-overview-filter"
 
 
-def layout() -> html.Div:
+def layout(assigned_only: bool = False) -> html.Div:
+    """``assigned_only`` names the Technician's view (ADR-032). It is a title
+    and subtitle only: what rows appear is decided by the callback's scope."""
+    title = "Assigned RTLs" if assigned_only else "Registered RTLs"
+    subtitle = (
+        "The RTLs assigned to you, with their latest recorded temperature."
+        if assigned_only
+        else "Every RTL in the client's directory, with its latest recorded temperature."
+    )
     return html.Div(
         className="page page--monitoring page--fleet-overview",
         children=[
-            app_header(breadcrumb_children=breadcrumb([("Registered RTLs", None)])),
-            html.H1("Registered RTLs"),
-            html.P("Every RTL in the client's directory, with its latest recorded temperature.",
-                   className="page__subtitle"),
+            app_header(breadcrumb_children=breadcrumb([(title, None)])),
+            html.H1(title),
+            html.P(subtitle, className="page__subtitle"),
             html.Div(className="fleet-refresh-context", children=[
                 html.P(id=REFRESHED_ID, className="page__meta"),
                 dcc.Link("Refresh", href=FLEET_OVERVIEW_PATH, refresh=True,

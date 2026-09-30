@@ -10,7 +10,7 @@ from callbacks import fleet_overview as cb
 from repositories.rtl_temperature_repository import RTLLatestTemperature
 from routes import FLEET_OVERVIEW_PATH, NAV_KEY_BY_ROUTE, parse_pathname
 from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN, may_access_route
-from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.rtl_scope import DENIED as EMPTY, UNRESTRICTED, RtlScope as DeviceScope
 from services.rtl_fleet_service import FleetStatus, RealFleet, build_rows, summarise
 from tests.dash_tree import find_by_class, text_of
 
@@ -40,7 +40,7 @@ def _fleet() -> RealFleet:
 
 def test_unrestricted_scope_reads_the_fleet_once():
     calls = []
-    out = cb.populate({"route": "overview"}, fetch=lambda: calls.append(1) or _fleet(),
+    out = cb.populate({"route": "overview"}, fetch=lambda **_: calls.append(1) or _fleet(),
                       scope_for=lambda: UNRESTRICTED)
     stats, refreshed, listing, error, options = out
     assert calls == [1] and error is None
@@ -51,10 +51,12 @@ def test_unrestricted_scope_reads_the_fleet_once():
 
 
 def test_restricted_scopes_never_read_the_rtl_source():
-    def fetch():
+    def fetch(**_):
         raise AssertionError("RTL source must not be read for a restricted scope")
 
-    for scope in (EMPTY, DeviceScope(frozenset({"plant-01-t1-d1"})), None):
+    # A DENIED scope (no session / unknown role) and no scope at all. A
+    # Technician's assigned scope is permitted (ADR-032), tested separately.
+    for scope in (EMPTY, None):
         stats, _r, listing, error, options = cb.populate(
             {"route": "overview"}, fetch=fetch, scope_for=lambda s=scope: s)
         assert stats is None and error is None and options == []
@@ -64,7 +66,7 @@ def test_restricted_scopes_never_read_the_rtl_source():
 
 def test_unavailable_source_shows_error_not_an_empty_fleet():
     out = cb.populate({"route": "overview"},
-                      fetch=lambda: RealFleet(FleetStatus.UNAVAILABLE),
+                      fetch=lambda **_: RealFleet(FleetStatus.UNAVAILABLE),
                       scope_for=lambda: UNRESTRICTED)
     stats, _r, listing, error, options = out
     assert stats is None and listing == [] and options == []
@@ -73,7 +75,7 @@ def test_unavailable_source_shows_error_not_an_empty_fleet():
 
 
 def test_a_failing_read_shows_the_error_panel_without_internals():
-    def boom():
+    def boom(**_):
         raise RuntimeError("password=hunter2 connection refused")
 
     _s, _r, listing, error, _o = cb.populate(
@@ -88,6 +90,6 @@ def test_filter_reaches_the_list():
     rows = build_rows([1, 2], latest, {}, {})
     fleet = RealFleet(FleetStatus.DATA, rows, summarise(rows))
     out = cb.populate({"route": "overview"}, "no_temperature",
-                      fetch=lambda: fleet, scope_for=lambda: UNRESTRICTED)
+                      fetch=lambda **_: fleet, scope_for=lambda: UNRESTRICTED)
     text = text_of(out[2])
     assert "No temperature data" in text and "20.0" not in text

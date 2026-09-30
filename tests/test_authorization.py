@@ -53,6 +53,7 @@ ROUTE_PATHS = {
     "device": "/devices/plant-01-t1-d1",
     "rtl_detail": "/rtls/29006",
     "rtl_network": "/rtls/network",
+    "rtl_assignments": "/technicians/assignments",
     "historical_events": "/events",
     "notifications": "/notifications",
     "reports": "/reports",
@@ -69,22 +70,18 @@ ROUTE_PATHS = {
 #: Functional Specification §5.9 retains the monitoring hierarchy and report
 #: export for General Users, while reserving operational surfaces for the
 #: Administrator and Technician roles.
-ADMIN_ONLY = ("admin_devices", "admin_assignments", "device_register", "admin_users", "audit_log", "admin_settings")
+ADMIN_ONLY = ("admin_devices", "admin_assignments", "rtl_assignments", "device_register", "admin_users", "audit_log", "admin_settings")
 GENERAL_READ_ROUTES = ("overview", "plant", "transformer", "device", "reports")
 OPERATIONAL_ROUTES = (
     "notifications", "command_center",
 )
-#: ADR-016: a Technician's own assigned-devices surface. Deliberately NOT in
-#: ADMIN_ONLY (the Administrator cannot reach it — it names no fleet-wide
-#: administration Administrator already has via admin_devices) and NOT in
-#: OPERATIONAL_ROUTES (Administrator does not share this one).
-TECHNICIAN_ONLY_ROUTES = ("technician_devices",)
-#: RTL-UID-DETAIL-01: raw client RTL facts. A shape no earlier route had —
-#: Administrator AND General User, but NOT Technician. It is not in
-#: GENERAL_READ_ROUTES (those are reachable by every role) and not in
-#: ADMIN_ONLY. The Technician exclusion is not a privilege judgement: there is
-#: no approved client-RTL-UID-to-assignment map, so there is no way to scope
-#: the page to them truthfully.
+#: ADR-016 -> ADR-032: the synthetic Plant/Transformer "Devices" surface for a
+#: Technician is RETIRED from every role's path (default deny). The code is not
+#: deleted; only the route policy and the sidebar item are.
+RETIRED_ROUTES = ("technician_devices",)
+#: RTL-UID-DETAIL-01 / ADR-032: raw client RTL facts. Every role passes the
+#: ROUTE gate; a Technician's UID scope (services.rtl_scope: current
+#: assignments only) then decides which RTLs any of these pages may show.
 CLIENT_RTL_ROUTES = ("rtl_detail", "rtl_network", "historical_events")  # network: LATEST-NETWORK-CONTEXT-01; events: HISTORICAL-EVENTS-01
 
 
@@ -108,13 +105,12 @@ class TestTheMatrix:
         assert may_access_route(GENERAL, route) is False
 
     @pytest.mark.parametrize("route", CLIENT_RTL_ROUTES)
-    def test_only_unrestricted_scopes_reach_client_rtl_facts(self, route):
-        """RTL-UID-DETAIL-01. The Fleet page shows the client RTL directory
-        to unrestricted scopes only; the detail route must refuse the same
-        role, or typing a UID becomes the way around that restriction."""
+    def test_every_role_passes_the_route_gate_for_client_rtl_facts(self, route):
+        """ADR-032. The route gate admits every role; the shared UID scope,
+        not this table, decides which RTLs a Technician may see."""
         assert may_access_route(ADMINISTRATOR, route) is True
         assert may_access_route(GENERAL, route) is True
-        assert may_access_route(TECHNICIAN, route) is False
+        assert may_access_route(TECHNICIAN, route) is True
 
     @pytest.mark.parametrize("route", ADMIN_ONLY)
     def test_only_the_administrator_reaches_admin_management(self, route):
@@ -122,32 +118,24 @@ class TestTheMatrix:
         assert may_access_route(TECHNICIAN, route) is False
         assert may_access_route(GENERAL, route) is False
 
-    @pytest.mark.parametrize("route", TECHNICIAN_ONLY_ROUTES)
-    def test_only_the_technician_reaches_their_own_devices(self, route):
-        """ADR-016: the Administrator has admin_devices for this already —
-        technician_devices names no capability the Administrator lacks, so
-        it is correctly denied to them too, not just to General."""
-        assert may_access_route(ADMINISTRATOR, route) is False
-        assert may_access_route(TECHNICIAN, route) is True
-        assert may_access_route(GENERAL, route) is False
+    @pytest.mark.parametrize("route", RETIRED_ROUTES)
+    def test_a_retired_route_is_denied_to_every_role(self, route):
+        assert all(may_access_route(role, route) is False for role in CONFIRMED_ROLES)
 
     def test_general_user_has_only_the_functional_specification_route_set(self):
         """The General User set is exactly the §5.9 read-only route set."""
         technician = {r for r in ROUTE_POLICY if may_access_route(TECHNICIAN, r)}
         general = {r for r in ROUTE_POLICY if may_access_route(GENERAL, r)}
         assert general == set(GENERAL_READ_ROUTES) | set(CLIENT_RTL_ROUTES)
-        assert technician - general == set(OPERATIONAL_ROUTES) | set(TECHNICIAN_ONLY_ROUTES)
-        # The other direction, which the line above cannot see: the General
-        # User reaches the client RTL routes and the Technician does not.
-        assert general - technician == set(CLIENT_RTL_ROUTES)
+        assert technician - general == set(OPERATIONAL_ROUTES)
+        # The other direction: nothing the General User has is withheld from a
+        # Technician at the route gate (ADR-032 - the UID scope narrows data).
+        assert general - technician == set()
 
-    def test_administrator_reaches_every_policied_route_except_technicians_own(self):
-        """The one deliberate exception: technician_devices names no
-        capability the Administrator lacks (they already have admin_devices),
-        so ADR-016 denies them this specific route rather than widening it."""
-        non_admin_routes = set(ROUTE_POLICY) - set(TECHNICIAN_ONLY_ROUTES)
-        assert all(may_access_route(ADMINISTRATOR, r) for r in non_admin_routes)
-        assert not any(may_access_route(ADMINISTRATOR, r) for r in TECHNICIAN_ONLY_ROUTES)
+    def test_administrator_reaches_every_policied_route_except_the_retired_one(self):
+        non_retired = set(ROUTE_POLICY) - set(RETIRED_ROUTES)
+        assert all(may_access_route(ADMINISTRATOR, r) for r in non_retired)
+        assert not any(may_access_route(ADMINISTRATOR, r) for r in RETIRED_ROUTES)
 
     def test_the_policy_covers_every_application_route(self):
         """A route the router can produce but the policy never mentions would
@@ -210,15 +198,12 @@ class TestNavigationIsDerivedFromThePolicy:
                 assert key in visible
 
     def test_administrator_keeps_the_current_navigation(self):
-        """One deliberate exception: "technician_devices" is in the sidebar
-        tuple (Technician sees it) but not in the Administrator's set — see
-        test_only_the_technician_reaches_their_own_devices."""
-        assert visible_nav_keys(ADMINISTRATOR) == self._sidebar_keys() - {"technician_devices"}
+        assert visible_nav_keys(ADMINISTRATOR) == self._sidebar_keys()
 
     def test_technician_keeps_operational_navigation(self):
         assert visible_nav_keys(TECHNICIAN) == {
             "overview", "notifications", "reports", "command_center",
-            "technician_devices",
+            "network", "events",
         }
 
     def test_general_user_sees_only_read_only_navigation(self):

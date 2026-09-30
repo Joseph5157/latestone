@@ -40,7 +40,12 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "historical_events": "events",
     "admin_devices": "devices",
     "technician_devices": "technician_devices",
+    # ADR-032: the client-RTL assignment workflow owns the sidebar's
+    # Assignments item (its href is `/technicians/assignments`). The legacy
+    # synthetic `/admin/assignments` route stays reachable by URL, is not
+    # linked from navigation, and still highlights the same item.
     "admin_assignments": "assignments",
+    "rtl_assignments": "assignments",
     "device_register": "registration",
     "notifications": "notifications",
     "reports": "reports",
@@ -56,6 +61,11 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
 #: already open. A `/admin/assignments` route would be a second place
 #: assignment lives, and the drawer is not a page.
 ASSIGN_PARAM = "assign"
+
+#: ADR-032. Administrator-only Technician assignment management for real
+#: client RTL UIDs: current assignments, the Unassigned RTLs pool, assign,
+#: reassign, history.
+RTL_ASSIGNMENTS_PATH = "/technicians/assignments"
 
 #: Command Center path (SWITCH-OVER-1: the redesigned page took it over from
 #: the old one).
@@ -160,7 +170,7 @@ def rtl_list_href(search: str | None = None) -> str:
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
                # "rtl_detail" | "rtl_network" | "historical_events" | "admin_devices" | "technician_devices" |
-               # "admin_assignments" | "admin_users" | "reports" |
+               # "admin_assignments" | "rtl_assignments" | "admin_users" | "reports" |
                # "notifications" | "command_center" | "rtl_list_alias" |
                # "unknown"
     plant_id: str | None = None
@@ -199,6 +209,9 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 1 and parts[0] == "command-center":
         return Route(name="command_center")
+
+    if len(parts) == 2 and parts == ["technicians", "assignments"]:
+        return Route(name="rtl_assignments")
 
 
     if len(parts) == 2 and parts[0] == "plants":

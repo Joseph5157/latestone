@@ -175,17 +175,9 @@ def section_titles(role: str | None) -> list[str]:
 
 
 class TestSidebarFiltering:
-    def test_administrator_sees_every_item_except_the_technicians_own_devices(self):
-        """ADR-016's one deliberate exception: "technician_devices" is a
-        second, differently-keyed "Devices" entry the Administrator cannot
-        open (they already have admin_devices) — see
-        tests/test_authorization.py::test_only_the_technician_reaches_their_own_devices."""
-        expected = [
-            label
-            for _title, items in SIDEBAR_SECTIONS
-            for key, label, _href, _icon in items
-            if key != "technician_devices"
-        ]
+    def test_administrator_sees_every_sidebar_item(self):
+        expected = [label for _title, items in SIDEBAR_SECTIONS
+                    for _key, label, _href, _icon in items]
         assert rendered_labels(ADMINISTRATOR) == expected
 
     def test_admin_management_items_are_gone_for_general(self):
@@ -200,19 +192,18 @@ class TestSidebarFiltering:
         assert "Registration" not in labels
         assert "Users" not in labels
 
-    def test_technician_sees_their_own_devices_item(self):
-        """A Technician now has a "Devices" item too (ADR-016) — their own
-        assigned-devices page at a different route/key from the
-        Administrator's, sharing only the label and icon concept. No
-        Assignments: that route is Administrator-only (ADMIN-ASSIGN-1)."""
+    def test_technician_navigation_is_the_factual_client_rtl_set(self):
+        """ADR-032: Dashboard, Assigned RTLs, Network, Historical Events - the
+        real-client routes - plus the shared Notifications and Reports. No
+        synthetic Devices item and no assignment management."""
         assert rendered_labels(TECHNICIAN) == [
-            "Registered RTLs", "Command Center", "Devices",
+            "Assigned RTLs", "Network", "Historical Events", "Dashboard",
             "Notifications", "Reports",
         ]
 
-    def test_technicians_devices_item_points_at_their_own_route(self):
+    def test_technician_has_no_synthetic_devices_item(self):
         hrefs = dict(links(sidebar_nav(None, TECHNICIAN)))
-        assert hrefs["Devices"] == "/devices"
+        assert "Devices" not in hrefs and "/devices" not in hrefs.values()
 
     def test_general_user_navigation_has_no_operational_surfaces(self):
         assert rendered_labels(GENERAL) == ["Registered RTLs", "Network", "Historical Events", "Reports"]
@@ -223,11 +214,10 @@ class TestSidebarFiltering:
         assert "Operations" not in section_titles(GENERAL)
         assert "System" in section_titles(GENERAL)
 
-    def test_technician_now_sees_the_operations_heading_too(self):
-        """Unlike General, a Technician has a real Operations item — their
-        own Devices — so the section heading is no longer emptied, even
-        though Assignments and Registration both stay Administrator-only."""
-        assert "Operations" in section_titles(TECHNICIAN)
+    def test_technician_has_no_operations_section(self):
+        """Devices, Assignments and Registration are all closed to a Technician
+        now, so the Operations heading goes with them."""
+        assert "Operations" not in section_titles(TECHNICIAN)
         assert "System" in section_titles(TECHNICIAN)
 
     def test_administrator_keeps_both_section_headings(self):
@@ -273,11 +263,9 @@ class TestSidebarFiltering:
         nav = sidebar_nav("devices", TECHNICIAN)
         assert find_by_class(nav, "app-sidebar__link--active") == []
 
-    def test_technicians_own_devices_item_still_lights_up_on_its_own_key(self):
+    def test_a_retired_key_lights_nothing_up(self):
         nav = sidebar_nav("technician_devices", TECHNICIAN)
-        active = find_by_class(nav, "app-sidebar__link--active")
-        assert len(active) == 1
-        assert "Devices" in text_of(active[0])
+        assert find_by_class(nav, "app-sidebar__link--active") == []
 
 
 class TestNavigationCallbackHelper:

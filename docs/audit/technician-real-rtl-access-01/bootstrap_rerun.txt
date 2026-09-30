@@ -1,0 +1,8 @@
+Legacy Technician assignment bootstrap - PREVIEW
+  candidate current assignments to import : 0
+  already present (same Technician)       : 64
+  skipped (assignment history exists)     : 0
+  excluded historical/unregistered UIDs   : 4
+  Technician persons needing an app user  : 0
+  blocking problems                       : 0
+

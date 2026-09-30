@@ -192,6 +192,24 @@ The two seeds are deliberately separate. The monitoring seed describes
 equipment; this one describes people and responsibilities, and refreshing
 readings should never silently create a staff list.
 
+### Client RTL Technician assignments (one-time bootstrap)
+
+Technicians see only the client RTLs assigned to them (ADR-032). The
+assignments live in the application database (`rtl_technician_assignments`);
+the client SQL Server is only read, never written. To adopt the client's legacy
+assignment snapshot once, as transitional evidence:
+
+```bash
+python -m scripts.bootstrap_rtl_assignments                               # PREVIEW only
+python -m scripts.bootstrap_rtl_assignments --apply --provision-technicians
+```
+
+The preview lists the candidate assignments, the excluded
+historical/unregistered UIDs and any blocking problem, and writes nothing.
+`--apply` imports only from a clean preview, in one transaction, and is safe to
+re-run. It is never run at application start-up. Administrators then assign and
+reassign RTLs at `/technicians/assignments`.
+
 ## Running tests
 
 The test runner is not part of the runtime install:

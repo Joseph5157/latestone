@@ -16,10 +16,11 @@ metrics, PostgreSQL data, and any fallback when the source is unavailable.
 Timestamps stay naive source-clock values (SAST, ADR-029) - never converted.
 Counts are derived from the source rows, never hard-coded.
 
-Authorization: raw client UIDs have no approved mapping to application
-devices or technician assignments, so the real fleet is shown only to roles
-whose device scope is unrestricted (``may_view_real_fleet``). Everyone else
-gets an explicit "not available" state, never an empty-looking fleet.
+Authorization (ADR-032): the fleet is composed for one ``RtlScope``. An
+Administrator or General User has the unrestricted scope; a Technician's scope
+is the set of client UIDs currently assigned to them, applied to the registered
+directory BEFORE any temperature/mapping read, so counts, filters and rows
+never include an RTL outside it. No scope (unknown role) gets "not available".
 """
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ from repositories.rtl_temperature_repository import (
     RTLTransformerHierarchy,
 )
 from services import rtl_source_facts_service as facts
-from services.device_scope import DeviceScope
+from services.rtl_scope import RtlScope, UNRESTRICTED, may_view_real_rtls
 
 logger = logging.getLogger(__name__)
 
@@ -114,13 +115,14 @@ class RealFleet:
     summary: FleetSummary | None = None
 
 
-def may_view_real_fleet(scope: DeviceScope | None) -> bool:
-    """Only an unrestricted scope (Administrator, General User) sees the fleet.
+def may_view_real_fleet(scope: RtlScope | None) -> bool:
+    """Whether the caller may see client RTL facts at all (ADR-032).
 
-    ``None``, a technician's assignment set and the EMPTY scope are refused:
-    there is no approved raw-UID-to-assignment map, so nothing is widened.
+    A permitted scope - unrestricted, or a Technician's assigned set even when
+    empty. ``None`` and a DENIED scope (no session, unknown role) are refused.
+    What a permitted scope may SEE is decided by the scope itself.
     """
-    return scope is not None and scope.is_unrestricted
+    return may_view_real_rtls(scope)
 
 
 def summarise(rows: tuple[RTLFleetRow, ...]) -> FleetSummary:
@@ -169,7 +171,9 @@ def build_rows(
     return tuple(rows)
 
 
-def get_real_fleet(repository: RTLTemperatureRepository | None = None) -> RealFleet:
+def get_real_fleet(
+    repository: RTLTemperatureRepository | None = None, *, scope: RtlScope = UNRESTRICTED
+) -> RealFleet:
     """The registered fleet, composed from a fixed number of set-based reads.
 
     Reads: registered directory, latest temperatures (batched, never per UID),
@@ -178,7 +182,9 @@ def get_real_fleet(repository: RTLTemperatureRepository | None = None) -> RealFl
     """
     repo = repository if repository is not None else RTLTemperatureRepository()
     try:
-        registered = repo.get_registered_device_uids()
+        registered = scope.restrict(repo.get_registered_device_uids())
+        if not registered:
+            return RealFleet(FleetStatus.DATA, (), summarise(()))
         latest_result = facts.get_latest_temperatures(registered, repo)
         if latest_result.status is facts.FactsStatus.UNAVAILABLE:
             return RealFleet(FleetStatus.UNAVAILABLE)

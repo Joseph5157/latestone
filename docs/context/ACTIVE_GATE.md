@@ -2,11 +2,73 @@
 
 Status: **CLOSED / PASS**
 Date: 2026-09-30
-Gate: TECHNICIAN-ASSIGNMENT-FORENSICS-01 — Reconstruct Technician to RTL assignment evidence
-Baseline: `0a8d26d`
+Gate: TECHNICIAN-REAL-RTL-ACCESS-01 — Scope Technician access to assigned client RTLs
+Baseline: `274020e`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: TECHNICIAN-ASSIGNMENT-FORENSICS-01 — CLOSED / PASS
+## Next implementation gate: TECHNICIAN-REAL-RTL-ACCESS-01 — CLOSED / PASS
+
+CDB-05 is ANSWERED (recorded 2026-09-30; ADR-032): assigned-only Technician
+visibility; one current Technician per RTL; Administrator-only assignment;
+history retained; Historical Events (and future Program RTL) limited to
+assigned RTLs; unassigned RTLs are an Administrator-only pool.
+
+**What is now real for the Technician:** landing dashboard, `Assigned RTLs`
+(`/rtls`), `/rtls/<uid>`, Network and Historical Events - all from the client
+RTL SQL Server, all restricted to the Technician's current assignments by one
+scope, `services/rtl_scope.py`. Detail is refused before any source read;
+Events filter inside the SQL; Fleet/Network compute counts and hierarchy
+options over the assigned subset only. The synthetic Devices route is denied and
+the synthetic Command Center is no longer reachable from routing (legacy debt).
+
+**Assignment store:** application-owned PostgreSQL `rtl_technician_assignments`
+(alembic 016) keyed on client RTL UID, partial unique index = one open row per
+UID, retained history, provenance `APPLICATION` / `LEGACY_IMPORT`. `users.client_person_id`
+bridges an application user to a SQL Server `persons.person_id`. SQL Server stayed
+`READ_ONLY`; no client table was written.
+
+**Legacy bootstrap:** `python -m scripts.bootstrap_rtl_assignments` (preview by
+default, idempotent, never at start-up). Live run: 64 registered assignments
+imported as `LEGACY_IMPORT` (no invented date/actor), 4 historical/unregistered
+UIDs excluded, 5 login-less Technician users provisioned, 275 registered RTLs
+left Unassigned, rerun imported 0.
+
+**Administrator:** `/technicians/assignments` — Assigned/Unassigned pools, filters,
+UID search, assign, reassign (atomic, stale-safe), history. Audit:
+`RTL_ASSIGNMENT_CREATED/_ENDED/_REASSIGNED`.
+
+### Relevant files
+
+- `services/rtl_scope.py`, `services/rtl_assignment_service.py`, `services/rtl_assignment_bootstrap.py` (new)
+- `repositories/rtl_assignment_source_repository.py` (new), `repositories/plant_monitoring_repository.py`, `repositories/rtl_events_repository.py`
+- `alembic/versions/016_rtl_technician_assignments.py`, `scripts/bootstrap_rtl_assignments.py`
+- `pages/rtl_assignments.py`, `components/rtl_assignments.py`, `callbacks/rtl_assignments.py`, `callbacks/routing.py`, `routes.py`, `services/authorization.py`
+- `docs/decisions/ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md`
+- `docs/audit/technician-real-rtl-access-01/`
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` §19, §23; `docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md` CDB-05
+
+### Non-goals (held)
+
+Live Program RTL, SMS/email, alarm acknowledgement/resolution, Online/Offline,
+RTL lifecycle, SQL Server writes/schema, PostgreSQL retirement, broad legacy
+deletion, a mandatory reassignment reason.
+
+### Remaining debt
+
+Synthetic Command Center and Technician Devices code (`pages/command_center.py`,
+`pages/technician_devices.py`, `callbacks/technician_devices.py`) are unreachable
+but not deleted. Legacy `user_device_assignments` / `/admin/assignments` remain.
+Notifications and Reports still serve Technicians from synthetic data. Real Program
+RTL must add the assigned-RTL rule (ADR-032 item 10) when CDB-06 is answered.
+Detail breadcrumb still reads "Registered RTLs" for a Technician. Technician
+accounts for the five real persons are login-less until CDB-04 (authentication).
+
+### Next gate
+
+Suggested: **CDB-06 Program RTL policy**, or **legacy synthetic Technician/Command
+Center cleanup**. Exactly one should be nominated by the owner.
+
+## TECHNICIAN-ASSIGNMENT-FORENSICS-01 — CLOSED / PASS (previous gate, kept for record)
 
 Read-only SQL Server forensics established 68 unique legacy Technician/UID
 pairs across the exact five Technician persons: 64 UIDs are currently
@@ -32,16 +94,6 @@ changed.
 - `docs/client/CLIENT_DB_CLARIFICATION_01.md` CDB-05
 - `docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md` CDB-05
 - ADR-029, ADR-030 and ADR-031 (unchanged)
-
-### Next gate
-
-Exactly one gate is nominated: **TECHNICIAN-ASSIGNMENT-POLICY-01 — Client
-policy and transition decision**. It must obtain/record the CDB-05 decisions,
-approve or reject use of the 64 positive legacy/current intersections as a
-temporary scope, define treatment of 275 unassigned registered RTLs, and set
-cardinality/history/action boundaries. It is not an access implementation or
-database-write gate. `TECHNICIAN-REAL-RTL-ACCESS-01` may follow only after that
-policy decision.
 
 ## HISTORICAL-EVENTS-01 — CLOSED / PASS (previous gate, kept for record)
 

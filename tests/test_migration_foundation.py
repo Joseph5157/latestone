@@ -113,7 +113,7 @@ EXPECTED_UPGRADE_TABLES = {
     "message_forwarding", "rtl_active_state", "device_events", "audit_log",
     "rtl_commands", "forwarding_auto_disable_override",
     "temperature_threshold_config", "vibration_contract_answers",
-    "freshness_threshold_config",
+    "freshness_threshold_config", "rtl_technician_assignments",
     "alembic_version",
 }
 

@@ -70,6 +70,17 @@ VIBRATION_CONTRACT_ANSWER_CLEARED = "VIBRATION_CONTRACT_ANSWER_CLEARED"
 FRESHNESS_THRESHOLD_SET = "FRESHNESS_THRESHOLD_SET"
 FRESHNESS_THRESHOLD_CLEARED = "FRESHNESS_THRESHOLD_CLEARED"
 
+#: TECHNICIAN-REAL-RTL-ACCESS-01: client-RTL Technician assignment lifecycle.
+#: entity_id is the client RTL UID as text (a stable identity, per this
+#: module's convention); the assignment_id travels in old/new values. A
+#: reassignment writes RTL_ASSIGNMENT_ENDED (old row) then
+#: RTL_ASSIGNMENT_REASSIGNED (the change) in one transaction. Legacy import
+#: writes no per-row audit: it is a controlled bootstrap, recorded by its own
+#: evidence, and it has no human actor to record.
+RTL_ASSIGNMENT_CREATED = "RTL_ASSIGNMENT_CREATED"
+RTL_ASSIGNMENT_REASSIGNED = "RTL_ASSIGNMENT_REASSIGNED"
+RTL_ASSIGNMENT_ENDED = "RTL_ASSIGNMENT_ENDED"
+
 #: The complete allowlist of operations that may be audited with a NULL
 #: actor via ``audit_service.record(..., system_originated=True)``.
 #: Deliberately minimal (ACT-D5): each entry must correspond to an actually
@@ -80,6 +91,7 @@ SYSTEM_OPERATIONS = frozenset({RTL_ACTIVATED})
 ENTITY_DEVICE = "device"
 ENTITY_ASSIGNMENT = "device_assignment"
 ENTITY_USER = "user"
+ENTITY_RTL_ASSIGNMENT = "rtl_assignment"
 ENTITY_MESSAGE_FORWARDING = "message_forwarding"
 
 #: THRESH-CONFIG-1: same shape as the auto-disable override above — one

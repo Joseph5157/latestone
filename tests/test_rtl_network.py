@@ -28,7 +28,7 @@ from services import rtl_network_service as svc
 from services.authorization import (
     ADMINISTRATOR, GENERAL, ROUTE_POLICY, TECHNICIAN, may_access_route, visible_nav_keys,
 )
-from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.rtl_scope import DENIED as EMPTY, UNRESTRICTED, RtlScope as DeviceScope
 from services.rtl_fleet_service import HierarchyState
 from tests.dash_tree import walk
 
@@ -303,7 +303,9 @@ class TestRoutesAndAuthorization:
         assert ROUTE_POLICY["rtl_network"] == ROUTE_POLICY["rtl_detail"]
         assert may_access_route(ADMINISTRATOR, "rtl_network")
         assert may_access_route(GENERAL, "rtl_network")
-        assert not may_access_route(TECHNICIAN, "rtl_network")
+        # ADR-032: the route gate admits a Technician; the shared RTL scope
+        # then narrows every read to their assigned RTLs.
+        assert may_access_route(TECHNICIAN, "rtl_network")
         assert not may_access_route("Administrator", "rtl_network")
         assert not may_access_route(None, "rtl_network")
 
@@ -312,20 +314,20 @@ class TestRoutesAndAuthorization:
         labels = {item[1]: item for _, items in SIDEBAR_SECTIONS for item in items}
         assert labels["Network"][2] == "/rtls/network"
         assert "network" in visible_nav_keys(GENERAL) and "network" in visible_nav_keys(ADMINISTRATOR)
-        assert "network" not in visible_nav_keys(TECHNICIAN)
-        assert "Network" not in repr(sidebar_nav("overview", TECHNICIAN))
+        assert "network" in visible_nav_keys(TECHNICIAN)
+        assert "Network" in repr(sidebar_nav("overview", TECHNICIAN))
 
     def test_load_refuses_restricted_scopes_without_reading(self):
-        for scope in (None, EMPTY, DeviceScope(frozenset({"d1"}))):
+        for scope in (None, EMPTY):
             calls = []
             payload, error = callbacks.load({"route": "rtl_network"},
-                                            fetch=lambda: calls.append(1), scope_for=lambda s=scope: s)
+                                            fetch=lambda **_: calls.append(1), scope_for=lambda s=scope: s)
             assert payload is None and calls == []
             assert "not available" in repr(error)
 
     def test_load_reads_for_unrestricted_scope(self, fleet):
         payload, error = callbacks.load({"route": "rtl_network"},
-                                        fetch=lambda: _network(fleet), scope_for=lambda: UNRESTRICTED)
+                                        fetch=lambda **_: _network(fleet), scope_for=lambda: UNRESTRICTED)
         assert error is None and len(payload) == 6
 
     def test_load_ignores_other_routes(self):
@@ -335,7 +337,7 @@ class TestRoutesAndAuthorization:
     def test_source_failure_shows_error_not_empty_network(self):
         payload, error = callbacks.load(
             {"route": "rtl_network"},
-            fetch=lambda: svc.CurrentNetwork(svc.NetworkStatus.UNAVAILABLE), scope_for=lambda: UNRESTRICTED)
+            fetch=lambda **_: svc.CurrentNetwork(svc.NetworkStatus.UNAVAILABLE), scope_for=lambda: UNRESTRICTED)
         assert payload is None and "unavailable" in repr(error)
 
 

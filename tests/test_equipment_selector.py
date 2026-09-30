@@ -24,7 +24,7 @@ from components.device_operations import device_operations_panel
 from components.freshness_threshold_panel import freshness_threshold_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
-from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, rtl_detail, rtl_network, rtl_dashboard, historical_events
+from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, rtl_detail, rtl_network, rtl_dashboard, historical_events, rtl_assignments
 from services.device_scope import UNRESTRICTED
 from tests.auth_test_support import trusted_session
 
@@ -116,6 +116,7 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(rtl_dashboard.layout())
     # HISTORICAL-EVENTS-01: Historical Events, at /events.
     | collect_ids(historical_events.layout())
+    | collect_ids(rtl_assignments.layout())
 )
 
 MOUNTABLE_IDS = GLOBAL_LAYOUT_IDS | PAGE_LAYOUT_IDS

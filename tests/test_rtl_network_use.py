@@ -15,7 +15,7 @@ from repositories.rtl_temperature_repository import RTLTransformerMapping as M
 from services import rtl_detail_service as detail
 from services import rtl_fleet_service as fleet
 from services import rtl_network_service as net
-from services.device_scope import UNRESTRICTED
+from services.rtl_scope import UNRESTRICTED
 from tests.dash_tree import walk
 from tests.test_rtl_network import FakeRepo
 
@@ -112,6 +112,6 @@ class TestDashboardSummary:
 
     def test_rtls_page_gets_coverage_line_from_the_same_snapshot(self):
         out = fleet_overview.populate({"route": "overview"},
-                                      fetch=lambda: fleet.get_real_fleet(_repo()),
+                                      fetch=lambda **_: fleet.get_real_fleet(_repo()),
                                       scope_for=lambda: UNRESTRICTED)
         assert "Network coverage" in _text(out[0]) and "View Network" in _text(out[0])

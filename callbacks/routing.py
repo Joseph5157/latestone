@@ -11,7 +11,7 @@ from dash import Input, Output, html, no_update
 from flask import redirect, request
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail, rtl_network, rtl_dashboard, historical_events
+from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail, rtl_network, rtl_dashboard, historical_events, rtl_assignments
 from pages.placeholder import placeholder_layout
 from routes import (
     LEGACY_RTL_LIST_PATH,
@@ -35,6 +35,7 @@ from services.authorization import (
 )
 from services.device_scope import DeviceScope, current_device_scope
 from services.rtl_fleet_service import may_view_real_fleet
+from services.rtl_scope import current_rtl_scope, is_assigned_only
 
 #: What the router should do with a request, decided before anything renders.
 DECISION_LOGIN = "login"
@@ -268,7 +269,11 @@ def register(app) -> None:
 
             if route.name == "overview":
                 ctx = {"route": "overview", "metric_key": metric_key, "period": period_value}
-                return plants_overview.layout(), ctx
+                # ADR-032: a Technician's list is "Assigned RTLs"; the data
+                # itself is scoped by the callback, not by this label.
+                return plants_overview.layout(
+                    assigned_only=user.role == TECHNICIAN
+                ), ctx
 
             if route.name == "plant":
                 # AUTH-HARDEN-1R2: scope is checked BEFORE the existence
@@ -396,10 +401,15 @@ def register(app) -> None:
                 #
                 # Registration is checked after both, inside the service, and
                 # is what decides between a real RTL and not-found.
-                if not may_view_real_fleet(scope):
-                    logger.warning(
-                        "RTL detail refused: session scope may not view client RTL facts"
-                    )
+                #
+                # ADR-032: the RTL UID scope is checked here, BEFORE the page
+                # is built or any client SQL Server row is read. A Technician
+                # reaches only a UID currently assigned to them; an
+                # unassigned, another Technician's, an unregistered and a
+                # malformed-but-numeric UID are all the same "forbidden".
+                rtl_scope = current_rtl_scope()
+                if not may_view_real_fleet(rtl_scope) or not rtl_scope.allows(route.rtl_uid):
+                    logger.warning("RTL detail refused: UID outside the session's RTL scope")
                     return forbidden_panel(), {"route": "forbidden"}
                 ctx = {"route": "rtl_detail", "rtl_uid": route.rtl_uid}
                 return rtl_detail.layout(route.rtl_uid), ctx
@@ -408,7 +418,7 @@ def register(app) -> None:
                 # LATEST-NETWORK-CONTEXT-01. Same two gates as rtl_detail: the
                 # role policy above, then the device scope that decides who
                 # may read raw client RTL facts. A Technician gets neither.
-                if not may_view_real_fleet(scope):
+                if not may_view_real_fleet(current_rtl_scope()):
                     logger.warning(
                         "RTL network refused: session scope may not view client RTL facts"
                     )
@@ -419,7 +429,7 @@ def register(app) -> None:
                 # HISTORICAL-EVENTS-01. Same two gates as rtl_network: the role
                 # policy, then the device scope that decides who may read raw
                 # client RTL facts. No event source is read before both pass.
-                if not may_view_real_fleet(scope):
+                if not may_view_real_fleet(current_rtl_scope()):
                     logger.warning(
                         "Historical events refused: session scope may not view client RTL facts"
                     )
@@ -433,6 +443,9 @@ def register(app) -> None:
             if route.name == "technician_devices":
                 ctx = {"route": "technician_devices"}
                 return technician_devices.layout(), ctx
+
+            if route.name == "rtl_assignments":
+                return rtl_assignments.layout(), {"route": "rtl_assignments"}
 
             if route.name == "admin_assignments":
                 ctx = {"route": "admin_assignments"}
@@ -463,12 +476,17 @@ def register(app) -> None:
                 return notifications.layout(), ctx
 
             if route.name == "command_center":
-                # FACTUAL-DASHBOARD-01. Whoever may read raw client RTL facts
-                # (the Administrator) lands on the factual dashboard. The
-                # Technician cannot, and their assignment map is unresolved,
-                # so their Command Center is left exactly as it was.
-                if may_view_real_fleet(scope):
-                    return rtl_dashboard.layout(), {"route": "rtl_dashboard"}
+                # FACTUAL-DASHBOARD-01 / ADR-032. Administrator and Technician
+                # both land on the factual dashboard; a Technician's counts
+                # cover their assigned RTLs only (the callback scopes them).
+                # The synthetic Command Center below is no longer reachable
+                # from production routing for either role (legacy debt).
+                rtl_scope = current_rtl_scope()
+                if may_view_real_fleet(rtl_scope):
+                    return (
+                        rtl_dashboard.layout(assigned_only=is_assigned_only(rtl_scope)),
+                        {"route": "rtl_dashboard"},
+                    )
                 return command_center.layout(), {"route": "command_center"}
 
             if route.name in PLACEHOLDER_PAGES:

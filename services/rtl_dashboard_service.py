@@ -15,6 +15,7 @@ from enum import Enum
 from services import rtl_network_service as network
 from services.rtl_fleet_service import FleetStatus, FleetSummary, RealFleet, get_real_fleet
 from services.rtl_network_service import CurrentNetwork, NetworkStatus, NetworkSummary
+from services.rtl_scope import RtlScope, UNRESTRICTED
 
 __all__ = ["DashboardStatus", "RTLDashboard", "get_dashboard", "may_view_dashboard"]
 
@@ -36,15 +37,18 @@ class RTLDashboard:
 
 
 def get_dashboard(*, fleet_fetch=get_real_fleet,
-                  network_fetch=network.get_current_network) -> RTLDashboard:
+                  network_fetch=network.get_current_network,
+                  scope: RtlScope = UNRESTRICTED) -> RTLDashboard:
     """One fleet snapshot and one network snapshot; either failing hides both.
 
     Showing half a dashboard would let two sets of counts disagree on screen.
+    Both snapshots are built for the same ``scope`` (ADR-032), so a Technician's
+    counts are over their assigned RTLs only.
     """
-    fleet: RealFleet = fleet_fetch()
+    fleet: RealFleet = fleet_fetch(scope=scope)
     if fleet.status is not FleetStatus.DATA or fleet.summary is None:
         return RTLDashboard(DashboardStatus.UNAVAILABLE)
-    current: CurrentNetwork = network_fetch()
+    current: CurrentNetwork = network_fetch(scope=scope)
     if current.status is not NetworkStatus.DATA:
         return RTLDashboard(DashboardStatus.UNAVAILABLE)
     times = [r.last_reported for r in fleet.rows if r.last_reported is not None]

@@ -118,11 +118,10 @@ class TestAuthorizationBoundary:
     def test_general_user_may_open_it(self):
         assert may_access_route(GENERAL, ROUTE_NAME) is True
 
-    def test_technician_may_not_open_it(self):
-        """There is no approved client-RTL-UID-to-technician-assignment map.
-        The Fleet page already refuses a Technician; the detail route must
-        refuse the same role rather than becoming the way around it."""
-        assert may_access_route(TECHNICIAN, ROUTE_NAME) is False
+    def test_technician_passes_the_route_gate_but_only_the_scope_grants_a_uid(self):
+        """ADR-032: the role gate admits a Technician; `services.rtl_scope`
+        then admits only a UID currently assigned to them (before any read)."""
+        assert may_access_route(TECHNICIAN, ROUTE_NAME) is True
 
     @pytest.mark.parametrize("role", [None, "", "superuser", "Administrator", 7, {}])
     def test_no_unrecognised_role_opens_it(self, role):
@@ -131,7 +130,7 @@ class TestAuthorizationBoundary:
     def test_it_matches_the_fleet_page_visibility_rule(self):
         """The detail route and the Fleet page must agree about who sees
         client RTL facts, or one of them is the hole in the other."""
-        from services.device_scope import EMPTY, UNRESTRICTED, scope_for
+        from services.rtl_scope import DENIED as EMPTY, UNRESTRICTED, scope_for
         from services.auth_service import AuthenticatedUser
         from services.rtl_fleet_service import may_view_real_fleet
 

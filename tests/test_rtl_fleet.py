@@ -19,7 +19,7 @@ from repositories.rtl_temperature_repository import (
     RTLTransformerMapping,
 )
 from services import rtl_fleet_service as svc
-from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.rtl_scope import DENIED as EMPTY, UNRESTRICTED, RtlScope as DeviceScope
 from tests.dash_tree import text_of
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -267,8 +267,11 @@ def test_no_sensitive_fields_in_the_read_models():
 
 
 # ---------------------------------------------------------------- authorization
-def test_only_unrestricted_scope_may_view_the_real_fleet():
+def test_a_permitted_scope_may_view_the_real_fleet_but_denied_may_not():
+    # ADR-032: unrestricted and a Technician's assigned set (even empty) are
+    # permitted; what each may SEE is decided by the scope. Denied/None are not.
     assert svc.may_view_real_fleet(UNRESTRICTED)
+    assert svc.may_view_real_fleet(DeviceScope(frozenset({1})))
+    assert svc.may_view_real_fleet(DeviceScope(frozenset()))
     assert not svc.may_view_real_fleet(EMPTY)
-    assert not svc.may_view_real_fleet(DeviceScope(frozenset({"d1"})))
     assert not svc.may_view_real_fleet(None)
