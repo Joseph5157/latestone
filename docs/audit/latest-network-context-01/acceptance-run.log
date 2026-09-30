@@ -1,0 +1,37 @@
+
+=== general ===
+sidebar Network link present: True
+url: http://127.0.0.1:8050/rtls/network
+stats (all): REGISTERED RTLS IN VIEW 339 of 339 registered | MAPPED RTLS 185 With a current transformer mapping | UNMAPPED RTLS 154 No current transformer mapping | HIERARCHY RESOLVED 178 Mapped, full path found | HIERARCHY UNAVAILABLE 7 Mapped, no hierarchy path
+table rows (all): 339
+[general] forbidden-word scan hits: none
+zone -> 'Empangeni Zone' (2 offered); rows 16; stats: REGISTERED RTLS IN VIEW 16 of 339 registered | MAPPED RTLS 16 With a current transformer mapping | UNMAPPED RTLS 0 No current transformer mapping | HIERARCHY RESOLVED 16 Mapped, full path found | HIERARCHY UNAVAILABLE 0 Mapped, no hierarchy path
+sector -> 'Empangeni Sector' (1 offered under zone); rows 16
+cnc -> 'Empangeni CNC' (4 offered); rows 6
+feeder -> 'Ngoye NB29 11kV Cable Overhead Line' (2 offered); rows 4
+transformer -> 'DA10' (4 offered); rows 1; stats: REGISTERED RTLS IN VIEW 1 of 339 registered | MAPPED RTLS 1 With a current transformer mapping | UNMAPPED RTLS 0 No current transformer mapping | HIERARCHY RESOLVED 1 Mapped, full path found | HIERARCHY UNAVAILABLE 0 Mapped, no hierarchy path
+opened RTL 29639 -> http://127.0.0.1:8050/rtls/29639
+unmapped scope: rows 154; stats: REGISTERED RTLS IN VIEW 154 of 339 registered | MAPPED RTLS 0 With a current transformer mapping | UNMAPPED RTLS 154 No current transformer mapping | HIERARCHY RESOLVED 0 Mapped, full path found | HIERARCHY UNAVAILABLE 0 Mapped, no hierarchy path
+unmapped first row: —	—	—	—	No current transformer mapping	29006
+hierarchy-unavailable scope: rows 7
+hier-unavail first row: —	—	—	—	PINS206 Hierarchy unavailable 	29646
+needs-review scope: rows 2
+  review row: Pietermaritzburg Zone	Pietermaritzburg Sector	Howick CNC	Edendale NBEC 22kV Cable Overhead Line	EMV35 Needs review: latest temperature reading names ozw28 	29042
+  review row: —	—	—	—	TEST29598 Hierarchy unavailable Needs review: latest temperature reading names cza67 	29598
+[general (final)] forbidden-word scan hits: none
+
+=== administrator ===
+sidebar Network link present: True
+url: http://127.0.0.1:8050/rtls/network
+stats (all): REGISTERED RTLS IN VIEW 339 of 339 registered | MAPPED RTLS 185 With a current transformer mapping | UNMAPPED RTLS 154 No current transformer mapping | HIERARCHY RESOLVED 178 Mapped, full path found | HIERARCHY UNAVAILABLE 7 Mapped, no hierarchy path
+table rows (all): 339
+[administrator] forbidden-word scan hits: none
+
+=== technician ===
+sidebar Network link present: False
+[technician] forbidden-word scan hits: none
+technician body head: Registered RTLs / Command Center / OPERATIONS / Devices / SYSTEM / Notifications / Reports / Dark / Light / Logout / No access /  / Your account does not have access to this page. /  / Back to Registered RTLs
+technician: RTL UID cells in DOM: 0; table rows: 0
+technician: any /rtls/<uid> link in HTML: False; any hierarchy text (Zone): False
+
+console errors: 0

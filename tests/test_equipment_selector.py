@@ -24,7 +24,7 @@ from components.device_operations import device_operations_panel
 from components.freshness_threshold_panel import freshness_threshold_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
-from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, rtl_detail
+from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, rtl_detail, rtl_network
 from services.device_scope import UNRESTRICTED
 from tests.auth_test_support import trusted_session
 
@@ -110,6 +110,8 @@ PAGE_LAYOUT_IDS = (
     # /rtls/<uid>. Its layout takes the UID, so a representative one is
     # supplied here exactly as the device/plant pages above do.
     | collect_ids(rtl_detail.layout(29006))
+    # LATEST-NETWORK-CONTEXT-01: the current Network view, at /rtls/network.
+    | collect_ids(rtl_network.layout())
 )
 
 MOUNTABLE_IDS = GLOBAL_LAYOUT_IDS | PAGE_LAYOUT_IDS

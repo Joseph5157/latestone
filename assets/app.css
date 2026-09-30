@@ -1046,6 +1046,7 @@ body {
 .app-sidebar__icon--settings      { -webkit-mask-image: url("/assets/icons/nav-settings.svg");      mask-image: url("/assets/icons/nav-settings.svg"); }
 .app-sidebar__icon--users         { -webkit-mask-image: url("/assets/icons/nav-users.svg");         mask-image: url("/assets/icons/nav-users.svg"); }
 .app-sidebar__icon--command-center { -webkit-mask-image: url("/assets/icons/nav-command-center.svg"); mask-image: url("/assets/icons/nav-command-center.svg"); }
+.app-sidebar__icon--network       { -webkit-mask-image: url("/assets/icons/nav-network.svg");       mask-image: url("/assets/icons/nav-network.svg"); }
 .app-sidebar__icon--logout        { -webkit-mask-image: url("/assets/icons/nav-logout.svg");         mask-image: url("/assets/icons/nav-logout.svg"); }
 
 /* Logout sits at the foot of the rail, separated from the navigation
@@ -7755,3 +7756,11 @@ button.attention-donut__label:disabled::before { background: var(--color-border)
 @media (max-width: 640px) {
   .rtl-detail-context__item { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+/* LATEST-NETWORK-CONTEXT-01: Network view. Reuses the fleet table/chip styles. */
+.network-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); margin: var(--sp-3) 0; }
+.network-filters label { display: block; font-size: var(--fs-meta); font-weight: 600; color: var(--color-muted); margin-bottom: var(--sp-1); }
+.network-breakdown { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); padding: 0; list-style: none; }
+.network-breakdown li { padding: var(--sp-1) var(--sp-3); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); font-size: var(--fs-body); }
+.network-breakdown__count { color: var(--color-muted); font-variant-numeric: tabular-nums; margin-left: var(--sp-2); }
+.network-review { color: var(--sev-warning); font-size: var(--fs-meta); display: block; }

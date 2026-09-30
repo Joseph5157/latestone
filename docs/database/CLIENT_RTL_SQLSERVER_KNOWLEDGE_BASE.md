@@ -308,6 +308,22 @@ Empirical chain:
 
 Use hierarchy as factual reference with caveats until client confirms authority.
 
+### Current network context rule (LATEST-NETWORK-CONTEXT-01, ADR-031)
+
+Population = `device_list`. Current transformer = `trfr_list` only. Hierarchy =
+the view row naming the same code (database equality: trimmed, case-insensitive;
+never fuzzy), else "Hierarchy unavailable". The latest code in
+`settings_upload_log`, `startup_msg_log` and `master_temperature` is compared
+with it and only ever *flags* a disagreement.
+
+Measured 2026-09-30 over the 185 mapped RTLs: latest settings and latest
+check-in agree for all 185; latest telemetry agrees for 183 and differs for
+UID 29042 (`EMV35` vs `ozw28`) and UID 29598 (`TEST29598` vs `cza67`). No source
+has a tie at its latest timestamp. Codes differ in letter case between tables
+(`PINS144` / `pins144`) — the same transformer, which is why comparison is
+case-insensitive. The 154 unmapped RTLs mostly carry historical codes in these
+tables (109 in all three); those stay history and are not promoted to current.
+
 ---
 
 ## 13. TRANSFORMER MOVEMENT AND ASSIGNMENT HISTORY
@@ -698,8 +714,7 @@ Do not present as authoritative yet:
    - How should powerdown affect status?
    - What marks recovery?
 
-3. **TUG authority**
-   - Is `tug_report` the approved transformer asset directory?
+3. **TUG business facts** (technical use of TUG as read-only hierarchy reference is an engineering decision, ADR-031 — not a client question)
    - Is `location` a stable asset identifier?
    - How is TUG refreshed?
    - How are retired/decommissioned transformer assets represented?
@@ -760,7 +775,9 @@ These are evidence-resolved enough for engineering:
 - Historical reporting intervals 1h / 6h / 24h? → yes
 - Programming history shows transformer code + interval changes? → yes
 - TUG technically usable as transformer read directory? → yes, with filtering
-- TUG proven client-authoritative? → not yet
+- TUG as read-only hierarchy reference for current mapped RTLs? → yes (engineering, ADR-031)
+- TUG proven client-authoritative asset master / lifecycle source? → not yet; never inferred
+- Which transformer is an RTL's current one? → `trfr_list`; other sources only corroborate (ADR-031)
 - Roles named Administrator / Technician / General User? → yes
 - Legacy auth supplies usable production credentials? → no
 

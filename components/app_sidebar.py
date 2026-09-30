@@ -53,7 +53,7 @@ from __future__ import annotations
 from dash import dcc, html
 
 from components.theme import theme_toggle
-from routes import RTL_LIST_PATH
+from routes import RTL_LIST_PATH, RTL_NETWORK_PATH
 from services.authorization import visible_nav_keys
 
 SHELL_ID = "app-sidebar-shell"
@@ -86,6 +86,9 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
         # RTL-LIST-ROUTE-01: the href is the canonical `/rtls`. `/plants`
         # still arrives there, but only for old links — never for new ones.
         ("overview", "Registered RTLs", RTL_LIST_PATH, "overview"),
+        # LATEST-NETWORK-CONTEXT-01: visible only to the roles allowed to open
+        # the route (derived from ROUTE_POLICY, never restated here).
+        ("network", "Network", RTL_NETWORK_PATH, "network"),
         ("command_center", "Command Center", "/command-center", "command-center"),
     )),
     ("Operations", (

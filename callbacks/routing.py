@@ -11,7 +11,7 @@ from dash import Input, Output, html, no_update
 from flask import redirect, request
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail
+from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail, rtl_network
 from pages.placeholder import placeholder_layout
 from routes import (
     LEGACY_RTL_LIST_PATH,
@@ -403,6 +403,17 @@ def register(app) -> None:
                     return forbidden_panel(), {"route": "forbidden"}
                 ctx = {"route": "rtl_detail", "rtl_uid": route.rtl_uid}
                 return rtl_detail.layout(route.rtl_uid), ctx
+
+            if route.name == "rtl_network":
+                # LATEST-NETWORK-CONTEXT-01. Same two gates as rtl_detail: the
+                # role policy above, then the device scope that decides who
+                # may read raw client RTL facts. A Technician gets neither.
+                if not may_view_real_fleet(scope):
+                    logger.warning(
+                        "RTL network refused: session scope may not view client RTL facts"
+                    )
+                    return forbidden_panel(), {"route": "forbidden"}
+                return rtl_network.layout(), {"route": "rtl_network"}
 
             if route.name == "admin_devices":
                 ctx = {"route": "admin_devices"}

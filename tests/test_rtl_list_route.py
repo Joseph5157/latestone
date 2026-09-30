@@ -371,7 +371,7 @@ class TestAuthorizationUnchanged:
 
     def test_no_new_policy_entry_was_added(self):
         assert set(ROUTE_POLICY) == {
-            "overview", "plant", "transformer", "device", "rtl_detail",
+            "overview", "plant", "transformer", "device", "rtl_detail", "rtl_network",
             "notifications", "reports", "admin_devices", "technician_devices",
             "admin_assignments", "device_register", "admin_users", "audit_log",
             "admin_settings", "command_center",

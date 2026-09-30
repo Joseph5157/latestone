@@ -85,6 +85,10 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     # it to a Technician here would make the URL the way around the Fleet
     # page's restriction, which is exactly what this route must not be.
     "rtl_detail": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
+    # The current Network view (LATEST-NETWORK-CONTEXT-01) renders the same raw
+    # client RTL UIDs, so it carries exactly the detail route's roles. The
+    # callback re-checks the device scope as well.
+    "rtl_network": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
     "notifications": _OPERATIONAL_ROLES,
     "reports": _EVERY_ROLE,
     "command_center": _OPERATIONAL_ROLES,

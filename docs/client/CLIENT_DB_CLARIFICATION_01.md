@@ -38,11 +38,10 @@ The database has no dependable Online/Offline status, so the application has to 
 - How should a power-down be treated?
 - What counts as back online?
 
-### 3. Is the TUG list the official transformer list?
+### 3. TUG transformer records: identifiers, refresh and decommissioning
 
-The TUG report holds about 70,700 transformer records with their place in the hierarchy (Operating Unit, Zone, Sector, CNC, Feeder).
+The TUG report holds about 70,700 transformer records with their place in the hierarchy (Operating Unit, Zone, Sector, CNC, Feeder). We read it, read-only, to show where each mapped RTL sits in the network; that is a technical choice and is not asked here.
 
-- Is it the approved source for transformers and their hierarchy?
 - Is the location number on each record a permanent identifier?
 - How often is it refreshed?
 - How do you show a transformer that has been decommissioned?

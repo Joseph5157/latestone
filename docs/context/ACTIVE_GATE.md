@@ -2,11 +2,81 @@
 
 Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
-Gate: RTL-LIST-ROUTE-01 — Canonical client RTL list route
-Baseline: `7ca7a33`
+Gate: LATEST-NETWORK-CONTEXT-01 — Current network context for registered RTLs
+Baseline: `c562fb6`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: RTL-LIST-ROUTE-01 — Canonical client RTL list route
+## Next implementation gate: LATEST-NETWORK-CONTEXT-01 — Current network context for registered RTLs
+
+Status: **CLOSED / PASS**
+
+Read-only feature gate. Adds the Network view at `/rtls/network`: where each
+registered client RTL sits (Zone → Sector → CNC → Feeder → Transformer → RTL),
+from its *current* transformer mapping. The rule is **ADR-031**: population
+`dbo.device_list`; current transformer `dbo.trfr_list` only; hierarchy from
+`vw_transformer_org_hierarchy` by exact code (trimmed, case-insensitive, never
+fuzzy) else "Hierarchy unavailable"; latest settings / check-in / telemetry
+codes only *flag* a disagreement ("Needs review") and never override or hide
+it. No SQL Server write, no PostgreSQL change.
+
+### What was added
+
+| Layer | File | Role |
+|---|---|---|
+| Repository | `repositories/rtl_temperature_repository.py` | three static latest-code reads, each joined to `device_list` |
+| Service | `services/rtl_network_service.py` (new) | rule, rows, disagreements, cascade filters, JSON payload |
+| Route/policy | `routes.py`, `services/authorization.py` | `rtl_network`; same roles as `rtl_detail` |
+| Page/render/callback | `pages/`, `components/`, `callbacks/rtl_network.py` (new) | one load per page, filters re-render the stored snapshot |
+| Router/nav | `callbacks/routing.py`, `components/app_sidebar.py`, `app.py` | scope re-check; *Network* item (derived from policy) |
+
+Authorization: Administrator and General User; Technician gets the forbidden
+panel and no sidebar item; the load callback re-checks `may_view_real_fleet`.
+Unchanged: `/rtls`, `/rtls/<uid>`, `/devices/...`, `/plants` redirect.
+
+### Measured (2026-09-30)
+
+339 registered · 185 mapped · 154 unmapped · 178 hierarchy resolved · 7
+hierarchy unavailable · 2 needs review (UIDs 29042, 29598: latest telemetry
+names another code). Latest settings and check-in agree with `trfr_list` for all
+185.
+
+### Relevant files
+
+- `services/rtl_network_service.py`, `services/rtl_fleet_service.py`,
+  `repositories/rtl_temperature_repository.py`
+- `routes.py`, `services/authorization.py`, `callbacks/routing.py`
+- `pages/rtl_network.py`, `components/rtl_network.py`, `callbacks/rtl_network.py`
+- `tests/test_rtl_network.py` (new)
+- `docs/decisions/ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md`
+
+### Non-goals
+
+Transformer lifecycle/decommissioning, the 70k asset browser, Online/Offline,
+communication state, technician assignment mapping, alarms, programming,
+notifications, PostgreSQL retirement, `/devices` removal, transformer movement
+history UI, SQL Server writes.
+
+### Close evidence
+
+`docs/audit/latest-network-context-01/` — acceptance record, screenshots, run
+log, console log (0 errors). Non-DB suite: **3594 passed, 3 skipped, 0 failed,
+731 deselected** (the 3539 baseline plus 55). SQL Server `READ_ONLY`; counts
+unchanged (2,456,901 / 400 / 339 / 185).
+
+### Client clarification
+
+CDB-03 no longer asks whether TUG is the approved source (engineering decision,
+ADR-031); it keeps the business facts: `location` permanence, refresh,
+decommissioned representation.
+
+### Remaining debt
+
+The Network view lists every RTL of the selection in one table (339 rows
+unfiltered, no pagination). No dashboard/Command Center use of the network
+context yet. "Needs review" has no resolution workflow — the two rows need a
+client/engineering decision on which source wins.
+
+## RTL-LIST-ROUTE-01 — CLOSED / PASS (previous gate, kept for record)
 
 Status: **CLOSED / PASS**
 

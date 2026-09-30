@@ -229,7 +229,8 @@ class TestIdentityAndAuthorizationAreUnchanged:
     @pytest.mark.parametrize(
         "role,expected",
         [
-            (GENERAL, {"overview", "reports"}),
+            # LATEST-NETWORK-CONTEXT-01 adds "network" for General only (Technician unchanged).
+            (GENERAL, {"overview", "network", "reports"}),
             (
                 TECHNICIAN,
                 {

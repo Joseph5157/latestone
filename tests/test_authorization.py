@@ -52,6 +52,7 @@ ROUTE_PATHS = {
     "transformer": "/plants/plant-01/plant-01-t1",
     "device": "/devices/plant-01-t1-d1",
     "rtl_detail": "/rtls/29006",
+    "rtl_network": "/rtls/network",
     "notifications": "/notifications",
     "reports": "/reports",
     "admin_devices": "/admin/devices",
@@ -83,7 +84,7 @@ TECHNICIAN_ONLY_ROUTES = ("technician_devices",)
 #: ADMIN_ONLY. The Technician exclusion is not a privilege judgement: there is
 #: no approved client-RTL-UID-to-assignment map, so there is no way to scope
 #: the page to them truthfully.
-CLIENT_RTL_ROUTES = ("rtl_detail",)
+CLIENT_RTL_ROUTES = ("rtl_detail", "rtl_network")  # rtl_network: LATEST-NETWORK-CONTEXT-01
 
 
 class TestRoleConstants:
@@ -220,7 +221,7 @@ class TestNavigationIsDerivedFromThePolicy:
         }
 
     def test_general_user_sees_only_read_only_navigation(self):
-        assert visible_nav_keys(GENERAL) == {"overview", "reports"}
+        assert visible_nav_keys(GENERAL) == {"overview", "network", "reports"}
 
     @pytest.mark.parametrize("role", [None, "superuser"])
     def test_an_unrecognised_role_sees_no_navigation(self, role):

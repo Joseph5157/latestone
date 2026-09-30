@@ -97,6 +97,21 @@ class RTLTransformerHierarchy:
 
 
 @dataclass(frozen=True)
+class RTLReportedTransformerCode:
+    """A transformer code an RTL's own latest record in one evidence table carries.
+
+    LATEST-NETWORK-CONTEXT-01. One row per (UID, distinct code) at that UID's
+    latest event timestamp in the named source. Several rows for one UID mean
+    the source ties on its latest timestamp with different codes. Corroborating
+    evidence only: it is never the current mapping, never fuzzy-matched, and a
+    source with no timestamped, non-blank code for a UID simply has no row.
+    """
+
+    device_uid: int
+    transformer_code: str
+
+
+@dataclass(frozen=True)
 class RTLLatestTemperature:
     """The latest raw reading state for one UID from a set-based latest read.
 
@@ -169,6 +184,31 @@ FROM dbo.vw_transformer_org_hierarchy
 WHERE device_uid IS NOT NULL
 ORDER BY device_uid ASC, trfr ASC
 """
+
+# LATEST-NETWORK-CONTEXT-01: latest transformer code per REGISTERED RTL from the
+# three evidence tables. Static SQL, no parameters, no interpolation: the
+# population is bounded by a join to dbo.device_list, so unregistered
+# (telemetry-only / historical-only) UIDs never enter the result. Each is one
+# statement for the whole fleet, never one per UID.
+_LATEST_CODE_SQL = """
+WITH latest(device_uid, latest_at) AS (
+    SELECT e.device_uid, MAX(e.{ts})
+    FROM dbo.{table} AS e
+    JOIN dbo.device_list AS d ON d.device_uid = e.device_uid
+    WHERE e.{ts} IS NOT NULL
+    GROUP BY e.device_uid
+)
+SELECT DISTINCT e.device_uid, e.trfr
+FROM dbo.{table} AS e
+JOIN latest AS l ON l.device_uid = e.device_uid AND l.latest_at = e.{ts}
+WHERE e.trfr IS NOT NULL
+ORDER BY e.device_uid ASC, e.trfr ASC
+"""
+
+# (table, timestamp column) pairs are fixed here and never come from callers.
+_SETTINGS_CODE_SQL = _LATEST_CODE_SQL.format(table="settings_upload_log", ts="event_timestamp")
+_STARTUP_CODE_SQL = _LATEST_CODE_SQL.format(table="startup_msg_log", ts="event_timestamp")
+_TELEMETRY_CODE_SQL = _LATEST_CODE_SQL.format(table="master_temperature", ts="reading_timestamp")
 
 _LATEST_BATCH_SQL = """
 WITH requested(device_uid) AS (
@@ -298,6 +338,29 @@ class RTLTemperatureRepository:
                     feeder=_text_or_none(feeder),
                 )
                 for uid, trfr, ou, zone, sector, cnc, feeder in cursor.fetchall()
+            ]
+
+        return self._read(run)
+
+    def get_latest_settings_transformer_codes(self) -> list[RTLReportedTransformerCode]:
+        """Latest ``settings_upload_log`` code per registered UID (SELECT only)."""
+        return self._read_reported_codes(_SETTINGS_CODE_SQL)
+
+    def get_latest_startup_transformer_codes(self) -> list[RTLReportedTransformerCode]:
+        """Latest ``startup_msg_log`` (check-in) code per registered UID."""
+        return self._read_reported_codes(_STARTUP_CODE_SQL)
+
+    def get_latest_telemetry_transformer_codes(self) -> list[RTLReportedTransformerCode]:
+        """Latest ``master_temperature`` code per registered UID (heap scan)."""
+        return self._read_reported_codes(_TELEMETRY_CODE_SQL)
+
+    def _read_reported_codes(self, sql: str) -> list[RTLReportedTransformerCode]:
+        def run(cursor: _Cursor) -> list[RTLReportedTransformerCode]:
+            cursor.execute(sql, ())
+            return [
+                RTLReportedTransformerCode(int(uid), code)
+                for uid, raw in cursor.fetchall()
+                if (code := _text_or_none(raw)) is not None
             ]
 
         return self._read(run)

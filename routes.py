@@ -36,6 +36,7 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "plant": "overview",
     "transformer": "overview",
     "device": "overview",
+    "rtl_network": "network",
     "admin_devices": "devices",
     "technician_devices": "technician_devices",
     "admin_assignments": "assignments",
@@ -86,6 +87,12 @@ RTL_LIST_ALIAS_ROUTE = "rtl_list_alias"
 #: is the numeric client RTL UID from `dbo.device_list` — nothing synthetic.
 #: Detail lives under the list it belongs to.
 RTL_DETAIL_PATH_PREFIX = RTL_LIST_PATH
+
+#: LATEST-NETWORK-CONTEXT-01. The current Network view of the registered RTLs.
+#: A sibling of the list and detail routes under `/rtls`; drill and filter
+#: state live inside the page, not in deeper routes. The word "network" can
+#: never collide with a UID: `_as_rtl_uid` accepts ASCII digits only.
+RTL_NETWORK_PATH = f"{RTL_LIST_PATH}/network"
 
 #: `device_uid` is a SQL Server `int`. A value outside this range cannot name
 #: a row in any source table, so it is rejected during parsing rather than
@@ -148,7 +155,7 @@ def rtl_list_href(search: str | None = None) -> str:
 @dataclass(frozen=True)
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
-               # "rtl_detail" | "admin_devices" | "technician_devices" |
+               # "rtl_detail" | "rtl_network" | "admin_devices" | "technician_devices" |
                # "admin_assignments" | "admin_users" | "reports" |
                # "notifications" | "command_center" | "rtl_list_alias" |
                # "unknown"
@@ -200,6 +207,9 @@ def parse_pathname(pathname: str | None) -> Route:
     # RTL-UID-DETAIL-01. A segment that is not a well-formed client RTL UID
     # falls through to `unknown` rather than becoming a refused RTL: a typo
     # must keep rendering not-found, not imply something exists behind it.
+    if len(parts) == 2 and parts[0] == "rtls" and parts[1] == "network":
+        return Route(name="rtl_network")
+
     if len(parts) == 2 and parts[0] == "rtls":
         uid = _as_rtl_uid(parts[1])
         if uid is not None:
