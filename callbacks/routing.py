@@ -11,7 +11,7 @@ from dash import Input, Output, html, no_update
 from flask import redirect, request
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail, rtl_network
+from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail, rtl_network, rtl_dashboard
 from pages.placeholder import placeholder_layout
 from routes import (
     LEGACY_RTL_LIST_PATH,
@@ -452,6 +452,12 @@ def register(app) -> None:
                 return notifications.layout(), ctx
 
             if route.name == "command_center":
+                # FACTUAL-DASHBOARD-01. Whoever may read raw client RTL facts
+                # (the Administrator) lands on the factual dashboard. The
+                # Technician cannot, and their assignment map is unresolved,
+                # so their Command Center is left exactly as it was.
+                if may_view_real_fleet(scope):
+                    return rtl_dashboard.layout(), {"route": "rtl_dashboard"}
                 return command_center.layout(), {"route": "command_center"}
 
             if route.name in PLACEHOLDER_PAGES:

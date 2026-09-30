@@ -6,12 +6,8 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-from dash import no_update
-
-from callbacks import fleet_overview, rtl_summary
+from callbacks import fleet_overview
 from components import rtl_detail as detail_ui
-from components import rtl_fleet as fleet_ui
-from pages import command_center
 from repositories.rtl_temperature_repository import RTLLatestTemperature as Latest
 from repositories.rtl_temperature_repository import RTLReportedTransformerCode as Code
 from repositories.rtl_temperature_repository import RTLTransformerHierarchy as H
@@ -19,7 +15,7 @@ from repositories.rtl_temperature_repository import RTLTransformerMapping as M
 from services import rtl_detail_service as detail
 from services import rtl_fleet_service as fleet
 from services import rtl_network_service as net
-from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.device_scope import UNRESTRICTED
 from tests.dash_tree import walk
 from tests.test_rtl_network import FakeRepo
 
@@ -114,50 +110,8 @@ class TestDashboardSummary:
         assert (s.hierarchy_resolved, s.hierarchy_unavailable) == (
             n.hierarchy_resolved, n.hierarchy_unavailable)
 
-    def test_panel_is_factual_with_links_to_real_routes(self):
-        panel = fleet_ui.rtl_summary_panel(self.summary())
-        text = _text(panel)
-        for word in ("Registered RTLs", "Mapped RTLs", "Unmapped RTLs",
-                     "Temperature data available", "Network coverage"):
-            assert word in text
-        hrefs = sorted(n.href for n in walk(panel) if isinstance(getattr(n, "href", None), str))
-        assert hrefs == ["/rtls", "/rtls/network"]
-        assert not re.search(r"\b(Active|Online|Offline|Healthy|Inactive|Plants?)\b", text)
-
     def test_rtls_page_gets_coverage_line_from_the_same_snapshot(self):
         out = fleet_overview.populate({"route": "overview"},
                                       fetch=lambda: fleet.get_real_fleet(_repo()),
                                       scope_for=lambda: UNRESTRICTED)
         assert "Network coverage" in _text(out[0]) and "View Network" in _text(out[0])
-
-    def test_panel_loads_once_from_the_real_fleet_service(self):
-        calls = []
-
-        def fetch():
-            calls.append(1)
-            return fleet.get_real_fleet(_repo())
-
-        out = rtl_summary.populate({"route": "command_center"}, fetch=fetch,
-                                   scope_for=lambda: UNRESTRICTED)
-        assert out is not None and calls == [1]
-
-    def test_restricted_scopes_get_nothing_and_no_read(self):
-        for scope in (None, EMPTY, DeviceScope(frozenset({"d"}))):
-            calls = []
-            out = rtl_summary.populate({"route": "command_center"},
-                                       fetch=lambda: calls.append(1), scope_for=lambda s=scope: s)
-            assert out is None and calls == []
-
-    def test_other_routes_are_ignored(self):
-        assert rtl_summary.populate({"route": "overview"}) is no_update
-
-    def test_source_failure_hides_the_panel(self):
-        bad = lambda: fleet.RealFleet(fleet.FleetStatus.UNAVAILABLE)  # noqa: E731
-        assert rtl_summary.populate({"route": "command_center"}, fetch=bad,
-                                    scope_for=lambda: UNRESTRICTED) is None
-
-    def test_command_center_slot_exists_and_callback_touches_no_sql_or_postgres(self):
-        ids = [n.id for n in walk(command_center.layout()) if isinstance(getattr(n, "id", None), str)]
-        assert command_center.RTL_SUMMARY_ID in ids
-        text = (ROOT / "callbacks/rtl_summary.py").read_text(encoding="utf-8")
-        assert not re.search(r"plant_monitoring|sqlalchemy|pymssql|\bSELECT\b|fleet_overview_service", text)

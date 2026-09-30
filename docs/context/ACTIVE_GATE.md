@@ -2,63 +2,42 @@
 
 Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
-Gate: RTL-NETWORK-USE-01 — Reuse the current network context (RTL detail + dashboard summary)
-Baseline: `d4788dd`
+Gate: FACTUAL-DASHBOARD-01 — Replace the synthetic client summary with a factual RTL dashboard
+Baseline: `1961908`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: RTL-NETWORK-USE-01 — Reuse the current network context
+## Next implementation gate: FACTUAL-DASHBOARD-01 — Factual RTL dashboard
 
 Status: **CLOSED / PASS**
 
-Reuses ADR-031; no new network model, precedence unchanged (`trfr_list` displays,
-supporting-source mismatch is informational).
-
-- **RTL detail consumes the shared context.** `rtl_detail_service.get_rtl_detail`
-  calls `rtl_network_service.get_network_row` for mapping, hierarchy and
-  disagreements; its own hierarchy lookup was deleted. The detail page shows
-  Transformer / Zone / Sector / CNC / Feeder (Operating Unit last), the explicit
-  "No current transformer mapping" / "Hierarchy unavailable" states, and, where
-  a supporting source disagrees, a restrained "Mapping review: … references
-  <code>." note. Temperature and history code is untouched.
-- **Dashboard: a limited factual real-RTL summary — NOT a dashboard
-  realignment.** `/rtls` (General User landing) gains a "Network coverage" line
-  linking to `/rtls/network`. The Command Center (Administrator/Technician
-  landing) gains a compact "Registered RTLs (client directory)" panel
-  (`callbacks/rtl_summary.py`, one `get_real_fleet` per render, not polled),
-  linking to `/rtls` and `/rtls/network`. Both derive from the existing fleet
-  snapshot; no SQL in components/callbacks, no PostgreSQL counts.
-- **Authorization unchanged.** The panel follows `may_view_real_fleet`: a
-  Technician sees nothing (no counts, UIDs or network text). No new policy.
+- **The Administrator's landing is now a factual "Dashboard"** (`/command-center`, root, post-login), built by `pages/rtl_dashboard.py`. Routing renders it for any session that `may_view_real_fleet`; everyone else (the Technician) keeps the existing Command Center untouched, because technician UID assignment is unresolved. General User landing is unchanged (`/rtls`, already factual).
+- **Counts come from the real services only.** `services/rtl_dashboard_service.get_dashboard` composes one `get_real_fleet` and one `get_current_network` (registered, temperature data / none, latest reading time; mapped / unmapped, hierarchy resolved / unavailable, mapping review, RTLs by zone). No SQL in the service/components/callback, no PostgreSQL, no hard-coded counts. One load per page render, not polled.
+- **Removed from the client dashboard:** Plant/Device totals, synthetic status counts, Needs Attention, gauges, hottest, trend, activity, colour key. Their modules remain (Technician still uses them) — see debt.
+- **Not shown:** Online/Offline/Active/Healthy, alarm state, electrical metrics. Historical Events remains `HISTORICAL-EVENTS-01`.
+- **Mapping review** is a plain count linking to `/rtls/network`; not called an error. Links only to `/rtls` and `/rtls/network`.
+- **Authorization unchanged.** Callback re-checks `may_view_real_fleet`; a Technician sees no dashboard and `/rtls*` stay "No access". `callbacks/rtl_summary.py` and `rtl_summary_panel` (RTL-NETWORK-USE-01) were superseded and removed.
 
 ### Relevant files
 
-- `services/rtl_network_service.py` (`get_network_row`), `services/rtl_detail_service.py`,
-  `services/rtl_fleet_service.py` (`FleetSummary.unmapped/hierarchy_resolved`)
-- `components/rtl_detail.py`, `components/rtl_fleet.py`, `components/rtl_network.py`
-- `callbacks/rtl_summary.py` (new), `callbacks/fleet_overview.py`,
-  `pages/command_center.py`, `app.py`
-- `tests/test_rtl_network_use.py` (new)
+- `services/rtl_dashboard_service.py`, `components/rtl_dashboard.py`, `pages/rtl_dashboard.py`, `callbacks/rtl_dashboard.py` (new)
+- `callbacks/routing.py`, `app.py`, `pages/command_center.py`, `components/rtl_fleet.py`
+- `tests/test_factual_dashboard.py` (new); updated `tests/test_rtl_network_use.py`, `tests/test_rtl_list_route.py`, `tests/test_equipment_selector.py`
 
 ### Non-goals
 
-Full dashboard replacement, Online/Offline, alarms, lifecycle, technician UID
-mapping, commands, notifications, PostgreSQL retirement, synthetic page removal.
+Historical Events, Needs Attention workflow, Online/Offline, alarms, technician assignment, lifecycle, commands, notifications, electrical metrics, PostgreSQL retirement, deleting legacy code.
 
 ### Close evidence
 
-`docs/audit/rtl-network-use-01/`. Non-DB suite: **3613 passed, 3 skipped, 0
-failed, 731 deselected**. SQL Server `READ_ONLY`, write permissions 0, counts
-unchanged (2,456,901 / 400 / 339 / 185).
+`docs/audit/factual-dashboard-01/`. Non-DB suite: **3624 passed, 3 skipped, 0 failed, 731 deselected**. SQL Server `READ_ONLY`, write permissions 0, counts unchanged (2,456,901 / 400 / 339 / 185).
 
-### Remaining debt — belongs to FACTUAL-DASHBOARD-01
+### Remaining debt / blockers
 
-The Command Center is still the synthetic PostgreSQL Plant/Device attention
-dashboard (its ranking, glance gauges, hottest, trend, activity, problems); the
-real-RTL panel sits above it and is the only real-client content there. The
-dashboard is therefore NOT realigned. Detail now does six reads (network
-snapshot) plus the latest-temperature read; acceptable at this size, revisit
-if a single-UID evidence query is needed. "Needs review" still has no
-resolution workflow.
+Technician still lands on the synthetic Command Center (needs technician UID assignment). Legacy Command Center/attention code, plant/device routes: see acceptance record. Dashboard and network snapshots overlap in three reads. "Needs review" has no resolution workflow. Historical Events not built.
+
+## RTL-NETWORK-USE-01 — CLOSED / PASS (previous gate, kept for record)
+
+Reused ADR-031 on `/rtls/<uid>` (`rtl_detail_service` calls `rtl_network_service.get_network_row`; "Mapping review" note) and added the `/rtls` "Network coverage" line. Its Command Center panel was superseded by FACTUAL-DASHBOARD-01. Commit `1961908`; evidence `docs/audit/rtl-network-use-01/`.
 
 ## LATEST-NETWORK-CONTEXT-01 — CLOSED / PASS (previous gate, kept for record)
 

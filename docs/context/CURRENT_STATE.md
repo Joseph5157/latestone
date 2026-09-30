@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T09:55:47Z
+Date: 2026-09-30T10:09:55Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `d4788dd` "docs(decisions): record ADR-031 implementing commit"
-- Working tree: 20 entries — see below
+- `main` = `1961908` "feat(rtl): reuse current network context"
+- Working tree: 19 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3613 passed, 3 skipped, 731 deselected in 36.57s
+- `python -m pytest -m "not db"` → 3624 passed, 3 skipped, 731 deselected in 38.94s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 491 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 341 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 491 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 492 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 342 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 492 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -115,30 +115,29 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-RTL-NETWORK-USE-01 — Reuse the current network context (RTL detail + dashboard summary) — full detail in `docs/context/ACTIVE_GATE.md`.
+FACTUAL-DASHBOARD-01 — Replace the synthetic client summary with a factual RTL dashboard — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
  M app.py
- M callbacks/fleet_overview.py
- M components/rtl_detail.py
+ M callbacks/routing.py
+D  callbacks/rtl_summary.py
  M components/rtl_fleet.py
- M components/rtl_network.py
  M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
  M pages/command_center.py
- M services/rtl_detail_service.py
- M services/rtl_fleet_service.py
- M services/rtl_network_service.py
- M tests/test_rtl_detail_service.py
+ M tests/test_equipment_selector.py
  M tests/test_rtl_list_route.py
+ M tests/test_rtl_network_use.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? callbacks/rtl_summary.py
+?? callbacks/rtl_dashboard.py
+?? components/rtl_dashboard.py
+?? docs/audit/factual-dashboard-01/
 ?? docs/audit/project-audit-1/results/
-?? docs/audit/rtl-network-use-01/
-?? tests/test_rtl_network_use.py
+?? pages/rtl_dashboard.py
+?? services/rtl_dashboard_service.py
+?? tests/test_factual_dashboard.py
 ```
 

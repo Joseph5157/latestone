@@ -1,0 +1,33 @@
+
+=== administrator ===
+landing url: http://127.0.0.1:8050/login
+h1: Dashboard
+cards: REGISTERED RTLS | 339 | Client RTL directory | MAPPED RTLS | 185 | With a current transformer mapping | UNMAPPED RTLS | 154 | No current transformer mapping | TEMPERATURE DATA AVAILABLE | 319 | A reading is on record | NO TEMPERATURE DATA | 20 | No reading on record
+network: Network | Hierarchy resolved178 | Hierarchy unavailable7 | Mapping review2 | RTLs by zone | Empangeni Zone16 | Pietermaritzburg Zone162 | View Network
+temperature: Temperature data | RTLs with temperature data319 | RTLs with no temperature data20 |  | Most recent reading on record: 17 Sep 2026 08:29 SAST |  | View Registered RTLs
+[admin dashboard] forbidden-word hits: none
+legacy attention slots present: 0
+page links: ['/rtls', '/rtls/network']
+network link -> http://127.0.0.1:8050/rtls/network
+registered link -> http://127.0.0.1:8050/rtls
+root landing shows factual dashboard: True
+
+=== general ===
+landing url: http://127.0.0.1:8050/login
+general landing content: REGISTERED RTLS | 339 | Client RTL directory | CURRENT TRANSFORMER MAPPINGS | 185 | RTLs with a mapping | WITH TEMPERATURE DATA | 319 | Latest reading on record | NO TEMPERATURE DATA | 20 | Registered, no reading on record
+coverage: Network coverage: 185 of 339 registered RTLs have a current transformer mapping · 178 hierarchy resolved · 7 hierarchy unavailable. View Network
+[general /rtls] forbidden-word hits: none
+general /command-center: Registered RTLs / Network / SYSTEM / Reports / Dark / Light / Logout / No access /  / Your account does not have access to this page. /  / Back to Registered RTLs
+
+=== technician ===
+landing url: http://127.0.0.1:8050/login
+technician: factual dashboard present=0; 'Registered RTLs' text=True; /rtls links=True; legacy command center h1='Command Center'
+technician links: ['/command-center', '/devices', '/devices/plant-01-t3-d2', '/devices/plant-02-t1-d1', '/devices/plant-02-t3-d3', '/devices/plant-03-t3-d1', '/devices/plant-03-t3-d2', '/devices/plant-03-t3-d3', '/devices/plant-04-t2-d1', '/devices/plant-05-t3-d3', '/devices/plant-08-t2-d2', '/devices/plant-09-t2-d2', '/devices/plant-09-t3-d2', '/devices/plant-11-t2-d1', '/devices/plant-11-t2-d2', '/devices/plant-11-t3-d1', '/devices/plant-13-t2-d1', '/devices/plant-19-t1-d1', '/devices/plant-19-t2-d2', '/devices/plant-20-t2-d1', '/devices/plant-21-t3-d3', '/devices/plant-22-t2-d2', '/devices/plant-24-t1-d1', '/devices/plant-25-t1-d1', '/devices/plant-25-t2-d2', '/devices/plant-29-t2-d1', '/logout', '/notifications', '/reports', '/rtls']
+technician /rtls: no-access=True; zone/network leaked=False
+technician /rtls/network: no-access=True; zone/network leaked=False
+technician /rtls/29042: no-access=True; zone/network leaked=False
+
+console errors: 3
+  administrator: Warning: A component is changing an uncontrolled input of type %s to be controlled. Input elements should not switch from uncontrolled to controlled (or vice versa). Decide between usin
+  general: Warning: A component is changing an uncontrolled input of type %s to be controlled. Input elements should not switch from uncontrolled to controlled (or vice versa). Decide between using a co
+  technician: Warning: A component is changing an uncontrolled input of type %s to be controlled. Input elements should not switch from uncontrolled to controlled (or vice versa). Decide between using a
