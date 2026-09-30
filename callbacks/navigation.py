@@ -120,15 +120,21 @@ def toggle_aria_label(collapse_data) -> str:
     return "Expand sidebar" if _is_collapsed(collapse_data) else "Collapse sidebar"
 
 
-#: Routes whose task is monitoring. The Asset Navigator's destination is a
-#: device *dashboard*, so on any other route completing its cascade abandons
-#: the task on screen rather than continuing it.
+#: Routes on which the Asset Navigator (equipment selector) is shown.
 #:
-#: SATURDAY-REAL-FLEET-01: "overview" is deliberately NOT here. The Fleet
-#: Overview now lists the client's registered RTLs, while the navigator
-#: cascades over the synthetic PostgreSQL Plant -> Transformer -> Device model,
-#: so showing it there would put synthetic Plant data beside real client data.
-UTILITY_ROUTES = frozenset({"plant", "transformer", "device"})
+#: LEGACY-SYNTHETIC-UX-CLEANUP-01: now EMPTY. The navigator cascades over the
+#: synthetic PostgreSQL Plant -> Transformer -> Device model and navigates to a
+#: synthetic device dashboard — every one of which is retired in this gate. Its
+#: only home was the synthetic drill-down (`plant`/`transformer`/`device`),
+#: which no longer exists as a route (those addresses now resolve to
+#: `legacy_retired`), so there is no surface it belongs on. It is hidden on
+#: every route. The equipment-selector component and its callbacks are kept
+#: mounted-but-always-hidden as isolated legacy debt, to be removed with the
+#: synthetic model in the POSTGRESQL-RETIREMENT gate (no big-bang deletion).
+#:
+#: SATURDAY-REAL-FLEET-01 (still true): "overview" — the real registered-RTL
+#: directory — is deliberately NOT here either; it never was.
+UTILITY_ROUTES: frozenset[str] = frozenset()
 
 
 def utility_is_visible(pathname, role: str | None = None) -> bool:

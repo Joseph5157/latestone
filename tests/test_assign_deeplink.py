@@ -60,10 +60,14 @@ class TestAssignHref:
     def test_names_the_device(self):
         assert device_assign_href(DEVICE_ID) == f"/admin/devices?assign={DEVICE_ID}"
 
-    def test_path_still_resolves_to_the_existing_route(self):
-        """The device travels in the query string, so no new route appears in
-        the path and `parse_pathname` needs no new case."""
-        assert parse_pathname("/admin/devices").name == "admin_devices"
+    def test_the_handoff_destination_is_now_retired(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic Device Management
+        destination (`/admin/devices`) is retired, so this deep link now lands
+        on the legacy/not-found panel. The `device_assign` callback code and its
+        link format are kept isolated until the POSTGRESQL-RETIREMENT gate, so
+        the rest of this file still exercises the handoff logic; only the route
+        it points at changed."""
+        assert parse_pathname("/admin/devices").name == "legacy_retired"
 
     def test_no_new_assignments_route_is_introduced(self):
         assert "/admin/assignments" not in device_assign_href(DEVICE_ID)

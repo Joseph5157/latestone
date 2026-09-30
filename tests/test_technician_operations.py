@@ -359,19 +359,23 @@ class TestTheDevicePageOpener:
 class TestDashSafety:
     """The drawer uses fixed ids, so two mounted copies would collide."""
 
-    def test_the_two_pages_are_never_mounted_together(self):
-        """The router returns ONE page per route, which is what makes mounting
-        the same fixed-id drawer on both safe."""
+    def test_the_router_mounts_neither_synthetic_page(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic Device Management and
+        device dashboard routes are retired, so `route_to_page` renders neither
+        page — both `/admin/devices` and `/devices/<id>` resolve to the legacy
+        panel. The fixed-id drawer collision this class guarded against cannot
+        arise through routing, because routing mounts neither page now. The page
+        modules and their callbacks are kept isolated (unrouted) until the
+        POSTGRESQL-RETIREMENT gate, so the tests below still exercise them."""
         import inspect
 
         from callbacks import routing
 
         source = inspect.getsource(routing.register)
-        assert source.count("device_admin.layout()") == 1
-        assert source.count("device_dashboard.layout(") == 1
-        # Each is behind its own route name, so one request renders one of them.
-        assert 'route.name == "device"' in source
-        assert 'route.name == "admin_devices"' in source
+        assert "device_admin.layout()" not in source
+        assert "device_dashboard.layout(" not in source
+        assert 'route.name == "device"' not in source
+        assert 'route.name == "admin_devices"' not in source
 
     def test_the_admin_opener_still_owns_the_table_path(self):
         """ROLE-4B added an opener; it must not have replaced the existing one."""

@@ -15,7 +15,6 @@ condition remains UNKNOWN elsewhere.
 """
 from __future__ import annotations
 
-from callbacks.routing import build_device_context
 from pages import device_dashboard
 from repositories.plant_monitoring_repository import DevicePath
 
@@ -45,25 +44,11 @@ def _layout():
     )
 
 
-class TestRouterPassesTheFullPath:
-    def test_context_carries_the_parent_ids(self):
-        """The router used to drop these, so the layout could not link upward."""
-        ctx = build_device_context(DEVICE_PATH, "temperature", "24h")
-        assert ctx["plant_id"] == "plant-07"
-        assert ctx["transformer_id"] == "plant-07-t1"
-
-    def test_context_carries_administrative_status(self):
-        ctx = build_device_context(DEVICE_PATH, "temperature", "24h")
-        assert ctx["device_status"] == "active"
-
-    def test_context_keeps_the_existing_fields(self):
-        ctx = build_device_context(DEVICE_PATH, "temperature", "24h")
-        assert ctx["route"] == "device"
-        assert ctx["device_id"] == "plant-07-t1-d1"
-        assert ctx["plant_name"] == "Grand Coulee"
-        assert ctx["transformer_code"] == "un01"
-        assert ctx["metric_key"] == "temperature"
-        assert ctx["period"] == "24h"
+# LEGACY-SYNTHETIC-UX-CLEANUP-01: TestRouterPassesTheFullPath tested
+# `callbacks.routing.build_device_context`, which built the page-context for the
+# synthetic device ROUTE. That route is retired and the helper removed, so the
+# class is gone. The device_dashboard PAGE is kept isolated (unrouted) until the
+# POSTGRESQL-RETIREMENT gate, so the rendering tests below still exercise it.
 
 
 class TestEquipmentContextBar:

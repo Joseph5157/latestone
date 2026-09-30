@@ -51,6 +51,36 @@ def forbidden_panel() -> html.Div:
     )
 
 
+def legacy_retired_panel() -> html.Div:
+    """Shown for a legacy synthetic route that has been retired.
+
+    LEGACY-SYNTHETIC-UX-CLEANUP-01. The synthetic Plant -> Transformer ->
+    Device experience (`/plants/<id>`, `/plants/<id>/<tf>`, `/devices/<id>`,
+    the technician `/devices` roster, and the synthetic Device Management
+    screens) is no longer part of the client-facing product. Those addresses
+    are answered here rather than with the not-found panel: the page genuinely
+    existed and was removed, so this states that plainly and sends the operator
+    to the real client RTL directory.
+
+    Deliberately NOT a redirect to `/rtls/<uid>`: no approved mapping exists
+    from a synthetic plant/transformer/device identifier to a client RTL UID,
+    so inventing one would be a lie (plan §5, gate §22). It reads nothing and
+    resolves no identifier, so it can never leak a source fact.
+    """
+    return html.Div(
+        className="status-panel status-panel--not-found status-panel--legacy-retired",
+        children=[
+            html.H3("This view has been retired"),
+            html.P(
+                "The legacy plant, transformer and device screens are no longer "
+                "part of the application. Registered RTLs are shown in the "
+                "client RTL directory."
+            ),
+            dcc.Link("Back to Registered RTLs", href=RTL_LIST_PATH),
+        ],
+    )
+
+
 #: Shared by every action refusal so callbacks and tests agree on one class
 #: rather than each drawer inventing its own markup.
 ACTION_REFUSED_CLASS = "status-panel status-panel--forbidden"

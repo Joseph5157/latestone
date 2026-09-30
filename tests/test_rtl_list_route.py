@@ -141,30 +141,31 @@ class TestRouteModel:
             if field.name != "name":
                 assert getattr(route, field.name) is None, field.name
 
-    def test_the_synthetic_plant_drill_down_is_untouched(self):
-        """Only the bare legacy address is an alias. `/plants/<id>` is the
-        synthetic Plant route and has no client equivalent to redirect to."""
-        assert parse_pathname("/plants/plant-01") == Route(name="plant", plant_id="plant-01")
-        assert parse_pathname("/plants/plant-01/plant-01-t1") == Route(
-            name="transformer", plant_id="plant-01", transformer_id="plant-01-t1"
-        )
+    def test_the_synthetic_plant_drill_down_is_retired(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: `/plants/<id>` and
+        `/plants/<id>/<tf>` are retired to the legacy panel. Only the bare
+        legacy `/plants` address is an alias (redirected to `/rtls`); the
+        drill-down has no client equivalent and resolves no synthetic id."""
+        assert parse_pathname("/plants/plant-01") == Route(name="legacy_retired")
+        assert parse_pathname("/plants/plant-01/plant-01-t1") == Route(name="legacy_retired")
 
     def test_the_root_landing_is_unchanged(self):
         assert parse_pathname("/").name == "overview"
         assert parse_pathname(None).name == "overview"
 
 
-class TestLegacyDevicesRoutesAreUnchanged:
+class TestLegacyDevicesRoutesAreRetired:
     def test_device_dashboard_route(self):
-        route = parse_pathname("/devices/plant-01-t1-d1")
-        assert route == Route(name="device", device_id="plant-01-t1-d1")
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: `/devices/<id>` is retired."""
+        assert parse_pathname("/devices/plant-01-t1-d1") == Route(name="legacy_retired")
 
     def test_technician_devices_route(self):
-        assert parse_pathname("/devices") == Route(name="technician_devices")
+        assert parse_pathname("/devices") == Route(name="legacy_retired")
 
     @pytest.mark.parametrize("path", ["/devices", "/devices/plant-01-t1-d1"])
     def test_devices_are_not_redirected(self, path):
-        """No approved synthetic-device-id-to-client-UID mapping exists."""
+        """No approved synthetic-device-id-to-client-UID mapping exists, so the
+        retired routes are answered by the legacy panel, never a redirect."""
         assert legacy_redirect_path(path) is None
 
 
@@ -249,7 +250,6 @@ class TestHttpRedirect:
             raise AssertionError("the legacy redirect must do no identity or data work")
 
         monkeypatch.setattr(routing, "current_identity", _forbidden)
-        monkeypatch.setattr(routing, "current_device_scope", _forbidden)
         monkeypatch.setattr(routing, "current_rtl_scope", _forbidden)
         monkeypatch.setattr(fleet_overview, "get_real_fleet", _forbidden)
         assert client.get("/plants").status_code == 302
@@ -301,7 +301,6 @@ class TestRouterIgnoresTheAlias:
             raise AssertionError("the alias must do no identity, scope or data work")
 
         monkeypatch.setattr(routing, "current_identity", _forbidden)
-        monkeypatch.setattr(routing, "current_device_scope", _forbidden)
         monkeypatch.setattr(routing, "current_rtl_scope", _forbidden)
         monkeypatch.setattr(routing, "may_view_real_fleet", _forbidden)
         assert route_to_page(path, "?filter=x", {}) == (no_update, no_update)
@@ -314,7 +313,6 @@ class TestRouterIgnoresTheAlias:
         is applied inside the page by scope (see TestTechnicianRestriction).
         Both are exactly as they were at `/plants`."""
         monkeypatch.setattr(routing, "current_identity", lambda: _user(role))
-        monkeypatch.setattr(routing, "current_device_scope", lambda: DEVICE_UNRESTRICTED)
         monkeypatch.setattr(routing, "current_rtl_scope", lambda: UNRESTRICTED)
         layout, context = route_to_page("/rtls", "", {})
         assert context["route"] == "overview"
@@ -334,14 +332,12 @@ class TestRouterIgnoresTheAlias:
     def test_the_technician_is_refused_an_unassigned_detail(self, route_to_page, monkeypatch):
         """ADR-032: the route gate admits a Technician, the RTL scope decides."""
         monkeypatch.setattr(routing, "current_identity", lambda: _user(TECHNICIAN))
-        monkeypatch.setattr(routing, "current_device_scope", lambda: DEVICE_UNRESTRICTED)
         monkeypatch.setattr(routing, "current_rtl_scope", lambda: DeviceScope(frozenset()))
         _layout, context = route_to_page(f"/rtls/{A_UID}", "", {})
         assert context == {"route": "forbidden"}
 
     def test_the_technician_reaches_an_assigned_detail(self, route_to_page, monkeypatch):
         monkeypatch.setattr(routing, "current_identity", lambda: _user(TECHNICIAN))
-        monkeypatch.setattr(routing, "current_device_scope", lambda: DEVICE_UNRESTRICTED)
         monkeypatch.setattr(routing, "current_rtl_scope", lambda: DeviceScope(frozenset({A_UID})))
         _layout, context = route_to_page(f"/rtls/{A_UID}", "", {})
         assert context["route"] == "rtl_detail"
@@ -382,12 +378,15 @@ class TestAuthorizationUnchanged:
         assert RTL_LIST_ALIAS_ROUTE not in ROUTE_POLICY
         assert RTL_LIST_ALIAS_ROUTE not in NAV_KEY_BY_ROUTE
 
-    def test_no_new_policy_entry_was_added(self):
+    def test_the_policy_is_the_post_cleanup_route_set(self):
+        # LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic routes (plant,
+        # transformer, device, admin_devices, technician_devices,
+        # admin_assignments, device_register) are retired and removed from the
+        # policy; they resolve to `legacy_retired`, which is absent from it.
         assert set(ROUTE_POLICY) == {
-            "overview", "plant", "transformer", "device", "rtl_detail", "rtl_network", "historical_events",
-            "notifications", "reports", "admin_devices", "technician_devices",
-            "admin_assignments", "rtl_assignments", "device_register", "admin_users", "audit_log",
-            "admin_settings", "command_center",
+            "overview", "rtl_detail", "rtl_network", "historical_events",
+            "notifications", "reports", "rtl_assignments", "admin_users",
+            "audit_log", "admin_settings", "command_center",
         }
 
 
@@ -474,9 +473,13 @@ class TestNavigationAndLinks:
 
     def test_no_other_sidebar_item_changed_destination(self):
         items = {key: href for _t, group in SIDEBAR_SECTIONS for key, _l, href, _i in group}
-        assert items["devices"] == "/admin/devices"
+        # LEGACY-SYNTHETIC-UX-CLEANUP-01: synthetic "devices"/"registration"
+        # items retired; the real destinations are unchanged.
+        assert "devices" not in items
+        assert "registration" not in items
         assert "technician_devices" not in items  # retired by ADR-032
         assert items["command_center"] == "/command-center"
+        assert items["assignments"] == "/technicians/assignments"
 
     def test_the_rtls_path_highlights_registered_rtls(self):
         from callbacks.navigation import active_nav_key

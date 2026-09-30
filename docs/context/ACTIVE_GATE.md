@@ -2,11 +2,131 @@
 
 Status: **CLOSED / PASS**
 Date: 2026-09-30
-Gate: AUTHENTICATION-LOCAL-HARDENING-01 — Harden local application login
-Baseline: `b166557255a5210e8c0500371fa2904ae71557fe`
+Gate: LEGACY-SYNTHETIC-UX-CLEANUP-01 — Retire legacy synthetic client paths
+Baseline: `3c7f936c3582e935f44d0d1a7e110dd134d7901b`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: AUTHENTICATION-LOCAL-HARDENING-01 — CLOSED / PASS
+## Next implementation gate: LEGACY-SYNTHETIC-UX-CLEANUP-01 — CLOSED / PASS
+
+**What is now true:** the superseded synthetic Plant → Transformer → Device
+experience is no longer reachable through production navigation or by direct
+URL. The synthetic monitoring drill-down (`/plants/<id>`, `/plants/<id>/<tf>`),
+the synthetic device dashboard (`/devices/<id>`), the technician synthetic-device
+roster (`/devices`) and the synthetic Device Management screens
+(`/admin/devices`, `/admin/devices/new`, `/admin/assignments`) all resolve to a
+single `legacy_retired` route that renders a "This view has been retired" panel
+(reads nothing, resolves no identifier, never a fabricated `/rtls/<uid>`
+redirect). The synthetic Command Center page/callback/`attention` component
+cluster and the old unrouted Fleet (`services/fleet_overview_service.py`,
+`components/fleet_overview.py`) are **deleted**. The Asset Navigator is hidden on
+every route. Sidebar, `ROUTE_POLICY` and `NAV_KEY_BY_ROUTE` carry no synthetic
+entries. The real client-RTL product (Registered RTLs, RTL detail, Network,
+Historical Events, factual Dashboard, Technician Assignments, Users, Reports,
+Settings) and ADR-032/ADR-033 behaviour are unchanged.
+
+**Isolated, not deleted (documented debt):** the synthetic drill-down/device/
+Device-Management pages, their components, callbacks, services and repositories
+remain in place, unrouted and inert, until the POSTGRESQL-RETIREMENT gate
+deletes the synthetic model wholesale (plan §8, wave 7 — "no big-bang
+deletion"). SQL Server stayed READ_ONLY; no PostgreSQL schema or data changed.
+
+**Validation:** non-DB suite green (3689 passed, 3 skipped); DB suite shows only
+the 7 known PostgreSQL seed/data-drift failures (`test_seed_integrity.py`,
+`test_plant_monitoring_repository.py`), unchanged by this gate; browser
+acceptance PASS for Administrator, General User and Technician (see
+`docs/audit/legacy-synthetic-ux-cleanup-01/`); context pack green.
+
+Implemented-by: see the `refactor(ui): retire legacy synthetic client paths`
+commit on `latestone/main`.
+
+### Relevant files, non-goals, known ambiguity
+
+Nominated by the closed AUTHENTICATION-LOCAL-HARDENING-01 gate ("legacy
+synthetic Technician/Command Center cleanup") and authorised by the owner on
+2026-09-30. This is the code/UX cleanup wave the realignment plan
+(`docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md` §8, retirement step 6) has been
+building toward: the real client-RTL product (Registered RTLs `/rtls`, RTL
+detail `/rtls/<uid>`, Network `/rtls/network`, Historical Events `/events`,
+factual Dashboard, Technician Assignments, Users, Reports, Settings) is live,
+so the superseded synthetic Plant → Transformer → Device experience must stop
+being reachable through normal production navigation.
+
+**In scope (retire client-facing exposure; delete only what is proven dead):**
+synthetic Command Center page/callback/`attention` cluster; synthetic
+`/plants/<id>` and `/plants/<id>/<tf>` plant/transformer drill-down; synthetic
+`/devices/<id>` device dashboard; synthetic Device Management
+(`/admin/devices`, `/admin/devices/new`) and `/admin/assignments`; the denied
+`technician_devices` (`/devices`) route; the Asset Navigator (equipment
+selector) on any remaining real surface; the old unrouted Fleet
+(`services/fleet_overview_service.py`, `components/fleet_overview.py`);
+synthetic Needs Attention, synthetic status colours, and the seven unsupported
+electrical metrics wherever their pages are retired; sidebar/breadcrumb/route-
+policy entries for the above.
+
+**Explicitly NOT in scope (must not change):** ADR-033 auth; ADR-032 assignment
+semantics and the 64 imported assignments; SQL Server (stays READ_ONLY, no
+writes, no schema change); PostgreSQL retirement / table drops; Program RTL,
+notifications delivery, alarm workflow, communication Online/Offline; Reports
+redesign; Settings/programming removal. Temperature remains the sole valid
+metric. No fabricated `/devices/<id>` → `/rtls/<uid>` redirects.
+
+### Relevant files
+
+- Routing/nav/policy: `routes.py`, `callbacks/routing.py`, `callbacks/navigation.py`,
+  `services/authorization.py`, `components/app_sidebar.py`, `components/app_shell.py`,
+  `components/breadcrumb.py`, `components/status_panels.py`
+- Synthetic pages: `pages/command_center.py`, `pages/plant_detail.py`,
+  `pages/transformer_detail.py`, `pages/device_dashboard.py`, `pages/device_admin.py`,
+  `pages/device_register.py`, `pages/technician_devices.py`, `pages/admin_assignments.py`
+- Synthetic components: `components/attention.py`, `components/command_center/`,
+  `components/fleet_overview.py`, `components/equipment_selector.py`,
+  `components/status_colors.py`, and the device/metric render helpers they own
+- Synthetic callbacks: `callbacks/command_center.py`, `callbacks/listings.py`,
+  `callbacks/device.py`, `callbacks/equipment_selector.py`, `callbacks/device_admin.py`,
+  `callbacks/device_register.py`, `callbacks/device_assign.py`, `callbacks/device_manage.py`,
+  `callbacks/technician_devices.py`, `callbacks/admin_assignments.py`
+- Old unrouted Fleet: `services/fleet_overview_service.py`, `components/fleet_overview.py`
+- Audit artifact: `docs/audit/legacy-synthetic-ux-cleanup-01/`
+
+### Required tests
+
+`python -m pytest -m "not db" -v` must stay green (baseline 3833 passed, 3
+skipped), minus tests for deliberately retired behaviour. Focused: route
+parsing/policy (`tests/test_routes.py`, `tests/test_authorization.py`,
+`tests/test_routing*.py`), navigation (`tests/test_app_sidebar*.py`,
+`tests/test_navigation*.py`), Technician scope (`tests/test_rtl_scope*.py`,
+`tests/test_technician*`), auth (`tests/test_auth*`), dashboard/fleet/detail/
+network/events real-route tests. Add guard tests: synthetic routes not
+production-reachable, synthetic nav items gone, real routes intact.
+
+### Known ambiguity
+
+Several synthetic modules are shared (`callbacks/navigation.py` owns both the
+Asset Navigator and app-wide theming; `components/status_panels.py` provides
+the forbidden/not-found panels routing needs; `components/breadcrumb.py` is
+used by real pages). Where deletion would touch shared infrastructure, isolate
+and document as legacy debt rather than delete (plan §8 allows this; no
+big-bang deletion).
+
+### Commit/push permission
+
+**GRANTED** — `latestone` `main` only, after focused + regression tests,
+browser acceptance, and a green context pack. Stage only gate-owned files;
+preserve the unrelated dirty files already in the tree.
+
+### Next gate
+
+Owner to nominate one:
+- **POSTGRESQL-RETIREMENT-01** (plan wave 7): delete the now-isolated synthetic
+  cluster (drill-down/device/Device-Management pages, components, callbacks,
+  services, repositories and their tests; deregister their callbacks from
+  `app.py`) and drop the synthetic `plant_monitoring.*` schema — only after
+  parity/migration acceptance.
+- **REPORTS-REALIGNMENT-01**: audit and realign `report_center` to
+  real-source, UID-scoped reports (this gate left Reports untouched, §17 debt).
+- A **Program RTL / Settings** forensic/implementation gate (§18).
+
+## AUTHENTICATION-LOCAL-HARDENING-01 — CLOSED / PASS (previous gate, kept for record)
 
 CDB-04 is ANSWERED (2026-09-30; ADR-033): the RTL application uses its own
 application-managed username/password authentication; external

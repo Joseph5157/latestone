@@ -86,18 +86,25 @@ class TestSidebarItems:
             # ADR-032: "Dashboard" (the factual client-RTL landing for both
             # roles that reach it), and "Technician Assignments".
             "Registered RTLs", "Network", "Historical Events", "Dashboard",
-            # ADR-032: the Technician's synthetic "Devices" item is retired, so
-            # only the Administrator's admin_devices remains.
-            "Devices", "Technician Assignments", "Registration",
+            # LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic "Devices" (Device
+            # Management) and "Registration" items are retired; only the real
+            # client-RTL "Technician Assignments" remains under Operations.
+            "Technician Assignments",
             "Notifications", "Reports", "Users", "Audit Log", "Settings",
         ]
 
-    def test_the_retired_technician_devices_item_is_gone(self):
-        """ADR-032: no dead chrome - the route is denied to every role, so no
-        sidebar item names it."""
-        assert [i for i in _all_items() if i[0] == "technician_devices"] == []
-        assert [i for i in _all_items() if i[1] == "Devices"] == [
-            ("devices", "Devices", "/admin/devices", "devices")]
+    def test_the_retired_synthetic_device_items_are_gone(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01 (and ADR-032): no dead chrome. The
+        synthetic Device Management ("Devices"), device registration
+        ("Registration") and the technician synthetic-devices item all name
+        retired routes, so no sidebar item names them."""
+        keys = {i[0] for i in _all_items()}
+        labels = {i[1] for i in _all_items()}
+        assert "technician_devices" not in keys
+        assert "devices" not in keys
+        assert "registration" not in keys
+        assert "Devices" not in labels
+        assert "Registration" not in labels
 
     def test_sections_are_grouped_operations_and_system(self):
         titles = [title for title, _items in SIDEBAR_SECTIONS]
@@ -116,16 +123,14 @@ class TestSidebarItems:
         assert items["assignments"] == "/technicians/assignments"
 
     def test_existing_routes_are_reused_not_reinvented(self):
-        # Keyed by `key`, not `label`: "Devices" now names two entries (see
-        # test_the_two_devices_entries_have_distinct_keys_and_hrefs), and a
-        # label-keyed dict would silently keep only the last one.
         items = {key: href for key, _label, href, _icon in _all_items()}
         # RTL-LIST-ROUTE-01: the canonical list address. `/plants` is
         # compatibility for old links only and never a new navigation target.
         assert items["overview"] == "/rtls"
-        assert items["devices"] == "/admin/devices"
+        # LEGACY-SYNTHETIC-UX-CLEANUP-01: "devices"/"registration" removed.
+        assert "devices" not in items
+        assert "registration" not in items
         assert items["assignments"] == "/technicians/assignments"
-        assert items["registration"] == "/admin/devices/new"
         assert items["notifications"] == "/notifications"
         assert items["reports"] == "/reports"
         assert items["users"] == "/admin/users"
@@ -145,16 +150,22 @@ class TestActiveNavKey:
         assert nav.active_nav_key("/plants") is None
         assert nav.active_nav_key("/plants/") is None
 
-    def test_monitoring_drill_down_stays_under_overview(self):
-        assert nav.active_nav_key("/plants/plant-01") == "overview"
-        assert nav.active_nav_key("/plants/plant-01/plant-01-t1") == "overview"
-        assert nav.active_nav_key("/devices/plant-01-t1-d1") == "overview"
+    def test_retired_synthetic_drill_down_highlights_nothing(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic drill-down is retired
+        to the legacy panel, which names no sidebar item — so nothing is
+        highlighted (the panel is not a monitoring page under Overview)."""
+        assert nav.active_nav_key("/plants/plant-01") is None
+        assert nav.active_nav_key("/plants/plant-01/plant-01-t1") is None
+        assert nav.active_nav_key("/devices/plant-01-t1-d1") is None
 
     def test_each_destination_maps_to_its_own_item(self):
-        assert nav.active_nav_key("/admin/devices") == "devices"
-        assert nav.active_nav_key("/admin/assignments") == "assignments"
+        # LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic Device Management,
+        # registration and old app-device assignment addresses are retired and
+        # highlight nothing.
+        assert nav.active_nav_key("/admin/devices") is None
+        assert nav.active_nav_key("/admin/assignments") is None
+        assert nav.active_nav_key("/admin/devices/new") is None
         assert nav.active_nav_key("/technicians/assignments") == "assignments"
-        assert nav.active_nav_key("/admin/devices/new") == "registration"
         assert nav.active_nav_key("/reports") == "reports"
         assert nav.active_nav_key("/notifications") == "notifications"
         assert nav.active_nav_key("/admin/users") == "users"
@@ -257,10 +268,10 @@ class TestSidebarLogout:
         assert find_by_class(_admin_sidebar(), "app-sidebar__icon--logout")
 
     def test_exactly_one_link_is_active_when_a_key_is_given(self):
-        rendered = _admin_sidebar("devices")
+        rendered = _admin_sidebar("reports")
         active = find_by_class(rendered, "app-sidebar__link--active")
         assert len(active) == 1
-        assert "Devices" in text_of(active[0])
+        assert "Reports" in text_of(active[0])
 
     def test_no_link_is_active_without_a_key(self):
         rendered = _admin_sidebar(None)

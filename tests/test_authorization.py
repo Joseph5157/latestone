@@ -46,39 +46,47 @@ from services.prototype_users import CONFIRMED_ROLES
 
 #: Every route an authenticated user can ask for, with the path that produces
 #: it. `unknown` is deliberately absent — it is not an application route.
+#:
+#: LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic monitoring drill-down (`plant`,
+#: `transformer`, `device`), the synthetic Device Management routes
+#: (`admin_devices`, `device_register`, `admin_assignments`) and the denied
+#: `technician_devices` route are GONE from the policy. Their addresses now
+#: parse to `legacy_retired` (a not-found/legacy panel, absent from the policy
+#: exactly like `unknown`) — see `RETIRED_SYNTHETIC_PATHS` below.
 ROUTE_PATHS = {
     "overview": "/rtls",
-    "plant": "/plants/plant-01",
-    "transformer": "/plants/plant-01/plant-01-t1",
-    "device": "/devices/plant-01-t1-d1",
     "rtl_detail": "/rtls/29006",
     "rtl_network": "/rtls/network",
     "rtl_assignments": "/technicians/assignments",
     "historical_events": "/events",
     "notifications": "/notifications",
     "reports": "/reports",
-    "admin_devices": "/admin/devices",
-    "technician_devices": "/devices",
-    "admin_assignments": "/admin/assignments",
-    "device_register": "/admin/devices/new",
     "admin_users": "/admin/users",
     "audit_log": "/admin/audit-log",
     "admin_settings": "/admin/settings",
     "command_center": "/command-center",
 }
 
-#: Functional Specification §5.9 retains the monitoring hierarchy and report
+#: LEGACY-SYNTHETIC-UX-CLEANUP-01: retired synthetic addresses and the route
+#: name they now parse to (`legacy_retired`). None is in `ROUTE_POLICY`.
+RETIRED_SYNTHETIC_PATHS = (
+    "/plants/plant-01",
+    "/plants/plant-01/plant-01-t1",
+    "/devices/plant-01-t1-d1",
+    "/devices",
+    "/admin/devices",
+    "/admin/devices/new",
+    "/admin/assignments",
+)
+
+#: Functional Specification §5.9 retains the registered-RTL directory and report
 #: export for General Users, while reserving operational surfaces for the
 #: Administrator and Technician roles.
-ADMIN_ONLY = ("admin_devices", "admin_assignments", "rtl_assignments", "device_register", "admin_users", "audit_log", "admin_settings")
-GENERAL_READ_ROUTES = ("overview", "plant", "transformer", "device", "reports")
+ADMIN_ONLY = ("rtl_assignments", "admin_users", "audit_log", "admin_settings")
+GENERAL_READ_ROUTES = ("overview", "reports")
 OPERATIONAL_ROUTES = (
     "notifications", "command_center",
 )
-#: ADR-016 -> ADR-032: the synthetic Plant/Transformer "Devices" surface for a
-#: Technician is RETIRED from every role's path (default deny). The code is not
-#: deleted; only the route policy and the sidebar item are.
-RETIRED_ROUTES = ("technician_devices",)
 #: RTL-UID-DETAIL-01 / ADR-032: raw client RTL facts. Every role passes the
 #: ROUTE gate; a Technician's UID scope (services.rtl_scope: current
 #: assignments only) then decides which RTLs any of these pages may show.
@@ -118,9 +126,15 @@ class TestTheMatrix:
         assert may_access_route(TECHNICIAN, route) is False
         assert may_access_route(GENERAL, route) is False
 
-    @pytest.mark.parametrize("route", RETIRED_ROUTES)
-    def test_a_retired_route_is_denied_to_every_role(self, route):
-        assert all(may_access_route(role, route) is False for role in CONFIRMED_ROLES)
+    @pytest.mark.parametrize("path", RETIRED_SYNTHETIC_PATHS)
+    def test_a_retired_synthetic_address_parses_to_legacy_retired(self, path):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic drill-down, device and
+        Device Management addresses resolve to the `legacy_retired` panel — a
+        name deliberately absent from the policy (like `unknown`), so no role
+        reaches a synthetic page by URL."""
+        assert parse_pathname(path).name == "legacy_retired"
+        assert "legacy_retired" not in ROUTE_POLICY
+        assert all(not may_access_route(role, "legacy_retired") for role in CONFIRMED_ROLES)
 
     def test_general_user_has_only_the_functional_specification_route_set(self):
         """The General User set is exactly the §5.9 read-only route set."""
@@ -132,10 +146,8 @@ class TestTheMatrix:
         # Technician at the route gate (ADR-032 - the UID scope narrows data).
         assert general - technician == set()
 
-    def test_administrator_reaches_every_policied_route_except_the_retired_one(self):
-        non_retired = set(ROUTE_POLICY) - set(RETIRED_ROUTES)
-        assert all(may_access_route(ADMINISTRATOR, r) for r in non_retired)
-        assert not any(may_access_route(ADMINISTRATOR, r) for r in RETIRED_ROUTES)
+    def test_administrator_reaches_every_policied_route(self):
+        assert all(may_access_route(ADMINISTRATOR, r) for r in ROUTE_POLICY)
 
     def test_the_policy_covers_every_application_route(self):
         """A route the router can produce but the policy never mentions would
@@ -221,26 +233,24 @@ class TestNavigationIsDerivedFromThePolicy:
         assert reachable == self._sidebar_keys()
 
 
-class TestTheAssignDeepLinkNeedsNoRuleOfItsOwn:
-    """ADMIN-3's `?assign=` handoff lives under `/admin/devices`."""
+class TestTheAssignDeepLinkLandsOnTheRetiredPanel:
+    """LEGACY-SYNTHETIC-UX-CLEANUP-01: ADMIN-3's `?assign=` handoff pointed at
+    the synthetic `/admin/devices`, which is retired. The deep link now lands on
+    the legacy/not-found panel (a name absent from the policy), so no role
+    reaches a synthetic Device Management page through it."""
 
-    def test_denying_device_management_denies_the_handoff(self):
+    def test_the_handoff_now_resolves_to_the_retired_panel(self):
         from routes import device_assign_href
 
         href = device_assign_href("plant-01-t1-d1")
         route = parse_pathname(href.split("?", 1)[0]).name
-        assert route == "admin_devices"
-        assert may_access_route(TECHNICIAN, route) is False
-        assert may_access_route(GENERAL, route) is False
+        assert route == "legacy_retired"
+        assert "legacy_retired" not in ROUTE_POLICY
 
     def test_the_query_string_cannot_change_the_answer(self):
-        """Authorization keys on the route, so no `?assign=` value can widen
-        it."""
-        assert (
-            parse_pathname("/admin/devices").name
-            == parse_pathname("/admin/devices").name
-        )
-        assert may_access_route(TECHNICIAN, "admin_devices") is False
+        """The route is retired regardless of any `?assign=` value."""
+        assert parse_pathname("/admin/devices").name == "legacy_retired"
+        assert "admin_devices" not in ROUTE_POLICY
 
 
 # ==========================================================================
@@ -538,11 +548,14 @@ class TestRegisterDeviceCapability:
         """No device exists yet, so there is nothing for ACTION_POLICY to scope."""
         assert REGISTER_DEVICE not in ACTION_POLICY
 
-    def test_capability_and_route_agree(self):
-        """The page and the write behind it are gated to the same roles.
-
-        Not derived from one another — asserted equal, so a change to either
-        that forgets the other fails here rather than shipping a page an
-        administrator can open and no one can submit (or worse, the reverse).
-        """
-        assert CAPABILITY_POLICY[REGISTER_DEVICE] == ROUTE_POLICY["device_register"]
+    def test_the_registration_route_is_retired_but_the_capability_is_kept(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: synthetic device registration
+        (`/admin/devices/new`) is retired — `device_register` is no longer a
+        policied route (it parses to `legacy_retired`). The REGISTER_DEVICE
+        capability is retained, unchanged and Administrator-only, because the
+        synthetic registration callback is kept isolated (not deleted) until the
+        POSTGRESQL-RETIREMENT gate; the capability guards that code path, so
+        removing it would leave the isolated callback ungated."""
+        assert "device_register" not in ROUTE_POLICY
+        assert parse_pathname("/admin/devices/new").name == "legacy_retired"
+        assert CAPABILITY_POLICY[REGISTER_DEVICE] == frozenset({ADMINISTRATOR})

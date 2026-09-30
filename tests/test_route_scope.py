@@ -1,34 +1,29 @@
-"""Route-level scope gating (ROLE-3 Task 9 / AUTH-HARDEN-1R2): existence,
-then membership -- for an UNRESTRICTED caller only.
+"""Route-level behaviour of the RETIRED synthetic monitoring routes.
 
-ROLE-2 already refuses a route a ROLE may not have. It says nothing about
-WHICH device this technician may see, so `/devices/<id>` renders for any
-existing device today. That is the direct-URL bypass these tests close.
+LEGACY-SYNTHETIC-UX-CLEANUP-01. This file used to prove the AUTH-HARDEN-1R2
+device-scope gating on the synthetic `/plants/<id>`, `/plants/<id>/<tf>` and
+`/devices/<id>` routes: existence-then-membership for an unrestricted caller,
+membership-first for a restricted (Technician) one, so a Technician could never
+use the route as an existence oracle for a synthetic device outside their scope.
 
-ROLE-3 invariant 5 (a nonexistent resource and a resource that exists but is
-not yours must stay two different answers) holds for Administrator and
-General, who are never membership-refused, so existence is the only question
-that ever gets asked for them. AUTH-HARDEN-1R2 found that the SAME ordering,
-applied to a Technician's RESTRICTED scope, was an existence oracle: an
-unrestricted lookup ran before the membership check, so a Technician could
-tell "valid id, not mine" (Forbidden) apart from "no such id" (Not Found) --
-exactly the distinction a restricted caller must never get to make about
-assets outside their scope. The fix reorders the check: for a restricted
-scope, `entity_in_scope` (itself scope-FILTERED) runs FIRST, so a real
-out-of-scope entity and a nonexistent one both come back Forbidden, with no
-unrestricted lookup ever run to tell them apart. See
-`tests/test_route_scope_db.py` for that reordering proven against a real
-trusted Technician session (R2-01..R2-09).
+Those routes are now RETIRED. Each resolves to `legacy_retired` (routes.py) and
+the router answers it with the static legacy/not-found panel — it resolves no
+identifier, performs no `hierarchy_service` lookup and reads no scope at all. The
+old existence-oracle question therefore cannot arise: there is nothing to gate,
+for any role, because nothing is looked up. That is a strictly stronger property
+than the one this file used to assert, and it is what these tests now pin.
+
+(The real client-RTL routes keep their own scope gate — `services.rtl_scope`,
+ADR-032 — proven in `tests/test_rtl_scope.py` and `tests/test_rtl_detail_route.py`,
+not here. `tests/test_route_scope_db.py` covered the retired DeviceScope path
+against a real Technician session and is retired with it.)
 """
 from __future__ import annotations
-
-from types import SimpleNamespace
 
 import pytest
 
 from callbacks import routing
 from services.auth_service import AuthenticatedUser
-from services.device_scope import DeviceScope
 
 TECHNICIAN_SESSION = {
     "authenticated": True,
@@ -54,13 +49,26 @@ GENERAL_SESSION = {
     "role": "general",
 }
 
+ALL_SESSIONS = [TECHNICIAN_SESSION, ADMINISTRATOR_SESSION, GENERAL_SESSION]
+
+#: Every retired synthetic monitoring/device/admin-device address. Each must
+#: resolve to the legacy panel for every role, reading nothing on the way.
+RETIRED_PATHS = [
+    "/plants/plant-01",
+    "/plants/plant-01/plant-01-t1",
+    "/devices/plant-01-t1-d1",
+    "/devices",
+    "/admin/devices",
+    "/admin/devices/new",
+    "/admin/assignments",
+]
+
 
 class _CapturingApp:
     """Collects callbacks instead of registering them on a Dash runtime.
 
     `routing.register` declares exactly one callback, so `self.functions[0]`
-    is `route_to_page`. This avoids standing up a Dash app to test a function
-    that is really just (pathname, search, session) -> (layout, context).
+    is `route_to_page`.
     """
 
     def __init__(self):
@@ -75,11 +83,6 @@ class _CapturingApp:
 
 
 def _identity_for(session_dict) -> AuthenticatedUser | None:
-    """AUTH-HARDEN-1: `route_to_page` no longer derives identity from this
-    dict — it calls `current_identity()`, which every test here patches via
-    this helper instead. Reconstructing the same identity the dict used to
-    describe keeps each test's intent ("as this role") while exercising the
-    trusted-identity path the real callback now uses."""
     if not session_dict or not session_dict.get("authenticated"):
         return None
     return AuthenticatedUser(
@@ -98,412 +101,36 @@ def routing_render(monkeypatch, pathname: str, session=TECHNICIAN_SESSION, searc
     return route_to_page(pathname, search, session)
 
 
-def _device_path(device_id: str = "mine") -> SimpleNamespace:
-    """A DevicePath stand-in carrying every field the device branch reads."""
-    return SimpleNamespace(
-        device_id=device_id,
-        plant_id="plant-01",
-        plant_name="Plant 01",
-        transformer_id="plant-01-t1",
-        transformer_code="T1",
-        device_code="D1",
-        device_status="active",
-    )
-
-
-def _patch_device_lookup(monkeypatch, device_path=None):
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_device_context",
-        lambda device_id: device_path,
-    )
-
-
-def _patch_scope(monkeypatch, scope: DeviceScope):
-    monkeypatch.setattr(routing, "current_device_scope", lambda: scope)
-
-
-# --------------------------------------------------------------------------
-# Device
-# --------------------------------------------------------------------------
-
-
-def test_in_scope_device_renders(monkeypatch):
-    """The positive case. Scoping must not refuse a technician's OWN RTL."""
-    _patch_scope(monkeypatch, DeviceScope(frozenset({"mine"})))
-    _patch_device_lookup(monkeypatch, _device_path("mine"))
-
-    _layout, ctx = routing_render(monkeypatch, "/devices/mine")
-
-    assert ctx["route"] == "device"
-    assert ctx["device_id"] == "mine"
-
-
-def test_raw_rtl_uid_is_kept_only_for_administrator_on_an_in_scope_device(monkeypatch):
-    _patch_scope(monkeypatch, DeviceScope(None))
-    _patch_device_lookup(monkeypatch, _device_path("app-device"))
-
-    _layout, administrator_context = routing_render(
-        monkeypatch,
-        "/devices/app-device",
-        session=ADMINISTRATOR_SESSION,
-        search="?rtl_uid=29743",
-    )
-    _layout, general_context = routing_render(
-        monkeypatch,
-        "/devices/app-device",
-        session=GENERAL_SESSION,
-        search="?rtl_uid=29743",
-    )
-
-    assert administrator_context["rtl_uid"] == 29743
-    assert "rtl_uid" not in general_context
-
-
-def test_out_of_scope_device_is_forbidden_not_not_found(monkeypatch):
-    """Invariant 5. These two outcomes must never collapse."""
-    _patch_scope(monkeypatch, DeviceScope(frozenset({"mine"})))
-    _patch_device_lookup(monkeypatch, _device_path("theirs"))
-
-    _layout, ctx = routing_render(monkeypatch, "/devices/theirs")
-
-    assert ctx == {"route": "forbidden"}
-
-
-def test_nonexistent_device_is_not_found(monkeypatch):
-    _patch_scope(monkeypatch, DeviceScope(None))
-    _patch_device_lookup(monkeypatch, None)
-
-    _layout, ctx = routing_render(monkeypatch, "/devices/no-such-device")
-
-    assert ctx == {"route": "unknown"}
-
-
-def test_nonexistent_device_is_forbidden_not_not_found_when_scope_is_empty(monkeypatch):
-    """AUTH-HARDEN-1R2: membership is now decided BEFORE existence for a
-    restricted scope.
-
-    An EMPTY-scope technician asking for an id that does not exist gets the
-    SAME generic Forbidden as a real-but-unassigned device
-    (`test_out_of_scope_device_is_forbidden_not_not_found`) - not Not Found.
-    `entity_in_scope`'s device branch is a pure in-memory membership test
-    (`DeviceScope.allows`), so it never performs the unrestricted existence
-    lookup that would let a Technician tell the two apart. The device-lookup
-    stub is left returning `None` deliberately: if the fix ever regressed to
-    checking existence first, this test would start failing loudly by
-    invoking a lookup this scope must never reach.
-    """
-    _patch_scope(monkeypatch, DeviceScope(frozenset()))
-    _patch_device_lookup(monkeypatch, None)
-
-    _layout, ctx = routing_render(monkeypatch, "/devices/no-such-device")
-
-    assert ctx == {"route": "forbidden"}
-
-
-def test_forbidden_device_route_issues_no_reading_query(monkeypatch):
-    """Invariant 9, made executable. The per-device reading queries take no
-    scope constraint; they are safe only because a refused route never builds
-    a real page-context for their callbacks to fire on."""
-    calls = []
-    for name in (
-        "get_latest_reading",
-        "get_last_reading_before",
-        "get_latest_readings_for_device",
-        "get_readings_in_range",
-        "get_readings_for_device_in_range",
-    ):
-        monkeypatch.setattr(
-            routing.hierarchy_service.repo,
-            name,
-            lambda *a, _n=name, **k: calls.append(_n),
-        )
-    _patch_scope(monkeypatch, DeviceScope(frozenset()))
-    _patch_device_lookup(monkeypatch, _device_path("anything"))
-
-    _layout, ctx = routing_render(monkeypatch, "/devices/anything")
-
-    assert ctx == {"route": "forbidden"}
-    assert calls == [], "a refused route reached {}".format(calls)
-
-
-# --------------------------------------------------------------------------
-# Plant
-# --------------------------------------------------------------------------
-
-
-def test_plant_holding_no_visible_device_is_forbidden(monkeypatch):
-    """Invariant 5: a Technician cannot hand-type a path to an otherwise-valid
-    plant containing none of their RTLs."""
-    _patch_scope(monkeypatch, DeviceScope(frozenset({"mine"})))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-07", name="Plant 07", status="active"
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service, "list_transformers", lambda plant_id, *, scope: []
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-07")
-
-    assert ctx == {"route": "forbidden"}
-
-
-def test_plant_holding_a_visible_device_renders(monkeypatch):
-    _patch_scope(monkeypatch, DeviceScope(frozenset({"mine"})))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-01", name="Plant 01", status="active"
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "list_transformers",
-        lambda plant_id, *, scope: [SimpleNamespace(transformer_id="plant-01-t1")],
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-01")
-
-    assert ctx["route"] == "plant"
-    assert ctx["plant_id"] == "plant-01"
-
-
-def test_nonexistent_plant_is_not_found(monkeypatch):
-    """Unrestricted scope only (Administrator/General): `entity_in_scope`
-    short-circuits True with no query, so the existence lookup below is the
-    only check that ever runs and Not Found is still the correct answer.
-    See `test_nonexistent_plant_is_forbidden_not_not_found_when_scope_is_empty`
-    for the restricted-scope case, which now answers differently on purpose.
-    """
-    _patch_scope(monkeypatch, DeviceScope(None))
-    monkeypatch.setattr(
-        routing.hierarchy_service, "get_plant_or_none", lambda plant_id: None
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/no-such-plant")
-
-    assert ctx == {"route": "unknown"}
-
-
-def test_nonexistent_plant_is_forbidden_not_not_found_when_scope_is_empty(monkeypatch):
-    """AUTH-HARDEN-1R2 companion to the device-level fix above, one level up
-    the hierarchy: an EMPTY-scope technician gets the same generic Forbidden
-    for a plant that does not exist as for one that exists but holds none of
-    their RTLs (`test_empty_scope_technician_cannot_reach_a_real_plant`).
-    `get_plant_or_none` is left unpatched (its default None) deliberately:
-    `entity_in_scope`'s plant branch never calls it for a restricted scope,
-    so a caller that starts using it there is exactly what this guards
-    against.
-    """
-    _patch_scope(monkeypatch, DeviceScope(frozenset()))
-    monkeypatch.setattr(
-        routing.hierarchy_service, "list_transformers", lambda plant_id, *, scope: []
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/no-such-plant")
-
-    assert ctx == {"route": "forbidden"}
-
-
-# --------------------------------------------------------------------------
-# Transformer
-# --------------------------------------------------------------------------
-
-
-def test_transformer_holding_no_visible_device_is_forbidden(monkeypatch):
-    """Same rule one level down: a real transformer with zero visible RTLs."""
-    _patch_scope(monkeypatch, DeviceScope(frozenset({"mine"})))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-07", name="Plant 07", status="active"
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_transformer_in_plant",
-        lambda plant_id, transformer_id: SimpleNamespace(
-            transformer_id="plant-07-t2",
-            plant_id="plant-07",
-            transformer_code="T2",
-            status="active",
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service, "list_devices", lambda transformer_id, *, scope: []
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-07/plant-07-t2")
-
-    assert ctx == {"route": "forbidden"}
-
-
-def test_transformer_holding_a_visible_device_renders(monkeypatch):
-    _patch_scope(monkeypatch, DeviceScope(frozenset({"mine"})))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-01", name="Plant 01", status="active"
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_transformer_in_plant",
-        lambda plant_id, transformer_id: SimpleNamespace(
-            transformer_id="plant-01-t1",
-            plant_id="plant-01",
-            transformer_code="T1",
-            status="active",
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "list_devices",
-        lambda transformer_id, *, scope: [SimpleNamespace(device_id="mine")],
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-01/plant-01-t1")
-
-    assert ctx["route"] == "transformer"
-    assert ctx["transformer_id"] == "plant-01-t1"
-
-
-# --------------------------------------------------------------------------
-# Roles
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("session", [ADMINISTRATOR_SESSION, GENERAL_SESSION])
-def test_unrestricted_roles_reach_any_existing_device(monkeypatch, session):
-    """Administrator unchanged, and General keeps unrestricted SIGHT.
-
-    General is read-only on actions, not blind (invariant 3). If this test
-    ever fails, someone has confused read-only with restricted visibility.
-    """
-    _patch_scope(monkeypatch, DeviceScope(None))
-    _patch_device_lookup(monkeypatch, _device_path("any-device"))
-
-    _layout, ctx = routing_render(monkeypatch, "/devices/any-device", session=session)
-
-    assert ctx["route"] == "device"
-    assert ctx["device_id"] == "any-device"
-
-
-@pytest.mark.parametrize("session", [ADMINISTRATOR_SESSION, GENERAL_SESSION])
-def test_unrestricted_roles_reach_any_existing_plant(monkeypatch, session):
-    _patch_scope(monkeypatch, DeviceScope(None))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-07", name="Plant 07", status="active"
-        ),
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-07", session=session)
-
-    assert ctx["route"] == "plant"
-
-
-def test_unrestricted_plant_route_does_not_list_transformers(monkeypatch):
-    """An unrestricted scope must short-circuit BEFORE the membership probe.
-
-    Otherwise every Administrator plant render pays for an extra listing
-    query only to discard the answer.
-    """
-    calls = []
-    _patch_scope(monkeypatch, DeviceScope(None))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-07", name="Plant 07", status="active"
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "list_transformers",
-        lambda plant_id, *, scope: calls.append(plant_id) or [],
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-07", session=ADMINISTRATOR_SESSION)
-
-    assert ctx["route"] == "plant"
-    assert calls == []
-
-
-# --------------------------------------------------------------------------
-# Technician with EMPTY scope
-# --------------------------------------------------------------------------
-
-
-def test_empty_scope_technician_cannot_reach_a_real_device(monkeypatch):
-    _patch_scope(monkeypatch, DeviceScope(frozenset()))
-    _patch_device_lookup(monkeypatch, _device_path("plant-01-t1-d1"))
-
-    _layout, ctx = routing_render(monkeypatch, "/devices/plant-01-t1-d1")
-
-    assert ctx == {"route": "forbidden"}
-
-
-def test_empty_scope_technician_cannot_reach_a_real_plant(monkeypatch):
-    _patch_scope(monkeypatch, DeviceScope(frozenset()))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-01", name="Plant 01", status="active"
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service, "list_transformers", lambda plant_id, *, scope: []
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-01")
-
-    assert ctx == {"route": "forbidden"}
-
-
-def test_empty_scope_technician_cannot_reach_a_real_transformer(monkeypatch):
-    _patch_scope(monkeypatch, DeviceScope(frozenset()))
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_plant_or_none",
-        lambda plant_id: SimpleNamespace(
-            plant_id="plant-01", name="Plant 01", status="active"
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service,
-        "get_transformer_in_plant",
-        lambda plant_id, transformer_id: SimpleNamespace(
-            transformer_id="plant-01-t1",
-            plant_id="plant-01",
-            transformer_code="T1",
-            status="active",
-        ),
-    )
-    monkeypatch.setattr(
-        routing.hierarchy_service, "list_devices", lambda transformer_id, *, scope: []
-    )
-
-    _layout, ctx = routing_render(monkeypatch, "/plants/plant-01/plant-01-t1")
-
-    assert ctx == {"route": "forbidden"}
-
-
-# --------------------------------------------------------------------------
-# entity_in_scope directly
-# --------------------------------------------------------------------------
-
-
-def test_entity_in_scope_defaults_to_deny_when_given_no_entity():
-    """Default-deny: called with no identifier at all, it refuses."""
-    assert routing.entity_in_scope(DeviceScope(frozenset({"mine"}))) is False
+@pytest.mark.parametrize("pathname", RETIRED_PATHS)
+@pytest.mark.parametrize("session", ALL_SESSIONS)
+def test_a_retired_route_renders_the_legacy_panel_for_every_role(monkeypatch, pathname, session):
+    _layout, ctx = routing_render(monkeypatch, pathname, session=session)
+    assert ctx == {"route": "legacy_retired"}
+
+
+@pytest.mark.parametrize("pathname", RETIRED_PATHS)
+def test_a_retired_route_reads_no_scope_and_no_source(monkeypatch, pathname):
+    """The whole point of the retirement: no identifier is resolved and no
+    scope or source is read. The router no longer imports `current_device_scope`
+    or `hierarchy_service` at all — if a retired-route branch ever tried to, it
+    would raise here rather than silently reintroduce a synthetic lookup."""
+    assert not hasattr(routing, "current_device_scope")
+    assert not hasattr(routing, "hierarchy_service")
+    # A guard that would fire the moment any client-RTL scope read crept onto a
+    # retired route: make it explode if called, then prove it never is.
+    called = []
+    monkeypatch.setattr(routing, "current_rtl_scope", lambda: called.append(1))
+    _layout, ctx = routing_render(monkeypatch, pathname, session=TECHNICIAN_SESSION)
+    assert ctx == {"route": "legacy_retired"}
+    assert called == []
+
+
+def test_the_device_scope_module_is_no_longer_a_routing_dependency():
+    """DeviceScope gated the synthetic device routes; with them retired, the
+    router reasons only about the client-RTL scope (`services.rtl_scope`)."""
+    import inspect
+
+    src = inspect.getsource(routing)
+    assert "current_device_scope" not in src
+    assert "entity_in_scope" not in src
+    assert "build_device_context" not in src

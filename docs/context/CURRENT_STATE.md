@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T16:23:57Z
+Date: 2026-09-30T17:51:50Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `78688f4` "feat(auth): harden local application login"
-- Working tree: 6 entries — see below
+- `main` = `3c7f936` "docs(decisions): record ADR-033 implementing commit"
+- Working tree: 46 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3833 passed, 3 skipped, 829 deselected in 56.23s
+- `python -m pytest -m "not db"` → 3689 passed, 3 skipped, 807 deselected in 59.70s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 499 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 349 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 499 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 500 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 350 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 500 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -117,16 +117,56 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-AUTHENTICATION-LOCAL-HARDENING-01 — Harden local application login — full detail in `docs/context/ACTIVE_GATE.md`.
+LEGACY-SYNTHETIC-UX-CLEANUP-01 — Retire legacy synthetic client paths — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M docs/context/DECISION_INDEX.md
- M docs/decisions/ADR-033-local-application-authentication-is-authoritative.md
+ M app.py
+ D assets/command_center.js
+ D callbacks/command_center.py
+ M callbacks/navigation.py
+ M callbacks/routing.py
+ M components/app_sidebar.py
+ D components/attention.py
+ D components/command_center/__init__.py
+ D components/command_center/primitives.py
+ D components/command_center/refresh.py
+ D components/fleet_overview.py
+ M components/status_panels.py
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ D pages/command_center.py
+ M routes.py
+ M services/authorization.py
+ D services/fleet_overview_service.py
+ M tests/test_app_sidebar.py
+ M tests/test_assign_deeplink.py
+ D tests/test_attention_components.py
+ M tests/test_authorization.py
+ M tests/test_check_client_release.py
+ D tests/test_command_center_components.py
+ D tests/test_command_center_page.py
+ D tests/test_command_center_refresh.py
+ M tests/test_device_context.py
+ M tests/test_equipment_selector.py
+ M tests/test_factual_dashboard.py
+ D tests/test_fleet_overview_components.py
+ D tests/test_fleet_overview_service.py
+ M tests/test_route_enforcement.py
+ M tests/test_route_scope.py
+ D tests/test_route_scope_db.py
+ M tests/test_routing.py
+ M tests/test_rtl_assignments_ui.py
+ M tests/test_rtl_detail_route.py
+ M tests/test_rtl_list_route.py
+ M tests/test_status_colors.py
+ M tests/test_technician_operations.py
+ M tests/test_utility_route_visibility.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? docs/audit/legacy-synthetic-ux-cleanup-01/
 ?? docs/audit/project-audit-1/results/
 ```
 

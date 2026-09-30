@@ -24,7 +24,7 @@ from components.device_operations import device_operations_panel
 from components.freshness_threshold_panel import freshness_threshold_panel
 from components.temperature_threshold_panel import temperature_threshold_panel
 from components.vibration_contract_panel import vibration_contract_panel
-from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, command_center, rtl_detail, rtl_network, rtl_dashboard, historical_events, rtl_assignments, set_password
+from pages import admin_settings, audit_log, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, login, plant_detail, plants_overview, transformer_detail, user_admin, report_center, notifications, rtl_detail, rtl_network, rtl_dashboard, historical_events, rtl_assignments, set_password
 from services.device_scope import UNRESTRICTED
 from tests.auth_test_support import trusted_session
 
@@ -105,7 +105,6 @@ PAGE_LAYOUT_IDS = (
     | collect_ids(user_form_drawer())
     | collect_ids(report_center.layout())
     | collect_ids(notifications.layout())
-    | collect_ids(command_center.layout())
     # RTL-UID-DETAIL-01: the canonical client RTL detail page, reached at
     # /rtls/<uid>. Its layout takes the UID, so a representative one is
     # supplied here exactly as the device/plant pages above do.

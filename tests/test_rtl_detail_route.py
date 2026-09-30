@@ -144,13 +144,14 @@ class TestAuthorizationBoundary:
 
 
 class TestRouteIdentityIsNotTheSyntheticDevice:
-    def test_the_legacy_device_route_is_unchanged(self):
-        """`/devices/<app-device-id>` keeps its own parsing. There is no
-        approved synthetic-id-to-client-UID mapping, so it is NOT redirected
-        here and must not start resolving to an RTL."""
+    def test_the_legacy_device_route_is_retired_not_redirected(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: `/devices/<app-device-id>` is retired
+        to the legacy panel. There is no approved synthetic-id-to-client-UID
+        mapping, so it is NOT redirected to an RTL and resolves no identity —
+        the synthetic device id is dropped and no `rtl_uid` is invented."""
         route = parse_pathname("/devices/plant-01-t1-d1")
-        assert route.name == "device"
-        assert route.device_id == "plant-01-t1-d1"
+        assert route.name == "legacy_retired"
+        assert route.device_id is None
         assert route.rtl_uid is None
 
     def test_the_fleet_list_route_is_the_canonical_list(self):
@@ -212,9 +213,15 @@ class TestTheRouterPreservesEveryIdentityField:
     def test_a_rebuilt_rtl_route_keeps_its_uid(self):
         assert self._rebuilt(f"/rtls/{A_UID}").rtl_uid == A_UID
 
-    def test_a_rebuilt_device_route_keeps_its_device_id(self):
-        assert self._rebuilt("/devices/plant-01-t1-d1").device_id == "plant-01-t1-d1"
+    def test_a_rebuilt_retired_device_route_carries_no_synthetic_identity(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: `/devices/<id>` parses to
+        `legacy_retired` with the synthetic device id dropped, and the rebuild
+        carries that through — no synthetic identity survives to a live page."""
+        route = self._rebuilt("/devices/plant-01-t1-d1")
+        assert route.name == "legacy_retired"
+        assert route.device_id is None and route.rtl_uid is None
 
-    def test_a_rebuilt_transformer_route_keeps_its_parents(self):
+    def test_a_rebuilt_retired_transformer_route_carries_no_synthetic_identity(self):
         route = self._rebuilt("/plants/plant-01/plant-01-t1")
-        assert (route.plant_id, route.transformer_id) == ("plant-01", "plant-01-t1")
+        assert route.name == "legacy_retired"
+        assert (route.plant_id, route.transformer_id) == (None, None)

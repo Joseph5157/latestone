@@ -56,17 +56,17 @@ class TestRouteDecision:
         session the server once trusted is gone (deleted, deactivated,
         expired) — has not been refused anything. Showing 'no access' would be
         both wrong and alarming; both cases read the same: sign in (again)."""
-        assert routing.route_decision(None, "admin_devices") == routing.DECISION_LOGIN
+        assert routing.route_decision(None, "admin_users") == routing.DECISION_LOGIN
         assert routing.route_decision(None, "overview") == routing.DECISION_LOGIN
 
     def test_administrator_is_allowed_through(self):
-        assert routing.route_decision(identity(ADMINISTRATOR), "admin_devices") == (
+        assert routing.route_decision(identity(ADMINISTRATOR), "admin_users") == (
             routing.DECISION_ALLOW
         )
 
     @pytest.mark.parametrize("role", [TECHNICIAN, GENERAL])
     @pytest.mark.parametrize(
-        "route", ["admin_devices", "device_register", "admin_users", "audit_log"]
+        "route", ["rtl_assignments", "admin_users", "audit_log", "admin_settings"]
     )
     def test_admin_management_is_refused_by_direct_url(self, role, route):
         assert routing.route_decision(identity(role), route) == (
@@ -75,10 +75,22 @@ class TestRouteDecision:
 
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN, GENERAL])
     @pytest.mark.parametrize(
-        "route", ["overview", "plant", "transformer", "device", "reports"]
+        "route", ["overview", "reports"]
     )
     def test_monitoring_and_reports_stay_open(self, role, route):
         assert routing.route_decision(identity(role), route) == routing.DECISION_ALLOW
+
+    @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN, GENERAL])
+    def test_a_retired_synthetic_route_is_allowed_through_to_the_legacy_panel(self, role):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: the retired synthetic routes resolve
+        to `legacy_retired`, which — like `unknown` — is absent from the policy,
+        so `route_decision` returns ALLOW and the router renders the
+        legacy/not-found panel (which reads nothing). It is not FORBIDDEN: the
+        page genuinely no longer exists, so refusing it by role would imply it
+        does and is merely off-limits."""
+        assert routing.route_decision(identity(role), "legacy_retired") == (
+            routing.DECISION_ALLOW
+        )
 
     @pytest.mark.parametrize(
         "route", ["notifications", "command_center"]

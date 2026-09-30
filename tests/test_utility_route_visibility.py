@@ -29,9 +29,11 @@ from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN
 
 HIDDEN_CLASS = "app-shell__utility--hidden"
 
-#: Routes that mean the same page for every role. `/` is deliberately absent
-#: — see `TestTheRootPath`.
-MONITORING_ROUTES = [
+#: LEGACY-SYNTHETIC-UX-CLEANUP-01: these synthetic drill-down addresses were
+#: the Asset Navigator's only home. They are retired (they now resolve to
+#: `legacy_retired`), so the navigator is hidden on them too — it is hidden on
+#: every route now. `/` is handled in `TestTheRootPath`.
+RETIRED_MONITORING_ROUTES = [
     "/plants/plant-01",
     "/plants/plant-01/plant-01-t1",
     "/devices/plant-01-t1-d1",
@@ -68,9 +70,12 @@ def test_hidden_on_administration_and_reporting_routes(pathname):
     assert HIDDEN_CLASS in class_name_for(pathname)
 
 
-@pytest.mark.parametrize("pathname", MONITORING_ROUTES)
-def test_shown_on_the_monitoring_drill_down(pathname):
-    assert HIDDEN_CLASS not in class_name_for(pathname)
+@pytest.mark.parametrize("pathname", RETIRED_MONITORING_ROUTES)
+def test_hidden_on_the_retired_monitoring_drill_down(pathname):
+    """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic drill-down is retired, so
+    the navigator that cascaded over it is hidden there now, like everywhere
+    else."""
+    assert HIDDEN_CLASS in class_name_for(pathname)
 
 
 def test_unrecognised_route_hides_rather_than_guesses():
@@ -153,11 +158,12 @@ class TestTheRootPath:
         assert HIDDEN_CLASS in class_name_for("/command-center", role=role)
 
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN, GENERAL, None])
-    def test_the_landing_correction_does_not_leak_to_other_routes(self, role):
-        """Only `/` (and the bare login path) are rewritten. Every explicit
-        monitoring path keeps the navigator for every role."""
-        for pathname in MONITORING_ROUTES:
-            assert HIDDEN_CLASS not in class_name_for(pathname, role=role), pathname
+    def test_the_retired_monitoring_paths_hide_it_for_every_role(self, role):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic drill-down is retired,
+        so the navigator is hidden on those paths for every role — there is no
+        surface left where it is shown."""
+        for pathname in RETIRED_MONITORING_ROUTES:
+            assert HIDDEN_CLASS in class_name_for(pathname, role=role), pathname
 
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN])
     def test_signing_in_at_the_login_path_hides_it_too(self, role):

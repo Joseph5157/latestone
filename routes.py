@@ -31,22 +31,22 @@ ADMIN_DEVICES_PATH = "/admin/devices"
 #: destination of its own — it is the workflow that lives inside Overview — so
 #: those routes keep the Overview item highlighted. Assignments has no entry
 #: because it has no route, so it can never become active.
+#: LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic Plant -> Transformer -> Device
+#: routes (`plant`, `transformer`, `device`), the synthetic Device Management
+#: routes (`admin_devices`, `device_register`, `admin_assignments`) and the
+#: denied technician `technician_devices` route were retired from navigation
+#: and routing here. Their addresses now resolve to `legacy_retired` (a
+#: not-found/legacy panel) and so name no sidebar item — none is present below.
+#: The synthetic PAGE and CALLBACK code is retained, isolated and unrouted,
+#: until the POSTGRESQL-RETIREMENT gate deletes the synthetic model wholesale
+#: (plan §8: no big-bang deletion).
 NAV_KEY_BY_ROUTE: dict[str, str] = {
     "overview": "overview",
-    "plant": "overview",
-    "transformer": "overview",
-    "device": "overview",
     "rtl_network": "network",
     "historical_events": "events",
-    "admin_devices": "devices",
-    "technician_devices": "technician_devices",
     # ADR-032: the client-RTL assignment workflow owns the sidebar's
-    # Assignments item (its href is `/technicians/assignments`). The legacy
-    # synthetic `/admin/assignments` route stays reachable by URL, is not
-    # linked from navigation, and still highlights the same item.
-    "admin_assignments": "assignments",
+    # Assignments item (its href is `/technicians/assignments`).
     "rtl_assignments": "assignments",
-    "device_register": "registration",
     "notifications": "notifications",
     "reports": "reports",
     "admin_users": "users",
@@ -103,6 +103,17 @@ SET_PASSWORD_ROUTE = "set_password"
 #: rendered for it: the router ignores it, and it is rewritten to
 #: RTL_LIST_PATH before any page is built (see `legacy_redirect_path`).
 RTL_LIST_ALIAS_ROUTE = "rtl_list_alias"
+
+#: LEGACY-SYNTHETIC-UX-CLEANUP-01. The retired synthetic routes resolve here.
+#: Like `unknown` and `rtl_list_alias` it is deliberately absent from
+#: `ROUTE_POLICY`: it grants no application access and renders only the
+#: legacy/not-found panel, which reads nothing and resolves no identifier. The
+#: synthetic `/plants/<id>`, `/plants/<id>/<tf>`, `/devices/<id>`, `/devices`,
+#: `/admin/devices`, `/admin/devices/new` and `/admin/assignments` addresses
+#: all parse to this name so a bookmark or typed URL gets a clear "retired"
+#: answer instead of a synthetic client screen — and never a fabricated
+#: redirect to a real `/rtls/<uid>` (no such mapping exists).
+LEGACY_RETIRED_ROUTE = "legacy_retired"
 
 #: RTL-UID-DETAIL-01. The canonical real-client RTL detail route. Its identity
 #: is the numeric client RTL UID from `dbo.device_list` — nothing synthetic.
@@ -224,15 +235,15 @@ def parse_pathname(pathname: str | None) -> Route:
         return Route(name="rtl_assignments")
 
 
-    if len(parts) == 2 and parts[0] == "plants":
-        return Route(name="plant", plant_id=parts[1])
-
-    if len(parts) == 3 and parts[0] == "plants":
-        return Route(
-            name="transformer",
-            plant_id=parts[1],
-            transformer_id=parts[2],
-        )
+    # LEGACY-SYNTHETIC-UX-CLEANUP-01. The synthetic Plant and Transformer
+    # drill-down (`/plants/<id>`, `/plants/<id>/<tf>`) is retired: it resolves
+    # to the legacy/not-found panel, not a synthetic page. The plant id is
+    # deliberately dropped — nothing downstream resolves it, so there is no
+    # scope-filtered lookup and no way to probe whether a synthetic plant
+    # exists. (The bare `/plants` list address is handled above by
+    # `legacy_redirect_path`, which still redirects to `/rtls`.)
+    if len(parts) in (2, 3) and parts[0] == "plants":
+        return Route(name=LEGACY_RETIRED_ROUTE)
 
     # RTL-UID-DETAIL-01. A segment that is not a well-formed client RTL UID
     # falls through to `unknown` rather than becoming a refused RTL: a typo
@@ -246,30 +257,32 @@ def parse_pathname(pathname: str | None) -> Route:
             return Route(name="rtl_detail", rtl_uid=uid)
         return Route(name="unknown")
 
-    if len(parts) == 2 and parts[0] == "devices":
-        return Route(name="device", device_id=parts[1])
-
-    # A Technician's own assigned-devices page — deliberately a different
-    # path from ADMIN_DEVICES_PATH ("/admin/devices"), not a role-conditional
-    # rendering of it (ADR-016: fleet administration and operating equipment
-    # you are responsible for are different jobs, kept at different paths).
-    if len(parts) == 1 and parts[0] == "devices":
-        return Route(name="technician_devices")
+    # LEGACY-SYNTHETIC-UX-CLEANUP-01. The synthetic device dashboard
+    # (`/devices/<id>`) and the technician synthetic-device roster (`/devices`)
+    # are retired to the legacy/not-found panel. The device id is dropped: it
+    # is a synthetic application identifier with no approved mapping to a client
+    # RTL UID, and nothing downstream resolves it. These addresses are NOT
+    # redirected to `/rtls/<uid>` — no such mapping exists (§6, §22).
+    if len(parts) in (1, 2) and parts[0] == "devices":
+        return Route(name=LEGACY_RETIRED_ROUTE)
 
     if len(parts) == 2 and parts[0] == "admin":
-        if parts[1] == "devices":
-            return Route(name="admin_devices")
-        if parts[1] == "assignments":
-            return Route(name="admin_assignments")
         if parts[1] == "users":
             return Route(name="admin_users")
         if parts[1] == "audit-log":
             return Route(name="audit_log")
         if parts[1] == "settings":
             return Route(name="admin_settings")
+        # LEGACY-SYNTHETIC-UX-CLEANUP-01. Synthetic Device Management
+        # (`/admin/devices`) and the old app-device assignment surface
+        # (`/admin/assignments`) are retired. Real client-RTL technician
+        # assignment lives at `/technicians/assignments` (rtl_assignments).
+        if parts[1] in ("devices", "assignments"):
+            return Route(name=LEGACY_RETIRED_ROUTE)
 
+    # LEGACY-SYNTHETIC-UX-CLEANUP-01. Synthetic device registration retired.
     if len(parts) == 3 and parts[0] == "admin" and parts[1] == "devices" and parts[2] == "new":
-        return Route(name="device_register")
+        return Route(name=LEGACY_RETIRED_ROUTE)
 
     return Route(name="unknown")
 

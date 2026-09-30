@@ -77,14 +77,23 @@ _REAL_RTL_ROLES = _EVERY_ROLE
 #: operational Notifications and Command Center surfaces are limited to
 #: administrators and technicians. This route boundary controls both direct
 #: URL enforcement and sidebar filtering.
+#: LEGACY-SYNTHETIC-UX-CLEANUP-01. The synthetic monitoring routes (`plant`,
+#: `transformer`, `device`), the synthetic Device Management routes
+#: (`admin_devices`, `device_register`, `admin_assignments`) and the denied
+#: technician `technician_devices` route were retired from the application in
+#: this gate. They are no longer parsed to their own route name — every one of
+#: those addresses now resolves to `legacy_retired` (routes.py), which, like
+#: `unknown`, is deliberately absent from this table and renders only the
+#: legacy/not-found panel. Removing the policy entry is safe because the route
+#: no longer exists to be reached: there is no page behind it to authorise, and
+#: the panel reads nothing. The synthetic page/callback code is retained,
+#: isolated and unrouted, until POSTGRESQL-RETIREMENT deletes the model.
 ROUTE_POLICY: dict[str, frozenset[str]] = {
-    # Monitoring: the fleet and the drill-down through it. Open to everyone
-    # who is signed in — reading the plant hierarchy is the application's
-    # baseline purpose, not a privilege.
+    # Monitoring: the registered client RTL directory. Open to everyone who is
+    # signed in — reading the registered fleet is the application's baseline
+    # purpose, not a privilege. (Route name stays `overview`; its address is
+    # the canonical `/rtls`.)
     "overview": _EVERY_ROLE,
-    "plant": _EVERY_ROLE,
-    "transformer": _EVERY_ROLE,
-    "device": _EVERY_ROLE,
     # The canonical real-client RTL detail page (RTL-UID-DETAIL-01). Every
     # role passes THIS gate, but it renders raw client RTL UIDs and telemetry,
     # so the page/callback then check `services.rtl_scope` (ADR-032): a
@@ -100,26 +109,13 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     "historical_events": _REAL_RTL_ROLES,
     "notifications": _OPERATIONAL_ROLES,
     "reports": _EVERY_ROLE,
+    # FACTUAL-DASHBOARD-01: the factual client-RTL dashboard (its route name is
+    # still `command_center`; the synthetic Command Center it replaced is gone).
     "command_center": _OPERATIONAL_ROLES,
-    # Administration: managing what exists and who exists.
-    "admin_devices": _ADMIN_ONLY,
-    # A Technician's own operate-equipment surface (ADR-016): assigned
-    # devices only, the shared device_manage_drawer(), never assignment or
-    # registration. Deliberately its own route, not a role branch inside
-    # "admin_devices" — see that ADR's "boundary by meaning, not location".
-    # ADR-032: the synthetic Plant/Transformer "Devices" page is retired from
-    # the Technician's client-facing path. Denied to every role (default deny)
-    # rather than deleted: removing the code is a separate cleanup gate.
-    "technician_devices": _NO_ROLE_ROUTE,
-    # The technician workload roster + reassignment surface — a real route
-    # replacing the sidebar's former routeless "Assignments" placeholder.
-    # Admin-only, same as admin_devices: it reads/reassigns the whole fleet's
-    # technician assignments, never a technician's own scope.
-    "admin_assignments": _ADMIN_ONLY,
     # ADR-032: the client-RTL Technician assignment workflow (Administrator
     # only). Assign, reassign and history for real client RTL UIDs.
     "rtl_assignments": _ADMIN_ONLY,
-    "device_register": _ADMIN_ONLY,
+    # Administration: managing who exists, the audit trail, and configuration.
     "admin_users": _ADMIN_ONLY,
     "audit_log": _ADMIN_ONLY,
     "admin_settings": _ADMIN_ONLY,

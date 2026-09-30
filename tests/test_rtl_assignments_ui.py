@@ -288,7 +288,6 @@ class TestLegacyCommandCenterUnreachable:
         for role in (ADMINISTRATOR, TECHNICIAN):
             user = AuthenticatedUser(user_id=1, username="u", full_name="U", role=role)
             monkeypatch.setattr(routing, "current_identity", lambda user=user: user)
-            monkeypatch.setattr(routing, "current_device_scope", lambda: DEVICE_UNRESTRICTED)
             scope = RtlScope(None) if role == ADMINISTRATOR else RtlScope(frozenset({1}))
             monkeypatch.setattr(routing, "current_rtl_scope", lambda scope=scope: scope)
             for path in ("/", "/command-center"):

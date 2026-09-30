@@ -66,11 +66,11 @@ class TestDeliverableMaterialIsAllowed:
         assert violations(
             [
                 "app.py",
-                "pages/command_center.py",
-                "components/attention.py",
-                "services/fleet_overview_service.py",
+                "pages/rtl_dashboard.py",
+                "components/rtl_fleet.py",
+                "services/rtl_fleet_service.py",
                 "alembic/versions/015_freshness_threshold_config.py",
-                "assets/command_center.js",
+                "assets/app.css",
             ]
         ) == []
 

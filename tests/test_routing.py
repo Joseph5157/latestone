@@ -21,19 +21,23 @@ class TestParsePathname:
         assert parse_pathname("/plants").name == "rtl_list_alias"
         assert parse_pathname("/plants/").name == "rtl_list_alias"
 
-    def test_plant_detail(self):
+    def test_synthetic_plant_detail_is_retired(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic plant drill-down is
+        retired to the legacy/not-found panel; the plant id is dropped so
+        nothing downstream can resolve it."""
         route = parse_pathname("/plants/plant-01")
-        assert (route.name, route.plant_id) == ("plant", "plant-01")
+        assert route.name == "legacy_retired"
+        assert route.plant_id is None
 
-    def test_transformer_detail(self):
+    def test_synthetic_transformer_detail_is_retired(self):
         route = parse_pathname("/plants/plant-01/plant-01-t1")
-        assert route.name == "transformer"
-        assert route.plant_id == "plant-01"
-        assert route.transformer_id == "plant-01-t1"
+        assert route.name == "legacy_retired"
+        assert route.plant_id is None and route.transformer_id is None
 
-    def test_device_dashboard(self):
+    def test_synthetic_device_dashboard_is_retired(self):
         route = parse_pathname("/devices/plant-01-t1-d1")
-        assert (route.name, route.device_id) == ("device", "plant-01-t1-d1")
+        assert route.name == "legacy_retired"
+        assert route.device_id is None
 
     def test_none_pathname_is_overview(self):
         assert parse_pathname(None).name == "overview"
@@ -57,9 +61,12 @@ class TestParsePathname:
         assert parse_pathname("/command-center/locations").name == "unknown"
         assert parse_pathname("/command-center/nope").name == "unknown"
 
-    def test_admin_devices_route(self):
-        assert parse_pathname("/admin/devices").name == "admin_devices"
-        assert parse_pathname("/admin/devices/").name == "admin_devices"
+    def test_synthetic_admin_devices_route_is_retired(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: synthetic Device Management retired."""
+        assert parse_pathname("/admin/devices").name == "legacy_retired"
+        assert parse_pathname("/admin/devices/").name == "legacy_retired"
+        assert parse_pathname("/admin/devices/new").name == "legacy_retired"
+        assert parse_pathname("/admin/assignments").name == "legacy_retired"
 
     def test_admin_users_route(self):
         assert parse_pathname("/admin/users").name == "admin_users"
@@ -74,10 +81,10 @@ class TestParsePathname:
     def test_unrecognised_path_is_unknown(self):
         assert parse_pathname("/nope/nope/nope/nope").name == "unknown"
 
-    def test_device_path_without_id_is_the_technician_devices_page(self):
-        """"/devices" (no id) is a real, distinct route — a Technician's own
-        assigned-devices page — not a malformed "/devices/<id>"."""
-        assert parse_pathname("/devices").name == "technician_devices"
+    def test_bare_devices_path_is_retired(self):
+        """LEGACY-SYNTHETIC-UX-CLEANUP-01: "/devices" (the synthetic Technician
+        roster) is retired to the legacy/not-found panel, like "/devices/<id>"."""
+        assert parse_pathname("/devices").name == "legacy_retired"
 
 
 class TestParseQuery:

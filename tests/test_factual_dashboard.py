@@ -167,16 +167,30 @@ class TestCallbackAuthorization:
         assert "unavailable" in _text(out).lower()
 
 
-class TestLegacyCommandCenterIsIsolated:
-    def test_dashboard_page_has_none_of_the_legacy_slots(self):
-        from pages import command_center
+class TestLegacyCommandCenterIsRetired:
+    """LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic Command Center page,
+    callback and `attention`/`command_center` component cluster are removed, not
+    merely unreachable. The `command_center` route renders the factual dashboard
+    for a permitted scope and the forbidden panel otherwise — never a synthetic
+    page."""
+
+    def test_the_synthetic_command_center_page_is_gone(self):
+        import importlib.util
+
+        assert importlib.util.find_spec("pages.command_center") is None
+        assert importlib.util.find_spec("callbacks.command_center") is None
+        assert importlib.util.find_spec("components.attention") is None
+
+    def test_dashboard_page_has_only_its_own_slot(self):
         ids = {n.id for n in walk(page.layout()) if isinstance(getattr(n, "id", None), str)}
-        legacy = {n.id for n in walk(command_center.layout()) if isinstance(getattr(n, "id", None), str)}
-        assert ids == {page.BODY_ID} and not (ids & legacy)
+        assert ids == {page.BODY_ID}
 
     def test_routing_sends_only_real_fleet_scopes_to_the_dashboard(self):
         src = (ROOT / "callbacks/routing.py").read_text(encoding="utf-8")
         i = src.index('if route.name == "command_center":')
-        block = src[i:i + 1200]
+        block = src[i:i + 1400]
         assert "may_view_real_fleet(rtl_scope)" in block and "rtl_dashboard.layout(" in block
-        assert "command_center.layout()" in block
+        # The synthetic fallback is retired: a denied scope gets the forbidden
+        # panel, and nothing in this branch renders a synthetic page.
+        assert "command_center.layout()" not in block
+        assert "forbidden_panel()" in block

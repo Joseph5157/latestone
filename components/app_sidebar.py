@@ -95,12 +95,13 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
         ("command_center", "Dashboard", "/command-center", "command-center"),
     )),
     ("Operations", (
-        ("devices", "Devices", "/admin/devices", "devices"),
-        # ADR-032: the Technician's synthetic "Devices" item is gone. Its route
-        # is denied to every role (services.authorization), so an item for it
-        # would be dead chrome; a Technician works from Assigned RTLs instead.
+        # LEGACY-SYNTHETIC-UX-CLEANUP-01: the synthetic "Devices" (synthetic
+        # Device Management, `/admin/devices`) and "Registration" (synthetic
+        # device registration, `/admin/devices/new`) items are retired — those
+        # routes now resolve to the legacy/not-found panel. The Technician's
+        # synthetic "Devices" item was already gone (ADR-032). The only
+        # Operations destination is the real client-RTL assignment workflow.
         ("assignments", "Technician Assignments", RTL_ASSIGNMENTS_PATH, "assignments"),
-        ("registration", "Registration", "/admin/devices/new", "registration"),
     )),
     ("System", (
         ("notifications", "Notifications", "/notifications", "notifications"),

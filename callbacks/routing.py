@@ -10,10 +10,16 @@ import logging
 from dash import Input, Output, html, no_update
 from flask import redirect, request
 
-from components.status_panels import error_panel, forbidden_panel, not_found_panel
-from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail, rtl_network, rtl_dashboard, historical_events, rtl_assignments
+from components.status_panels import (
+    error_panel,
+    forbidden_panel,
+    legacy_retired_panel,
+    not_found_panel,
+)
+from pages import admin_settings, audit_log, plants_overview, notifications, user_admin, report_center, rtl_detail, rtl_network, rtl_dashboard, historical_events, rtl_assignments
 from pages.placeholder import placeholder_layout
 from routes import (
+    LEGACY_RETIRED_ROUTE,
     LEGACY_RTL_LIST_PATH,
     RTL_LIST_ALIAS_ROUTE,
     SET_PASSWORD_ROUTE,
@@ -21,11 +27,9 @@ from routes import (
     device_href,
     parse_custom_range,
     parse_pathname,
-    parse_query, parse_rtl_uid,
+    parse_query,
     rtl_list_href,
 )
-from services import hierarchy_service
-from services.hierarchy_service import entity_in_scope
 from callbacks.auth import LOGIN_PATH
 from callbacks import set_password as set_password_callbacks
 from pages import set_password as set_password_page
@@ -37,7 +41,6 @@ from services.authorization import (
     TECHNICIAN,
     may_access_route,
 )
-from services.device_scope import DeviceScope, current_device_scope
 from services.rtl_fleet_service import may_view_real_fleet
 from services.rtl_scope import current_rtl_scope, is_assigned_only
 
@@ -58,28 +61,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
-
-
-def build_device_context(device_path, metric_key: str, period_value: str) -> dict:
-    """page-context for a device route.
-
-    Carries the full `DevicePath`, not just the display names. The parent ids
-    were previously dropped here, which is why the device breadcrumb could not
-    link back up the hierarchy and the equipment context bar could not show
-    administrative status.
-    """
-    return {
-        "route": "device",
-        "device_id": device_path.device_id,
-        "plant_id": device_path.plant_id,
-        "plant_name": device_path.plant_name,
-        "transformer_id": device_path.transformer_id,
-        "transformer_code": device_path.transformer_code,
-        "device_code": device_path.device_code,
-        "device_status": device_path.device_status,
-        "metric_key": metric_key,
-        "period": period_value,
-    }
 
 
 def route_decision(user: AuthenticatedUser | None, route_name: str) -> str:
@@ -127,15 +108,9 @@ def route_decision(user: AuthenticatedUser | None, route_name: str) -> str:
     return DECISION_FORBIDDEN
 
 
-#: AUTH-HARDEN-1R: moved to `services/hierarchy_service.py` so
-#: `callbacks/listings.py` can reuse the SAME predicate for its own
-#: independently-invokable plant/transformer detail callbacks, rather than
-#: a second implementation. Re-exported here unchanged — `routing.
-#: entity_in_scope(...)` and every call site below still work exactly as
-#: before.
-
-
-#: Roles whose landing page is the Command Center (redesign decision D3).
+#: Roles whose landing page is the factual client-RTL dashboard (route name
+#: `command_center`, per FACTUAL-DASHBOARD-01). General Users land on the
+#: registered-RTL directory (`overview`).
 _COMMAND_CENTER_LANDING_ROLES = frozenset({ADMINISTRATOR, TECHNICIAN})
 
 
@@ -272,13 +247,7 @@ def register(app) -> None:
                 # simply never fires for a page that was refused.
                 return forbidden_panel(), {"route": "forbidden"}
 
-            # Resolved ONCE per render and passed down. `current_device_scope`
-            # performs an assignment read for technicians, so calling it per
-            # entity would turn one render into a query storm.
-            scope = current_device_scope()
-
             metric_key, period_value = parse_query(search)
-            custom_start, custom_end = parse_custom_range(search)
 
             if route.name == "overview":
                 ctx = {"route": "overview", "metric_key": metric_key, "period": period_value}
@@ -288,116 +257,14 @@ def register(app) -> None:
                     assigned_only=user.role == TECHNICIAN
                 ), ctx
 
-            if route.name == "plant":
-                # AUTH-HARDEN-1R2: scope is checked BEFORE the existence
-                # lookup. `entity_in_scope` runs a scope-FILTERED query, so a
-                # nonexistent plant and a real-but-out-of-scope plant both
-                # simply come back False — a restricted (Technician) caller
-                # gets the identical `forbidden_panel` for either, with no
-                # unrestricted lookup ever run to tell the two apart. For an
-                # unrestricted scope (Administrator/General) this check is a
-                # free no-op (`entity_in_scope` short-circuits True without a
-                # query), so their behaviour is unchanged.
-                if not entity_in_scope(scope, plant_id=route.plant_id):
-                    logger.warning(
-                        "Plant %r refused: not visible in the session's device scope",
-                        route.plant_id,
-                    )
-                    return forbidden_panel(), {"route": "forbidden"}
-
-                plant = hierarchy_service.get_plant_or_none(route.plant_id)
-                if plant is None:
-                    return not_found_panel("plant"), {"route": "unknown"}
-
-                ctx = {
-                    "route": "plant",
-                    "plant_id": plant.plant_id,
-                    "plant_name": plant.name,
-                    "metric_key": metric_key,
-                    "period": period_value,
-                }
-                return plant_detail.layout(plant.name, status=plant.status), ctx
-
-            if route.name == "transformer":
-                # AUTH-HARDEN-1R2: same reorder as the plant branch above —
-                # scope first, on the URL's own transformer_id, before any
-                # unrestricted plant/transformer lookup. `entity_in_scope`'s
-                # transformer branch is itself scope-filtered, so it cannot
-                # be used to probe whether an out-of-scope transformer (or
-                # its parent plant) exists.
-                if not entity_in_scope(scope, transformer_id=route.transformer_id):
-                    logger.warning(
-                        "Transformer %r refused: not visible in the session's device scope",
-                        route.transformer_id,
-                    )
-                    return forbidden_panel(), {"route": "forbidden"}
-
-                plant = hierarchy_service.get_plant_or_none(route.plant_id)
-                if plant is None:
-                    return not_found_panel("plant"), {"route": "unknown"}
-
-                transformer = hierarchy_service.get_transformer_in_plant(
-                    route.plant_id, route.transformer_id
-                )
-                if transformer is None:
-                    return not_found_panel("transformer"), {"route": "unknown"}
-
-                ctx = {
-                    "route": "transformer",
-                    "plant_id": plant.plant_id,
-                    "plant_name": plant.name,
-                    "transformer_id": transformer.transformer_id,
-                    "transformer_code": transformer.transformer_code,
-                    "metric_key": metric_key,
-                    "period": period_value,
-                }
-                return (
-                    transformer_detail.layout(
-                        plant.name, transformer.transformer_code, plant.plant_id,
-                        status=transformer.status,
-                    ),
-                    ctx,
-                )
-
-            if route.name == "device":
-                # AUTH-HARDEN-1R2: same reorder. For a device, the scope
-                # check is a pure in-memory membership test against the
-                # Technician's assigned-device set (`DeviceScope.allows`) —
-                # no query at all — so checking it first costs nothing and
-                # closes the same oracle for device IDs.
-                if not entity_in_scope(scope, device_id=route.device_id):
-                    logger.warning(
-                        "Device %r refused: not visible in the session's device scope",
-                        route.device_id,
-                    )
-                    return forbidden_panel(), {"route": "forbidden"}
-
-                device_ctx = hierarchy_service.get_device_context(route.device_id)
-                if device_ctx is None:
-                    return not_found_panel("device"), {"route": "unknown"}
-
-                ctx = build_device_context(device_ctx, metric_key, period_value)
-                rtl_uid = parse_rtl_uid(search)
-                # There is no approved raw-UID-to-app-device authorization map.
-                # Restrict this temporary vertical slice to Administrators on an
-                # already in-scope dashboard route; never widen technician scope.
-                if rtl_uid is not None and user.role == ADMINISTRATOR:
-                    ctx["rtl_uid"] = rtl_uid
-                return (
-                    device_dashboard.layout(
-                        plant_name=device_ctx.plant_name,
-                        transformer_code=device_ctx.transformer_code,
-                        device_code=device_ctx.device_code,
-                        metric_key=metric_key,
-                        period=period_value,
-                        custom_start=custom_start,
-                        custom_end=custom_end,
-                        plant_id=device_ctx.plant_id,
-                        transformer_id=device_ctx.transformer_id,
-                        device_status=device_ctx.device_status,
-                    ),
-                    ctx,
-                )
+            # LEGACY-SYNTHETIC-UX-CLEANUP-01. The synthetic Plant, Transformer
+            # and Device drill-down branches that stood here are retired. Those
+            # addresses now parse to `legacy_retired` (see routes.parse_pathname)
+            # and are answered by the legacy/not-found panel at the end of this
+            # function — no synthetic page is rendered and no synthetic
+            # identifier is resolved. The synthetic page/callback modules remain,
+            # isolated and unrouted, until the POSTGRESQL-RETIREMENT gate deletes
+            # the synthetic model wholesale (plan §8: no big-bang deletion).
 
             if route.name == "rtl_detail":
                 # RTL-UID-DETAIL-01. Two independent gates, both already
@@ -449,24 +316,8 @@ def register(app) -> None:
                     return forbidden_panel(), {"route": "forbidden"}
                 return historical_events.layout(), {"route": "historical_events"}
 
-            if route.name == "admin_devices":
-                ctx = {"route": "admin_devices"}
-                return device_admin.layout(), ctx
-
-            if route.name == "technician_devices":
-                ctx = {"route": "technician_devices"}
-                return technician_devices.layout(), ctx
-
             if route.name == "rtl_assignments":
                 return rtl_assignments.layout(), {"route": "rtl_assignments"}
-
-            if route.name == "admin_assignments":
-                ctx = {"route": "admin_assignments"}
-                return admin_assignments.layout(), ctx
-
-            if route.name == "device_register":
-                ctx = {"route": "device_register"}
-                return device_register.layout(), ctx
 
             if route.name == "admin_users":
                 ctx = {"route": "admin_users"}
@@ -489,18 +340,36 @@ def register(app) -> None:
                 return notifications.layout(), ctx
 
             if route.name == "command_center":
-                # FACTUAL-DASHBOARD-01 / ADR-032. Administrator and Technician
-                # both land on the factual dashboard; a Technician's counts
-                # cover their assigned RTLs only (the callback scopes them).
-                # The synthetic Command Center below is no longer reachable
-                # from production routing for either role (legacy debt).
+                # FACTUAL-DASHBOARD-01 / ADR-032 / LEGACY-SYNTHETIC-UX-CLEANUP-01.
+                # Administrator and Technician both land on the factual
+                # client-RTL dashboard; a Technician's counts cover their
+                # assigned RTLs only (the callback scopes them).
+                #
+                # The synthetic Command Center this branch used to fall back to
+                # is RETIRED (gate LEGACY-SYNTHETIC-UX-CLEANUP-01): every role
+                # admitted by this route's gate (Administrator/Technician) has a
+                # permitted fleet scope, so `may_view_real_fleet` is always True
+                # here and the fallback was already unreachable in production. A
+                # denied scope now gets the forbidden panel — never a synthetic
+                # page. The route name and the sidebar's "Dashboard" item are
+                # kept: they address the factual dashboard, not the old page.
                 rtl_scope = current_rtl_scope()
                 if may_view_real_fleet(rtl_scope):
                     return (
                         rtl_dashboard.layout(assigned_only=is_assigned_only(rtl_scope)),
                         {"route": "rtl_dashboard"},
                     )
-                return command_center.layout(), {"route": "command_center"}
+                return forbidden_panel(), {"route": "forbidden"}
+
+            if route.name == LEGACY_RETIRED_ROUTE:
+                # LEGACY-SYNTHETIC-UX-CLEANUP-01. The retired synthetic routes
+                # (`/plants/<id>`, `/plants/<id>/<tf>`, `/devices/<id>`,
+                # `/devices`, `/admin/devices`, `/admin/devices/new`,
+                # `/admin/assignments`) all land here. The panel reads nothing,
+                # resolves no identifier and offers the way back to the real
+                # registered-RTL directory — never a fabricated redirect to a
+                # `/rtls/<uid>` (no synthetic-to-client-UID mapping exists).
+                return legacy_retired_panel(), {"route": LEGACY_RETIRED_ROUTE}
 
             if route.name in PLACEHOLDER_PAGES:
                 title, purpose = PLACEHOLDER_PAGES[route.name]
