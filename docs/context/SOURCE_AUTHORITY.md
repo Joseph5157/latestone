@@ -75,11 +75,24 @@ Confirmed from client screenshots, not inferred:
 `plant_monitoring` is **our development schema**, not the client's production
 schema. Do not describe our schema as if it were theirs.
 
+## Client SQL Server evidence
+
+ADRs remain authoritative for approved architectural decisions, especially
+ADR-029. `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` is the
+consolidated source of truth for verified client SQL Server facts,
+interpretations, and unresolved business decisions. If a future approved ADR or
+client decision changes a conclusion, the knowledge base must be updated
+accordingly. Before any work involving the client RTL SQL Server, read it.
+
+"Plant" is not a client SQL Server hierarchy level. The client hierarchy is
+Operating Unit → Zone → Sector → CNC → Feeder → Transformer → RTL; "Plant"
+belongs only to the legacy synthetic `plant_monitoring` model.
+
 ## Where each kind of question is answered
 
 | Question | Authoritative source |
 |---|---|
-| What is true of the client's production DB? | rung 1 evidence; `DATABASE.md` records it |
+| What is true of the client's production DB? | rung 1 evidence; for the client SQL Server, `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` (older `DATABASE.md` records the earlier PostgreSQL screenshots) |
 | What does this app currently do? | the source file, cited by path:line |
 | What is the current commit / test baseline? | `docs/context/CURRENT_STATE.md` (generated — never hand-edited) |
 | Was this decided, and does it still stand? | `docs/context/DECISION_INDEX.md` → `docs/decisions/ADR-*.md` |

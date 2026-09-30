@@ -1,21 +1,23 @@
 # Current State
 
 Status: generated
-Date: 2026-09-29T14:12:42Z
+Date: 2026-09-30T06:02:18Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
 For judgment calls (why something is frozen, what's in scope right now),
 see docs/context/ACTIVE_GATE.md and the ADRs, not this file.
 
+Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`.
+
 ## Baseline
 
-- `main` = `3fcb94f` "docs(architecture): plan SQL Server target migration audit"
-- Working tree: 7 entries — see below
+- `main` = `3571b24` "docs(architecture): close SQL Server target mapping audit"
+- Working tree: 13 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 42.42s
+- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 32.87s
 
 ## Branches
 
@@ -69,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 479 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 329 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 479 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 480 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 330 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 480 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -111,17 +113,23 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-CLIENT-DB-CLARIFICATION-01 — Client SQL Server Clarification Pack — full detail in `docs/context/ACTIVE_GATE.md`.
+SQLSERVER-EVIDENCE-CONSOLIDATION-11 — Client SQL Server Evidence Consolidation — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+M AGENTS.md
+ M DATABASE.md
+ D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
  M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
+ M docs/context/SOURCE_AUTHORITY.md
+ M scripts/build_context_pack.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
-?? docs/audit/sqlserver-target-arch-01/
+?? docs/client/CLIENT_DB_CLARIFICATION_01.md
+?? docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md
+?? docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md
 ```
 

@@ -551,6 +551,8 @@ def render_current_state(now, git, adrs, test_ok, test_summary, gate_fields) -> 
         "For judgment calls (why something is frozen, what's in scope right now),",
         "see docs/context/ACTIVE_GATE.md and the ADRs, not this file.",
         "",
+        "Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`.",
+        "",
         "## Baseline",
         "",
         f"- `main` = `{git.head_sha}` \"{git.head_subject}\"" if git.branch == "main"

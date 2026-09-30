@@ -1,5 +1,7 @@
 # Database Specification — Powerplant Dashboard
 
+> This file specifies the **legacy synthetic PostgreSQL development schema**. Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`. "Plant" is not a client SQL Server hierarchy level.
+
 ## Goal
 Provide a local PostgreSQL schema that mirrors the client's known naming convention while supporting the 30-plant hierarchy with 8 metrics.
 

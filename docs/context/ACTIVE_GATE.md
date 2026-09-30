@@ -1,10 +1,10 @@
 # Active Gate
 
-Status: **PLANNED — NOT YET EXECUTED**
-Date: 2026-09-29
-Gate: CLIENT-DB-CLARIFICATION-01 — Client SQL Server Clarification Pack
-Baseline: `3fcb94f`
-Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`).
+Status: **IN PROGRESS — DOCUMENTATION / CONTEXT ONLY**
+Date: 2026-09-30
+Gate: SQLSERVER-EVIDENCE-CONSOLIDATION-11 — Client SQL Server Evidence Consolidation
+Baseline: `3571b24`
+Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
 ## SQLSERVER-TARGET-ARCH-01 — CLOSED / PASS
 
@@ -30,19 +30,63 @@ temperature values remain ambiguous.
 
 Audit deliverables: `docs/audit/sqlserver-target-arch-01/`.
 
-## Next implementation gate: CLIENT-DB-CLARIFICATION-01 — Client SQL Server Clarification Pack
+## Next implementation gate: SQLSERVER-EVIDENCE-CONSOLIDATION-11 — Client SQL Server Evidence Consolidation
 
-Status: **PLANNED — NOT YET EXECUTED**
+Status: **IN PROGRESS — DOCUMENTATION / CONTEXT ONLY**
 
-Turn the audit's unresolved authority and business questions into a concise
-client-facing clarification document. It must not modify SQL Server, design a
-final schema, implement repositories, remove PostgreSQL or migrate data.
-Priority questions: transformer mapping/hierarchy authority; status/comms and
-offline semantics; users/authentication; technician-assignment use;
-notification ownership/consent; other telemetry sources; and duplicate
-temperature rule. `device_list` as the 339-RTL registered directory is already
-resolved; whether it equals the actively monitored fleet is a separate
-operational question.
+Consolidate the completed read-only client SQL Server audits into one
+reference, `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`, and point
+every agent entry file at it. **No application implementation, no SQL Server
+write, no PostgreSQL removal, no data migration in this gate.**
+
+Scope:
+
+1. Knowledge base lives at `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`.
+2. Precedence: ADRs (especially ADR-029) stay authoritative for approved
+   architecture decisions. The knowledge base is the consolidated source of
+   truth for verified client SQL Server facts, interpretations and unresolved
+   business decisions, and must be updated when a later approved ADR or client
+   decision changes a conclusion. Recorded in `docs/context/SOURCE_AUTHORITY.md`.
+3. Terminology: **Plant is not a client SQL Server hierarchy level.** The client
+   hierarchy is Operating Unit → Zone → Sector → CNC → Feeder → Transformer →
+   RTL. "Plant" survives only where the legacy synthetic model is documented;
+   no broad Plant cleanup here.
+4. Pointers added to `AGENTS.md`, `CLAUDE.md` and `SOURCE_AUTHORITY.md`.
+5. `CLIENT-DB-CLARIFICATION-01` is **revised as part of this consolidation**:
+   the forensic audits resolved most of its original technical questions, so
+   `docs/client/CLIENT_DB_CLARIFICATION_01.md` and its response tracker are
+   rewritten to hold only genuine client business decisions. Nothing has been
+   sent to the client.
+
+### Relevant files
+
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`
+- `docs/client/CLIENT_DB_CLARIFICATION_01.md`
+- `docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md`
+- `docs/context/SOURCE_AUTHORITY.md`
+- `docs/decisions/ADR-029-sql-server-only-target-architecture.md`
+
+### Non-goals
+
+Application code, repositories, SQL Server schema proposals, PostgreSQL
+retirement, Online/Offline policy implementation.
+
+## CLIENT-DB-CLARIFICATION-01 — REVISED UNDER SQLSERVER-EVIDENCE-CONSOLIDATION-11
+
+The pre-audit draft is superseded by the rewrite described above. Original
+scope (kept for record): turn unresolved authority and business questions into
+a concise client-facing document; it must not modify SQL Server, design a final
+schema, implement repositories, remove PostgreSQL or migrate data.
+
+## Queued next implementation gate (not open): SATURDAY-REAL-FLEET-01
+
+Scope only: SQL Server `READ_ONLY`; fleet population from `device_list` with
+all 339 registered RTLs visible; latest temperature/time from
+`master_temperature`; transformer/hierarchy enrichment where available;
+explicit no-data and no-mapping states; registered population distinguished
+from operational evidence; no authoritative Online/Offline; no synthetic
+fallback; none of the seven unsupported metrics; no SQL Server writes. Read
+`docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` first.
 
 ## Historical planning record — SQLSERVER-TARGET-ARCH-01
 

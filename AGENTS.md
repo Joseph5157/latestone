@@ -28,6 +28,9 @@ data is not yet available. It is not a demo — do not call it one.
    validation, prints the same verdict, and writes nothing. It is not a way
    to skip Step 0 — it is Step 0 for a reader.
 1. `docs/context/SOURCE_AUTHORITY.md` — which source wins.
+   **Before any work involving the client RTL SQL Server, read
+   `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`** — the consolidated verified-evidence
+   reference. ADRs (ADR-029) still win on architecture decisions.
 2. `docs/context/ACTIVE_GATE.md` — the only task in scope right now.
 3. The ADRs that gate names, in `docs/decisions/`.
 4. Only the code and tests the gate names.
@@ -75,6 +78,11 @@ order is not an index.
 active_power, reactive_power, power_factor, frequency, energy.
 
 Do not expand beyond this without explicit instruction.
+
+This scope describes the **legacy synthetic development model**. "Plant" is not
+a client SQL Server hierarchy level and is not production client-data
+terminology; the client hierarchy is Operating Unit → Zone → Sector → CNC →
+Feeder → Transformer → RTL (see the knowledge base).
 
 ## Stack
 
