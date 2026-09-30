@@ -9,11 +9,17 @@ class TestParsePathname:
     def test_root_is_overview(self):
         assert parse_pathname("/").name == "overview"
 
-    def test_plants_is_overview(self):
-        assert parse_pathname("/plants").name == "overview"
+    def test_rtls_is_overview(self):
+        """RTL-LIST-ROUTE-01: the canonical Registered RTLs list."""
+        assert parse_pathname("/rtls").name == "overview"
 
     def test_trailing_slash_is_tolerated(self):
-        assert parse_pathname("/plants/").name == "overview"
+        assert parse_pathname("/rtls/").name == "overview"
+
+    def test_plants_is_the_compatibility_alias(self):
+        """No longer a page: the legacy address, rewritten to `/rtls`."""
+        assert parse_pathname("/plants").name == "rtl_list_alias"
+        assert parse_pathname("/plants/").name == "rtl_list_alias"
 
     def test_plant_detail(self):
         route = parse_pathname("/plants/plant-01")

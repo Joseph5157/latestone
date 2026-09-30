@@ -138,7 +138,8 @@ class TestForbiddenPanel:
     def test_offers_a_way_back_to_a_page_every_role_may_open(self):
         from components.status_panels import forbidden_panel
 
-        assert ("Back to Registered RTLs", "/plants") in links(forbidden_panel())
+        # RTL-LIST-ROUTE-01: the canonical address, never the legacy one.
+        assert ("Back to Registered RTLs", "/rtls") in links(forbidden_panel())
 
     def test_names_no_role_username_or_route(self):
         """The panel tells the operator they cannot go there. It does not

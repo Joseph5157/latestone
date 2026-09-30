@@ -125,7 +125,9 @@ class TestSidebarItems:
         # test_the_two_devices_entries_have_distinct_keys_and_hrefs), and a
         # label-keyed dict would silently keep only the last one.
         items = {key: href for key, _label, href, _icon in _all_items()}
-        assert items["overview"] == "/plants"
+        # RTL-LIST-ROUTE-01: the canonical list address. `/plants` is
+        # compatibility for old links only and never a new navigation target.
+        assert items["overview"] == "/rtls"
         assert items["devices"] == "/admin/devices"
         assert items["technician_devices"] == "/devices"
         assert items["assignments"] == "/admin/assignments"
@@ -139,8 +141,15 @@ class TestSidebarItems:
 class TestActiveNavKey:
     def test_fleet_overview_is_overview(self):
         assert nav.active_nav_key("/") == "overview"
-        assert nav.active_nav_key("/plants") == "overview"
-        assert nav.active_nav_key("/plants/") == "overview"
+        assert nav.active_nav_key("/rtls") == "overview"
+        assert nav.active_nav_key("/rtls/") == "overview"
+
+    def test_the_legacy_list_address_highlights_nothing(self):
+        """RTL-LIST-ROUTE-01: `/plants` renders no page — it is rewritten to
+        `/rtls` — so no item claims it. The highlight follows the page that
+        actually rendered, which is at `/rtls`."""
+        assert nav.active_nav_key("/plants") is None
+        assert nav.active_nav_key("/plants/") is None
 
     def test_monitoring_drill_down_stays_under_overview(self):
         assert nav.active_nav_key("/plants/plant-01") == "overview"

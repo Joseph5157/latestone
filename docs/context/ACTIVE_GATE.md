@@ -2,11 +2,98 @@
 
 Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
-Gate: RTL-UID-DETAIL-01 — Canonical client RTL detail by UID
-Baseline: `ea94bd5`
+Gate: RTL-LIST-ROUTE-01 — Canonical client RTL list route
+Baseline: `7ca7a33`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: RTL-UID-DETAIL-01 — Canonical client RTL detail by UID
+## Next implementation gate: RTL-LIST-ROUTE-01 — Canonical client RTL list route
+
+Status: **CLOSED / PASS**
+
+Route and navigation cleanup only. Makes `/rtls` the canonical address of the
+Registered RTLs list, as `docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md` §5
+already decided ("list at `/rtls`"; "`/plants` should redirect compatibly to
+`/rtls` after the new route is live"). No data-source, authorization, database
+or PostgreSQL change; no legacy-code deletion.
+
+### Route model after this gate
+
+| Address | Meaning |
+|---|---|
+| `/rtls` | **Canonical** Registered RTLs list (route name `overview`, unchanged) |
+| `/rtls/<uid>` | **Canonical** RTL detail — unchanged |
+| `/plants`, `/plants/` | **Compatibility only.** Redirects to `/rtls`, query carried verbatim; renders nothing of its own |
+| `/plants/<id>`, `/plants/<id>/<id>` | Legacy synthetic Plant drill-down — unchanged, not redirected |
+| `/devices/...` | Legacy synthetic — unchanged, not redirected (no approved device-id → UID mapping) |
+| `/` | Role landing, unchanged (General User lands on the directory) |
+
+### How `/plants` is handled
+
+- **Full page load** (bookmark, typed, shared link): Flask answers `302` to
+  `/rtls` before Dash renders — `callbacks.routing.register_legacy_redirects`,
+  wired in `app.py`. HTTP rather than Dash-only because Dash 2.17's
+  `dcc.Location` can only `pushState`: a Dash-side rewrite would leave `/plants`
+  in the history and Back would bounce forward again. The 302 replaces the
+  entry. Temporary rather than 301/308 so no browser caches it permanently.
+- **In-app navigation** (nothing in the app links there any more; defensive):
+  `callbacks.auth._path_command` — the existing callback for paths that are
+  instructions, not pages (`/login`, `/logout`) — rewrites the pathname to
+  `/rtls`, leaving `url.search` intact. The router returns `no_update` for the
+  alias and does no identity, scope or data work, so the Fleet loads once.
+- `routes.RTL_LIST_ALIAS_ROUTE` is, like `unknown`, absent from `ROUTE_POLICY`
+  and `NAV_KEY_BY_ROUTE`: there is no page behind it to authorize.
+
+No ADR: the decision is the plan's, and the mechanism is recorded here and in
+the acceptance record. ADR-030 governs history windows and is untouched.
+
+### Relevant files
+
+- `routes.py` — `RTL_LIST_PATH`, `LEGACY_RTL_LIST_PATH`, `RTL_LIST_ALIAS_ROUTE`,
+  `legacy_redirect_path`, `rtl_list_href`; `FLEET_OVERVIEW_PATH` now aliases `/rtls`
+- `callbacks/routing.py` — alias ignored before any work; HTTP redirect
+- `callbacks/auth.py` — `_path_command` rewrites the alias in-app
+- `app.py` — registers the HTTP redirect
+- `components/app_sidebar.py`, `components/status_panels.py`,
+  `components/rtl_detail.py`, `pages/plants_overview.py`,
+  `pages/plant_detail.py`, `pages/transformer_detail.py`,
+  `pages/device_dashboard.py` — links point at `/rtls`
+- `tests/test_rtl_list_route.py` (new)
+
+### Non-goals
+
+Network hierarchy browser, Zone/Sector/CNC/Feeder pages, dashboard
+realignment, Online/Offline, lifecycle, technician assignment mapping,
+programming, notifications, PostgreSQL retirement, synthetic `/devices` or
+`/plants/<id>` removal, dead-code cleanup, SQL Server writes.
+
+### Close evidence
+
+Acceptance record and screenshots: `docs/audit/rtl-list-route-01/`.
+
+Live at 1366×900 against the restored client SQL Server. General User: sidebar
+Registered RTLs → `/rtls`, 339 / 185 mapped / 319 with temperature / 20
+without; "No current transformer mapping" filter → 154 rows; row → `/rtls/29006`;
+breadcrumb → `/rtls`. `/plants?filter=mapped` → `302` → `/rtls?filter=mapped`.
+Measured Fleet loads: one each for a full load of `/rtls`, a full load of
+`/plants`, and an in-app navigation to `/plants`. Back after `/plants` leaves
+the list rather than looping. Technician: restricted panel at `/rtls` and at
+`/plants`, forbidden panel at `/rtls/29042`, no UID in the DOM. Administrator:
+unchanged; `/devices/plant-01-t1-d1` still serves the synthetic dashboard at its
+own address.
+
+Non-DB suite: **3539 passed, 3 skipped, 0 failed, 731 deselected** — the 3445
+baseline plus 94. SQL Server `READ_ONLY`, write permissions `0`, counts
+unchanged (2,456,901 / 400 / 339 / 185). No PostgreSQL change.
+
+### Remaining debt
+
+The synthetic drill-down pages keep the breadcrumb label "Fleet" (now pointing
+at `/rtls`) and the `/plants/<id>` paths; both belong to the gate that retires
+the synthetic pages. `pages/plants_overview.py` and `callbacks/fleet_overview.py`
+keep their internal names, and the route name stays `overview`. The
+CLIENT-TERMINOLOGY-NAV-01 debt list is otherwise unchanged.
+
+## RTL-UID-DETAIL-01 — CLOSED / PASS (previous gate, kept for record)
 
 Status: **CLOSED / PASS**
 

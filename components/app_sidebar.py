@@ -14,7 +14,7 @@ selector are that workflow. Those drill-down pages still resolve to the
 through them (routes.NAV_KEY_BY_ROUTE).
 
 CLIENT-TERMINOLOGY-NAV-01: that item is now labelled "Registered RTLs",
-because `/plants` shows the client's registered RTL directory. The synthetic
+because it shows the client's registered RTL directory (now at `/rtls`). The synthetic
 drill-down is no longer reachable from it (the RTL fleet table links nowhere)
 and the Asset Navigator is already hidden on that route
 (callbacks.navigation.UTILITY_ROUTES), so the highlight is the last place
@@ -53,6 +53,7 @@ from __future__ import annotations
 from dash import dcc, html
 
 from components.theme import theme_toggle
+from routes import RTL_LIST_PATH
 from services.authorization import visible_nav_keys
 
 SHELL_ID = "app-sidebar-shell"
@@ -79,11 +80,12 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
     (None, (
         # CLIENT-TERMINOLOGY-NAV-01: the label is the client's word for what
         # this route shows — the registered RTL directory read from the client
-        # SQL Server. The key and href are deliberately untouched: `overview`
-        # is the routing/authorization identity (routes.NAV_KEY_BY_ROUTE,
-        # services.authorization.ROUTE_POLICY) and `/plants` stays operational
-        # until the canonical `/rtls` route exists in a later gate.
-        ("overview", "Registered RTLs", "/plants", "overview"),
+        # SQL Server. The key is deliberately untouched: `overview` is the
+        # routing/authorization identity (routes.NAV_KEY_BY_ROUTE,
+        # services.authorization.ROUTE_POLICY).
+        # RTL-LIST-ROUTE-01: the href is the canonical `/rtls`. `/plants`
+        # still arrives there, but only for old links — never for new ones.
+        ("overview", "Registered RTLs", RTL_LIST_PATH, "overview"),
         ("command_center", "Command Center", "/command-center", "command-center"),
     )),
     ("Operations", (

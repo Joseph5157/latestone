@@ -38,7 +38,8 @@ class TestPlantHierarchy:
     def test_preserves_identity_and_fleet_breadcrumb(self):
         layout = plant_detail.layout("Itaipu")
         assert "Itaipu" in text_of(layout)
-        assert ("Fleet", "/plants") in links(layout)
+        # RTL-LIST-ROUTE-01: the directory's canonical address, not `/plants`.
+        assert ("Fleet", "/rtls") in links(layout)
 
     def test_groups_summary_before_metric_detail_and_inventory(self):
         layout = plant_detail.layout("Itaipu")
@@ -61,7 +62,7 @@ class TestTransformerHierarchy:
     def test_preserves_identity_and_parent_breadcrumb(self):
         layout = transformer_detail.layout("Itaipu", "ta01", "p1")
         assert "ta01" in text_of(layout)
-        assert ("Fleet", "/plants") in links(layout)
+        assert ("Fleet", "/rtls") in links(layout)
         assert ("Itaipu", "/plants/p1") in links(layout)
 
     def test_groups_summary_before_metric_detail_and_inventory(self):

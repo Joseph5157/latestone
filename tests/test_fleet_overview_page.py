@@ -16,9 +16,13 @@ from tests.dash_tree import find_by_class, text_of
 
 
 def test_route_and_policy():
-    assert FLEET_OVERVIEW_PATH == "/plants"
-    assert parse_pathname("/plants").name == "overview"
+    # RTL-LIST-ROUTE-01: canonical at `/rtls`; `/plants` is a compatibility
+    # alias that renders nothing of its own.
+    assert FLEET_OVERVIEW_PATH == "/rtls"
+    assert parse_pathname("/rtls").name == "overview"
+    assert parse_pathname("/plants").name == "rtl_list_alias"
     assert parse_pathname("/plants-new").name == "unknown"
+    assert parse_pathname("/rtls-new").name == "unknown"
     assert NAV_KEY_BY_ROUTE["overview"] == "overview"
     for role in (ADMINISTRATOR, TECHNICIAN, GENERAL):
         assert may_access_route(role, "overview")

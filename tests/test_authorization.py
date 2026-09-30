@@ -47,7 +47,7 @@ from services.prototype_users import CONFIRMED_ROLES
 #: Every route an authenticated user can ask for, with the path that produces
 #: it. `unknown` is deliberately absent — it is not an application route.
 ROUTE_PATHS = {
-    "overview": "/plants",
+    "overview": "/rtls",
     "plant": "/plants/plant-01",
     "transformer": "/plants/plant-01/plant-01-t1",
     "device": "/devices/plant-01-t1-d1",

@@ -212,8 +212,11 @@ class TestIdentityAndAuthorizationAreUnchanged:
     """Terminology only. These assertions fail if the rename leaked into
     routing identity or the role policy."""
 
-    def test_the_route_path_is_unchanged(self):
-        assert FLEET_OVERVIEW_PATH == "/plants"
+    def test_the_route_path_is_the_canonical_list(self):
+        """Was `/plants` when this gate closed. RTL-LIST-ROUTE-01 moved the
+        directory to its canonical address; the route NAME and nav key below
+        are what this gate pinned as identity, and they still hold."""
+        assert FLEET_OVERVIEW_PATH == "/rtls"
 
     def test_the_route_name_and_nav_key_are_unchanged(self):
         """Internal identifiers stay `overview` — renaming them is a later

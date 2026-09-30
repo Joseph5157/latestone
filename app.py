@@ -114,6 +114,9 @@ app.layout = html.Div(
 
 auth.register(app)
 routing.register(app)
+# RTL-LIST-ROUTE-01: `/plants` -> `/rtls` for full page loads, answered by the
+# server before Dash renders anything.
+routing.register_legacy_redirects(server)
 listings.register(app)
 device.register(app)
 equipment_selector.register(app)

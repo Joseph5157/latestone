@@ -7,6 +7,7 @@ from components.app_header import app_header
 from components.breadcrumb import breadcrumb
 from components.entity_table import entity_table
 from components.status_panels import inactive_notice
+from routes import RTL_LIST_PATH
 
 
 def layout(
@@ -19,9 +20,10 @@ def layout(
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([
-                    # Label only — the route stays /plants (spec §3.1).
-                    ("Fleet", "/plants"),
-                    (plant_name or "Plant", f"/plants/{plant_id}" if plant_id else "/plants"),
+                    # Label only (spec §3.1). RTL-LIST-ROUTE-01: the
+                    # directory's canonical address, not the legacy `/plants`.
+                    ("Fleet", RTL_LIST_PATH),
+                    (plant_name or "Plant", f"/plants/{plant_id}" if plant_id else RTL_LIST_PATH),
                     (transformer_code or "Transformer", None),
                 ]),
             ),

@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T08:38:30Z
+Date: 2026-09-30T09:03:47Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `bc0db73` "feat(rtl): add UID-based real RTL detail"
-- Working tree: 5 entries — see below
+- `main` = `7ca7a33` "docs(decisions): record ADR-030 implementing commit"
+- Working tree: 30 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3445 passed, 3 skipped, 731 deselected in 35.68s
+- `python -m pytest -m "not db"` → 3539 passed, 3 skipped, 731 deselected in 36.34s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 487 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 337 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 487 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 488 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 338 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 488 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -114,15 +114,40 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-RTL-UID-DETAIL-01 — Canonical client RTL detail by UID — full detail in `docs/context/ACTIVE_GATE.md`.
+RTL-LIST-ROUTE-01 — Canonical client RTL list route — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M docs/decisions/ADR-030-rtl-history-windows-anchor-on-the-last-reading.md
+ M app.py
+ M callbacks/auth.py
+ M callbacks/routing.py
+ M components/app_sidebar.py
+ M components/rtl_detail.py
+ M components/status_panels.py
+ M docs/context/ACTIVE_GATE.md
+ M pages/device_dashboard.py
+ M pages/plant_detail.py
+ M pages/plants_overview.py
+ M pages/transformer_detail.py
+ M routes.py
+ M tests/test_app_sidebar.py
+ M tests/test_authorization.py
+ M tests/test_client_terminology.py
+ M tests/test_detail_hierarchy.py
+ M tests/test_device_context.py
+ M tests/test_fleet_naming.py
+ M tests/test_fleet_overview_page.py
+ M tests/test_landing_routing.py
+ M tests/test_route_enforcement.py
+ M tests/test_routing.py
+ M tests/test_rtl_detail_page.py
+ M tests/test_rtl_detail_route.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/
+?? docs/audit/rtl-list-route-01/
+?? tests/test_rtl_list_route.py
 ```
 

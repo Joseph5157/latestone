@@ -24,6 +24,7 @@ from components.rtl_fleet import (
     source_time,
     temperature_text,
 )
+from routes import RTL_LIST_PATH
 from services.rtl_detail_service import HistoryStatus, RTLDetail, RTLHistory
 from services.rtl_fleet_service import HierarchyState, TemperatureState
 
@@ -202,5 +203,5 @@ def not_registered_panel(device_uid: int | None) -> html.Div:
             "This UID is not in the client's registered RTL directory, "
             "so there is no RTL to show."
         ),
-        dcc.Link("Back to Registered RTLs", href="/plants"),
+        dcc.Link("Back to Registered RTLs", href=RTL_LIST_PATH),
     ])

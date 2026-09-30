@@ -55,17 +55,37 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
 #: assignment lives, and the drawer is not a page.
 ASSIGN_PARAM = "assign"
 
-#: Command Center and Fleet Overview paths (SWITCH-OVER-1: the redesigned
-#: pages took these over from the old ones).
+#: Command Center path (SWITCH-OVER-1: the redesigned page took it over from
+#: the old one).
 COMMAND_CENTER_PATH = "/command-center"
-FLEET_OVERVIEW_PATH = "/plants"
+
+#: RTL-LIST-ROUTE-01. The canonical Registered RTLs list — the real client RTL
+#: directory. It is the same page, callback and service the directory has
+#: always used; only its address changed. The route NAME stays `overview`, so
+#: `ROUTE_POLICY`, `NAV_KEY_BY_ROUTE` and the Fleet callback are untouched and
+#: authorization cannot have moved with the path.
+RTL_LIST_PATH = "/rtls"
+
+#: The name every existing caller already imports. Kept as an alias rather
+#: than renamed across the codebase: it is internal, and it now says the
+#: canonical address, which is all a caller needs from it.
+FLEET_OVERVIEW_PATH = RTL_LIST_PATH
+
+#: RTL-LIST-ROUTE-01. The directory's old address, kept so bookmarks and
+#: shared links still arrive. It is compatibility only: it renders nothing of
+#: its own and nothing in the application links to it.
+LEGACY_RTL_LIST_PATH = "/plants"
+
+#: What `parse_pathname` calls the legacy address. Not an application route —
+#: like `unknown` it is absent from `ROUTE_POLICY` — because nothing is ever
+#: rendered for it: the router ignores it, and it is rewritten to
+#: RTL_LIST_PATH before any page is built (see `legacy_redirect_path`).
+RTL_LIST_ALIAS_ROUTE = "rtl_list_alias"
 
 #: RTL-UID-DETAIL-01. The canonical real-client RTL detail route. Its identity
 #: is the numeric client RTL UID from `dbo.device_list` — nothing synthetic.
-#: There is deliberately no `/rtls` LIST route yet: the registered directory
-#: still answers at FLEET_OVERVIEW_PATH, and inventing a second list path
-#: before one is built would leave a dead link in the shell.
-RTL_DETAIL_PATH_PREFIX = "/rtls"
+#: Detail lives under the list it belongs to.
+RTL_DETAIL_PATH_PREFIX = RTL_LIST_PATH
 
 #: `device_uid` is a SQL Server `int`. A value outside this range cannot name
 #: a row in any source table, so it is rejected during parsing rather than
@@ -100,12 +120,38 @@ def rtl_detail_href(device_uid: int) -> str:
     return f"{RTL_DETAIL_PATH_PREFIX}/{device_uid}"
 
 
+def legacy_redirect_path(pathname: str | None) -> str | None:
+    """The canonical path a compatibility address stands for, or None.
+
+    Only the bare legacy list path qualifies. `/plants/<id>` and
+    `/plants/<id>/<id>` are the synthetic Plant drill-down routes — still
+    live, still synthetic — and are deliberately not touched: there is no
+    approved mapping from a synthetic plant to anything in the client source.
+    """
+    if pathname in (LEGACY_RTL_LIST_PATH, f"{LEGACY_RTL_LIST_PATH}/"):
+        return RTL_LIST_PATH
+    return None
+
+
+def rtl_list_href(search: str | None = None) -> str:
+    """The canonical list URL, carrying a legacy request's query unchanged.
+
+    The directory reads no query parameter today — its filter is page state,
+    not URL state — so nothing here interprets the query. It is passed through
+    verbatim only so a bookmarked `/plants?…` loses nothing on the way. The
+    destination path is fixed, so no query value can change where it goes.
+    """
+    query = (search or "").lstrip("?")
+    return f"{RTL_LIST_PATH}?{query}" if query else RTL_LIST_PATH
+
+
 @dataclass(frozen=True)
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
                # "rtl_detail" | "admin_devices" | "technician_devices" |
                # "admin_assignments" | "admin_users" | "reports" |
-               # "notifications" | "command_center" | "unknown"
+               # "notifications" | "command_center" | "rtl_list_alias" |
+               # "unknown"
     plant_id: str | None = None
     transformer_id: str | None = None
     device_id: str | None = None
@@ -117,12 +163,18 @@ class Route:
 
 
 def parse_pathname(pathname: str | None) -> Route:
-    if not pathname or pathname in ("/", "/plants", "/plants/"):
+    if not pathname or pathname == "/":
         return Route(name="overview")
+
+    # RTL-LIST-ROUTE-01. Checked before the segment split so the legacy
+    # address can only ever be the bare path — never swallow the synthetic
+    # `/plants/<id>` routes below it.
+    if legacy_redirect_path(pathname) is not None:
+        return Route(name=RTL_LIST_ALIAS_ROUTE)
 
     parts = [p for p in pathname.strip("/").split("/") if p]
 
-    if len(parts) == 1 and parts[0] == "plants":
+    if len(parts) == 1 and parts[0] == "rtls":
         return Route(name="overview")
 
     if len(parts) == 1 and parts[0] == "reports":

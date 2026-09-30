@@ -57,7 +57,9 @@ class TestSidebarHighlight:
         assert active_nav_key("/command-center") == "command_center"
 
     def test_existing_behaviour_without_role(self):
-        assert active_nav_key("/plants") == "overview"
+        # RTL-LIST-ROUTE-01: the canonical list address; `/plants` renders
+        # nothing and so highlights nothing.
+        assert active_nav_key("/rtls") == "overview"
 
 
 class TestSigningInAtTheLoginPath:

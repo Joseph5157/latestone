@@ -6,6 +6,7 @@ import logging
 from dash import Input, Output, State, no_update
 
 from pages.login import TOGGLE_ICON_HIDE_CLASS, TOGGLE_ICON_SHOW_CLASS
+from routes import legacy_redirect_path
 from services import auth_service
 
 logger = logging.getLogger(__name__)
@@ -199,11 +200,12 @@ def register(app) -> None:
         prevent_initial_call="initial_duplicate",
     )
     def _path_command(pathname):
-        """The two paths that are commands rather than pages.
+        """The paths that are commands rather than pages.
 
         `/logout` ends a session; `/login` is the address operators type to
         start one. Neither is a route — `parse_pathname` returns `unknown`
-        for both, and the router dispatches on neither.
+        for both, and the router dispatches on neither. RTL-LIST-ROUTE-01
+        adds the legacy `/plants` list address, rewritten to `/rtls`.
 
         ONE callback, not two, and that is forced rather than chosen. Dash
         derives an `allow_duplicate` output's id from a hash of the INPUTS
@@ -234,6 +236,17 @@ def register(app) -> None:
                 logger.exception("Could not resolve the trusted session for %r", pathname)
                 return no_update, no_update
             return no_update, login_path_redirect(pathname, user)
+
+        # RTL-LIST-ROUTE-01: a compatibility address is a third instruction
+        # rather than a page — `/plants` means "go to `/rtls`". It lives in
+        # this callback because it must: see the docstring on why a second
+        # `url.pathname` writer off this Input cannot exist. Only the path is
+        # written, so `url.search` — and any query a legacy link carried — is
+        # kept. No identity is consulted: this names an address and decides
+        # nothing; `/rtls` is authorized by the router like any other path.
+        canonical = legacy_redirect_path(pathname)
+        if canonical is not None:
+            return no_update, canonical
 
         # Every other path: not this callback's business. `sign_out_outputs`
         # is the one that already says so, rather than a second literal pair

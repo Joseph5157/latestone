@@ -6,9 +6,11 @@ refreshing is a full reload of this route.
 
 CLIENT-TERMINOLOGY-NAV-01: the visible name is "Registered RTLs" — what the
 page actually lists — rather than "Fleet Overview", which was the synthetic
-plant fleet's name. The route stays `/plants` and the module keeps its name;
-the canonical `/rtls` route belongs to a later gate, and renaming the path
-here would break every existing bookmark for no wording benefit.
+plant fleet's name. The module keeps its name.
+
+RTL-LIST-ROUTE-01: this page is served at the canonical `/rtls`. The legacy
+`/plants` address redirects there (`callbacks.routing`), so old bookmarks keep
+working without the page ever being rendered at two addresses.
 """
 from __future__ import annotations
 

@@ -1,14 +1,17 @@
 """Status panels — not-found, error, and empty-data placeholders.
 
-CLIENT-TERMINOLOGY-NAV-01: both panels offer the same way back, to `/plants`.
-That route shows the client's registered RTL directory, so the link names it
+CLIENT-TERMINOLOGY-NAV-01: both panels offer the same way back, to the
+client's registered RTL directory, so the link names it
 "Registered RTLs" — "Back to plants" and "Back to Fleet Overview" named the
-synthetic plant fleet, which is not what the operator arrives at. The href is
-unchanged.
+synthetic plant fleet, which is not what the operator arrives at.
+
+RTL-LIST-ROUTE-01: the href is the canonical `/rtls`, not the legacy `/plants`.
 """
 from __future__ import annotations
 
 from dash import dcc, html
+
+from routes import RTL_LIST_PATH
 
 
 def not_found_panel(entity_type: str) -> html.Div:
@@ -17,7 +20,7 @@ def not_found_panel(entity_type: str) -> html.Div:
         children=[
             html.H3("Not found"),
             html.P(f"This {entity_type} was not found."),
-            dcc.Link("Back to Registered RTLs", href="/plants"),
+            dcc.Link("Back to Registered RTLs", href=RTL_LIST_PATH),
         ],
     )
 
@@ -43,7 +46,7 @@ def forbidden_panel() -> html.Div:
         children=[
             html.H3("No access"),
             html.P("Your account does not have access to this page."),
-            dcc.Link("Back to Registered RTLs", href="/plants"),
+            dcc.Link("Back to Registered RTLs", href=RTL_LIST_PATH),
         ],
     )
 

@@ -116,7 +116,8 @@ class TestPageShell:
         assert f"RTL {A_UID}" in text
 
     def test_the_breadcrumb_links_back_to_the_registered_directory(self):
-        assert ("Registered RTLs", "/plants") in links(page.layout(A_UID))
+        # RTL-LIST-ROUTE-01: the canonical list address.
+        assert ("Registered RTLs", "/rtls") in links(page.layout(A_UID))
 
     @pytest.mark.parametrize("word", ["Plant", "Plants", "Device", "Devices"])
     def test_no_synthetic_vocabulary_appears(self, word):

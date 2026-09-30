@@ -79,11 +79,14 @@ class TestPathParsing:
         assert parse_pathname("/rtls/٢٩").name == "unknown"
         assert parse_pathname("/rtls/29006²").name == "unknown"
 
-    def test_the_bare_list_route_is_not_implemented_in_this_gate(self):
-        """`/rtls` as a list lands in a later gate. Until it exists it must
-        not silently resolve to something else."""
-        assert parse_pathname("/rtls").name == "unknown"
-        assert parse_pathname("/rtls/").name == "unknown"
+    def test_the_bare_path_is_the_registered_directory(self):
+        """Was `unknown` when this gate closed. RTL-LIST-ROUTE-01 made the
+        bare `/rtls` the canonical list — the same `overview` route the
+        directory always was — and it carries no UID."""
+        for path in ("/rtls", "/rtls/"):
+            route = parse_pathname(path)
+            assert route.name == "overview"
+            assert route.rtl_uid is None
 
 
 class TestHrefBuilding:
@@ -151,8 +154,8 @@ class TestRouteIdentityIsNotTheSyntheticDevice:
         assert route.device_id == "plant-01-t1-d1"
         assert route.rtl_uid is None
 
-    def test_the_fleet_list_route_is_unchanged(self):
-        assert parse_pathname("/plants").name == "overview"
+    def test_the_fleet_list_route_is_the_canonical_list(self):
+        assert parse_pathname("/rtls").name == "overview"
 
     def test_an_rtl_route_carries_no_synthetic_hierarchy_identity(self):
         route = parse_pathname(f"/rtls/{A_UID}")

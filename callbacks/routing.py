@@ -7,17 +7,21 @@ from __future__ import annotations
 
 import logging
 
-from dash import Input, Output, html
+from dash import Input, Output, html, no_update
+from flask import redirect, request
 
 from components.status_panels import error_panel, forbidden_panel, not_found_panel
 from pages import admin_settings, audit_log, plants_overview, plant_detail, transformer_detail, device_dashboard, device_admin, device_register, technician_devices, admin_assignments, notifications, user_admin, report_center, command_center, rtl_detail
 from pages.placeholder import placeholder_layout
 from routes import (
+    LEGACY_RTL_LIST_PATH,
+    RTL_LIST_ALIAS_ROUTE,
     Route,
     device_href,
     parse_custom_range,
     parse_pathname,
     parse_query, parse_rtl_uid,
+    rtl_list_href,
 )
 from services import hierarchy_service
 from services.hierarchy_service import entity_in_scope
@@ -135,8 +139,8 @@ def landing_route_name(route_name: str, pathname: str | None, role: str | None) 
 
     Two paths are landing paths and nothing else changes: the bare root, and
     `/login`. Administrators and Technicians land on the Command Center,
-    everyone else on Fleet Overview. `/plants` stays Fleet Overview for every
-    role, so the sidebar's Overview link always works.
+    everyone else on Fleet Overview. `/rtls` is Registered RTLs for every
+    role, so the sidebar's Registered RTLs link always works.
 
     Signing in still does not redirect, so a deep link survives it — this is
     what "after login" means only for someone who signed in at one of those
@@ -161,6 +165,41 @@ def landing_route_name(route_name: str, pathname: str | None, role: str | None) 
     return route_name
 
 
+def legacy_rtl_list_redirect():
+    """HTTP 302 from the legacy list address to the canonical one.
+
+    RTL-LIST-ROUTE-01. A full page load of `/plants` — a bookmark, a typed
+    address, a shared link — is answered by the server before Dash renders
+    anything, so the client RTL source is never read on the way through.
+
+    An HTTP redirect rather than only Dash's in-page one: `dcc.Location`
+    (Dash 2.17) can only `pushState`, never `replaceState`, so a Dash-side
+    rewrite leaves `/plants` in the history and Back returns to it — which
+    redirects forward again. A 302 replaces the entry, so Back leaves.
+    Temporary (302), not permanent: a browser caches a 301/308 indefinitely,
+    and a later gate may yet need this address for something else.
+
+    Authorization is not decided here and cannot be bypassed here: this only
+    names an address. `/rtls` is then routed like any other request, through
+    `route_decision` and the Fleet page's own scope check.
+    """
+    return redirect(rtl_list_href(request.query_string.decode("latin-1")), code=302)
+
+
+def register_legacy_redirects(server) -> None:
+    """Attach the compatibility redirects to the Flask server Dash runs on.
+
+    Both spellings are registered explicitly. A static Werkzeug rule outranks
+    Dash's own `/<path:path>` catch-all, so neither reaches Dash's index.
+    """
+    for rule in (LEGACY_RTL_LIST_PATH, f"{LEGACY_RTL_LIST_PATH}/"):
+        server.add_url_rule(
+            rule,
+            endpoint=f"legacy_rtl_list{rule.count('/')}",
+            view_func=legacy_rtl_list_redirect,
+        )
+
+
 def register(app) -> None:
     """Register the top-level router callback on the Dash app."""
 
@@ -174,6 +213,16 @@ def register(app) -> None:
     def route_to_page(pathname, search, auth_data):
         try:
             route = parse_pathname(pathname)
+
+            # RTL-LIST-ROUTE-01. The legacy list address renders nothing and
+            # reads nothing — not even the session. It only arrives here on
+            # an in-app navigation (a full load is redirected by the server
+            # first), and `callbacks.auth._path_command` is rewriting the URL
+            # to `/rtls` in the same round trip; this callback then runs again
+            # for `/rtls`, where authorization and the one Fleet load happen.
+            # Rendering the list here too would load the fleet twice.
+            if route.name == RTL_LIST_ALIAS_ROUTE:
+                return no_update, no_update
 
             # AUTH-HARDEN-1: resolved ONCE, from the trusted server session —
             # never from `auth_data`, which stays an Input only so this

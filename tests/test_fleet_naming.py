@@ -68,8 +68,10 @@ def test_breadcrumb_root_reads_fleet_on_device_dashboard():
     assert labels[0] == "Fleet"
 
 
-def test_the_route_is_still_plants():
-    """The rename is vocabulary only. /plants and every id are untouched."""
+def test_the_route_is_the_canonical_list():
+    """The rename was vocabulary only. RTL-LIST-ROUTE-01 later moved the
+    directory's address to `/rtls`; the synthetic `/plants/<id>` drill-down
+    ids are still untouched, and no link points at the bare legacy `/plants`."""
     links = [
         n.href for n in walk(plants_overview.layout())
         if getattr(n, "href", None)
@@ -77,5 +79,6 @@ def test_the_route_is_still_plants():
         n.href for n in walk(plant_detail.layout("plant-01"))
         if getattr(n, "href", None)
     ]
-    assert any(h == "/plants" for h in links)
+    assert any(h == "/rtls" for h in links)
+    assert not any(h in ("/plants", "/plants/") for h in links)
     assert not any("/fleet" in h for h in links)

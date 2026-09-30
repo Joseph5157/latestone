@@ -29,6 +29,7 @@ from components.metric_chart import metric_chart
 from components.readings_table import readings_table
 from components.status_panels import inactive_notice
 from config.metrics import ordered_metrics
+from routes import RTL_LIST_PATH
 from config.settings import monitoring
 from services.monitoring_service import Freshness
 
@@ -82,8 +83,9 @@ def layout(
         children=[
             app_header(
                 breadcrumb_children=breadcrumb([
-                    # Label only — the route stays /plants (spec §3.1).
-                    ("Fleet", "/plants"),
+                    # Label only (spec §3.1). RTL-LIST-ROUTE-01: the
+                    # directory's canonical address, not the legacy `/plants`.
+                    ("Fleet", RTL_LIST_PATH),
                     (plant_name or "Plant", plant_href),
                     (transformer_code or "Transformer", transformer_href),
                     (device_code or "Device", None),
