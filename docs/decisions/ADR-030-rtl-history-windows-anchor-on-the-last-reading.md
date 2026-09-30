@@ -7,7 +7,9 @@ cutoffs) and §7 (telemetry facts); `docs/audit/client-terminology-nav-01/nav-13
 (observed last-reading dates on the registered fleet);
 `repositories/rtl_temperature_repository.py:377` (`get_temperature_range`);
 `services/rtl_detail_service.py`
-Implemented-by: not yet
+Implemented-by: `bc0db73` (`feat(rtl): add UID-based real RTL detail`; full sha
+bc0db73f98c3ac67362ba214dbd06a7eb0ad890f — the commit carries this ADR too, so
+the sha is recorded here afterwards, as ADR-014, ADR-015 and ADR-016 did)
 
 ## Context
 

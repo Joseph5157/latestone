@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T08:36:46Z
+Date: 2026-09-30T08:38:30Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `ea94bd5` "feat(ui): align client RTL terminology"
-- Working tree: 22 entries — see below
+- `main` = `bc0db73` "feat(rtl): add UID-based real RTL detail"
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3445 passed, 3 skipped, 731 deselected in 35.91s
+- `python -m pytest -m "not db"` → 3445 passed, 3 skipped, 731 deselected in 35.68s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 486 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 336 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 486 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 487 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 337 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 487 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -110,7 +110,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-027-device-page-alarm-history.md | Approved | `6bbf26c` |
 | ADR-028-ring-gauges-for-part-of-whole-counts.md | Approved | `7973853` |
 | ADR-029-sql-server-only-target-architecture.md | Approved | not yet |
-| ADR-030-rtl-history-windows-anchor-on-the-last-reading.md | Approved | not yet |
+| ADR-030-rtl-history-windows-anchor-on-the-last-reading.md | Approved | `bc0db73` (`feat(rtl): add UID-based real RTL detail`; full sha bc0db73f98c3ac67362ba214dbd06a7eb0ad890f — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014, ADR-015 and ADR-016 did) |
 
 ## Active gate
 
@@ -120,26 +120,9 @@ RTL-UID-DETAIL-01 — Canonical client RTL detail by UID — full detail in `doc
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M app.py
- M assets/app.css
- M callbacks/routing.py
- M components/rtl_fleet.py
- M docs/context/ACTIVE_GATE.md
- M routes.py
- M services/authorization.py
- M tests/test_authorization.py
- M tests/test_equipment_selector.py
+ M docs/decisions/ADR-030-rtl-history-windows-anchor-on-the-last-reading.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? callbacks/rtl_detail.py
-?? components/rtl_detail.py
 ?? docs/audit/project-audit-1/results/
-?? docs/audit/rtl-uid-detail-01/
-?? docs/decisions/ADR-030-rtl-history-windows-anchor-on-the-last-reading.md
-?? pages/rtl_detail.py
-?? services/rtl_detail_service.py
-?? tests/test_rtl_detail_page.py
-?? tests/test_rtl_detail_route.py
-?? tests/test_rtl_detail_service.py
 ```
 
