@@ -56,10 +56,18 @@ The database holds people and the roles Administrator, Technician and General Us
 
 ### 5. How are technicians assigned to RTLs?
 
-- Can one RTL have more than one technician?
-- Can one technician look after many RTLs?
-- When an RTL is reassigned, should we keep the earlier assignments?
-- What may an assigned technician do that others cannot?
+The existing records give each of the five Technicians one or more RTLs, but
+they do not record assignment dates or earlier assignments. They also do not
+prove that assignment controlled what a Technician could view or program.
+
+- Should a Technician be able to view and work with only the RTLs assigned to
+  them, or may they view other registered RTLs too?
+- Can one RTL be assigned to more than one Technician at the same time?
+- Who may assign, reassign and end a Technician assignment?
+- When an RTL is reassigned, should earlier assignments and a reason be kept?
+- If programming is approved, may a Technician program only assigned RTLs?
+- May a Technician view historical events only for assigned RTLs?
+- How should registered RTLs with no Technician assignment be handled?
 
 ### 6. What does "Program RTL" do?
 

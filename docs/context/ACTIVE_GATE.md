@@ -1,12 +1,49 @@
 # Active Gate
 
-Status: **CLOSED / PASS (awaiting next gate definition)**
+Status: **CLOSED / PASS**
 Date: 2026-09-30
-Gate: HISTORICAL-EVENTS-01 — Factual Historical Events from the client SQL Server
-Baseline: `0c15ee0`
+Gate: TECHNICIAN-ASSIGNMENT-FORENSICS-01 — Reconstruct Technician to RTL assignment evidence
+Baseline: `0a8d26d`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: HISTORICAL-EVENTS-01 — Historical Events
+## Next implementation gate: TECHNICIAN-ASSIGNMENT-FORENSICS-01 — CLOSED / PASS
+
+Read-only SQL Server forensics established 68 unique legacy Technician/UID
+pairs across the exact five Technician persons: 64 UIDs are currently
+registered and four are historical/unregistered; no duplicate pair,
+multi-Technician UID, orphan name or invalid UID exists. Current assignment
+coverage is only 64/339 (19 mapped, 45 unmapped), and the legacy table carries
+no timestamp, actor, end state or history. Technician-attributed settings
+activity includes seven rows on three currently registered UIDs outside the
+named Technician's legacy set, so assignment cannot be assumed to have gated
+programming.
+
+`techmician_device_list` is classified as transitional read-only positive
+evidence, not an authoritative authorization source. The empty constrained
+`technician_assignments` structure is consistent with a newer current-
+assignment table but lacks lifecycle/history. SQL Server remained `READ_ONLY`;
+no application source, tests, SQL Server data/schema or PostgreSQL state
+changed.
+
+### Relevant files
+
+- `docs/audit/technician-assignment-forensics-01/TECHNICIAN_ASSIGNMENT_FORENSICS.md`
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` §19 and §23
+- `docs/client/CLIENT_DB_CLARIFICATION_01.md` CDB-05
+- `docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md` CDB-05
+- ADR-029, ADR-030 and ADR-031 (unchanged)
+
+### Next gate
+
+Exactly one gate is nominated: **TECHNICIAN-ASSIGNMENT-POLICY-01 — Client
+policy and transition decision**. It must obtain/record the CDB-05 decisions,
+approve or reject use of the 64 positive legacy/current intersections as a
+temporary scope, define treatment of 275 unassigned registered RTLs, and set
+cardinality/history/action boundaries. It is not an access implementation or
+database-write gate. `TECHNICIAN-REAL-RTL-ACCESS-01` may follow only after that
+policy decision.
+
+## HISTORICAL-EVENTS-01 — CLOSED / PASS (previous gate, kept for record)
 
 Status: **CLOSED / PASS**
 

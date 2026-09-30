@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T10:26:09Z
+Date: 2026-09-30T12:12:16Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `0c15ee0` "feat(dashboard): replace synthetic client summary"
-- Working tree: 26 entries — see below
+- `main` = `0a8d26d` "feat(events): add factual historical RTL events"
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3661 passed, 3 skipped, 731 deselected in 37.57s
+- `python -m pytest -m "not db"` → 3661 passed, 3 skipped, 731 deselected in 46.26s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 493 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 343 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 493 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 494 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 344 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 494 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -115,36 +115,20 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-HISTORICAL-EVENTS-01 — Factual Historical Events from the client SQL Server — full detail in `docs/context/ACTIVE_GATE.md`.
+TECHNICIAN-ASSIGNMENT-FORENSICS-01 — Reconstruct Technician to RTL assignment evidence — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M app.py
- M assets/app.css
- M callbacks/routing.py
- M components/app_sidebar.py
+ M docs/client/CLIENT_DB_CLARIFICATION_01.md
+ M docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md
  M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
  M docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md
- M routes.py
- M services/authorization.py
- M tests/test_app_sidebar.py
- M tests/test_authorization.py
- M tests/test_client_terminology.py
- M tests/test_equipment_selector.py
- M tests/test_route_enforcement.py
- M tests/test_rtl_list_route.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? assets/icons/nav-events.svg
-?? callbacks/historical_events.py
-?? components/historical_events.py
-?? docs/audit/historical-events-01/
 ?? docs/audit/project-audit-1/results/
-?? pages/historical_events.py
-?? repositories/rtl_events_repository.py
-?? services/rtl_events_service.py
-?? tests/test_historical_events.py
+?? docs/audit/technician-assignment-forensics-01/
 ```
 

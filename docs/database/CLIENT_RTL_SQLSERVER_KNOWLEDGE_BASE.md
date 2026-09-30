@@ -586,34 +586,44 @@ Role semantics must be application-controlled.
 
 ## 19. TECHNICIAN ASSIGNMENTS
 
-### Legacy
+Verified by TECHNICIAN-ASSIGNMENT-FORENSICS-01 (2026-09-30):
 
-`techmician_device_list`
-- 68 rows
-- 5 technicians
-- legacy/unconstrained structure
+- `techmician_device_list` has 68 rows, 68 distinct UIDs and 68 distinct
+  Technician/UID pairs. There are no duplicate pairs and no UID has more than
+  one Technician in the snapshot.
+- Its five names are exact case-and-spacing matches to exactly the five
+  `persons` with the Technician role. There are no orphan names, missing
+  Technician persons or non-Technician names. This is observed quality, not an
+  enforced relation: the table stores names and has no person/device FKs.
+- 64 assigned UIDs are currently registered; four (29024, 29046, 29071,
+  29544) are historical/unregistered; none is invalid/unresolvable.
+- Current coverage is 64/339 registered RTLs: 19/185 mapped and 45/154
+  unmapped. Of the 64, 48 have temperature data, 19 are mapped, 17 have a
+  resolved hierarchy, and six have dated 2026 operational evidence under the
+  audited temperature-or-Check-in rule.
+- The legacy table has no assignment timestamp, actor, end date, current
+  marker or reason. No assignment history source was found, and reassignment
+  sequence cannot be reconstructed safely.
+- Technician-attributed `settings_upload_log` rows do not universally fall
+  inside the corresponding legacy set: Senzo Mpungose has seven settings rows
+  on three currently registered non-assigned UIDs. This does not establish the
+  event-time assignment state or prove a historical authorization policy.
 
-### Newer constrained structure
+`technician_assignments` remains empty. It has identity PK `assignment_id`,
+FKs from `person_id` to `persons` and `device_uid` to `device_list`, unique
+`(person_id, device_uid)`, and non-null `assigned_date` with a default
+constraint. It has no assigned-by, end/current, reason or history fields. Its
+structure is consistent with a newer current-assignment table; schema alone
+does not prove intent.
 
-`technician_assignments`
-- 0 rows
-- FK to persons
-- FK to `device_list`
-- uniqueness on person/device
-- `assigned_date`
-- no active/unassigned lifecycle
-
-### Direction
-
-Prefer adapting `technician_assignments` for future application ownership.
-
-Do not create a duplicate third assignment system.
-
-Future needs likely include active/current assignment, unassignment, reassignment history, assigned-by, and start/end timestamps.
-
-Client policy is still required for multiplicity and scope.
-
-Legacy data does **not** prove that assignment historically gated programming.
+**Suitability:** use the legacy table only as transitional read-only positive
+assignment evidence, subject to client policy approval. It is not a complete
+or authoritative authorization source: only 18.9% of registered RTLs are
+covered and absence is ambiguous. Do not create a third assignment system or
+copy rows automatically. A future model must use person/UID keys and preserve
+actor, start/end and history; multiplicity, visibility and permitted actions
+remain client decisions. Full evidence:
+`docs/audit/technician-assignment-forensics-01/TECHNICIAN_ASSIGNMENT_FORENSICS.md`.
 
 ---
 
@@ -743,10 +753,12 @@ Do not present as authoritative yet:
    - Account creation, activation, deactivation, password/SSO policy?
 
 5. **Technician assignment**
-   - Can one RTL have multiple technicians?
-   - Can one technician have many RTLs?
-   - Must reassignment preserve history?
-   - What actions are permitted to assigned technicians?
+   - Should Technicians see/work with only assigned registered RTLs?
+   - Can one RTL have multiple simultaneous Technicians?
+   - Who may assign, reassign and end assignments?
+   - Must reassignment preserve history and a reason?
+   - Are programming and historical-event access limited to assigned RTLs?
+   - How should registered RTLs with no Technician assignment be handled?
 
 6. **Program RTL**
    - Does the new application actually transmit configuration to devices?
