@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T13:06:12Z
+Date: 2026-09-30T13:36:32Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `ec3be92` "feat(technicians): scope access to assigned RTLs"
-- Working tree: 5 entries — see below
+- `main` = `79027e4` "docs(decisions): record ADR-032 implementing commit"
+- Working tree: 10 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3745 passed, 3 skipped, 772 deselected in 38.17s
+- `python -m pytest -m "not db"` → 3745 passed, 3 skipped, 772 deselected in 44.85s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 496 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 346 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 496 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 497 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 347 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 497 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -116,15 +116,20 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-TECHNICIAN-REAL-RTL-ACCESS-01 — Scope Technician access to assigned client RTLs — full detail in `docs/context/ACTIVE_GATE.md`.
+AUTHENTICATION-REALIGNMENT-01 — Define the production account/authentication model — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M docs/decisions/ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md
+ M docs/client/CLIENT_DB_CLARIFICATION_01.md
+ M docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md
+ M docs/context/ACTIVE_GATE.md
+ M docs/context/CURRENT_STATE.md
+ M docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? docs/audit/authentication-realignment-01/
 ?? docs/audit/project-audit-1/results/
 ```
 

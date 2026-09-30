@@ -48,11 +48,16 @@ The TUG report holds about 70,700 transformer records with their place in the hi
 
 ### 4. How should people sign in?
 
-The database holds people and the roles Administrator, Technician and General User, but no usable sign-in details.
+The database holds people and the roles Administrator, Technician and General
+User, but no usable sign-in details. We can safely provide local username and
+password accounts if company sign-in is not available.
 
-- How should each role sign in (for example company single sign-on or a password)?
-- Who creates, activates and disables accounts?
-- Is there a policy on passwords or sessions that we must follow?
+- Do users already sign in to other Eskom systems using a company
+  Microsoft/Active Directory account that this application should use?
+
+This answer does not block the project: if the answer is no or not yet known,
+we can proceed with secure local accounts and keep the sign-in component
+replaceable.
 
 ### 5. How are technicians assigned to RTLs?
 

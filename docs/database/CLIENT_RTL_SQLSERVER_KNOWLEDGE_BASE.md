@@ -571,12 +571,28 @@ Current people:
 
 ### Authentication
 
-Credential-looking columns exist, but current rows do not contain usable credentials.
+Credential-looking columns exist, but read-only inspection on 2026-09-30 found
+that all eight current `persons` rows have empty/null `user_id` and
+`password_hash` values. The application does not read either field for login,
+so no current person has a usable legacy credential.
+
+The application identity bridge currently links exactly the five Technician
+persons to five PostgreSQL users: person IDs 2–6 map uniquely to app user IDs
+117–121. The linked roles all agree (`Technician` / `technician`), no duplicate
+person link exists, and client Administrator persons 1, 7 and 8 have no app
+account link. The five linked Technician users were deliberately provisioned
+without login credentials to anchor assignment scope; they cannot authenticate
+through the current configured demo-login map. These are verified application
+state facts, not evidence of a client authentication policy.
 
 Therefore:
 - reuse/adapt `persons` and `roles` as identity/business structures,
 - do not assume legacy authentication is usable,
-- production authentication remains a new application capability.
+- production authentication remains a new application capability;
+- use the explicit integer `client_person_id` bridge and never a runtime name
+  match;
+- do not populate or repurpose `persons.password_hash` without a separate,
+  client-approved SQL Server write/schema gate.
 
 There are no database permission tables defining UI capabilities.
 
@@ -783,8 +799,10 @@ Do not present as authoritative yet:
    - How are retired/decommissioned transformer assets represented?
 
 4. **Authentication**
-   - How should Administrator / Technician / General User identities authenticate?
-   - Account creation, activation, deactivation, password/SSO policy?
+   - Do users already sign in to other Eskom systems using a company
+     Microsoft/Active Directory account that this application should use?
+   - This does not block a hardened application-local username/password
+     baseline while the answer is unknown.
 
 5. **Technician assignment** - ANSWERED (CDB-05, ADR-032, 2026-09-30): assigned-only
    visibility and work; one current Technician per RTL; Administrator assigns;

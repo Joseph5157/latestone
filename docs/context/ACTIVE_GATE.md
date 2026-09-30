@@ -2,11 +2,67 @@
 
 Status: **CLOSED / PASS**
 Date: 2026-09-30
-Gate: TECHNICIAN-REAL-RTL-ACCESS-01 — Scope Technician access to assigned client RTLs
-Baseline: `274020e`
+Gate: AUTHENTICATION-REALIGNMENT-01 — Define the production account/authentication model
+Baseline: `79027e4f49d092d5f399a2c94035707b51a447a8`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: TECHNICIAN-REAL-RTL-ACCESS-01 — CLOSED / PASS
+## Next implementation gate: AUTHENTICATION-REALIGNMENT-01 — CLOSED / PASS
+
+Planning/audit only. Current authentication is a development mechanism:
+environment-configured username/plaintext-password pairs name PostgreSQL
+`users` rows; the row supplies role/status; Flask's signed session stores only
+`user_id`; every protected operation reloads the row. Production cookie flags
+and secret-key fail-closed behavior already exist, but there are no per-user
+hashes, password setup/reset, rate limit/lockout, MFA, external identity
+provider, or login/logout audit events.
+
+Read-only identity inspection found all eight client `persons.user_id` and
+`password_hash` values empty. App users 117–121 link uniquely to Technician
+persons 2–6 with matching roles and retain the 64 imported assignments. None
+of their usernames is configured as a login, so all five are deliberately
+login-less assignment anchors and cannot authenticate. Client Administrator
+persons 1, 7 and 8 are not linked; no General User exists in client `persons`.
+
+**Default:** implement one hardened application-local username/password
+mechanism for all roles now, preserving the existing authentication seam,
+application role authority, explicit `client_person_id`, and ADR-032 scope.
+Use modern per-user hashes, Pending/Active/Disabled states, setup/reset,
+throttling, session timeouts/revocation, explicit production Administrator
+bootstrap, demo/production separation, and audit events. Never reuse or write
+client `persons.password_hash`.
+
+**Enterprise option:** Microsoft Entra ID/Active Directory SSO is preferred if
+the client confirms it is available, but current evidence cannot select it.
+SSO must resolve an immutable provider identity to the same app user and may
+not supply an unreviewed role or bypass assignment scope. Unknown SSO
+availability does not block the local baseline.
+
+### Relevant files
+
+- `docs/audit/authentication-realignment-01/AUTHENTICATION_REALIGNMENT.md`
+- `docs/client/CLIENT_DB_CLARIFICATION_01.md`
+- `docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md` (CDB-04)
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` §18, §23
+- `services/auth_service.py`, `callbacks/auth.py`, `services/prototype_users.py`
+- `pages/user_admin.py`, `callbacks/user_admin.py`
+- `alembic/versions/003_users.py`, `alembic/versions/016_rtl_technician_assignments.py`
+- ADR-029, ADR-030, ADR-031 and ADR-032 (unchanged)
+
+### Non-goals (held)
+
+No login implementation change, credential/password change, SQL Server write,
+production account creation, client `persons` modification, assignment-state
+mutation, or automatic activation occurred.
+
+### Next implementation gate
+
+**AUTHENTICATION-LOCAL-HARDENING-01** — implement Phase A from the audit
+artifact without SQL Server writes or SSO. Preserve user IDs 117–121 and their
+assignments; move them to Pending until an Administrator explicitly completes
+setup or disables access. If enterprise SSO is confirmed, open a separate SSO
+design/integration gate.
+
+## TECHNICIAN-REAL-RTL-ACCESS-01 — CLOSED / PASS (previous gate, kept for record)
 
 CDB-05 is ANSWERED (recorded 2026-09-30; ADR-032): assigned-only Technician
 visibility; one current Technician per RTL; Administrator-only assignment;
