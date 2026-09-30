@@ -1046,6 +1046,7 @@ body {
 .app-sidebar__icon--settings      { -webkit-mask-image: url("/assets/icons/nav-settings.svg");      mask-image: url("/assets/icons/nav-settings.svg"); }
 .app-sidebar__icon--users         { -webkit-mask-image: url("/assets/icons/nav-users.svg");         mask-image: url("/assets/icons/nav-users.svg"); }
 .app-sidebar__icon--command-center { -webkit-mask-image: url("/assets/icons/nav-command-center.svg"); mask-image: url("/assets/icons/nav-command-center.svg"); }
+.app-sidebar__icon--events        { -webkit-mask-image: url("/assets/icons/nav-events.svg");        mask-image: url("/assets/icons/nav-events.svg"); }
 .app-sidebar__icon--network       { -webkit-mask-image: url("/assets/icons/nav-network.svg");       mask-image: url("/assets/icons/nav-network.svg"); }
 .app-sidebar__icon--logout        { -webkit-mask-image: url("/assets/icons/nav-logout.svg");         mask-image: url("/assets/icons/nav-logout.svg"); }
 
@@ -7764,3 +7765,7 @@ button.attention-donut__label:disabled::before { background: var(--color-border)
 .network-breakdown li { padding: var(--sp-1) var(--sp-3); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); font-size: var(--fs-body); }
 .network-breakdown__count { color: var(--color-muted); font-variant-numeric: tabular-nums; margin-left: var(--sp-2); }
 .network-review { color: var(--sev-warning); font-size: var(--fs-meta); display: block; }
+
+/* HISTORICAL-EVENTS-01 */
+.events-uid-input { min-width: 10rem; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); color: inherit; }
+.events-pager { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0; }

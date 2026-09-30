@@ -515,6 +515,25 @@ Most alarm payloads are ≥80, but **80°C is not an approved threshold**.
 
 Alarm events are not simply `master_temperature WHERE temperature >= 80`.
 
+### Event source timing and coverage (verified by HISTORICAL-EVENTS-01)
+
+| Class | Source and filter | Event time column | Value column | Span |
+|---|---|---|---|---|
+| High Temperature | `alarm_log` | `event_timestamp` | `temperature` | 2020-12-04 to 2026-08-17 |
+| Sensor Error | `sensor_error_log` | `reading_timestamp` (no `event_timestamp` column) | `temperature` (999.00 observed; stored as is, not an interpreted code) | 2000-01-01 sentinel and later, to 2026-05-24 |
+| Battery Low | `startup_msg_log` where `status = 'Battery Low'` (7,674 of 397,813 rows) | `event_timestamp` | `battery_voltage` | to 2026-08-25 |
+| Powerdown | `powerdown_log` | `event_timestamp` | `battery_voltage` | 2017-11-07 to 2025-03-03 |
+
+* `sensor_error_log` has 2 rows with a NULL `reading_timestamp` and 7 rows
+  before 2010 (the `2000-01-01 00:00` sentinel); time-bounded reads exclude the
+  NULLs, so a whole-history window counts 1,175 of 1,177.
+* Each row carries its own `trfr` (the transformer recorded with the event).
+  Events for UIDs no longer in `device_list` exist: 402 High Temperature,
+  504 Sensor Error, 1,737 Battery Low, 618 Powerdown rows (19 / 26 / 46 / 25 UIDs).
+* Newest event overall: 2026-08-25 (Battery Low). A rolling "last 30 days from
+  today" window is therefore empty on this restored copy; the app anchors its
+  default window on the newest recorded event.
+
 ### Lifecycle missing
 
 The database has no explicit acknowledgement, resolution, clear, episode end, return-to-normal, operator comment, or escalation.

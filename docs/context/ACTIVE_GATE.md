@@ -2,38 +2,45 @@
 
 Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
-Gate: FACTUAL-DASHBOARD-01 — Replace the synthetic client summary with a factual RTL dashboard
-Baseline: `1961908`
+Gate: HISTORICAL-EVENTS-01 — Factual Historical Events from the client SQL Server
+Baseline: `0c15ee0`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: FACTUAL-DASHBOARD-01 — Factual RTL dashboard
+## Next implementation gate: HISTORICAL-EVENTS-01 — Historical Events
 
 Status: **CLOSED / PASS**
 
-- **The Administrator's landing is now a factual "Dashboard"** (`/command-center`, root, post-login), built by `pages/rtl_dashboard.py`. Routing renders it for any session that `may_view_real_fleet`; everyone else (the Technician) keeps the existing Command Center untouched, because technician UID assignment is unresolved. General User landing is unchanged (`/rtls`, already factual).
-- **Counts come from the real services only.** `services/rtl_dashboard_service.get_dashboard` composes one `get_real_fleet` and one `get_current_network` (registered, temperature data / none, latest reading time; mapped / unmapped, hierarchy resolved / unavailable, mapping review, RTLs by zone). No SQL in the service/components/callback, no PostgreSQL, no hard-coded counts. One load per page render, not polled.
-- **Removed from the client dashboard:** Plant/Device totals, synthetic status counts, Needs Attention, gauges, hottest, trend, activity, colour key. Their modules remain (Technician still uses them) — see debt.
-- **Not shown:** Online/Offline/Active/Healthy, alarm state, electrical metrics. Historical Events remains `HISTORICAL-EVENTS-01`.
-- **Mapping review** is a plain count linking to `/rtls/network`; not called an error. Links only to `/rtls` and `/rtls/network`.
-- **Authorization unchanged.** Callback re-checks `may_view_real_fleet`; a Technician sees no dashboard and `/rtls*` stay "No access". `callbacks/rtl_summary.py` and `rtl_summary_panel` (RTL-NETWORK-USE-01) were superseded and removed.
+- **`/events` "Historical Events"** lists recorded High Temperature (`alarm_log`), Sensor Error (`sensor_error_log`), Battery Low (`startup_msg_log`, `status='Battery Low'`) and Powerdown (`powerdown_log`) events. It is factual history, **not an alarm workflow**: no acknowledgement, resolution, severity, assignment or active/current state is modelled or implied.
+- **Layers:** `repositories/rtl_events_repository.py` (static, bound, bounded SELECTs) → `services/rtl_events_service.py` (normalised `HistoricalEvent` with internal provenance) → `components/`, `pages/`, `callbacks/historical_events.py`.
+- **Bounded:** default window is 30 calendar days ending on the newest recorded event (anchored on the data because the source can be a restored copy); editable date range; 50 rows/page; counts per class are for the active window/UID, from one grouped query.
+- **Filters:** event type, date range, RTL UID (whole numbers only).
+- **Registered vs historical:** no row is dropped. `device_list` UIDs link to `/rtls/<uid>`; others show "Historical RTL UID <uid>" as plain text.
+- **Network context is current, not event-time.** Columns "Current Transformer" / "Current Network Context" reuse the shared `rtl_network_service` snapshot (ADR-031); the transformer the event row itself carries is shown separately as "Recorded Transformer". No historical movement is reconstructed.
+- **Authorization:** new `historical_events` policy entry = Administrator + General User (same set as `rtl_network`); routing and both callbacks re-check `may_view_real_fleet` before any read. Technician: no nav item, "No access".
+- **Acknowledgement, resolution, escalation and an active-alarm state remain future work** and need client-approved lifecycle rules.
 
 ### Relevant files
 
-- `services/rtl_dashboard_service.py`, `components/rtl_dashboard.py`, `pages/rtl_dashboard.py`, `callbacks/rtl_dashboard.py` (new)
-- `callbacks/routing.py`, `app.py`, `pages/command_center.py`, `components/rtl_fleet.py`
-- `tests/test_factual_dashboard.py` (new); updated `tests/test_rtl_network_use.py`, `tests/test_rtl_list_route.py`, `tests/test_equipment_selector.py`
+- `repositories/rtl_events_repository.py`, `services/rtl_events_service.py`, `components/historical_events.py`, `pages/historical_events.py`, `callbacks/historical_events.py` (new)
+- `routes.py`, `services/authorization.py`, `components/app_sidebar.py`, `callbacks/routing.py`, `app.py`, `assets/app.css`, `assets/icons/nav-events.svg`
+- `tests/test_historical_events.py` (new); pinned nav/policy tests updated
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` §17 (event timing and coverage)
 
 ### Non-goals
 
-Historical Events, Needs Attention workflow, Online/Offline, alarms, technician assignment, lifecycle, commands, notifications, electrical metrics, PostgreSQL retirement, deleting legacy code.
+Acknowledgement/resolution/escalation, active alarm state, communication state, Online/Offline, technician assignment, notifications, programming, lifecycle, SQL writes, PostgreSQL retirement, deleting legacy Needs Attention, historical transformer reconstruction, a dashboard event card.
 
 ### Close evidence
 
-`docs/audit/factual-dashboard-01/`. Non-DB suite: **3624 passed, 3 skipped, 0 failed, 731 deselected**. SQL Server `READ_ONLY`, write permissions 0, counts unchanged (2,456,901 / 400 / 339 / 185).
+`docs/audit/historical-events-01/`. Non-DB suite: **3661 passed, 3 skipped, 0 failed, 731 deselected**. SQL Server `READ_ONLY`, write permissions 0, counts unchanged (2,456,901 / 400 / 339 / 185). Live event counts 3,346 / 1,175 (+2 NULL-time) / 7,674 / 719.
 
-### Remaining debt / blockers
+### Remaining debt
 
-Technician still lands on the synthetic Command Center (needs technician UID assignment). Legacy Command Center/attention code, plant/device routes: see acceptance record. Dashboard and network snapshots overlap in three reads. "Needs review" has no resolution workflow. Historical Events not built.
+Legacy synthetic Needs Attention (`/command-center`, Technician only) is untouched. Sensor Error has 2 NULL-time and 7 pre-2010 sentinel rows (documented). Event page runs a six-read network snapshot when it has rows. No dashboard link/count to events. No event detail, export, or per-transformer filter.
+
+## FACTUAL-DASHBOARD-01 — CLOSED / PASS (previous gate, kept for record)
+
+The Administrator lands on a factual Dashboard composed from `get_real_fleet` and `get_current_network` (`services/rtl_dashboard_service.py`); the Technician keeps the legacy Command Center. Commit `0c15ee0`; evidence `docs/audit/factual-dashboard-01/`.
 
 ## RTL-NETWORK-USE-01 — CLOSED / PASS (previous gate, kept for record)
 

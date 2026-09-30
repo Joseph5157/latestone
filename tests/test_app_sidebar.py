@@ -83,7 +83,7 @@ class TestSidebarItems:
             # the item's key stays `overview` (that is the routing and
             # authorization identity), only the visible word changed.
             # LATEST-NETWORK-CONTEXT-01: "Network" sits beside the list it browses.
-            "Registered RTLs", "Network", "Command Center",
+            "Registered RTLs", "Network", "Historical Events", "Command Center",
             # Two "Devices" entries, ADR-016: the Administrator's
             # admin_devices, then the Technician's own technician_devices —
             # mutually exclusive by role (see test_app_sidebar's Icons/Items

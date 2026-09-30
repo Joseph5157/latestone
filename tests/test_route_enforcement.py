@@ -215,7 +215,7 @@ class TestSidebarFiltering:
         assert hrefs["Devices"] == "/devices"
 
     def test_general_user_navigation_has_no_operational_surfaces(self):
-        assert rendered_labels(GENERAL) == ["Registered RTLs", "Network", "Reports"]
+        assert rendered_labels(GENERAL) == ["Registered RTLs", "Network", "Historical Events", "Reports"]
 
     def test_an_emptied_section_takes_its_heading_with_it_for_general(self):
         """Every Operations item General may reach is none, so the heading

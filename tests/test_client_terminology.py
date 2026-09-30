@@ -230,7 +230,7 @@ class TestIdentityAndAuthorizationAreUnchanged:
         "role,expected",
         [
             # LATEST-NETWORK-CONTEXT-01 adds "network" for General only (Technician unchanged).
-            (GENERAL, {"overview", "network", "reports"}),
+            (GENERAL, {"overview", "network", "events", "reports"}),
             (
                 TECHNICIAN,
                 {

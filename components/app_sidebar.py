@@ -53,7 +53,7 @@ from __future__ import annotations
 from dash import dcc, html
 
 from components.theme import theme_toggle
-from routes import RTL_LIST_PATH, RTL_NETWORK_PATH
+from routes import EVENTS_PATH, RTL_LIST_PATH, RTL_NETWORK_PATH
 from services.authorization import visible_nav_keys
 
 SHELL_ID = "app-sidebar-shell"
@@ -89,6 +89,7 @@ SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
         # LATEST-NETWORK-CONTEXT-01: visible only to the roles allowed to open
         # the route (derived from ROUTE_POLICY, never restated here).
         ("network", "Network", RTL_NETWORK_PATH, "network"),
+        ("events", "Historical Events", EVENTS_PATH, "events"),
         ("command_center", "Command Center", "/command-center", "command-center"),
     )),
     ("Operations", (

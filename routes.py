@@ -37,6 +37,7 @@ NAV_KEY_BY_ROUTE: dict[str, str] = {
     "transformer": "overview",
     "device": "overview",
     "rtl_network": "network",
+    "historical_events": "events",
     "admin_devices": "devices",
     "technician_devices": "technician_devices",
     "admin_assignments": "assignments",
@@ -59,6 +60,9 @@ ASSIGN_PARAM = "assign"
 #: Command Center path (SWITCH-OVER-1: the redesigned page took it over from
 #: the old one).
 COMMAND_CENTER_PATH = "/command-center"
+#: HISTORICAL-EVENTS-01. Recorded events from the client logs; filters and
+#: paging live inside the page.
+EVENTS_PATH = "/events"
 
 #: RTL-LIST-ROUTE-01. The canonical Registered RTLs list — the real client RTL
 #: directory. It is the same page, callback and service the directory has
@@ -155,7 +159,7 @@ def rtl_list_href(search: str | None = None) -> str:
 @dataclass(frozen=True)
 class Route:
     name: str  # "overview" | "plant" | "transformer" | "device" |
-               # "rtl_detail" | "rtl_network" | "admin_devices" | "technician_devices" |
+               # "rtl_detail" | "rtl_network" | "historical_events" | "admin_devices" | "technician_devices" |
                # "admin_assignments" | "admin_users" | "reports" |
                # "notifications" | "command_center" | "rtl_list_alias" |
                # "unknown"
@@ -183,6 +187,9 @@ def parse_pathname(pathname: str | None) -> Route:
 
     if len(parts) == 1 and parts[0] == "rtls":
         return Route(name="overview")
+
+    if len(parts) == 1 and parts[0] == "events":
+        return Route(name="historical_events")
 
     if len(parts) == 1 and parts[0] == "reports":
         return Route(name="reports")

@@ -1,0 +1,46 @@
+
+=== administrator ===
+sidebar: ['Registered RTLs', 'Network', 'Historical Events', 'Command Center', 'Devices', 'Assignments', 'Registration', 'Notifications', 'Reports', 'Users', 'Audit Log', 'Settings', 'Logout']
+h1: Historical Events
+window: Recorded 27 Jul 2026 to 25 Aug 2026
+summary: High Temperature15 Sensor Error0 Battery Low64 Powerdown0
+status: ['Events 1–50 of 79 · page 1 of 2 · newest first']
+first row: ['25 Aug 2026 20:27 SAST', 'Battery Low', '29764', '3.69 V', 'PHZ36', 'PHZ36', 'Pietermaritzburg Zone › Pietermaritzburg Sector › Inchanga CNC › Abattoir NB114 11kV Line Overhead Line']
+rows on page: 50
+newest-first order: True
+[administrator events] forbidden-word hits: none
+filter High Temperature: ['Events 1–15 of 15 · page 1 of 1 · newest first']; row types={'High Temperature'}
+filter Sensor Error: ['0 events']; row types=none in window
+filter Battery Low: ['Events 1–50 of 64 · page 1 of 2 · newest first']; row types={'Battery Low'}
+filter Powerdown: ['0 events']; row types=none in window
+widened window: Recorded 01 Jan 2020 to 25 Aug 2026
+widened summary: High Temperature3346 Sensor Error695 Battery Low5791 Powerdown42
+widened status: ['Events 1–50 of 9874 · page 1 of 198 · newest first']
+next page: ['Events 51–100 of 9874 · page 2 of 198 · newest first']
+prev page: ['Events 1–50 of 9874 · page 1 of 198 · newest first']
+uid 29032 (historical only): ['Events 1–6 of 6 · page 1 of 1 · newest first']
+  'Historical RTL UID 29032' shown=True; links to /rtls/29032=0
+uid 29763: ['Events 1–50 of 174 · page 1 of 4 · newest first']
+  link count to /rtls/29763=50
+  sample row: ['18 Aug 2026 06:15 SAST', 'Battery Low', '29763', '3.75 V', 'PHZ34', 'PHZ34', 'Pietermaritzburg Zone › Pietermaritzburg Sector › Inchanga CNC › Abattoir NB114 11kV Line Overhead Line']
+invalid uid message: Check the date range and RTL UID: the UID must be a whole number and the range must end after it starts.
+opened RTL detail: http://127.0.0.1:8050/rtls/29763
+returned to: http://127.0.0.1:8050/events
+dashboard still factual: True
+
+=== general ===
+sidebar: ['Registered RTLs', 'Network', 'Historical Events', 'Reports', 'Logout']
+h1: Historical Events
+window: Recorded 27 Jul 2026 to 25 Aug 2026
+summary: High Temperature15 Sensor Error0 Battery Low64 Powerdown0
+status: ['Events 1–50 of 79 · page 1 of 2 · newest first']
+first row: ['25 Aug 2026 20:27 SAST', 'Battery Low', '29764', '3.69 V', 'PHZ36', 'PHZ36', 'Pietermaritzburg Zone › Pietermaritzburg Sector › Inchanga CNC › Abattoir NB114 11kV Line Overhead Line']
+rows on page: 50
+newest-first order: True
+[general events] forbidden-word hits: none
+
+=== technician ===
+sidebar: ['Registered RTLs', 'Command Center', 'Devices', 'Notifications', 'Reports', 'Logout']
+technician /events: no-access=True; table=0; rtl links=0; leaked=False
+
+console errors (excluding the login-page uncontrolled-input warning): 0

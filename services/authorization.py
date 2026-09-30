@@ -89,6 +89,10 @@ ROUTE_POLICY: dict[str, frozenset[str]] = {
     # client RTL UIDs, so it carries exactly the detail route's roles. The
     # callback re-checks the device scope as well.
     "rtl_network": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
+    # Historical Events (HISTORICAL-EVENTS-01) lists raw client RTL UIDs, so it
+    # carries the same roles as the detail and Network routes; the callback
+    # re-checks the device scope. A Technician gets neither.
+    "historical_events": _UNRESTRICTED_DEVICE_SCOPE_ROLES,
     "notifications": _OPERATIONAL_ROLES,
     "reports": _EVERY_ROLE,
     "command_center": _OPERATIONAL_ROLES,
