@@ -79,6 +79,24 @@ class RTLTransformerMapping:
 
 
 @dataclass(frozen=True)
+class RTLTransformerHierarchy:
+    """One row of ``dbo.vw_transformer_org_hierarchy`` (client reference data).
+
+    Every level is nullable: 7 mapped transformers currently have no hierarchy
+    at all. Values are source text, never fuzzy-matched or completed. This is
+    factual context, not a claim that the client has confirmed TUG authority.
+    """
+
+    device_uid: int
+    transformer_code: str
+    operating_unit: str | None
+    zone: str | None
+    sector: str | None
+    cnc: str | None
+    feeder: str | None
+
+
+@dataclass(frozen=True)
 class RTLLatestTemperature:
     """The latest raw reading state for one UID from a set-based latest read.
 
@@ -143,6 +161,13 @@ _TRANSFORMER_MAPPINGS_SQL = """
 SELECT device_uid, trfr
 FROM dbo.trfr_list
 ORDER BY device_uid ASC, trfr ASC, id ASC
+"""
+
+_TRANSFORMER_HIERARCHY_SQL = """
+SELECT device_uid, trfr, OU, Zone, Sector, CNC, Feeder
+FROM dbo.vw_transformer_org_hierarchy
+WHERE device_uid IS NOT NULL
+ORDER BY device_uid ASC, trfr ASC
 """
 
 _LATEST_BATCH_SQL = """
@@ -215,6 +240,14 @@ def _connect_read_only() -> _Connection:
     )
 
 
+def _text_or_none(value: object) -> str | None:
+    """Source text with surrounding whitespace removed; blank means missing."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _as_reading(row: object) -> RTLTemperatureReading:
     """Turn the three selected columns into the deliberately small contract."""
     device_uid, reading_time, temperature = row  # pymssql rows support unpacking
@@ -249,6 +282,25 @@ class RTLTemperatureRepository:
     def get_transformer_mappings(self) -> list[RTLTransformerMapping]:
         """Return observed source UID-to-transformer-code rows, not an authority claim."""
         return self._fetch_transformer_mappings(_TRANSFORMER_MAPPINGS_SQL, ())
+
+    def get_transformer_hierarchy(self) -> list[RTLTransformerHierarchy]:
+        """Return the source hierarchy view rows keyed by UID (SELECT only)."""
+        def run(cursor: _Cursor) -> list[RTLTransformerHierarchy]:
+            cursor.execute(_TRANSFORMER_HIERARCHY_SQL, ())
+            return [
+                RTLTransformerHierarchy(
+                    device_uid=int(uid),
+                    transformer_code=str(trfr),
+                    operating_unit=_text_or_none(ou),
+                    zone=_text_or_none(zone),
+                    sector=_text_or_none(sector),
+                    cnc=_text_or_none(cnc),
+                    feeder=_text_or_none(feeder),
+                )
+                for uid, trfr, ou, zone, sector, cnc, feeder in cursor.fetchall()
+            ]
+
+        return self._read(run)
 
     def get_registered_device_uids(self) -> list[int]:
         """UIDs with a ``device_list`` row (source registration fact only)."""

@@ -32,13 +32,16 @@ HIDDEN_CLASS = "app-shell__utility--hidden"
 #: Routes that mean the same page for every role. `/` is deliberately absent
 #: — see `TestTheRootPath`.
 MONITORING_ROUTES = [
-    "/plants",
     "/plants/plant-01",
     "/plants/plant-01/plant-01-t1",
     "/devices/plant-01-t1-d1",
 ]
 
+#: SATURDAY-REAL-FLEET-01: `/plants` is the real client-RTL Fleet Overview. The
+#: navigator cascades over the synthetic PostgreSQL Plant -> Transformer ->
+#: Device model, so it is hidden there rather than shown beside client data.
 NON_MONITORING_ROUTES = [
+    "/plants",
     "/admin/devices",
     "/admin/devices/new",
     "/admin/users",
@@ -76,9 +79,9 @@ def test_unrecognised_route_hides_rather_than_guesses():
 
 
 def test_absent_pathname_is_treated_as_the_overview():
-    """`parse_pathname(None)` is the overview, and the first paint is the
-    login page, which the shell already hides in CSS."""
-    assert HIDDEN_CLASS not in class_name_for(None)
+    """`parse_pathname(None)` is the overview, which now hides the navigator
+    (real client-RTL data); the first paint is the login page anyway."""
+    assert HIDDEN_CLASS in class_name_for(None)
 
 
 @pytest.mark.parametrize("collapse_data", [None, {}, {"collapsed": False}, {"collapsed": True}])
@@ -89,14 +92,14 @@ def test_hidden_route_wins_over_every_collapse_state(collapse_data):
 @pytest.mark.parametrize("collapse_data", [None, {}, {"collapsed": False}, {"collapsed": True}])
 def test_collapse_still_works_where_the_column_is_shown(collapse_data):
     collapsed = bool(collapse_data and collapse_data.get("collapsed"))
-    classes = class_name_for("/plants", collapse_data)
+    classes = class_name_for("/plants/plant-01", collapse_data)
     assert ("app-shell__utility--collapsed" in classes) == collapsed
 
 
 def test_accessible_outputs_are_unchanged_by_route():
     """Route decides allocation, never the toggle's meaning — a hidden column
     must not start describing itself as expanded when it is collapsed."""
-    for pathname in ("/plants", "/admin/devices"):
+    for pathname in ("/plants", "/admin/devices"):  # both hidden routes
         _class_name, hidden, expanded, label, title = nav.utility_presentation(
             {"collapsed": True}, pathname
         )
@@ -132,16 +135,17 @@ class TestTheRootPath:
         assert HIDDEN_CLASS in class_name_for(pathname, role=role)
 
     @pytest.mark.parametrize("pathname", ["/", "", None])
-    def test_root_shows_it_for_a_general_user(self, pathname):
-        """A General User lands on the Fleet Overview at `/`, which is a
-        monitoring route — the fix must not take the navigator from them."""
-        assert HIDDEN_CLASS not in class_name_for(pathname, role=GENERAL)
+    def test_root_hides_it_for_a_general_user(self, pathname):
+        """A General User lands on the Fleet Overview at `/`, which now shows
+        real client-RTL data, so the synthetic-model navigator stays hidden."""
+        assert HIDDEN_CLASS in class_name_for(pathname, role=GENERAL)
 
     @pytest.mark.parametrize("pathname", ["/", "", None])
-    def test_root_shows_it_with_no_role(self, pathname):
-        """Signed out, `landing_route_name` leaves the route alone, and the
-        shell hides the whole column in CSS behind `:has(.login-page)`."""
-        assert HIDDEN_CLASS not in class_name_for(pathname, role=None)
+    def test_root_hides_it_with_no_role(self, pathname):
+        """Signed out, `landing_route_name` leaves the route alone (the
+        overview, now hidden); the shell also hides the column in CSS behind
+        `:has(.login-page)`."""
+        assert HIDDEN_CLASS in class_name_for(pathname, role=None)
 
     @pytest.mark.parametrize("role", [ADMINISTRATOR, TECHNICIAN, GENERAL, None])
     def test_command_center_path_hides_it_for_everyone(self, role):

@@ -1,9 +1,9 @@
 # Active Gate
 
-Status: **IN PROGRESS — DOCUMENTATION / CONTEXT ONLY**
+Status: **IMPLEMENTED — VERIFIED (awaiting next gate definition)**
 Date: 2026-09-30
-Gate: SQLSERVER-EVIDENCE-CONSOLIDATION-11 — Client SQL Server Evidence Consolidation
-Baseline: `3571b24`
+Gate: SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview
+Baseline: `d0ff59e`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
 ## SQLSERVER-TARGET-ARCH-01 — CLOSED / PASS
@@ -30,9 +30,79 @@ temperature values remain ambiguous.
 
 Audit deliverables: `docs/audit/sqlserver-target-arch-01/`.
 
-## Next implementation gate: SQLSERVER-EVIDENCE-CONSOLIDATION-11 — Client SQL Server Evidence Consolidation
+## Next implementation gate: SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview
 
-Status: **IN PROGRESS — DOCUMENTATION / CONTEXT ONLY**
+Status: **IMPLEMENTED — VERIFIED**
+
+Replace the synthetic Fleet Overview data path (`/plants`) with a factual,
+read-only view of the client RTL SQL Server. **No SQL Server write capability
+is introduced; no PostgreSQL change, removal or migration.**
+
+Data sources (read-only, no fallback of any kind):
+
+- `dbo.device_list` — the registered population (339 today; labelled
+  "Registered RTLs", never active/online/operational). Telemetry-only and
+  historical-only UIDs are not shown.
+- `dbo.master_temperature` — latest temperature and last-reading time, one
+  set-based batched read via `rtl_source_facts_service.get_latest_temperatures`
+  (existing ambiguity semantics: conflicting latest values stay ambiguous).
+  Source times are naive SAST (ADR-029), shown unconverted.
+- `dbo.trfr_list` + `dbo.vw_transformer_org_hierarchy` — raw transformer
+  mapping and Zone / Sector / CNC / Feeder context, exact-code match only.
+  Unmapped RTLs stay visible ("No current transformer mapping"); mapped RTLs
+  without a hierarchy path show "Hierarchy unavailable".
+
+Behaviour: no Online/Offline or freshness verdict; no `vw_installed_rtls`,
+`device_status` or `comms_alarm`; none of the seven electrical metrics;
+no "Plant" terminology. The "111 with operational evidence in 2026" analytical
+classification is NOT exposed (it would need a multi-table evidence engine);
+the summary shows Registered RTLs, Current transformer mappings, With
+temperature data, No temperature data. Authorization: only an unrestricted
+device scope (Administrator, General User) sees the RTL fleet; Technician and
+unknown/no-session scopes get an explicit restricted panel and the RTL source
+is not read for them (there is no approved raw-UID-to-assignment map).
+The legacy synthetic `fleet_overview_service` / `components/fleet_overview.py`
+remain in the repository with their own tests but are no longer wired to the
+Fleet Overview route.
+
+### Relevant files
+
+- `services/rtl_fleet_service.py`
+- `components/rtl_fleet.py`
+- `pages/plants_overview.py`
+- `callbacks/fleet_overview.py`
+- `repositories/rtl_temperature_repository.py`
+- `services/rtl_source_facts_service.py`
+- `tests/test_rtl_fleet.py`
+- `tests/test_fleet_overview_page.py`
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`
+- `docs/decisions/ADR-029-sql-server-only-target-architecture.md`
+
+### Non-goals
+
+Online/Offline policy, lifecycle states, operational-evidence classification,
+technician-scoped RTL visibility, RTL device-page linking, PostgreSQL change,
+any SQL Server write or DDL.
+
+### Close evidence
+
+Acceptance record and screenshots: `docs/audit/saturday-real-fleet-01/`.
+Live result against the restored client database: 339 registered RTLs, 185
+current mappings, 319 with temperature data, 20 without, 154 unmapped, 7 mapped
+without hierarchy, 0 ambiguous latest values. SQL Server stayed `READ_ONLY`
+(`rtl_app_reader` UPDATE/INSERT/DELETE/ALTER all denied); counts unchanged
+(`master_temperature` 2,456,901, telemetry UIDs 400, `device_list` 339,
+`trfr_list` 185). No PostgreSQL schema change. The shell's synthetic
+Plant/Transformer/Device navigator is hidden on `/plants`.
+
+Known unrelated environment failures in the DB-marked suite (local PostgreSQL
+carries live-simulator rows beyond the 1,383,360-row seed): `test_seed_integrity`
+(5) and `test_plant_monitoring_repository` range tests (2). They read only
+PostgreSQL and are untouched by this gate.
+
+## SQLSERVER-EVIDENCE-CONSOLIDATION-11 — CLOSED / PASS
+
+Committed and pushed at `d0ff59e`. Consolidation gate, kept for record:
 
 Consolidate the completed read-only client SQL Server audits into one
 reference, `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`, and point

@@ -76,10 +76,15 @@ def test_the_colour_key_names_every_level_and_says_blue_is_selection():
     assert "Blue" in text and "never a status" in text
 
 
-def test_both_pages_show_the_key():
-    from pages import command_center, plants_overview
-    for page in (plants_overview, command_center):
-        assert any(getattr(n, "className", "") == "colour-key" for n in _walk(page.layout())), page
+def test_the_command_center_shows_the_key():
+    from pages import command_center
+    assert any(getattr(n, "className", "") == "colour-key" for n in _walk(command_center.layout()))
+
+
+def test_the_real_fleet_overview_uses_no_status_colours_so_shows_no_key():
+    """SATURDAY-REAL-FLEET-01: factual rows only, no Normal/Warning/Critical rating."""
+    from pages import plants_overview
+    assert not any(getattr(n, "className", "") == "colour-key" for n in _walk(plants_overview.layout()))
 
 
 def test_the_command_center_names_the_fault_card_device_fault():

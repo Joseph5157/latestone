@@ -1,86 +1,70 @@
-"""The Fleet Overview's one callback (FO-NEW-1, SWITCH-OVER-1).
+"""The Fleet Overview's one callback (SATURDAY-REAL-FLEET-01).
 
-One page load = one scope resolution (ADR-004) = one
-`fleet_overview_service` snapshot = every output. A failed read shows the
-shared error panel instead of an empty list, so an unreachable database never
-reads as "no plants".
+One page load = one scope resolution (ADR-004) = one `rtl_fleet_service`
+snapshot = every output. The data is the read-only client RTL SQL Server; there
+is no PostgreSQL or synthetic fallback. An unreachable source shows the shared
+error panel, never an empty fleet. Roles without an approved raw-RTL
+visibility rule get an explicit restricted panel and the RTL source is not
+read for them.
 
-A filter chip or sort change re-runs the same path (POLISH-1): one fresh
-snapshot, narrowed and ordered by `filter_and_sort`, with the chip counts
-taken from that same snapshot.
+A filter chip change re-runs the same path: one fresh snapshot, narrowed by
+`filter_rows`, with the chip counts taken from that same snapshot.
 """
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
 
-from dash import ALL, Input, Output, ctx, no_update
+from dash import Input, Output, no_update
 
-from components import fleet_overview as ui
+from components import rtl_fleet as ui
 from components.status_panels import error_panel
 from pages import plants_overview as page
 from services.device_scope import current_device_scope
-from services.fleet_overview_service import FILTER_ALL, SORT_NAME, filter_and_sort, get_fleet_overview
+from services.rtl_fleet_service import FleetStatus, get_real_fleet, may_view_real_fleet
 
 logger = logging.getLogger(__name__)
 
 ROUTE = "overview"
-OUTPUTS = 7  # stat cards, refreshed, limits, plants, error, filter options, condition bar
+OUTPUTS = 5  # stat cards, refreshed, list, error, filter options
 
 
-def populate(context, filter_key=FILTER_ALL, sort_key=SORT_NAME, *,
-             fetch=get_fleet_overview, scope_for=current_device_scope):
+def populate(context, filter_key=ui.FILTER_ALL, *,
+             fetch=get_real_fleet, scope_for=current_device_scope):
     """Body of the callback, testable without a Dash runtime."""
     if not context or context.get("route") != ROUTE:
         return (no_update,) * OUTPUTS
     try:
+        scope = scope_for()
+        if not may_view_real_fleet(scope):
+            return None, None, ui.restricted_panel(), None, []
         now = datetime.now(timezone.utc)
-        view = fetch(scope_for(), now=now)
+        fleet = fetch()
     except Exception:
         logger.exception("Failed to load the Fleet Overview")
-        return None, None, None, [], error_panel(), [], None
+        return None, None, [], error_panel(), []
+    if fleet.status is not FleetStatus.DATA or fleet.summary is None:
+        return None, None, [], error_panel(
+            "The client RTL data source is unavailable. No RTL data is shown."
+        ), []
     return (
-        ui.stat_cards(view),
+        ui.summary_cards(fleet.summary),
         f"Updated {now.strftime('%d %b %Y %H:%M UTC')}",
-        ui.limits_line(view.limits),
-        ui.plant_list(view, filter_and_sort(view, filter_key or FILTER_ALL, sort_key or SORT_NAME)),
+        ui.fleet_table(ui.filter_rows(fleet, filter_key or ui.FILTER_ALL)),
         None,
-        ui.filter_options(view),
-        ui.condition_bar(view),
+        ui.filter_options(fleet),
     )
-
-
-def jump_outputs(trigger, clicks) -> tuple:
-    """(filter value, sort value) for a click on a card or bar segment.
-    Pattern inputs also fire when the cards re-render with n_clicks 0; only
-    a real click acts."""
-    if not clicks or not isinstance(trigger, dict):
-        return no_update, no_update
-    return (trigger.get("filter") or no_update, trigger.get("sort") or no_update)
 
 
 def register(app) -> None:
     @app.callback(
         Output(page.STATS_ID, "children"),
         Output(page.REFRESHED_ID, "children"),
-        Output(page.LIMITS_ID, "children"),
-        Output(page.PLANTS_ID, "children"),
+        Output(page.LIST_ID, "children"),
         Output(page.ERROR_ID, "children"),
         Output(page.FILTER_ID, "options"),
-        Output(page.CONDITION_ID, "children"),
         Input("page-context", "data"),
         Input(page.FILTER_ID, "value"),
-        Input(page.SORT_ID, "value"),
     )
-    def populate_fleet_overview(context, filter_key, sort_key):
-        return populate(context, filter_key, sort_key)
-
-    @app.callback(
-        Output(page.FILTER_ID, "value"),
-        Output(page.SORT_ID, "value"),
-        Input({"type": ui.JUMP, "part": ALL, "filter": ALL, "sort": ALL}, "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def jump_from_card(_clicks):
-        value = ctx.triggered[0]["value"] if ctx.triggered else None
-        return jump_outputs(ctx.triggered_id, value)
+    def populate_fleet_overview(context, filter_key):
+        return populate(context, filter_key)

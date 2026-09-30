@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T06:02:18Z
+Date: 2026-09-30T06:27:48Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `3571b24` "docs(architecture): close SQL Server target mapping audit"
-- Working tree: 13 entries — see below
+- `main` = `d0ff59e` "docs(database): consolidate client SQL Server evidence"
+- Working tree: 16 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3195 passed, 3 skipped, 731 deselected in 32.87s
+- `python -m pytest -m "not db"` → 3221 passed, 3 skipped, 731 deselected in 34.72s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 480 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 330 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 480 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 481 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 331 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 481 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -113,23 +113,26 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-SQLSERVER-EVIDENCE-CONSOLIDATION-11 — Client SQL Server Evidence Consolidation — full detail in `docs/context/ACTIVE_GATE.md`.
+SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-M AGENTS.md
- M DATABASE.md
- D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+ M callbacks/fleet_overview.py
+ M callbacks/navigation.py
  M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
- M docs/context/SOURCE_AUTHORITY.md
- M scripts/build_context_pack.py
+ M pages/plants_overview.py
+ M repositories/rtl_temperature_repository.py
+ M tests/test_fleet_overview_page.py
+ M tests/test_status_colors.py
+ M tests/test_utility_route_visibility.py
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? components/rtl_fleet.py
 ?? docs/audit/project-audit-1/results/
-?? docs/client/CLIENT_DB_CLARIFICATION_01.md
-?? docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md
-?? docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md
+?? docs/audit/saturday-real-fleet-01/
+?? services/rtl_fleet_service.py
+?? tests/test_rtl_fleet.py
 ```
 

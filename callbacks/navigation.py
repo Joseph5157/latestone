@@ -123,7 +123,12 @@ def toggle_aria_label(collapse_data) -> str:
 #: Routes whose task is monitoring. The Asset Navigator's destination is a
 #: device *dashboard*, so on any other route completing its cascade abandons
 #: the task on screen rather than continuing it.
-UTILITY_ROUTES = frozenset({"overview", "plant", "transformer", "device"})
+#:
+#: SATURDAY-REAL-FLEET-01: "overview" is deliberately NOT here. The Fleet
+#: Overview now lists the client's registered RTLs, while the navigator
+#: cascades over the synthetic PostgreSQL Plant -> Transformer -> Device model,
+#: so showing it there would put synthetic Plant data beside real client data.
+UTILITY_ROUTES = frozenset({"plant", "transformer", "device"})
 
 
 def utility_is_visible(pathname, role: str | None = None) -> bool:

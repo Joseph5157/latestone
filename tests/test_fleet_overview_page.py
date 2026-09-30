@@ -1,24 +1,18 @@
-"""FO-NEW-1 / SWITCH-OVER-1: route, policy and callback of the Fleet Overview."""
+"""Fleet Overview route policy and callback (SATURDAY-REAL-FLEET-01)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from decimal import Decimal
 
 from dash import no_update
 
 from callbacks import fleet_overview as cb
+from repositories.rtl_temperature_repository import RTLLatestTemperature
 from routes import FLEET_OVERVIEW_PATH, NAV_KEY_BY_ROUTE, parse_pathname
-from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN, ROUTE_POLICY, may_access_route
-from services.device_scope import DeviceScope
-from services.fleet_overview_service import FleetOverview
-
-
-def _texts(node):
-    if isinstance(node, str):
-        yield node
-        return
-    kids = getattr(node, "children", None)
-    for k in (kids if isinstance(kids, (list, tuple)) else [kids] if kids is not None else []):
-        yield from _texts(k)
+from services.authorization import ADMINISTRATOR, GENERAL, TECHNICIAN, may_access_route
+from services.device_scope import EMPTY, UNRESTRICTED, DeviceScope
+from services.rtl_fleet_service import FleetStatus, RealFleet, build_rows, summarise
+from tests.dash_tree import find_by_class, text_of
 
 
 def test_route_and_policy():
@@ -32,61 +26,64 @@ def test_route_and_policy():
 
 def test_other_routes_do_nothing():
     assert cb.populate({"route": "plant"}) == (no_update,) * cb.OUTPUTS
+    assert cb.populate(None) == (no_update,) * cb.OUTPUTS
 
 
-def test_fetches_once_with_the_resolved_scope():
-    scope = DeviceScope(device_ids=frozenset({"d1"}))
+def _fleet() -> RealFleet:
+    rows = build_rows([2, 1], {}, {}, {})
+    return RealFleet(FleetStatus.DATA, rows, summarise(rows))
+
+
+def test_unrestricted_scope_reads_the_fleet_once():
     calls = []
-
-    def fetch(s, *, now):
-        calls.append(s)
-        return FleetOverview(now, None, ())
-
-    summary, _, limits, plants, error, options, _bar = cb.populate(
-        {"route": "overview"}, fetch=fetch, scope_for=lambda: scope
-    )
-    assert calls == [scope]
-    assert "Reporting" in " ".join(n for n in _texts(summary))
-    assert error is None
-    assert [o["value"] for o in options] == ["all", "no_recent_data"]
+    out = cb.populate({"route": "overview"}, fetch=lambda: calls.append(1) or _fleet(),
+                      scope_for=lambda: UNRESTRICTED)
+    stats, refreshed, listing, error, options = out
+    assert calls == [1] and error is None
+    assert "Registered RTLs" in text_of(stats)
+    assert refreshed.startswith("Updated ")
+    assert [o["value"] for o in options][0] == "all"
+    assert "No temperature data" in text_of(listing)
 
 
-def test_failed_read_shows_the_error_panel_not_an_empty_list():
-    def fetch(s, *, now):
-        raise RuntimeError("db down")
+def test_restricted_scopes_never_read_the_rtl_source():
+    def fetch():
+        raise AssertionError("RTL source must not be read for a restricted scope")
 
-    out = cb.populate({"route": "overview"}, fetch=fetch, scope_for=lambda: None)
-    assert out[3] == [] and out[4] is not None
-
-
-def test_filter_and_sort_reach_the_list():
-    from datetime import timedelta
-    from decimal import Decimal
-    from services.fleet_overview_service import ConditionCounts, PlantView, TransformerView
-    from services.temperature_condition_service import (
-        DeviceTemperature, TemperatureCondition as C, TemperatureLimits,
-    )
-
-    def plant(pid, value, counts):
-        t = DeviceTemperature(pid, f"{pid}-t", "T", f"{pid}-d", "D", value,
-                              datetime.now(timezone.utc) - timedelta(minutes=5), C.NORMAL)
-        return PlantView(pid, pid.upper(), "ZA", (TransformerView(f"{pid}-t", "T", None, None, None, (t,)),),
-                         t, counts)
-
-    view = FleetOverview(datetime.now(timezone.utc), TemperatureLimits(Decimal(36), Decimal(40)), (
-        plant("a", 30.0, ConditionCounts(normal=1)),
-        plant("b", 41.0, ConditionCounts(hot=1)),
-    ))
-    out = cb.populate({"route": "overview"}, "hot", "name",
-                      fetch=lambda s, *, now: view, scope_for=lambda: None)
-    rows = out[3].children
-    assert len(rows) == 1
-    assert {o["value"]: o["label"] for o in out[5]}["hot"] == "Hot · 1"
+    for scope in (EMPTY, DeviceScope(frozenset({"plant-01-t1-d1"})), None):
+        stats, _r, listing, error, options = cb.populate(
+            {"route": "overview"}, fetch=fetch, scope_for=lambda s=scope: s)
+        assert stats is None and error is None and options == []
+        assert find_by_class(listing, "status-panel")
+        assert "plant-01" not in text_of(listing)
 
 
-def test_a_card_click_sets_the_chip_or_sort_and_re_renders_do_nothing():
-    trigger = {"type": "fleet-overview-jump", "part": "hot", "filter": "hot", "sort": ""}
-    assert cb.jump_outputs(trigger, 1) == ("hot", no_update)
-    assert cb.jump_outputs({**trigger, "filter": "", "sort": "hottest"}, 2) == (no_update, "hottest")
-    assert cb.jump_outputs(trigger, 0) == (no_update, no_update)
-    assert cb.jump_outputs(trigger, None) == (no_update, no_update)
+def test_unavailable_source_shows_error_not_an_empty_fleet():
+    out = cb.populate({"route": "overview"},
+                      fetch=lambda: RealFleet(FleetStatus.UNAVAILABLE),
+                      scope_for=lambda: UNRESTRICTED)
+    stats, _r, listing, error, options = out
+    assert stats is None and listing == [] and options == []
+    assert find_by_class(error, "status-panel--error")
+    assert "unavailable" in text_of(error)
+
+
+def test_a_failing_read_shows_the_error_panel_without_internals():
+    def boom():
+        raise RuntimeError("password=hunter2 connection refused")
+
+    _s, _r, listing, error, _o = cb.populate(
+        {"route": "overview"}, fetch=boom, scope_for=lambda: UNRESTRICTED)
+    assert listing == []
+    assert find_by_class(error, "status-panel--error")
+    assert "hunter2" not in text_of(error) and "RuntimeError" not in text_of(error)
+
+
+def test_filter_reaches_the_list():
+    latest = {1: RTLLatestTemperature(1, datetime(2026, 9, 1, 8, 0), Decimal("20"), 1, (Decimal("20"),))}
+    rows = build_rows([1, 2], latest, {}, {})
+    fleet = RealFleet(FleetStatus.DATA, rows, summarise(rows))
+    out = cb.populate({"route": "overview"}, "no_temperature",
+                      fetch=lambda: fleet, scope_for=lambda: UNRESTRICTED)
+    text = text_of(out[2])
+    assert "No temperature data" in text and "20.0" not in text
