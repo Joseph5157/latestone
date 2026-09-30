@@ -7,9 +7,9 @@ client RTL SQL Server only:
 * latest temperature and its source timestamp from ``dbo.master_temperature``,
   via ``rtl_source_facts_service.get_device_facts`` so the ambiguity rule is
   inherited rather than re-implemented;
-* raw ``dbo.trfr_list`` mapping (a candidate, not an approved authority);
-* ``dbo.vw_transformer_org_hierarchy`` context on an exact transformer-code
-  match only;
+* the current network context (transformer, hierarchy, source disagreement)
+  from ``rtl_network_service`` - ADR-031's rule, consumed and never re-derived
+  here (RTL-NETWORK-USE-01);
 * a bounded temperature history window for one UID.
 
 **Registration is the gate.** A numeric UID in a URL is not enough: 81
@@ -42,6 +42,7 @@ from repositories.rtl_temperature_repository import (
     RTLTemperatureRepository,
     RTLTemperatureRepositoryError,
 )
+from services import rtl_network_service as network
 from services import rtl_source_facts_service as facts
 from services.rtl_fleet_service import (
     HierarchyContext,
@@ -112,6 +113,9 @@ class RTLDetail:
     transformer_codes: tuple[str, ...]  # raw trfr_list values; empty when unmapped
     hierarchy_state: HierarchyState
     hierarchy: HierarchyContext | None
+    #: Supporting sources whose latest transformer code differs from the
+    #: current mapping (ADR-031). Informational: the mapping stays the display.
+    disagreements: tuple[network.SourceDisagreement, ...] = ()
     provenance: facts.FactSource = facts.FactSource.CLIENT_RTL_SQLSERVER
 
     @property
@@ -151,29 +155,6 @@ def _repo(repository: RTLTemperatureRepository | None) -> RTLTemperatureReposito
     return repository if repository is not None else RTLTemperatureRepository()
 
 
-def _hierarchy_for(
-    device_uid: int, codes: tuple[str, ...], repository
-) -> tuple[HierarchyState, HierarchyContext | None]:
-    """Hierarchy only where a view row names a transformer this UID maps to.
-
-    An exact code match, identical to the rule ``rtl_fleet_service`` applies:
-    a near miss is treated as "no hierarchy", never fuzzily attached. A row
-    whose every level is blank is UNAVAILABLE too — present but empty is not
-    context.
-    """
-    if not codes:
-        return HierarchyState.NOT_MAPPED, None
-    for row in repository.get_transformer_hierarchy():
-        if row.device_uid != device_uid or row.transformer_code not in codes:
-            continue
-        context = HierarchyContext(
-            row.operating_unit, row.zone, row.sector, row.cnc, row.feeder
-        )
-        if not context.is_empty:
-            return HierarchyState.AVAILABLE, context
-    return HierarchyState.UNAVAILABLE, None
-
-
 def get_rtl_detail(
     device_uid: int, repository: RTLTemperatureRepository | None = None
 ) -> RTLDetailResult:
@@ -193,12 +174,12 @@ def get_rtl_detail(
         if device_uid not in registered:
             return RTLDetailResult(DetailStatus.NOT_REGISTERED, device_uid)
 
-        mappings = repo.get_transformer_mappings()
         latest = repo.get_latest_temperatures([device_uid]).get(device_uid)
-        codes = tuple(
-            sorted(m.transformer_code for m in mappings if m.device_uid == device_uid)
-        )
-        hierarchy_state, hierarchy = _hierarchy_for(device_uid, codes, repo)
+        net_status, net_row = network.get_network_row(device_uid, repo)
+        if net_row is None:
+            if net_status is network.NetworkStatus.DATA:
+                return RTLDetailResult(DetailStatus.NOT_REGISTERED, device_uid)
+            return RTLDetailResult(DetailStatus.UNAVAILABLE, device_uid)
     except (RTLTemperatureRepositoryError, RTLDatabaseConfigurationError) as exc:
         # Operation and exception class only: never SQL, credentials or rows.
         logger.warning("RTL detail unavailable (%s)", type(exc).__name__)
@@ -222,9 +203,10 @@ def get_rtl_detail(
             temperature=value,
             ambiguous_values=tied,
             last_reported=when,
-            transformer_codes=codes,
-            hierarchy_state=hierarchy_state,
-            hierarchy=hierarchy,
+            transformer_codes=net_row.mapping_codes,
+            hierarchy_state=net_row.hierarchy_state,
+            hierarchy=net_row.hierarchy,
+            disagreements=net_row.disagreements,
         ),
     )
 

@@ -48,7 +48,7 @@ def populate(context, filter_key=ui.FILTER_ALL, *,
             "The client RTL data source is unavailable. No RTL data is shown."
         ), []
     return (
-        ui.summary_cards(fleet.summary),
+        ui.summary_block(fleet.summary),
         f"Updated {now.strftime('%d %b %Y %H:%M UTC')}",
         ui.fleet_table(ui.filter_rows(fleet, filter_key or ui.FILTER_ALL)),
         None,

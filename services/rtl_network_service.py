@@ -50,7 +50,7 @@ from services.rtl_fleet_service import HierarchyContext, HierarchyState, may_vie
 __all__ = [
     "CurrentNetworkRow", "CurrentNetwork", "EvidenceSource", "MappingStatus",
     "NetworkFilter", "NetworkStatus", "NetworkSummary", "SourceDisagreement",
-    "build_rows", "get_current_network", "may_view_real_fleet",
+    "build_rows", "get_current_network", "get_network_row", "may_view_real_fleet",
 ]
 
 logger = logging.getLogger(__name__)
@@ -234,6 +234,22 @@ def get_current_network(repository: RTLTemperatureRepository | None = None) -> C
     rows = build_rows(registered, {u: tuple(c) for u, c in mappings.items()},
                       hierarchy_rows, evidence)
     return CurrentNetwork(NetworkStatus.DATA, rows)
+
+
+def get_network_row(
+    device_uid: int, repository: RTLTemperatureRepository | None = None
+) -> tuple[NetworkStatus, CurrentNetworkRow | None]:
+    """The current-network row for one UID, by the SAME rule as the whole view.
+
+    RTL-NETWORK-USE-01. Consumers that show one RTL (the detail page) call this
+    instead of re-deriving mapping, hierarchy or disagreement, so the two pages
+    cannot disagree. It builds the full snapshot (six fixed reads) and selects
+    the row; ``None`` means the UID is not registered.
+    """
+    network = get_current_network(repository)
+    if network.status is not NetworkStatus.DATA:
+        return network.status, None
+    return network.status, next((r for r in network.rows if r.device_uid == device_uid), None)
 
 
 # --------------------------------------------------------------------------

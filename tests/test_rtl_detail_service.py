@@ -80,6 +80,18 @@ class FakeRepo:
             RTLTransformerHierarchy(REGISTERED_AMBIGUOUS, "BB34", None, None, None, None, None),
         ]
 
+    def get_latest_settings_transformer_codes(self):
+        self._guard("settings")
+        return []
+
+    def get_latest_startup_transformer_codes(self):
+        self._guard("startup")
+        return []
+
+    def get_latest_telemetry_transformer_codes(self):
+        self._guard("telemetry")
+        return []
+
     def get_latest_temperatures(self, device_uids):
         self._guard("latest")
         from repositories.rtl_temperature_repository import RTLLatestTemperature
@@ -257,6 +269,33 @@ class TestMappingAndHierarchy:
         assert rtl.hierarchy_state is HierarchyState.NOT_MAPPED
         assert rtl.hierarchy is None
 
+    def test_detail_matches_the_network_service_for_every_uid(self):
+        """RTL-NETWORK-USE-01: one rule, so the two pages cannot disagree."""
+        from services import rtl_network_service as net
+
+        for row in net.get_current_network(FakeRepo()).rows:
+            rtl = get(row.device_uid).rtl
+            assert rtl.hierarchy == row.hierarchy, row.device_uid
+            assert rtl.hierarchy_state is row.hierarchy_state, row.device_uid
+            assert rtl.disagreements == row.disagreements, row.device_uid
+            assert (rtl.transformer_codes[0] if rtl.transformer_codes else None) == row.transformer_code
+
+    def test_detail_carries_source_disagreement_from_the_network_service(self):
+        from repositories.rtl_temperature_repository import RTLReportedTransformerCode as C
+
+        class Disputed(FakeRepo):
+            def get_latest_telemetry_transformer_codes(self):
+                return [C(REGISTERED_MAPPED, "ZZ00")]
+
+        rtl = get(REGISTERED_MAPPED, Disputed()).rtl
+        assert rtl.transformer_codes == ("AA12",)  # the mapping still displays
+        assert [(d.source.value, d.codes) for d in rtl.disagreements] == [("telemetry", ("ZZ00",))]
+
+    def test_detail_holds_no_precedence_logic_of_its_own(self):
+        import inspect
+        src = inspect.getsource(detail)
+        assert "get_transformer_hierarchy" not in src and "get_transformer_mappings" not in src
+
     def test_hierarchy_states_match_the_fleet_page_for_every_uid(self):
         from services import rtl_fleet_service
 
@@ -419,8 +458,9 @@ class TestTheModelCarriesNoUnsupportedClaims:
         }
         assert repository_reads == {
             "get_registered_device_uids",   # dbo.device_list — the gate
-            "get_transformer_mappings",     # dbo.trfr_list
-            "get_transformer_hierarchy",    # dbo.vw_transformer_org_hierarchy
+            # RTL-NETWORK-USE-01: mapping, hierarchy and disagreement come from
+            # the shared current-network service (ADR-031), never read here.
+            "get_network_row",              # rtl_network_service
             "get_latest_temperatures",      # dbo.master_temperature (latest)
             "get_temperature_range",        # dbo.master_temperature (window)
         }

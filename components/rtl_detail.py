@@ -24,7 +24,8 @@ from components.rtl_fleet import (
     source_time,
     temperature_text,
 )
-from routes import RTL_LIST_PATH
+from components.rtl_network import SOURCE_LABELS as _SOURCE_LABELS
+from routes import RTL_LIST_PATH, RTL_NETWORK_PATH
 from services.rtl_detail_service import HistoryStatus, RTLDetail, RTLHistory
 from services.rtl_fleet_service import HierarchyState, TemperatureState
 
@@ -86,6 +87,21 @@ def _context_row(label: str, value: str) -> html.Div:
     ])
 
 
+def mapping_review_note(rtl: RTLDetail):
+    """Restrained note when a supporting source names another transformer.
+
+    Informational only (ADR-031): the current mapping remains the transformer
+    shown and nothing here says it is wrong. Same wording as the Network page.
+    """
+    if not rtl.disagreements:
+        return None
+    return html.P(
+        [f"Mapping review: {_SOURCE_LABELS[d.source.value]} references {', '.join(d.codes)}. "
+         for d in rtl.disagreements],
+        className="rtl-detail-note rtl-detail-review",
+    )
+
+
 def network_context(rtl: RTLDetail) -> html.Section:
     """Zone / Sector / CNC / Feeder for a mapped RTL, on an exact code match.
 
@@ -93,7 +109,10 @@ def network_context(rtl: RTLDetail) -> html.Section:
     RTL, or a mapped one whose hierarchy row is missing, says which of the two
     it is instead of showing blanks.
     """
-    children = [html.H2("Network context", className="rtl-detail-section__title")]
+    children = [
+        html.H2("Network context", className="rtl-detail-section__title"),
+        dcc.Link("View in Network", href=RTL_NETWORK_PATH, className="fleet-overview-link"),
+    ]
 
     if rtl.hierarchy_state is HierarchyState.NOT_MAPPED:
         children.append(html.P(NO_MAPPING, className="rtl-detail-empty"))
@@ -105,6 +124,9 @@ def network_context(rtl: RTLDetail) -> html.Section:
         return html.Section(className="rtl-detail-context", children=children)
 
     children.append(_context_row("Transformer", _transformer_text(rtl)))
+    review = mapping_review_note(rtl)
+    if review is not None:
+        children.append(review)
 
     if rtl.hierarchy_state is HierarchyState.UNAVAILABLE or rtl.hierarchy is None:
         children.append(html.P(NO_HIERARCHY, className="rtl-detail-empty"))

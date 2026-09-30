@@ -437,7 +437,10 @@ class TestOneFleetPath:
             for p in (ROOT / "callbacks").glob("*.py")
             if "get_real_fleet" in p.read_text(encoding="utf-8")
         ]
-        assert owners == ["callbacks/fleet_overview.py"]
+        # RTL-NETWORK-USE-01: the Command Center's real-RTL summary is the one
+        # other consumer; it is a different page, so never a second load in
+        # one render.
+        assert owners == ["callbacks/fleet_overview.py", "callbacks/rtl_summary.py"]
         pages_with_list = [
             p.relative_to(ROOT).as_posix()
             for p in (ROOT / "pages").glob("*.py")

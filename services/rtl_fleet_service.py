@@ -97,6 +97,15 @@ class FleetSummary:
     ambiguous: int
     hierarchy_unavailable: int  # mapped, no hierarchy path
 
+    @property
+    def unmapped(self) -> int:
+        return self.registered - self.mapped
+
+    @property
+    def hierarchy_resolved(self) -> int:
+        """Mapped RTLs with a full hierarchy path (mapped states partition)."""
+        return self.mapped - self.hierarchy_unavailable
+
 
 @dataclass(frozen=True)
 class RealFleet:

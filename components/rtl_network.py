@@ -49,7 +49,7 @@ SCOPE_NOTE = (
     "RTLs are not classified by communication or operating state."
 )
 
-_SOURCE_LABELS = {
+SOURCE_LABELS = {
     "settings": "latest settings record",
     "startup": "latest check-in",
     "telemetry": "latest temperature reading",
@@ -109,7 +109,7 @@ def _transformer_cell(row: CurrentNetworkRow):
         parts.append(html.Span(NO_HIERARCHY, className="fleet-overview-empty network-review"))
     for d in row.disagreements:
         parts.append(html.Span(
-            f"Needs review: {_SOURCE_LABELS[d.source.value]} names {', '.join(d.codes)}",
+            f"Needs review: {SOURCE_LABELS[d.source.value]} names {', '.join(d.codes)}",
             className="network-review",
             title="Sources disagree about this RTL's transformer; none is chosen over the mapping.",
         ))

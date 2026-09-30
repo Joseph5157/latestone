@@ -1,0 +1,40 @@
+
+=== general ===
+landing url: http://127.0.0.1:8050/login
+dashboard (/rtls) coverage: Network coverage: 185 of 339 registered RTLs have a current transformer mapping · 178 hierarchy resolved · 7 hierarchy unavailable. View Network
+stats: REGISTERED RTLS 339 Client RTL directory CURRENT TRANSFORMER MAPPINGS 185 RTLs with a mapping WITH TEMPERATURE DATA 319 Latest reading on record NO TEMPERATURE DATA 20 Registered, no reading on record
+coverage link -> http://127.0.0.1:8050/rtls/network
+RTL 29042 network context: Network context | View in Network | Transformer | EMV35 |  | Mapping review: latest temperature reading references ozw28. |  | Operating Unit | KwaZulu-Natal Operating Unit | Zone | Pietermaritzburg Zone | Sector | Pietermaritzburg Sector | CNC | Howick CNC | Feeder | Edendale NBEC 22kV Cable Overhead Line
+RTL 29042 summary: LATEST TEMPERATURE | 29.0 °C | Latest reading on record | LAST READING | 18 Sep 2022 20:20 SAST | As recorded by the RTL source (SAST) | TRANSFORMER | EMV35 | Current mapping
+RTL 29042 history note: 17 Sep 2022 20:20 SAST to 18 Sep 2022 20:20 SAST / 1 reading
+[rtl 29042] forbidden-word hits: none
+RTL 29639 network context: Network context | View in Network | Transformer | DA10 | Operating Unit | KwaZulu-Natal Operating Unit | Zone | Empangeni Zone | Sector | Empangeni Sector | CNC | Empangeni CNC | Feeder | Ngoye NB29 11kV Cable Overhead Line
+RTL 29639 summary: LATEST TEMPERATURE | 38.0 °C | Latest reading on record | LAST READING | 17 Oct 2023 19:14 SAST | As recorded by the RTL source (SAST) | TRANSFORMER | DA10 | Current mapping
+RTL 29639 history note: 16 Oct 2023 19:14 SAST to 17 Oct 2023 19:14 SAST / 1 reading
+[rtl 29639] forbidden-word hits: none
+RTL 29006 network context: Network context | View in Network |  | No current transformer mapping |  | This RTL has no current transformer mapping in the client source, so it has no network context.
+RTL 29006 summary: LATEST TEMPERATURE | 18.0 °C | Latest reading on record | LAST READING | 20 Oct 2017 05:41 SAST | As recorded by the RTL source (SAST) | TRANSFORMER | No current transformer mapping | Not currently mapped
+RTL 29006 history note: 19 Oct 2017 05:41 SAST to 20 Oct 2017 05:41 SAST / 48 readings
+[rtl 29006] forbidden-word hits: none
+RTL 29646 network context: Network context | View in Network | Transformer | PINS206 |  | Hierarchy unavailable |  | The client hierarchy reference has no entry for this transformer code. No hierarchy is inferred.
+RTL 29646 summary: LATEST TEMPERATURE | 31.0 °C | Latest reading on record | LAST READING | 15 Sep 2026 09:58 SAST | As recorded by the RTL source (SAST) | TRANSFORMER | PINS206 | Current mapping
+RTL 29646 history note: 14 Sep 2026 09:58 SAST to 15 Sep 2026 09:58 SAST / 1 reading
+[rtl 29646] forbidden-word hits: none
+
+=== administrator ===
+landing url: http://127.0.0.1:8050/login
+command center RTL summary: Registered RTLs (client directory) | REGISTERED RTLS | 339 | Client RTL directory | MAPPED RTLS | 185 | With a current transformer mapping | UNMAPPED RTLS | 154 | No current transformer mapping | TEMPERATURE DATA AVAILABLE | 319 | 20 with no reading on record |  | Network coverage: 185 of 339 registered RTLs have a current transformer mapping · 178 hierarchy resolved · 7 hierarchy unavailable. View Network |  | View Registered RTLs
+[admin real summary] forbidden-word hits: none
+summary links: ['/rtls/network', '/rtls']
+link -> http://127.0.0.1:8050/rtls
+RTL 29042 network context: Network context | View in Network | Transformer | EMV35 |  | Mapping review: latest temperature reading references ozw28. |  | Operating Unit | KwaZulu-Natal Operating Unit | Zone | Pietermaritzburg Zone | Sector | Pietermaritzburg Sector | CNC | Howick CNC | Feeder | Edendale NBEC 22kV Cable Overhead Line
+RTL 29042 summary: LATEST TEMPERATURE | 29.0 °C | Latest reading on record | LAST READING | 18 Sep 2022 20:20 SAST | As recorded by the RTL source (SAST) | TRANSFORMER | EMV35 | Current mapping
+RTL 29042 history note: 17 Sep 2022 20:20 SAST to 18 Sep 2022 20:20 SAST / 1 reading
+[rtl 29042] forbidden-word hits: none
+
+=== technician ===
+landing url: http://127.0.0.1:8050/login
+technician command center: summary panel present=0; 'Registered RTLs (client directory)' in page=False; /rtls/<uid> links=False; 'Network coverage' in page=False
+technician /rtls/29042: and Center / OPERATIONS / Devices / SYSTEM / Notifications / Reports / Dark / Light / Logout / No access /  / Your account does not have access to this page. /  / Back to Registered RTLs ; zone text leaked=False
+
+console errors: 0

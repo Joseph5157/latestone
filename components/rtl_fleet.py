@@ -13,7 +13,7 @@ from decimal import Decimal
 from dash import dcc, html
 
 from components.kpi_card import kpi_card
-from routes import rtl_detail_href
+from routes import RTL_LIST_PATH, RTL_NETWORK_PATH, rtl_detail_href
 from services.rtl_fleet_service import (
     FleetSummary,
     HierarchyState,
@@ -83,6 +83,43 @@ def summary_cards(summary: FleetSummary) -> html.Div:
         kpi_card("Current transformer mappings", str(summary.mapped), "RTLs with a mapping"),
         kpi_card("With temperature data", str(summary.with_temperature), with_note),
         kpi_card("No temperature data", str(summary.no_temperature), "Registered, no reading on record"),
+    ])
+
+
+def network_coverage_line(summary: FleetSummary) -> html.P:
+    """One factual line of network coverage with the way into the Network view.
+
+    Derived from the same fleet snapshot as the cards (the fleet rows apply the
+    ADR-031 mapping/hierarchy rule), so it costs no further source read.
+    """
+    return html.P(className="fleet-overview-limits network-coverage", children=[
+        f"Network coverage: {summary.mapped} of {summary.registered} registered RTLs have a "
+        f"current transformer mapping · {summary.hierarchy_resolved} hierarchy resolved · "
+        f"{summary.hierarchy_unavailable} hierarchy unavailable. ",
+        dcc.Link("View Network", href=RTL_NETWORK_PATH, className="fleet-overview-link"),
+    ])
+
+
+def summary_block(summary: FleetSummary) -> html.Div:
+    return html.Div([summary_cards(summary), network_coverage_line(summary)])
+
+
+def rtl_summary_panel(summary: FleetSummary) -> html.Section:
+    """Compact real-RTL summary for the Command Center (RTL-NETWORK-USE-01).
+
+    Facts only: no communication or operating state, and no synthetic counts.
+    """
+    return html.Section(className="rtl-summary-panel", children=[
+        html.H2("Registered RTLs (client directory)", className="rtl-detail-section__title"),
+        html.Div(className="kpi-row fleet-overview-stats", children=[
+            kpi_card("Registered RTLs", str(summary.registered), "Client RTL directory"),
+            kpi_card("Mapped RTLs", str(summary.mapped), "With a current transformer mapping"),
+            kpi_card("Unmapped RTLs", str(summary.unmapped), NO_MAPPING),
+            kpi_card("Temperature data available", str(summary.with_temperature),
+                     f"{summary.no_temperature} with no reading on record"),
+        ]),
+        network_coverage_line(summary),
+        dcc.Link("View Registered RTLs", href=RTL_LIST_PATH, className="fleet-overview-link"),
     ])
 
 

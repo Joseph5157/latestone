@@ -35,6 +35,7 @@ TREND_ID = "attention-trend-slot"
 #: callback listens to so an acknowledgement refreshes the list at once.
 ACTION_RESULT_ID = "attention-action-result"
 ACK_STORE_ID = "attention-ack-store"
+RTL_SUMMARY_ID = "command-center-rtl-summary"
 ROOT_ID = "command-center-root"
 ROOT_CLASS = "page page--monitoring page--command-center"
 #: CLICK-FILTER-1: the severity tone the problem list is narrowed to, or None.
@@ -91,6 +92,9 @@ def layout() -> html.Div:
             *(dcc.Store(id=click_id, storage_type="memory")
               for click_id in (SEVERITY_CLICK_ID, ACK_CLICK_ID, MANAGE_CLICK_ID, FOLD_CLICK_ID)),
             html.Div(id=ACTION_RESULT_ID, className="attention-notice", **{"aria-live": "polite"}),
+            # RTL-NETWORK-USE-01: real client RTL facts, filled by
+            # callbacks/rtl_summary.py; stays empty for roles not permitted.
+            html.Div(id=RTL_SUMMARY_ID),
             html.Div(id=STATUS_SLOT_ID, children=[_loading("status")]),
             colour_key(),
             html.Div(
