@@ -3,6 +3,16 @@
 Date: 2026-09-30 · Baseline `d0ff59e` · Viewport 1366×900 · Local app against the
 restored client `RTL` SQL Server (`rtl_app_reader`, SELECT only).
 
+## Correction note (closure re-run)
+
+The first commit of this note (`eec92e4`) shipped `fleet-1366-general.png`
+captured BEFORE the Asset Navigator was hidden on `/plants`; that screenshot
+still showed the synthetic Plant / Transformer / Device navigator and so
+contradicted the note and the code. It was stale. The closure re-run below was
+performed on `eec92e4` code (fresh app process, General User, 1366×900) and the
+screenshot was replaced. The other three screenshots were captured after the
+navigator fix and are unchanged.
+
 ## What the page shows
 
 `/plants` (route unchanged) lists the registered client RTL directory:
@@ -29,6 +39,16 @@ metrics. Source times are naive SAST values shown unconverted.
 | No current transformer mapping | 154 | 154 |
 | Mapped RTLs with hierarchy unavailable | 7 (service) | 7 |
 | Ambiguous latest temperatures | 0 | 0 in current snapshot |
+
+Closure re-run (commit `eec92e4`, General User `demo.general01`, 1366×900):
+339 table rows; cards 339 / 185 / 319 / 20; chips All 339 · With temperature 319
+· No temperature data 20 · No current transformer mapping 154; 20 rows read
+"No temperature data" and 154 read "No current transformer mapping"; the
+utility column (Asset Navigator) is hidden; forbidden-word scan (plant, voltage,
+current, active/reactive power, power factor, frequency, energy, offline, null,
+undefined, NaN) found nothing; "online" occurs once, only in the negating note
+"This is not a count of active or online RTLs."; no email/phone/password/API-key
+patterns in any row; browser console 0 errors (1 pre-existing warning).
 
 Fleet load time: ~0.4 s (4 SELECT round trips; latest read batched).
 
@@ -67,6 +87,17 @@ Rationale: there is no approved raw-client-UID-to-technician-assignment map
 - Counts unchanged: `master_temperature` 2,456,901 · telemetry UIDs 400 ·
   `device_list` 339 · `trfr_list` 185.
 - No PostgreSQL schema, Alembic or seed change.
+
+## Regression (closure run)
+
+`python -m pytest -m "not db"` → **3221 passed, 3 skipped, 0 failed, 731
+deselected** in 34.73 s (3,224 selected). Focused fleet/route/colour suites: 105
+passed.
+
+Seven DB-marked PostgreSQL tests (`test_seed_integrity` ×5,
+`test_plant_monitoring_repository` range ×2) fail on local simulator/data drift
+(1,551,454 `readings` rows vs the 1,383,360 seed). Independently classified as
+unrelated to this gate; PostgreSQL was deliberately not reseeded or modified.
 
 ## Deferred (not in this gate)
 

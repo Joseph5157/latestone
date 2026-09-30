@@ -1,6 +1,6 @@
 # Active Gate
 
-Status: **IMPLEMENTED — VERIFIED (awaiting next gate definition)**
+Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
 Gate: SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview
 Baseline: `d0ff59e`
@@ -32,7 +32,7 @@ Audit deliverables: `docs/audit/sqlserver-target-arch-01/`.
 
 ## Next implementation gate: SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview
 
-Status: **IMPLEMENTED — VERIFIED**
+Status: **CLOSED / PASS**
 
 Replace the synthetic Fleet Overview data path (`/plants`) with a factual,
 read-only view of the client RTL SQL Server. **No SQL Server write capability
@@ -95,10 +95,14 @@ without hierarchy, 0 ambiguous latest values. SQL Server stayed `READ_ONLY`
 `trfr_list` 185). No PostgreSQL schema change. The shell's synthetic
 Plant/Transformer/Device navigator is hidden on `/plants`.
 
-Known unrelated environment failures in the DB-marked suite (local PostgreSQL
-carries live-simulator rows beyond the 1,383,360-row seed): `test_seed_integrity`
-(5) and `test_plant_monitoring_repository` range tests (2). They read only
-PostgreSQL and are untouched by this gate.
+Closure re-run on `eec92e4`: browser acceptance repeated (the first
+`fleet-1366-general.png` was stale and was replaced); non-DB suite 3221 passed,
+3 skipped, 0 failed, 731 deselected; SQL Server READ_ONLY with counts unchanged.
+
+Seven DB-marked PostgreSQL failures (`test_seed_integrity` ×5,
+`test_plant_monitoring_repository` range ×2) are pre-existing local
+simulator/data drift (1,551,454 `readings` rows vs the 1,383,360 seed) — not
+gate failures. PostgreSQL was not reseeded or modified.
 
 ## SQLSERVER-EVIDENCE-CONSOLIDATION-11 — CLOSED / PASS
 
