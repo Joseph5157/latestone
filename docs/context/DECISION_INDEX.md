@@ -45,7 +45,7 @@ either "approved" means "built" or "not yet" means "undecided."
 | [ADR-027](../decisions/ADR-027-device-page-alarm-history.md) | Device page shows the RTL's own alarms as chart markers, a read-only alarm history list, and shaded "No readings" gaps (> 4 × the RTL's median spacing in the window); Administrators and Technicians only; no new query | Approved | `6bbf26c` |
 | [ADR-028](../decisions/ADR-028-ring-gauges-for-part-of-whole-counts.md) | Ring/donut gauges allowed only for part-of-whole counts (RTLs working, problems by kind); no needle/speedometer dials, no full pies, no single-value gauges; ADR-026 tones, CSS conic-gradient | Approved | `7973853` |
 | [ADR-029](../decisions/ADR-029-sql-server-only-target-architecture.md) | Final production database is SQL Server only; PostgreSQL is transitional; client RTL DB stays read-only until an approved change proposal | Approved | not yet |
-| [ADR-033](../decisions/ADR-033-local-application-authentication-is-authoritative.md) | Local application-managed authentication is authoritative: per-user scrypt hashes in the application PostgreSQL, Pending/Active/Disabled lifecycle, one-time setup/reset links, throttling, session revocation, no SSO, no demo auth in production; ADR-032 scope stays downstream | Approved | not yet |
+| [ADR-033](../decisions/ADR-033-local-application-authentication-is-authoritative.md) | Local application-managed authentication is authoritative: per-user scrypt hashes in the application PostgreSQL, Pending/Active/Disabled lifecycle, one-time setup/reset links, throttling, session revocation, no SSO, no demo auth in production; ADR-032 scope stays downstream | Approved | `78688f4` |
 
 ## Reading this table
 

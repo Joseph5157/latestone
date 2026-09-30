@@ -8,7 +8,7 @@ Evidence: `docs/audit/authentication-realignment-01/AUTHENTICATION_REALIGNMENT.m
 `services/auth_service.py`; `services/account_service.py`;
 `alembic/versions/017_local_auth_hardening.py`;
 `docs/audit/authentication-local-hardening-01/`
-Implemented-by: not yet
+Implemented-by: `78688f4` (`feat(auth): harden local application login`; full sha 78688f457189887f06d220e8b81acb7f7936adb9 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-031/032 did)
 
 ## Context
 

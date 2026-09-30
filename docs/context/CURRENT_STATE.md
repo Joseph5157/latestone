@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T16:22:37Z
+Date: 2026-09-30T16:23:57Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `b166557` "docs(audit): define production authentication model"
-- Working tree: 54 entries — see below
+- `main` = `78688f4` "feat(auth): harden local application login"
+- Working tree: 6 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3833 passed, 3 skipped, 829 deselected in 56.28s
+- `python -m pytest -m "not db"` → 3833 passed, 3 skipped, 829 deselected in 56.23s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 498 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 348 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 498 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 499 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 349 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 499 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -113,7 +113,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-030-rtl-history-windows-anchor-on-the-last-reading.md | Approved | `bc0db73` (`feat(rtl): add UID-based real RTL detail`; full sha bc0db73f98c3ac67362ba214dbd06a7eb0ad890f — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014, ADR-015 and ADR-016 did) |
 | ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md | Approved | `428e092` (`feat(rtl): add current network context`; full sha 428e092ac65b9b2ae239c819826c55a428293491 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-030 did) |
 | ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md | Approved | `ec3be92` (`feat(technicians): scope access to assigned RTLs`; full sha ec3be9243acc54975816f79f3fcadb73018455ef — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-031 did) |
-| ADR-033-local-application-authentication-is-authoritative.md | Approved | not yet |
+| ADR-033-local-application-authentication-is-authoritative.md | Approved | `78688f4` (`feat(auth): harden local application login`; full sha 78688f457189887f06d220e8b81acb7f7936adb9 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-031/032 did) |
 
 ## Active gate
 
@@ -122,59 +122,11 @@ AUTHENTICATION-LOCAL-HARDENING-01 — Harden local application login — full de
 ## Working tree
 
 ```
-M .env.example
- D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M README.md
- M app.py
- M callbacks/auth.py
- M callbacks/routing.py
- M callbacks/user_admin.py
- M components/user_form_drawer.py
- M config/audit.py
- M config/settings.py
- M db/seed_plant_monitoring.py
- M docs/client/CLIENT_DB_CLARIFICATION_01.md
- M docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md
- M docs/context/ACTIVE_GATE.md
- M docs/context/CLIENT_CLARIFICATION_PACK.md
+D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
  M docs/context/DECISION_INDEX.md
- M docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md
- M pages/user_admin.py
- M railway.json
- M repositories/plant_monitoring_repository.py
- M repositories/rtl_assignment_source_repository.py
- M routes.py
- M services/auth_service.py
- M services/prototype_users.py
- M tests/conftest.py
- M tests/test_admin_workflow_hierarchy.py
- M tests/test_auth_harden.py
- M tests/test_auth_identity.py
- M tests/test_device_event_service.py
- M tests/test_equipment_selector.py
- M tests/test_migration_foundation.py
- M tests/test_migration_users.py
- M tests/test_prod_session_hardening.py
- M tests/test_user_admin.py
- M tests/test_user_admin_callbacks.py
+ M docs/decisions/ADR-033-local-application-authentication-is-authoritative.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? alembic/versions/017_local_auth_hardening.py
-?? callbacks/set_password.py
-?? docs/audit/authentication-local-hardening-01/
 ?? docs/audit/project-audit-1/results/
-?? docs/decisions/ADR-033-local-application-authentication-is-authoritative.md
-?? pages/set_password.py
-?? scripts/auth_preflight.py
-?? scripts/bootstrap_admin.py
-?? services/account_service.py
-?? services/auth_preflight.py
-?? services/credentials.py
-?? services/login_security.py
-?? services/login_service.py
-?? tests/test_local_auth_config.py
-?? tests/test_local_auth_db.py
-?? tests/test_migration_local_auth.py
-?? tests/test_user_admin_lifecycle.py
 ```
 
