@@ -2,20 +2,104 @@
 
 Status: **CLOSED / PASS (awaiting next gate definition)**
 Date: 2026-09-30
-Gate: CLIENT-APP-REALIGNMENT-PLAN-01 — Client application realignment
-Baseline: `ce5deac`
+Gate: CLIENT-TERMINOLOGY-NAV-01 — Client RTL terminology and navigation
+Baseline: `5eb3644`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: CLIENT-APP-REALIGNMENT-PLAN-01 — Client application realignment
+## Next implementation gate: CLIENT-TERMINOLOGY-NAV-01 — Client RTL terminology and navigation
 
 Status: **CLOSED / PASS**
+
+Opened by explicit instruction on 2026-09-30, which is the "separate gate"
+CLIENT-APP-REALIGNMENT-PLAN-01 required before this work could begin. Scope is
+the wave-1 nominee in `docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md` §11:
+align the visible language of the routed real-RTL surfaces with the client's
+environment. **Terminology only** — no route path, database query, role policy,
+migration, SQL Server access or legacy-code deletion.
+
+The client hierarchy is Operating Unit → Zone → Sector → CNC → Feeder →
+Transformer → RTL. "Plant" is not a level in it and is no longer presented as
+client production terminology on the real Fleet path.
+
+### What changed
+
+| Surface | Before | After |
+|---|---|---|
+| Sidebar item for `/plants` | `Overview` | `Registered RTLs` |
+| `/plants` heading | `Fleet Overview` | `Registered RTLs` |
+| `/plants` breadcrumb | `Fleet` | `Registered RTLs` |
+| `/plants` subtitle | "Registered RTLs and their latest recorded temperature." | "Every RTL in the client's directory, with its latest recorded temperature." |
+| Not-found panel link | `Back to plants` | `Back to Registered RTLs` |
+| Forbidden panel link | `Back to Fleet Overview` | `Back to Registered RTLs` |
+
+The sidebar key stays `overview` and the href stays `/plants`. Both are
+identity — `routes.NAV_KEY_BY_ROUTE` and `services.authorization.ROUTE_POLICY`
+join on that key — so renaming either would have rewritten the authorization
+map under cover of a wording change. No target-architecture item (Dashboard,
+Network, Historical Events, Technicians, Administration) was added: none has a
+safe destination yet, and this gate must not advertise a page that does not
+exist.
+
+### Relevant files
+
+- `components/app_sidebar.py`
+- `pages/plants_overview.py`
+- `components/status_panels.py`
+- `tests/test_client_terminology.py` (new)
+- `tests/test_fleet_naming.py`
+- `tests/test_app_sidebar.py`
+- `tests/test_route_enforcement.py`
+- `docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md`
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md`
+
+### Non-goals
+
+Route rename to `/rtls`, hierarchy navigation, RTL detail/history, alarms,
+programming, lifecycle, PostgreSQL removal, legacy synthetic code deletion,
+any authorization change, any database change.
+
+### Close evidence
+
+Acceptance record and screenshots: `docs/audit/client-terminology-nav-01/`.
+
+Live at 1366×900 against the restored client SQL Server: 339 registered RTLs,
+185 mappings, 319 with temperature data, 20 without, 154 unmapped — every
+figure matching the knowledge base and the SATURDAY-REAL-FLEET-01 record. A
+whole-word scan of the rendered `/plants` page for Plant/Plants/plant/plants,
+Online/Offline/Healthy/Unhealthy and the seven electrical metrics found
+nothing; "online" occurs only inside the negating scope note. The Asset
+Navigator stays hidden (`display: none`, width 0). Console 0 errors on
+`/plants`.
+
+Authorization verified unchanged in the browser for all three roles:
+Administrator 10 nav items and the full fleet; General User 2 items and the
+full fleet; Technician 5 items, the restricted panel, zero rows and no RTL UID
+rendered; an Administrator-only route still refused with the forbidden panel.
+
+Non-DB suite: **3259 passed, 3 skipped, 0 failed, 731 deselected** — the
+3221 baseline plus 38 new assertions in `tests/test_client_terminology.py`.
+
+No SQL Server, PostgreSQL, Alembic, repository, service or route-path change.
+
+### Remaining terminology debt
+
+Six items are listed in the acceptance record's "Remaining terminology debt"
+section. In short: synthetic drill-down breadcrumbs still read "Fleet"; the
+`overview` nav key still highlights on synthetic routes; `not_found_panel`
+still says "plant" on the legacy `/plants/<id>` route; the synthetic
+admin/report screens keep their Plant columns; the two "Devices" sidebar items
+stay "Devices" because they are synthetic PostgreSQL devices, not client RTLs.
+Every one is deliberate — each describes a genuinely synthetic object, so
+renaming it would be a lie rather than a fix. They belong to the gates that
+retire those pages.
+
+## CLIENT-APP-REALIGNMENT-PLAN-01 — CLOSED / PASS (previous gate, kept for record)
 
 Planning/audit only. The authoritative plan is
 `docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md`. No application code, tests,
 migrations, SQL Server, PostgreSQL, route rename, or legacy-code deletion was
-authorised or changed. The nominated future gate is
-`CLIENT-TERMINOLOGY-NAV-01`; it is **not active** and must not begin until the
-plan is reviewed and a separate gate is opened.
+authorised or changed. Its nominated future gate, `CLIENT-TERMINOLOGY-NAV-01`,
+is the gate recorded above and is now closed.
 
 ## SQLSERVER-TARGET-ARCH-01 — CLOSED / PASS
 

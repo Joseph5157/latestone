@@ -79,7 +79,10 @@ class TestSidebarItems:
     def test_information_architecture_in_order(self):
         labels = [label for _key, label, _href, _icon in _all_items()]
         assert labels == [
-            "Overview", "Command Center",
+            # CLIENT-TERMINOLOGY-NAV-01: "Registered RTLs", not "Overview" —
+            # the item's key stays `overview` (that is the routing and
+            # authorization identity), only the visible word changed.
+            "Registered RTLs", "Command Center",
             # Two "Devices" entries, ADR-016: the Administrator's
             # admin_devices, then the Technician's own technician_devices —
             # mutually exclusive by role (see test_app_sidebar's Icons/Items

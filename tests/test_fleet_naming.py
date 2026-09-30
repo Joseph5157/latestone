@@ -3,6 +3,15 @@
 The route stays /plants and every domain identifier is unchanged — this is a
 presentation rename only. These tests pin the boundary so a future edit cannot
 quietly turn a label change into a routing change.
+
+CLIENT-TERMINOLOGY-NAV-01 moved the /plants page itself off the "Fleet"
+vocabulary: it lists the client's registered RTLs, so it is called "Registered
+RTLs" (asserted in tests/test_client_terminology.py, which owns that wording).
+The synthetic drill-down pages below still read "Fleet" at the root of their
+breadcrumb, deliberately — they show the legacy synthetic Plant model, and
+relabelling their root "Registered RTLs" would assert that a synthetic plant
+sits underneath the client RTL directory, which is false. Retiring those pages
+is a later gate; until then "Fleet" is the vaguer and more honest word.
 """
 import pytest
 
@@ -25,7 +34,7 @@ def _breadcrumb_labels(layout):
 def test_fleet_page_title():
     layout = plants_overview.layout()
     headings = [n for n in walk(layout) if type(n).__name__ == "H1"]
-    assert headings[0].children == "Fleet Overview"
+    assert headings[0].children == "Registered RTLs"
 
 
 def test_fleet_page_subtitle_slot_is_present():
@@ -34,8 +43,10 @@ def test_fleet_page_subtitle_slot_is_present():
     assert find_by_class(layout, "page__subtitle")
 
 
-def test_breadcrumb_root_reads_fleet_on_the_fleet_page():
-    assert _breadcrumb_labels(plants_overview.layout())[0] == "Fleet"
+def test_breadcrumb_root_names_the_registered_rtl_directory():
+    """The one breadcrumb that is NOT "Fleet": this page is the real client
+    directory, and its crumb must agree with its heading."""
+    assert _breadcrumb_labels(plants_overview.layout())[0] == "Registered RTLs"
 
 
 def test_breadcrumb_root_reads_fleet_on_plant_detail():

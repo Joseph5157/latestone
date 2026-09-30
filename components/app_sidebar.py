@@ -8,9 +8,18 @@ equipment selector is the Plant -> Transformer -> Device jump tool used
 inside monitoring context — that split is unchanged by this phase.
 
 The monitoring workflow is deliberately not a top-level destination: the
-Fleet -> Plant -> Transformer -> Device hierarchy and the equipment selector
-are the workflow. The drill-down pages render under Overview, so the
-Overview item stays highlighted while an operator works through them.
+legacy synthetic Plant -> Transformer -> Device hierarchy and the equipment
+selector are that workflow. Those drill-down pages still resolve to the
+`overview` nav key, so its item stays highlighted while an operator works
+through them (routes.NAV_KEY_BY_ROUTE).
+
+CLIENT-TERMINOLOGY-NAV-01: that item is now labelled "Registered RTLs",
+because `/plants` shows the client's registered RTL directory. The synthetic
+drill-down is no longer reachable from it (the RTL fleet table links nowhere)
+and the Asset Navigator is already hidden on that route
+(callbacks.navigation.UTILITY_ROUTES), so the highlight is the last place
+those two meet — retiring that join belongs to the gate that retires the
+synthetic pages themselves, not to a wording gate.
 
 Assignments (ADMIN-ASSIGN-1) now has a real route, `/admin/assignments` — a
 technician workload roster (who has how many RTLs) plus the same
@@ -68,7 +77,13 @@ SidebarItem = tuple[str, str, str, str]
 #: alone, matching the fleet overview's status as the operator landing page).
 SIDEBAR_SECTIONS: tuple[tuple[str | None, tuple[SidebarItem, ...]], ...] = (
     (None, (
-        ("overview", "Overview", "/plants", "overview"),
+        # CLIENT-TERMINOLOGY-NAV-01: the label is the client's word for what
+        # this route shows — the registered RTL directory read from the client
+        # SQL Server. The key and href are deliberately untouched: `overview`
+        # is the routing/authorization identity (routes.NAV_KEY_BY_ROUTE,
+        # services.authorization.ROUTE_POLICY) and `/plants` stays operational
+        # until the canonical `/rtls` route exists in a later gate.
+        ("overview", "Registered RTLs", "/plants", "overview"),
         ("command_center", "Command Center", "/command-center", "command-center"),
     )),
     ("Operations", (

@@ -138,7 +138,7 @@ class TestForbiddenPanel:
     def test_offers_a_way_back_to_a_page_every_role_may_open(self):
         from components.status_panels import forbidden_panel
 
-        assert ("Back to Fleet Overview", "/plants") in links(forbidden_panel())
+        assert ("Back to Registered RTLs", "/plants") in links(forbidden_panel())
 
     def test_names_no_role_username_or_route(self):
         """The panel tells the operator they cannot go there. It does not
@@ -205,7 +205,7 @@ class TestSidebarFiltering:
         Administrator's, sharing only the label and icon concept. No
         Assignments: that route is Administrator-only (ADMIN-ASSIGN-1)."""
         assert rendered_labels(TECHNICIAN) == [
-            "Overview", "Command Center", "Devices",
+            "Registered RTLs", "Command Center", "Devices",
             "Notifications", "Reports",
         ]
 
@@ -214,7 +214,7 @@ class TestSidebarFiltering:
         assert hrefs["Devices"] == "/devices"
 
     def test_general_user_navigation_has_no_operational_surfaces(self):
-        assert rendered_labels(GENERAL) == ["Overview", "Reports"]
+        assert rendered_labels(GENERAL) == ["Registered RTLs", "Reports"]
 
     def test_an_emptied_section_takes_its_heading_with_it_for_general(self):
         """Every Operations item General may reach is none, so the heading
