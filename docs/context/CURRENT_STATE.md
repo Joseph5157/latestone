@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T09:37:22Z
+Date: 2026-09-30T09:38:21Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `c562fb6` "feat(rtl): make RTL list route canonical"
-- Working tree: 30 entries — see below
+- `main` = `428e092` "feat(rtl): add current network context"
+- Working tree: 5 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3594 passed, 3 skipped, 731 deselected in 36.54s
+- `python -m pytest -m "not db"` → 3594 passed, 3 skipped, 731 deselected in 37.39s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 489 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 339 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 489 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 490 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 340 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 490 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -111,7 +111,7 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-028-ring-gauges-for-part-of-whole-counts.md | Approved | `7973853` |
 | ADR-029-sql-server-only-target-architecture.md | Approved | not yet |
 | ADR-030-rtl-history-windows-anchor-on-the-last-reading.md | Approved | `bc0db73` (`feat(rtl): add UID-based real RTL detail`; full sha bc0db73f98c3ac67362ba214dbd06a7eb0ad890f — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-014, ADR-015 and ADR-016 did) |
-| ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md | Approved | not yet |
+| ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md | Approved | `428e092` (`feat(rtl): add current network context`; full sha 428e092ac65b9b2ae239c819826c55a428293491 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-030 did) |
 
 ## Active gate
 
@@ -121,34 +121,9 @@ LATEST-NETWORK-CONTEXT-01 — Current network context for registered RTLs — fu
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M app.py
- M assets/app.css
- M callbacks/routing.py
- M components/app_sidebar.py
- M docs/client/CLIENT_DB_CLARIFICATION_01.md
- M docs/client/CLIENT_DB_CLARIFICATION_01_RESPONSE_TRACKER.md
- M docs/context/ACTIVE_GATE.md
- M docs/context/CURRENT_STATE.md
- M docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md
- M repositories/rtl_temperature_repository.py
- M routes.py
- M services/authorization.py
- M tests/test_app_sidebar.py
- M tests/test_authorization.py
- M tests/test_client_terminology.py
- M tests/test_equipment_selector.py
- M tests/test_route_enforcement.py
- M tests/test_rtl_list_route.py
+ M docs/decisions/ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? assets/icons/nav-network.svg
-?? callbacks/rtl_network.py
-?? components/rtl_network.py
-?? docs/audit/latest-network-context-01/
 ?? docs/audit/project-audit-1/results/
-?? docs/decisions/ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md
-?? pages/rtl_network.py
-?? services/rtl_network_service.py
-?? tests/test_rtl_network.py
 ```
 

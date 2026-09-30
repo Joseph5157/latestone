@@ -7,7 +7,9 @@ mapping), §13 (transformer movement), §14 (TUG); the live comparison recorded
 under "Current network context rule" in §12;
 `docs/audit/latest-network-context-01/LATEST_NETWORK_CONTEXT_ACCEPTANCE.md`;
 `services/rtl_network_service.py`
-Implemented-by: not yet
+Implemented-by: `428e092` (`feat(rtl): add current network context`; full sha
+428e092ac65b9b2ae239c819826c55a428293491 — the commit carries this ADR too, so
+the sha is recorded here afterwards, as ADR-030 did)
 
 ## Context
 
