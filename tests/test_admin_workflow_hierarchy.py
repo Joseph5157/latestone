@@ -8,6 +8,7 @@ from components.user_form_drawer import (
     USER_DISMISS_BTN,
     USER_IDENTIFIER_ID,
     USER_ROLE_ID,
+    USER_PERSON_ID,
     USER_STATUS_ID,
     USER_USERNAME_ID,
 )
@@ -33,14 +34,14 @@ def test_user_inventory_reuses_responsive_entity_table():
     assert "entity-table-wrapper--administrative-axis" in wrappers[0].className
     table = find_by_id(page, "user-admin-table")
     assert [column["id"] for column in table.columns] == [
-        "username", "identifier", "role", "status", "actions"
+        "username", "full_name", "identifier", "role", "status", "client_person", "actions"
     ]
     assert table.markdown_options == {"link_target": "_self"}
 
 
 def test_drawer_fields_and_actions_are_preserved():
     drawer = user_form_drawer()
-    for field_id in (USER_USERNAME_ID, USER_IDENTIFIER_ID, USER_ROLE_ID, USER_STATUS_ID):
+    for field_id in (USER_USERNAME_ID, USER_IDENTIFIER_ID, USER_ROLE_ID, USER_STATUS_ID, USER_PERSON_ID):
         assert find_by_id(drawer, field_id) is not None
     for action_id in (USER_CONFIRM_BTN, USER_CANCEL_BTN, USER_DISMISS_BTN):
         assert find_by_id(drawer, action_id) is not None
@@ -59,7 +60,10 @@ def test_role_and_status_remain_distinct_neutral_controls():
     assert [option["value"] for option in role.options] == [
         "administrator", "technician", "general"
     ]
-    assert [option["value"] for option in status.options] == ["active", "inactive"]
+    # ADR-033: status is a read-only display, not a picker. It changes only
+    # through the lifecycle actions, so an account cannot be made Active
+    # without a password having been set.
+    assert not hasattr(status, "options")
 
 
 def test_registration_marks_only_validated_requirements():

@@ -161,6 +161,18 @@ class TestStartupFailsClosedOnlyInProduction:
 
     def _run(self, env_overrides: dict) -> subprocess.CompletedProcess:
         env = dict(os.environ)
+        # ADR-033: a production process refuses demo credential variables, and
+        # a developer's `.env` legitimately carries them. These cases are about
+        # the session secret, so blank the demo variables (the refusal itself
+        # is tested in test_local_auth_config.py).
+        env.update(
+            {
+                "DEMO_USERNAME": "",
+                "DEMO_PASSWORD": "",
+                "DEMO_CREDENTIALS": "",
+                "AUTH_DEMO_LOGIN_ENABLED": "",
+            }
+        )
         env.update(env_overrides)
         # Importing `app` must not need a database (test_bootstrap_contract.py);
         # pointing at a dead port keeps that true here too.

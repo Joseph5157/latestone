@@ -31,6 +31,10 @@ _TECHNICIAN_PERSONS_SQL = (
     "WHERE r.role_name = 'Technician' ORDER BY p.person_id"
 )
 _ALL_PERSON_NAMES_SQL = "SELECT person_id, full_name FROM dbo.persons ORDER BY person_id"
+_PERSON_ROLES_SQL = (
+    "SELECT p.person_id, r.role_name FROM dbo.persons p "
+    "JOIN dbo.roles r ON r.role_id = p.role_id ORDER BY p.person_id"
+)
 _LEGACY_SQL = "SELECT full_name, device_uid FROM dbo.techmician_device_list ORDER BY id"
 
 
@@ -73,6 +77,14 @@ class RTLAssignmentSourceRepository:
     def get_all_persons(self) -> list[ClientPerson]:
         """Every person (id and name only), to detect a name that is not a Technician."""
         return [ClientPerson(int(i), str(n)) for i, n in self._read(_ALL_PERSON_NAMES_SQL)]
+
+    def get_person_roles(self) -> dict[int, str]:
+        """person_id -> client role name (ADR-033 link validation).
+
+        Reads ONLY the id and the role name: the credential and contact
+        columns of `persons` never enter this application.
+        """
+        return {int(i): str(role) for i, role in self._read(_PERSON_ROLES_SQL)}
 
     def get_legacy_assignments(self) -> list[LegacyAssignmentRow]:
         return [LegacyAssignmentRow(str(n), int(u)) for n, u in self._read(_LEGACY_SQL)]

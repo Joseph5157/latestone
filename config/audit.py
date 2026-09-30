@@ -81,12 +81,36 @@ RTL_ASSIGNMENT_CREATED = "RTL_ASSIGNMENT_CREATED"
 RTL_ASSIGNMENT_REASSIGNED = "RTL_ASSIGNMENT_REASSIGNED"
 RTL_ASSIGNMENT_ENDED = "RTL_ASSIGNMENT_ENDED"
 
+#: AUTHENTICATION-LOCAL-HARDENING-01 (ADR-033): account lifecycle and sign-in.
+#: entity_type is `user`, entity_id is str(users.user_id) (an unknown login
+#: name is recorded as "unknown" and never with the typed text, which may be a
+#: mistyped password). NO row ever carries a password, a hash, a token or a
+#: cookie; token-bearing events record only the purpose and expiry.
+#: LOGIN_FAILED / LOGIN_THROTTLED / ADMIN_BOOTSTRAPPED have no signed-in human
+#: actor and are the only entries added to SYSTEM_OPERATIONS for this gate.
+LOGIN_SUCCEEDED = "LOGIN_SUCCEEDED"
+LOGIN_FAILED = "LOGIN_FAILED"
+LOGIN_THROTTLED = "LOGIN_THROTTLED"
+LOGOUT = "LOGOUT"
+ACCOUNT_ACTIVATED = "ACCOUNT_ACTIVATED"
+ACCOUNT_DISABLED = "ACCOUNT_DISABLED"
+ACCOUNT_REENABLED = "ACCOUNT_REENABLED"
+PASSWORD_SETUP_ISSUED = "PASSWORD_SETUP_ISSUED"
+PASSWORD_SETUP_COMPLETED = "PASSWORD_SETUP_COMPLETED"
+PASSWORD_RESET_INITIATED = "PASSWORD_RESET_INITIATED"
+PASSWORD_RESET_COMPLETED = "PASSWORD_RESET_COMPLETED"
+USER_ROLE_CHANGED = "USER_ROLE_CHANGED"
+CLIENT_PERSON_LINK_CHANGED = "CLIENT_PERSON_LINK_CHANGED"
+ADMIN_BOOTSTRAPPED = "ADMIN_BOOTSTRAPPED"
+
 #: The complete allowlist of operations that may be audited with a NULL
 #: actor via ``audit_service.record(..., system_originated=True)``.
 #: Deliberately minimal (ACT-D5): each entry must correspond to an actually
 #: implemented system-originated feature. BR016 is intentionally absent: the
 #: RTL Master, not this dashboard, owns its daily forwarding cutoff.
-SYSTEM_OPERATIONS = frozenset({RTL_ACTIVATED})
+SYSTEM_OPERATIONS = frozenset(
+    {RTL_ACTIVATED, LOGIN_FAILED, LOGIN_THROTTLED, ADMIN_BOOTSTRAPPED}
+)
 
 ENTITY_DEVICE = "device"
 ENTITY_ASSIGNMENT = "device_assignment"

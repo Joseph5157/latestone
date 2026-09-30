@@ -1,26 +1,27 @@
 """
-Placeholder authentication and the session identity contract.
+Application-local authentication and the session identity contract (ADR-033).
 
-Intentionally isolated so it can be swapped for the client's real
-authentication (API/session/SSO) without touching UI code — callbacks should
-only ever call `authenticate()` and the session helpers below.
+Intentionally isolated so a different credential mechanism could be swapped in
+without touching UI code — callbacks should only ever call the sign-in service
+(`services.login_service`), `authenticate()`/`check_credentials()` below, and
+the session helpers.
 
 Two separable jobs live here, in this order:
 
-1. `verify_credentials()` proves a credential. That is all it has ever done and
-   all it does now — ROLE-4A widened the configuration from one pair to a map
-   of them, which changes how many people can sign in and nothing about what
-   any of them may do.
-2. `authenticate()` answers who that credential **is**, by loading the
-   persistent `users` row (DB-2). Identity is never derived from what was
-   typed: the credential proves *a* login, the row decides the user_id, the
-   name and the role. Deriving the role from the typed username would make it a
-   client-supplied value.
+1. `check_credentials()` proves a credential AND resolves who it belongs to,
+   from the application-owned `users` row. Identity is never derived from what
+   was typed: the row decides the user_id, the name, the role and whether the
+   account may sign in at all. Deriving the role from the typed username would
+   make it a client-supplied value.
+2. The server-trusted session (`start_trusted_session` / `current_identity`)
+   remembers the answer.
 
-**Credential configuration names logins, never roles** (ROLE-4A). There is no
-field in it that could say "administrator", so adding a credential can never
-grant a permission — it can only let an existing `users` row be reached. A
-Technician credential yields a Technician session because the row says so.
+**The credential is a per-user password hash.** AUTHENTICATION-LOCAL-HARDENING-01
+replaced environment-configured plaintext username/password pairs with a scrypt
+hash stored on the account (`users.password_hash`). The old configured pairs
+survive ONLY as an explicit development/test fixture (`verify_credentials`),
+consulted only for an account that has no hash, only when
+`AUTH_DEMO_LOGIN_ENABLED` is set, and never in production.
 
 **AUTH-HARDEN-1 closed the trust boundary this docstring used to describe as
 open.** `to_session()`/`from_session()` still exist and the identity still
@@ -34,22 +35,26 @@ land. `auth-store` remains presentation state — the four callbacks branching
 on its `authenticated` flag are unaffected — never a permission.
 
 FAILS CLOSED, always to the same `None`. Bad credentials, a credential naming
-no user, a deactivated account and a role outside the confirmed vocabulary are
-indistinguishable to the caller, so the login form cannot leak which one
-happened. A partially-built identity is never returned: downstream code would
-treat it as real.
+no user, a Pending or Disabled account and a role outside the confirmed
+vocabulary are indistinguishable to the caller, so the login form cannot leak
+which one happened. A partially-built identity is never returned: downstream
+code would treat it as real.
 """
 from __future__ import annotations
 
 import hmac
 import logging
+import secrets
+import time
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 from flask import session as _flask_session
 
-from config.settings import demo_auth
+from config import settings as _settings
+from config.settings import auth_settings, demo_auth
 from repositories import plant_monitoring_repository as repo
+from services import credentials as credentials_mod
 from services import prototype_users
 
 logger = logging.getLogger(__name__)
@@ -79,103 +84,149 @@ class AuthenticatedUser:
 _IDENTITY_FIELDS = ("user_id", "username", "full_name", "role")
 
 
-#: Compared against when no credential is configured for the typed username, so
-#: an unknown name and a wrong password cost the same work rather than the
-#: unknown name answering first — that difference is a username oracle. Its
-#: value carries no security weight: the result is discarded and the branch
-#: returns False regardless of what the comparison says.
+#: Compared against when a login names no configured demo credential, so an
+#: unknown name costs the same as a wrong password. Carries no security weight:
+#: the result is discarded and the branch returns False regardless.
 _ABSENT = "absent-credential-sentinel"
 
 
+def _demo_login_permitted() -> bool:
+    """Whether the development demo-credential fixture may be consulted at all.
+
+    ADR-033. False in production regardless of any configuration (the settings
+    layer already refuses to start a production process that carries demo
+    variables; this is the second, independent gate), and false unless demo
+    credentials are explicitly enabled and configured.
+    """
+    if _settings.IS_PRODUCTION:
+        return False
+    return bool(demo_auth.credentials)
+
+
 def verify_credentials(username: str, password: str) -> bool:
-    """Check the typed pair against the configured credentials. Fails closed.
+    """Check the typed pair against the DEVELOPMENT demo credentials only.
 
-    ROLE-4A: the configuration is a map, so Technician and General personas
-    reach this same path instead of Administrator being the only login. What it
-    still is NOT is an identity: this function answers "is this a valid
-    credential", never "who is this" and never "what may they do".
-    `authenticate()` below loads both from the `users` row.
+    This is the only place a password is compared directly, and it is
+    unreachable in production (`_demo_login_permitted`). It is used solely for
+    an account that has NO password hash of its own: once a user has a hash,
+    the hash is the only accepted credential (`check_credentials`).
 
-    There is no fallback credential. Unset means unset, and so does malformed —
-    an ambiguous credential configuration refuses every login rather than
-    letting some through (`parse_demo_credentials`).
+    Fails closed: unset, malformed or not-explicitly-enabled configuration
+    refuses every login.
     """
     if not username or not password:
         return False
-
-    credentials = demo_auth.credentials
-    if not credentials:
-        error = demo_auth.config_error
-        if error:
-            logger.error("Login refused: credential configuration rejected. %s", error)
-        else:
-            logger.error(
-                "Login refused: DEMO_USERNAME/DEMO_PASSWORD are not configured. "
-                "Set them in .env (see .env.example)."
-            )
+    if not _demo_login_permitted():
+        if not _settings.IS_PRODUCTION:
+            error = demo_auth.config_error
+            if error:
+                logger.error("Demo login refused: credential configuration rejected. %s", error)
+            else:
+                logger.error(
+                    "Demo login refused: demo credentials are not configured "
+                    "or not enabled (AUTH_DEMO_LOGIN_ENABLED)."
+                )
         return False
 
-    # compare_digest so the check leaks neither length nor a matching prefix
-    # through timing, and the `_ABSENT` branch so an unknown username does not
-    # answer faster than a wrong password — that difference is a username
-    # oracle. The habit matters more once this is swapped for something real.
-    expected = credentials.get(username)
+    configured = {
+        name.strip().lower(): secret for name, secret in demo_auth.credentials.items()
+    }
+    expected = configured.get(username.strip().lower())
     if expected is None:
         hmac.compare_digest(password, _ABSENT)
         return False
     return hmac.compare_digest(password, expected)
 
 
-def authenticate(username: str, password: str) -> AuthenticatedUser | None:
-    """The signed-in identity behind a credential pair, or None.
+@dataclass(frozen=True)
+class CredentialCheck:
+    """The verdict on one typed credential pair.
 
-    The credential is checked FIRST and the user store is not touched unless it
-    passes: looking up a user on a failed password would let a wrong guess
-    probe which usernames exist.
-
-    `seed_demo_user()` runs before the lookup for the same reason
-    `prototype_users.get_user()` calls it — a freshly provisioned database has
-    no rows yet, and the configured demo credential must resolve to a real
-    user on first login rather than on second.
-
-    Reads `repo.UserRecord` directly rather than going through
-    `prototype_users.get_user()`: that function's dict contract is lossy (no
-    `user_id`, no `full_name`), and an identity assembled from a lossy view is
-    exactly the kind of half-built object this module refuses to produce.
+    ``reason`` exists for the audit log only and is never shown to the user:
+    the sign-in form answers every failure with the same message.
     """
-    if not verify_credentials(username, password):
-        return None
 
-    prototype_users.seed_demo_user()
-    row = repo.get_user_by_username(username)
+    user: AuthenticatedUser | None
+    reason: str  # ok | invalid | unknown | pending | disabled | role
+    user_id: int | None = None
+
+
+def check_credentials(username: str, password: str) -> CredentialCheck:
+    """Who a credential pair belongs to, and why not if it does not.
+
+    ADR-033. The application-owned `users` row decides everything: its status
+    gates login, its per-user scrypt hash is the credential, its role is the
+    role. Every refusal — unknown name, wrong password, Pending, Disabled, a
+    role outside the confirmed vocabulary — spends the same verification work
+    and returns the same `user=None`, so timing and the return value do not say
+    which one happened.
+
+    Side-effect free apart from database READS. Throttling and audit live in
+    `services.login_service`, around this function.
+    """
+    name = credentials_mod.normalize_username(username)
+    if not name or not password:
+        credentials_mod.burn_verification_time(password or "")
+        return CredentialCheck(None, "invalid")
+
+    row = repo.get_user_by_username(name)
+
+    if row is None and verify_credentials(name, password):
+        # Development fixture only (`verify_credentials` is False in
+        # production): provisions the configured primary demo login on first
+        # use. Never runs in production, never for a wrong password.
+        prototype_users.seed_demo_user()
+        row = repo.get_user_by_username(name)
 
     if row is None:
-        logger.error(
-            "Login refused: credentials verified but no user row exists for %r. "
-            "The configured demo credential does not name a user in this "
-            "database.",
-            username,
-        )
-        return None
-
-    if row.status != "active":
-        logger.warning("Login refused: user %r is %s.", username, row.status)
-        return None
+        credentials_mod.burn_verification_time(password)
+        return CredentialCheck(None, "unknown")
 
     if row.role not in prototype_users.CONFIRMED_ROLES:
         logger.error(
-            "Login refused: user %r holds role %r, which is outside the "
-            "confirmed vocabulary %r and cannot be reasoned about.",
-            username, row.role, prototype_users.CONFIRMED_ROLES,
+            "Login refused: user_id=%s holds role %r, outside the confirmed "
+            "vocabulary %r.", row.user_id, row.role, prototype_users.CONFIRMED_ROLES,
         )
-        return None
+        credentials_mod.burn_verification_time(password)
+        return CredentialCheck(None, "role", row.user_id)
 
-    return AuthenticatedUser(
-        user_id=row.user_id,
-        username=row.username,
-        full_name=row.full_name,
-        role=row.role,
+    if row.status != "active":
+        credentials_mod.burn_verification_time(password)
+        reason = "pending" if row.status == "pending_activation" else "disabled"
+        return CredentialCheck(None, reason, row.user_id)
+
+    if row.has_password:
+        stored = repo.get_password_hash(row.user_id)
+        verified = bool(stored) and credentials_mod.verify_password(stored, password)
+    elif _demo_login_permitted():
+        verified = verify_credentials(name, password)
+    else:
+        credentials_mod.burn_verification_time(password)
+        verified = False
+
+    if not verified:
+        return CredentialCheck(None, "invalid", row.user_id)
+
+    return CredentialCheck(
+        AuthenticatedUser(
+            user_id=row.user_id,
+            username=row.username,
+            full_name=row.full_name,
+            role=row.role,
+        ),
+        "ok",
+        row.user_id,
     )
+
+
+def authenticate(username: str, password: str) -> AuthenticatedUser | None:
+    """The signed-in identity behind a credential pair, or None.
+
+    The bare verdict, with no throttling and no audit — see
+    `services.login_service.attempt_login` for the full sign-in path the login
+    form uses. Every failure is the same `None`.
+    """
+    return check_credentials(username, password).user
 
 
 def to_session(user: AuthenticatedUser) -> dict:
@@ -250,7 +301,7 @@ def from_session(data: Any) -> AuthenticatedUser | None:
 # protected operation may act on.
 # ---------------------------------------------------------------------------
 
-#: The one thing Flask's signed session carries: a user_id. Never a role,
+#: The identity Flask's signed session carries: a user_id. Never a role,
 #: never a name — those are re-read from `users` on every call so a role
 #: change or a deactivation takes effect on the NEXT request rather than
 #: requiring logout/login. A browser can read this cookie but cannot alter it
@@ -258,18 +309,43 @@ def from_session(data: Any) -> AuthenticatedUser | None:
 #: makes it trustworthy where `auth-store`'s plain JSON is not.
 _SESSION_USER_ID_KEY = "uid"
 
+#: ADR-033. The user's `session_version` at login. A password change/reset, a
+#: disable, or any role/link/rename change bumps the stored version, so every
+#: cookie minted before it stops matching and is refused — the revocation
+#: mechanism for a signed-cookie session.
+_SESSION_VERSION_KEY = "sv"
 
-def start_trusted_session(user_id: int) -> None:
+#: Epoch seconds of login: the base of the absolute session lifetime.
+_SESSION_ISSUED_KEY = "iat"
+
+#: A fresh random value per login. It authorises nothing; it makes each
+#: login's cookie a distinct, newly signed payload (session rotation).
+_SESSION_NONCE_KEY = "sid"
+
+
+def start_trusted_session(user_id: int, session_version: int | None = None) -> None:
     """Record `user_id` as the server-trusted signed-in identity.
 
-    Called exactly once, from `callbacks.auth.handle_login`, after
-    `authenticate()` has already resolved a real `users` row in the SAME
-    callback invocation — nothing browser-supplied has been read yet at that
-    point, so binding to it here is safe. `clear()` first: a login on a tab
-    that already held a different trusted session must not merge the two.
+    Called exactly once, from `callbacks.auth.handle_login`, after the sign-in
+    service has already resolved a real `users` row in the SAME callback
+    invocation — nothing browser-supplied has been read yet at that point, so
+    binding to it here is safe. `clear()` first: a login on a tab that already
+    held a different trusted session must not merge the two, and the new cookie
+    carries a new nonce and issue time (session rotation).
+
+    `session_version` defaults to the row's CURRENT version, read here.
     """
+    if session_version is None:
+        row = repo.get_user_by_id(user_id)
+        session_version = row.session_version if row is not None else 1
     _flask_session.clear()
     _flask_session[_SESSION_USER_ID_KEY] = user_id
+    _flask_session[_SESSION_VERSION_KEY] = session_version
+    _flask_session[_SESSION_ISSUED_KEY] = int(time.time())
+    _flask_session[_SESSION_NONCE_KEY] = secrets.token_hex(8)
+    # Permanent = Flask applies PERMANENT_SESSION_LIFETIME (the sliding idle
+    # window configured in app.py) instead of a browser-session cookie.
+    _flask_session.permanent = True
 
 
 def end_trusted_session() -> None:
@@ -281,29 +357,44 @@ def end_trusted_session() -> None:
     _flask_session.clear()
 
 
+def _session_expired() -> bool:
+    """True when the absolute lifetime has passed, or the cookie carries no
+    issue time (a pre-ADR-033 cookie is refused rather than trusted forever)."""
+    issued = _flask_session.get(_SESSION_ISSUED_KEY)
+    if not isinstance(issued, int) or isinstance(issued, bool):
+        return True
+    return (time.time() - issued) > auth_settings.session_absolute_hours * 3600
+
+
 def current_identity() -> AuthenticatedUser | None:
     """Who is CURRENTLY signed in, reloaded from the database every call.
 
     This is the one function every protected operation must call instead of
     `from_session(auth_data)`. It never trusts the browser: the only input is
     Flask's signed session cookie, and even that supplies nothing but a
-    user_id — role, status and name are read fresh from `users` here, so a
-    demotion or deactivation the operator performs while the affected user's
-    tab stays open takes effect on that user's NEXT protected call, not on
-    their next login.
+    user_id and the session's security metadata — role, status and name are
+    read fresh from `users` here, so a demotion or deactivation the operator
+    performs while the affected user's tab stays open takes effect on that
+    user's NEXT protected call, not on their next login.
 
-    Fails closed exactly like `from_session`: no session, no such user, an
-    inactive account, or a role outside the confirmed vocabulary all return
-    None rather than a partial identity.
+    Fails closed exactly like `from_session`: no session, an expired session, a
+    session whose security version no longer matches the account's (password
+    change/reset, disable, role/link change), no such user, a non-Active
+    account, or a role outside the confirmed vocabulary all return None rather
+    than a partial identity.
     """
     user_id = _flask_session.get(_SESSION_USER_ID_KEY)
     if user_id is None:
+        return None
+    if _session_expired():
         return None
 
     row = repo.get_user_by_id(user_id)
     if row is None:
         return None
     if row.status != "active":
+        return None
+    if _flask_session.get(_SESSION_VERSION_KEY) != row.session_version:
         return None
     if row.role not in prototype_users.CONFIRMED_ROLES:
         return None

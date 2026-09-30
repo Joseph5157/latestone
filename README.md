@@ -80,9 +80,11 @@ PowerShell: set the variables first, e.g.
   `python -m db.seed_plant_monitoring --reset` before running it; re-apply
   the freshness demo afterwards. `python -m pytest -m "not db"` is unaffected.
 
-Open http://127.0.0.1:8050 and log in with the credentials you set as
-`DEMO_USERNAME` / `DEMO_PASSWORD` in `.env`. There is no fallback credential:
-if they are unset, every login is refused.
+Open http://127.0.0.1:8050 and sign in (see "Signing in" below). In local
+development the `DEMO_USERNAME` / `DEMO_PASSWORD` / `DEMO_CREDENTIALS` fixture
+works only when `AUTH_DEMO_LOGIN_ENABLED=true` is also set in `.env`. There is
+no fallback credential: with the fixture off and no account password set,
+every login is refused.
 
 On Windows prefer `127.0.0.1` to `localhost`: `localhost` tries IPv6 first
 and the dev server listens on IPv4, which adds roughly 0.2–0.3 s to every
@@ -124,24 +126,36 @@ If you have a database created by the old init script that has **no**
 
 ## Signing in
 
-The credential pair is checked by `services/auth_service.py`; the identity
-behind it — `user_id`, `full_name` and `role` — is loaded from the
-`plant_monitoring.users` row with that username. A first login on an empty
-database creates that row with the `administrator` role, because the
-workflows this application is built around are Administrator ones.
+Authentication is the application's own (ADR-033); there is no external
+identity provider. Each user has a `plant_monitoring.users` row with a unique
+lower-case username, a role, a status (`pending_activation`, `active`,
+`disabled`) and a personal password stored only as a salted `scrypt` hash.
+The row - not anything typed - decides identity and role.
 
-**If your database predates this** (its demo row was seeded as `general`),
-correct it once, explicitly — nothing changes it for you at runtime. Either
-edit the user in the User Administration screen, or:
+**Production first Administrator** (one-time, explicit; never at start-up):
 
 ```bash
-python -c "from config.settings import demo_auth; \
-from repositories import plant_monitoring_repository as repo; \
-u = repo.get_user_by_username(demo_auth.username); \
-repo.create_or_update_user(username=u.username, full_name=u.full_name, \
-role='administrator', status=u.status, email_address=u.email_address, \
-mobile_number=u.mobile_number)"
+python -m scripts.bootstrap_admin --username <name> --full-name "<Full Name>"
 ```
+
+It creates one Pending Administrator and prints a single-use, time-limited
+setup link; open it and choose a password of at least 12 characters. No
+password is generated or stored by the command. `python -m scripts.auth_preflight`
+(run before the production start command) refuses to start a deployment that
+still carries demo credentials, lacks `FLASK_SECRET_KEY`, or has no usable
+Administrator.
+
+**Other users:** an Administrator opens *User Administration*, creates the
+account (linking a Technician to a client person ID), and chooses *Issue setup
+link*. The link is shown once - no email or SMS is sent - and the Administrator
+hands it to the user, who chooses their password and is then Active. *Issue
+password reset link* does the same for a forgotten password; *Disable* ends
+sign-in and sessions immediately without touching RTL assignments.
+
+**Local development fixture:** with `AUTH_DEMO_LOGIN_ENABLED=true`, the
+`DEMO_*` pairs in `.env` let seeded demo accounts (that have no password of
+their own) sign in, and the configured demo Administrator is created on first
+use. Production refuses to start while any of those variables is set.
 
 The role on that row now decides what the application shows you. An
 Administrator sees the whole fleet plus the Administration section on the Fleet
@@ -152,10 +166,9 @@ technician with no assignments sees an empty fleet rather than everything.
 Reaching an out-of-scope resource by typing its URL gives "No access", which is
 kept distinct from the "not found" a genuinely nonexistent id produces.
 
-Note that the session is held in a browser-side store and the data callbacks
-do not verify it independently. This establishes a consistent identity and a
-consistent set of answers, not a secure authorization boundary — see
-`docs/CODE_AUDIT.md`, "Security posture".
+Authorization is decided server-side from the signed session and the current
+`users` row on every protected call (AUTH-HARDEN-1); the browser-side store is
+presentation only.
 
 ## Reseeding
 

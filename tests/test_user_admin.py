@@ -35,10 +35,12 @@ class TestUserAdminLayout:
         lay = layout()
         assert "breadcrumb" in str(lay).lower() or "User Administration" in str(lay)
 
-    def test_layout_has_prototype_notice(self):
-        lay = layout()
-        text = str(lay)
-        assert "Prototype" in text or "prototype" in text
+    def test_layout_states_the_application_managed_sign_in(self):
+        """ADR-033: the boundary note no longer calls this a prototype; it says
+        accounts are application-managed and that no email/SMS is sent."""
+        text = str(layout())
+        assert "Prototype" not in text and "prototype" not in text
+        assert "no email or SMS is sent" in text
 
     def test_layout_has_toolbar(self):
         lay = layout()
@@ -153,7 +155,7 @@ class TestBuildUserRows:
 _ROSTER = [
     {"username": "ada", "identifier": "ada@x", "role": "administrator", "status": "active"},
     {"username": "tom", "identifier": "tom@x", "role": "technician", "status": "active"},
-    {"username": "tia", "identifier": "tia@x", "role": "technician", "status": "inactive"},
+    {"username": "tia", "identifier": "tia@x", "role": "technician", "status": "disabled"},
     {"username": "gus", "identifier": "gus@x", "role": "general", "status": "active"},
 ]
 
@@ -227,7 +229,7 @@ class TestToolbarFilters:
         )
         assert error is None
         assert [r["username"] for r in rows] == ["tom", "tia"]
-        assert summary == "4 users total — 3 active, 1 inactive"
+        assert summary == "4 users total — 3 active, 0 pending activation, 1 disabled"
 
     def test_help_text_names_the_role_filter(self):
         assert "role" in str(layout()).lower().split("search by user or identifier")[1][:80]
@@ -369,10 +371,10 @@ class TestUserFormDrawer:
         assert "user-form-confirm-btn" in ids
         assert "user-form-cancel-btn" in ids
 
-    def test_has_prototype_notice(self):
-        drawer = user_form_drawer()
-        text = str(drawer)
-        assert "Prototype" in text or "prototype" in text
+    def test_states_the_provisioning_boundary(self):
+        text = str(user_form_drawer())
+        assert "Prototype" not in text
+        assert "shown once" in text and "passwords are never shown" in text
 
 
 # ---------------------------------------------------------------------------

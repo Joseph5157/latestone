@@ -9,13 +9,15 @@ from __future__ import annotations
 import dash
 from dash import dcc, html
 
-from callbacks import audit_log, auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, technician_devices, admin_assignments, programming_activity, user_admin, report_center, notifications, command_center, fleet_overview, rtl_dashboard, rtl_detail, rtl_network, historical_events, freshness_threshold, temperature_threshold, vibration_contract, rtl_programming_simulation, rtl_assignments
+from callbacks import audit_log, auth, routing, listings, device, equipment_selector, navigation, device_admin, device_register, device_assign, device_manage, technician_devices, admin_assignments, programming_activity, user_admin, report_center, notifications, command_center, fleet_overview, rtl_dashboard, rtl_detail, rtl_network, historical_events, freshness_threshold, temperature_threshold, vibration_contract, rtl_programming_simulation, rtl_assignments, set_password
 from components.app_shell import app_shell
 from components.app_sidebar import app_sidebar_shell
 from components.equipment_selector import equipment_selector_shell
 from components import theme
 from config.logging_config import configure_logging
-from config.settings import flask_session
+from datetime import timedelta
+
+from config.settings import auth_settings, flask_session
 
 configure_logging()
 
@@ -48,6 +50,12 @@ server.config.update(
     SESSION_COOKIE_SECURE=flask_session.cookie_secure,
     SESSION_COOKIE_HTTPONLY=flask_session.cookie_httponly,
     SESSION_COOKIE_SAMESITE=flask_session.cookie_samesite,
+    # ADR-033: a fixed session lifetime from login (`services.auth_service`
+    # marks the session permanent and also checks the login time server-side).
+    # NOT refreshed per request: a refreshed cookie is rewritten by every
+    # in-flight request, which would resurrect a session a logout just cleared.
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=auth_settings.session_absolute_hours),
+    SESSION_REFRESH_EACH_REQUEST=False,
 )
 
 # The login card is CSS/JS-rendered, so the browser doesn't discover the hero
@@ -113,6 +121,7 @@ app.layout = html.Div(
 )
 
 auth.register(app)
+set_password.register(app)
 routing.register(app)
 # RTL-LIST-ROUTE-01: `/plants` -> `/rtls` for full page loads, answered by the
 # server before Dash renders anything.

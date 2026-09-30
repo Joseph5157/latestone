@@ -268,9 +268,23 @@ class DemoAuthSettings:
     password: str = os.getenv("DEMO_PASSWORD", "")
     extra_credentials: str = os.getenv("DEMO_CREDENTIALS", "")
 
+    #: AUTHENTICATION-LOCAL-HARDENING-01 (ADR-033). Demo credential login is a
+    #: development/test fixture and requires this explicit opt-in on top of the
+    #: credentials themselves. Resolved by `resolve_demo_login_enabled()`, which
+    #: refuses to construct at all under `APP_ENV=production` when it is set,
+    #: so a production process can never hold `True` here.
+    login_enabled: bool = field(
+        default_factory=lambda: resolve_demo_login_enabled(
+            APP_ENV, os.getenv("AUTH_DEMO_LOGIN_ENABLED", "")
+        )
+    )
+
     @property
     def credentials(self) -> dict[str, str]:
-        """Configured logins. Empty when unset OR malformed — both fail closed."""
+        """Configured logins. Empty when unset, malformed, OR not explicitly
+        enabled — every one of those fails closed."""
+        if not self.login_enabled:
+            return {}
         return parse_demo_credentials(
             self.username, self.password, self.extra_credentials
         )[0]
@@ -278,6 +292,8 @@ class DemoAuthSettings:
     @property
     def config_error(self) -> str | None:
         """Why the map is empty despite something being configured, if so."""
+        if not self.login_enabled:
+            return None
         return parse_demo_credentials(
             self.username, self.password, self.extra_credentials
         )[1]
@@ -386,6 +402,106 @@ class FlaskSessionSettings:
     #: costs nothing here and blocks the cookie from riding along on a
     #: cross-site request.
     cookie_samesite: str = "Lax"
+
+
+def resolve_demo_login_enabled(app_env: str, raw: str) -> bool:
+    """Whether development demo-credential login is enabled.
+
+    AUTHENTICATION-LOCAL-HARDENING-01 (ADR-033). Default off; a truthy
+    `AUTH_DEMO_LOGIN_ENABLED` enables it outside production only. Under
+    `APP_ENV=production` a truthy value raises at import, so the process
+    refuses to start rather than quietly ignoring a request that reveals a
+    mistaken belief about the deployment (same fail-closed shape as
+    `resolve_flask_secret_key` and `resolve_programming_simulator_enabled`).
+    """
+    if not _is_truthy(raw):
+        return False
+    if app_env == "production":
+        raise RuntimeError(
+            "AUTH_DEMO_LOGIN_ENABLED is set but APP_ENV=production. Demo "
+            "credential login is a development/test fixture and is refused in "
+            "production. Unset it, or set APP_ENV=development."
+        )
+    return True
+
+
+def validate_production_auth_config(
+    app_env: str,
+    *,
+    demo_username: str,
+    demo_password: str,
+    demo_credentials: str,
+) -> None:
+    """Refuse unsafe authentication configuration in production.
+
+    Pure (no database): it inspects configuration only. It raises
+    `RuntimeError` naming every offending SETTING NAME — never a value — so the
+    message is safe to log. A no-op outside production, so development stays
+    easy. The database half of the guard (a usable Administrator exists) is
+    `services.auth_preflight`.
+    """
+    if app_env != "production":
+        return
+    offenders = [
+        name
+        for name, value in (
+            ("DEMO_USERNAME", demo_username),
+            ("DEMO_PASSWORD", demo_password),
+            ("DEMO_CREDENTIALS", demo_credentials),
+        )
+        if (value or "").strip()
+    ]
+    if offenders:
+        raise RuntimeError(
+            "Demo credential configuration is refused when APP_ENV=production: "
+            + ", ".join(offenders)
+            + " must be unset. Production users authenticate with per-user "
+            "password hashes (ADR-033)."
+        )
+
+
+@dataclass(frozen=True)
+class AuthSettings:
+    """Local-authentication policy (ADR-033). Defaults are the policy; the
+    environment may tighten or relax the timings, never the password floor."""
+
+    #: Minimum password length. Fixed policy, not configurable: 12 characters,
+    #: passphrases welcome, no composition rules.
+    password_min_length: int = 12
+    #: Upper bound so hashing a pathological input cannot be used to burn CPU.
+    password_max_length: int = 256
+
+    #: Session lifetime: a FIXED cap from login. It is both the cookie
+    #: lifetime and the server-side check on the login time. Deliberately not
+    #: sliding: a refreshed cookie is rewritten by every request, and a slow
+    #: in-flight request that read the cookie before a logout would write the
+    #: old session straight back, undoing the logout.
+    session_absolute_hours: int = field(
+        default_factory=lambda: max(1, _get_int("AUTH_SESSION_HOURS", 8))
+    )
+
+    #: Setup / reset token lifetime.
+    setup_token_ttl_hours: int = field(
+        default_factory=lambda: max(1, _get_int("AUTH_SETUP_TOKEN_TTL_HOURS", 72))
+    )
+    reset_token_ttl_minutes: int = field(
+        default_factory=lambda: max(5, _get_int("AUTH_RESET_TOKEN_TTL_MINUTES", 60))
+    )
+
+    #: Throttling: after `throttle_threshold` consecutive failures for one
+    #: login name, further attempts are refused for a bounded, doubling
+    #: back-off (`throttle_base_seconds` .. `throttle_max_seconds`). The count
+    #: forgets itself after `throttle_forget_minutes` without a failure.
+    throttle_threshold: int = 5
+    throttle_base_seconds: int = 60
+    throttle_max_seconds: int = 900
+    throttle_forget_minutes: int = 30
+
+    #: Public base URL used only to render a setup/reset link for the
+    #: Administrator to hand over (no email delivery exists).
+    public_base_url: str = field(
+        default_factory=lambda: os.getenv("APP_BASE_URL", "http://localhost:8050").rstrip("/")
+    )
 
 
 def resolve_programming_simulator_enabled(app_env: str, raw: str) -> bool:
@@ -549,7 +665,14 @@ class LiveSimSettings:
 database = DatabaseSettings()
 rtl_database = RTLDatabaseSettings()
 monitoring = MonitoringSettings()
+validate_production_auth_config(
+    APP_ENV,
+    demo_username=os.getenv("DEMO_USERNAME", ""),
+    demo_password=os.getenv("DEMO_PASSWORD", ""),
+    demo_credentials=os.getenv("DEMO_CREDENTIALS", ""),
+)
 demo_auth = DemoAuthSettings()
+auth_settings = AuthSettings()
 flask_session = FlaskSessionSettings()
 dash_settings = DashSettings()
 live_sim = LiveSimSettings()

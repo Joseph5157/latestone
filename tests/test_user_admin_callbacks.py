@@ -61,7 +61,8 @@ def _handler():
 
 
 class _UpsertSpy:
-    """Stands in for the persistence call and records how it was invoked."""
+    """Stands in for the account service's write calls and records how each
+    was invoked (ADR-033 routed the drawer through `account_service`)."""
 
     def __init__(self):
         self.calls = []
@@ -76,22 +77,33 @@ def store(monkeypatch):
     existing: dict[str, dict] = {}
     spy = _UpsertSpy()
 
+    from types import SimpleNamespace
+
     monkeypatch.setattr(user_admin, "get_user", lambda name: existing.get(name))
-    monkeypatch.setattr(user_admin, "upsert_user", spy)
+    monkeypatch.setattr(user_admin.account_service, "create_account", spy)
+    monkeypatch.setattr(user_admin.account_service, "update_account", spy)
+    monkeypatch.setattr(
+        user_admin.account_service,
+        "list_accounts",
+        lambda actor_user_id: [
+            SimpleNamespace(user_id=100 + i, username=name)
+            for i, name in enumerate(existing)
+        ],
+    )
     return existing, spy
 
 
 def _save(existing_username, username, role="technician"):
     """Click Confirm on the user drawer, as whoever is CURRENTLY trusted.
 
-    `auth_data` (the callback's last positional argument) is passed as `None`
-    unconditionally: AUTH-HARDEN-1 means the callback no longer reads it for
-    authorization, and passing a dict here would misleadingly suggest it still
-    matters.
+    The callback takes no `auth-store` argument: AUTH-HARDEN-1 removed the
+    browser payload from authorization, and ADR-033 dropped the parameter.
+    Args: n_clicks, existing username, username, full name, identifier, role,
+    client person id, refresh counter.
     """
     return _handler()(
-        1, existing_username, username, "person@example.com",
-        role, "active", None,
+        1, existing_username, username, "", "person@example.com",
+        role, None, 0,
     )
 
 
@@ -106,7 +118,7 @@ def test_add_user_persists_with_the_actor_from_the_session(store, monkeypatch):
     _existing, spy = store
 
     with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
-        username_error, _result, drawer_style, hidden = _save(None, "newbie")
+        username_error, _result, drawer_style, hidden, _refresh, _cell = _save(None, "newbie")
 
     assert len(spy.calls) == 1, "the new user must reach persistence"
     _args, kwargs = spy.calls[0]
@@ -116,7 +128,8 @@ def test_add_user_persists_with_the_actor_from_the_session(store, monkeypatch):
     )
     assert username_error == ""
     assert drawer_style == {"display": "none"}, "a successful save closes the drawer"
-    assert hidden == "newbie"
+    assert hidden is None, "the drawer state is reset after a create"
+    assert kwargs["username"] == "newbie"
 
 
 def test_editing_a_user_under_their_own_unchanged_username_is_allowed(store, monkeypatch):
@@ -125,7 +138,7 @@ def test_editing_a_user_under_their_own_unchanged_username_is_allowed(store, mon
     existing["tech1"] = {"username": "tech1", "role": "technician"}
 
     with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
-        username_error, _result, drawer_style, _hidden = _save("tech1", "tech1")
+        username_error, _result, drawer_style, _hidden, _refresh, _cell = _save("tech1", "tech1")
 
     assert username_error == "", (
         "an unchanged username belongs to the user being edited and is not a "
@@ -147,7 +160,7 @@ def test_taking_another_users_username_is_still_refused(store, monkeypatch):
     existing["tech2"] = {"username": "tech2", "role": "technician"}
 
     with trusted_session(monkeypatch, user_id=ADMIN_USER_ID, role="administrator"):
-        username_error, _result, _style, _hidden = _save("tech1", "tech2")
+        username_error, _result, _style, _hidden, _refresh, _cell = _save("tech1", "tech2")
 
     assert username_error, "renaming onto an existing username must be refused"
     assert spy.calls == [], "a refused save must not reach persistence"
@@ -160,7 +173,7 @@ def test_no_session_at_all_fails_closed(store):
     _existing, spy = store
 
     with no_trusted_session():
-        _error, result, _style, _hidden = _save(None, "newbie")
+        _error, result, _style, _hidden, _refresh, _cell = _save(None, "newbie")
 
     assert getattr(result, "className", "") == ACTION_REFUSED_CLASS
     assert spy.calls == []
@@ -185,7 +198,7 @@ def test_a_non_administrator_cannot_save_a_user(store, monkeypatch, role):
     _existing, spy = store
 
     with trusted_session(monkeypatch, user_id=TECHNICIAN_USER_ID, role=role):
-        _error, result, _style, _hidden = _save(
+        _error, result, _style, _hidden, _refresh, _cell = _save(
             None, "self-promoted", role="administrator"
         )
 
@@ -204,7 +217,7 @@ def test_a_forged_administrator_role_in_the_form_does_not_help(store, monkeypatc
     _existing, spy = store
 
     with trusted_session(monkeypatch, user_id=TECHNICIAN_USER_ID, role="technician"):
-        _error, result, _style, _hidden = _save(
+        _error, result, _style, _hidden, _refresh, _cell = _save(
             None, "someone-else", role="technician"
         )
 

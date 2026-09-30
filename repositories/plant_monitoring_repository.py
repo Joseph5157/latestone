@@ -99,6 +99,16 @@ class UserRecord:
     status: str
     created_at: datetime
     updated_at: datetime
+    # ADR-033. Trailing and defaulted so a record built without them (older
+    # callers, test doubles) keeps meaning "no client link, first session
+    # version, no credential". The password HASH itself is deliberately not a
+    # field: `has_password` says whether one exists, and only
+    # `get_password_hash` returns it, to the one verifier that needs it.
+    client_person_id: int | None = None
+    session_version: int = 1
+    password_changed_at: datetime | None = None
+    last_login_at: datetime | None = None
+    has_password: bool = False
 
 
 @dataclass(frozen=True)
@@ -167,8 +177,13 @@ _ASSIGNMENT_COLUMNS = (
 
 _USER_COLUMNS = (
     "user_id, username, full_name, email_address, mobile_number, "
-    "role, status, created_at, updated_at"
+    "role, status, created_at, updated_at, "
+    "client_person_id, session_version, password_changed_at, last_login_at, "
+    "(password_hash IS NOT NULL) AS has_password"
 )
+
+#: Legacy user status -> current (ADR-033).
+_LEGACY_USER_STATUS = {"inactive": "disabled"}
 
 _DEVICE_COLUMNS = (
     "device_id, transformer_id, device_code, status, "
@@ -1366,7 +1381,7 @@ def get_user_by_username(username: str) -> UserRecord | None:
     with session_scope() as session:
         row = session.execute(
             text(f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users WHERE username = :username"),
-            {"username": username},
+            {"username": (username or "").strip().lower()},
         ).first()
     return _to_user(row) if row else None
 
@@ -1414,6 +1429,11 @@ def create_or_update_user(
     With ``with_change_info=True`` returns ``(UserRecord, created, before)``
     where ``before`` is None for creates; otherwise returns just UserRecord.
     """
+
+    username = (username or "").strip().lower()
+    # ADR-033 replaced the two-state vocabulary; the legacy word still maps to
+    # its successor for the older seed/prototype callers that pass it.
+    status = _LEGACY_USER_STATUS.get(status, status)
 
     def _run(s):
         before_row = s.execute(
@@ -1505,8 +1525,278 @@ def delete_all_users() -> None:
     with session_scope() as session:
         # TECHNICIAN-REAL-RTL-ACCESS-01: client-RTL assignments FK to users.
         session.execute(text(f"DELETE FROM {_SCHEMA}.rtl_technician_assignments"))
+        session.execute(text(f"DELETE FROM {_SCHEMA}.auth_tokens"))
+        session.execute(text(f"DELETE FROM {_SCHEMA}.auth_login_throttle"))
         session.execute(text(f"DELETE FROM {_SCHEMA}.audit_log"))
         session.execute(text(f"DELETE FROM {_SCHEMA}.users"))
+
+
+# ---------------------------------------------------------------------------
+# Local authentication (ADR-033): credentials, lifecycle, tokens, throttling.
+#
+# Every mutating function here takes the caller's ``session`` so the service
+# can compose the change and its audit row in one transaction. Nothing here
+# ever returns or logs a raw token; the password HASH is returned only by
+# ``get_password_hash``.
+# ---------------------------------------------------------------------------
+
+#: Columns `update_user_fields` may set. A fixed allowlist: field NAMES never
+#: come from a caller's input, only their values do.
+_UPDATABLE_USER_FIELDS = frozenset(
+    {"username", "full_name", "email_address", "role", "client_person_id", "status"}
+)
+
+
+def get_password_hash(user_id: int) -> str | None:
+    with session_scope() as session:
+        row = session.execute(
+            text(f"SELECT password_hash FROM {_SCHEMA}.users WHERE user_id = :u"),
+            {"u": user_id},
+        ).first()
+    return row[0] if row else None
+
+
+def read_user_by_id(session, user_id: int) -> UserRecord | None:
+    """Non-locking read inside the caller's transaction."""
+    row = session.execute(
+        text(f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users WHERE user_id = :u"),
+        {"u": user_id},
+    ).first()
+    return _to_user(row) if row else None
+
+
+def lock_user_by_id(session, user_id: int) -> UserRecord | None:
+    """SELECT ... FOR UPDATE — serialises concurrent lifecycle changes."""
+    row = session.execute(
+        text(f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users WHERE user_id = :u FOR UPDATE"),
+        {"u": user_id},
+    ).first()
+    return _to_user(row) if row else None
+
+
+def get_user_by_client_person_id(client_person_id: int, *, session) -> UserRecord | None:
+    row = session.execute(
+        text(
+            f"SELECT {_USER_COLUMNS} FROM {_SCHEMA}.users "
+            "WHERE client_person_id = :p"
+        ),
+        {"p": client_person_id},
+    ).first()
+    return _to_user(row) if row else None
+
+
+def insert_user_account(
+    session,
+    *,
+    username: str,
+    full_name: str,
+    email_address: str | None,
+    role: str,
+    status: str,
+    client_person_id: int | None,
+) -> UserRecord:
+    row = session.execute(
+        text(
+            f"INSERT INTO {_SCHEMA}.users "
+            "(username, full_name, email_address, role, status, client_person_id) "
+            "VALUES (:username, :full_name, :email, :role, :status, :pid) "
+            f"RETURNING {_USER_COLUMNS}"
+        ),
+        {
+            "username": username.strip().lower(),
+            "full_name": full_name,
+            "email": email_address,
+            "role": role,
+            "status": status,
+            "pid": client_person_id,
+        },
+    ).first()
+    return _to_user(row)
+
+
+def update_user_fields(session, user_id: int, fields: dict) -> UserRecord:
+    """Update allowlisted columns of one user; bumps ``updated_at``."""
+    unknown = set(fields) - _UPDATABLE_USER_FIELDS
+    if unknown or not fields:
+        raise ValueError(f"update_user_fields: unsupported fields {sorted(unknown)!r}")
+    values = dict(fields)
+    if "username" in values:
+        values["username"] = values["username"].strip().lower()
+    assignments = ", ".join(f"{name} = :{name}" for name in values)
+    row = session.execute(
+        text(
+            f"UPDATE {_SCHEMA}.users SET {assignments}, updated_at = now() "
+            f"WHERE user_id = :uid_ RETURNING {_USER_COLUMNS}"
+        ),
+        {**values, "uid_": user_id},
+    ).first()
+    return _to_user(row)
+
+
+def bump_session_version(session, user_id: int) -> None:
+    """Kill every existing session of this user: their stored version no
+    longer matches."""
+    session.execute(
+        text(
+            f"UPDATE {_SCHEMA}.users SET session_version = session_version + 1, "
+            "updated_at = now() WHERE user_id = :u"
+        ),
+        {"u": user_id},
+    )
+
+
+def set_password_hash(session, user_id: int, password_hash: str, *, activate: bool) -> UserRecord:
+    """Store a new hash, stamp the change, revoke sessions; optionally move a
+    Pending account to Active in the same statement."""
+    row = session.execute(
+        text(
+            f"UPDATE {_SCHEMA}.users SET password_hash = :h, password_changed_at = now(), "
+            "session_version = session_version + 1, updated_at = now(), "
+            "status = CASE WHEN :activate AND status = 'pending_activation' "
+            "THEN 'active' ELSE status END "
+            f"WHERE user_id = :u RETURNING {_USER_COLUMNS}"
+        ),
+        {"h": password_hash, "u": user_id, "activate": activate},
+    ).first()
+    return _to_user(row)
+
+
+def touch_last_login(session, user_id: int) -> None:
+    session.execute(
+        text(f"UPDATE {_SCHEMA}.users SET last_login_at = now() WHERE user_id = :u"),
+        {"u": user_id},
+    )
+
+
+def count_active_administrators(*, session=None, with_password: bool = False) -> int:
+    sql = (
+        f"SELECT COUNT(*) FROM {_SCHEMA}.users "
+        "WHERE role = 'administrator' AND status = 'active'"
+        + (" AND password_hash IS NOT NULL" if with_password else "")
+    )
+
+    def _run(s):
+        return int(s.execute(text(sql)).scalar_one())
+
+    if session is not None:
+        return _run(session)
+    with session_scope() as own:
+        return _run(own)
+
+
+# -- setup / reset tokens ---------------------------------------------------
+
+@dataclass(frozen=True)
+class AuthTokenRecord:
+    token_id: int
+    user_id: int
+    purpose: str
+    usable: bool  # not used, not revoked, not expired — judged by DB time
+
+
+def revoke_open_auth_tokens(session, user_id: int) -> int:
+    result = session.execute(
+        text(
+            f"UPDATE {_SCHEMA}.auth_tokens SET revoked_at = now() "
+            "WHERE user_id = :u AND used_at IS NULL AND revoked_at IS NULL"
+        ),
+        {"u": user_id},
+    )
+    return result.rowcount or 0
+
+
+def insert_auth_token(
+    session, *, user_id: int, purpose: str, token_hash: str,
+    ttl_seconds: int, created_by: int | None,
+) -> None:
+    session.execute(
+        text(
+            f"INSERT INTO {_SCHEMA}.auth_tokens "
+            "(user_id, purpose, token_hash, expires_at, created_by) "
+            "VALUES (:u, :p, :h, now() + make_interval(secs => :ttl), :by)"
+        ),
+        {"u": user_id, "p": purpose, "h": token_hash, "ttl": ttl_seconds, "by": created_by},
+    )
+
+
+def lock_auth_token(session, token_hash: str) -> AuthTokenRecord | None:
+    row = session.execute(
+        text(
+            "SELECT token_id, user_id, purpose, "
+            "(used_at IS NULL AND revoked_at IS NULL AND expires_at > now()) "
+            f"FROM {_SCHEMA}.auth_tokens WHERE token_hash = :h FOR UPDATE"
+        ),
+        {"h": token_hash},
+    ).first()
+    return AuthTokenRecord(int(row[0]), int(row[1]), row[2], bool(row[3])) if row else None
+
+
+def mark_auth_token_used(session, token_id: int) -> None:
+    session.execute(
+        text(f"UPDATE {_SCHEMA}.auth_tokens SET used_at = now() WHERE token_id = :t"),
+        {"t": token_id},
+    )
+
+
+# -- login throttling -------------------------------------------------------
+
+def get_throttle_lock_seconds(key_hash: str) -> int:
+    """Whole seconds until this key may try again (0 = not locked)."""
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                "SELECT COALESCE(CEIL(EXTRACT(EPOCH FROM (locked_until - now()))), 0) "
+                f"FROM {_SCHEMA}.auth_login_throttle WHERE key_hash = :k"
+            ),
+            {"k": key_hash},
+        ).first()
+    return max(0, int(row[0])) if row else 0
+
+
+def record_login_failure(
+    key_hash: str, *, threshold: int, base_seconds: int, max_seconds: int,
+    forget_seconds: int,
+) -> tuple[int, bool]:
+    """Count one failure; returns ``(failure_count, newly_locked)``.
+
+    A failure older than ``forget_seconds`` starts a fresh count, and the lock
+    doubles per failure past the threshold up to ``max_seconds`` — always
+    bounded, never permanent.
+    """
+    with session_scope() as session:
+        count = int(
+            session.execute(
+                text(
+                    f"INSERT INTO {_SCHEMA}.auth_login_throttle "
+                    "(key_hash, failure_count, last_failure_at) VALUES (:k, 1, now()) "
+                    "ON CONFLICT (key_hash) DO UPDATE SET "
+                    "failure_count = CASE WHEN "
+                    f"{_SCHEMA}.auth_login_throttle.last_failure_at < now() - make_interval(secs => :forget) "
+                    f"THEN 1 ELSE {_SCHEMA}.auth_login_throttle.failure_count + 1 END, "
+                    "last_failure_at = now() RETURNING failure_count"
+                ),
+                {"k": key_hash, "forget": forget_seconds},
+            ).scalar_one()
+        )
+        locked = count >= threshold
+        if locked:
+            seconds = min(max_seconds, base_seconds * (2 ** min(count - threshold, 20)))
+            session.execute(
+                text(
+                    f"UPDATE {_SCHEMA}.auth_login_throttle "
+                    "SET locked_until = now() + make_interval(secs => :s) WHERE key_hash = :k"
+                ),
+                {"k": key_hash, "s": seconds},
+            )
+    return count, locked and count == threshold
+
+
+def clear_login_throttle(key_hash: str) -> None:
+    with session_scope() as session:
+        session.execute(
+            text(f"DELETE FROM {_SCHEMA}.auth_login_throttle WHERE key_hash = :k"),
+            {"k": key_hash},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -4487,6 +4777,12 @@ def list_current_rtl_assignment_uids(technician_user_id: int) -> list[int]:
     return [int(r[0]) for r in rows]
 
 
+def count_open_rtl_assignments_for_user(user_id: int) -> int:
+    """How many client RTLs this user currently holds. A guard for account
+    changes (never a visibility filter — that is `services.rtl_scope`)."""
+    return len(list_current_rtl_assignment_uids(user_id))
+
+
 def list_current_rtl_assignments() -> list[RtlAssignmentRecord]:
     """Every open assignment, ordered by UID."""
     with session_scope() as session:
@@ -4630,7 +4926,7 @@ def provision_technician_user_for_person(
         text(
             f"INSERT INTO {_SCHEMA}.users "
             "(username, full_name, role, status, client_person_id) "
-            "VALUES (:username, :full_name, 'technician', 'active', :pid) "
+            "VALUES (:username, :full_name, 'technician', 'pending_activation', :pid) "
             "RETURNING user_id"
         ),
         {"username": username, "full_name": full_name, "pid": client_person_id},

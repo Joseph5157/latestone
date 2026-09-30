@@ -91,6 +91,13 @@ FLEET_OVERVIEW_PATH = RTL_LIST_PATH
 #: its own and nothing in the application links to it.
 LEGACY_RTL_LIST_PATH = "/plants"
 
+#: ADR-033. The one-time password setup/reset page. A PUBLIC route: the
+#: visitor has no session yet and the link's token is the whole proof. Like
+#: `unknown` it is deliberately absent from `ROUTE_POLICY` — it grants no
+#: application access, only the right to set one account's password.
+SET_PASSWORD_PATH = "/set-password"
+SET_PASSWORD_ROUTE = "set_password"
+
 #: What `parse_pathname` calls the legacy address. Not an application route —
 #: like `unknown` it is absent from `ROUTE_POLICY` — because nothing is ever
 #: rendered for it: the router ignores it, and it is rewritten to
@@ -194,6 +201,9 @@ def parse_pathname(pathname: str | None) -> Route:
         return Route(name=RTL_LIST_ALIAS_ROUTE)
 
     parts = [p for p in pathname.strip("/").split("/") if p]
+
+    if len(parts) == 1 and parts[0] == "set-password":
+        return Route(name=SET_PASSWORD_ROUTE)
 
     if len(parts) == 1 and parts[0] == "rtls":
         return Route(name="overview")

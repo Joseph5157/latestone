@@ -1,0 +1,105 @@
+{
+ "users": [
+  [
+   "103",
+   "admin",
+   "administrator",
+   "active",
+   "None"
+  ],
+  [
+   "104",
+   "demo.tech01",
+   "technician",
+   "active",
+   "None"
+  ],
+  [
+   "105",
+   "demo.tech02",
+   "technician",
+   "active",
+   "None"
+  ],
+  [
+   "106",
+   "demo.tech03",
+   "technician",
+   "active",
+   "None"
+  ],
+  [
+   "107",
+   "demo.tech04",
+   "technician",
+   "active",
+   "None"
+  ],
+  [
+   "108",
+   "demo.tech05",
+   "technician",
+   "active",
+   "None"
+  ],
+  [
+   "115",
+   "demo.general01",
+   "general",
+   "active",
+   "None"
+  ],
+  [
+   "116",
+   "cvbncv",
+   "general",
+   "active",
+   "None"
+  ],
+  [
+   "117",
+   "client-person-2",
+   "technician",
+   "active",
+   "2"
+  ],
+  [
+   "118",
+   "client-person-3",
+   "technician",
+   "active",
+   "3"
+  ],
+  [
+   "119",
+   "client-person-4",
+   "technician",
+   "active",
+   "4"
+  ],
+  [
+   "120",
+   "client-person-5",
+   "technician",
+   "active",
+   "5"
+  ],
+  [
+   "121",
+   "client-person-6",
+   "technician",
+   "active",
+   "6"
+  ]
+ ],
+ "rtl_technician_assignments_count": 68,
+ "audit_log_count": 34,
+ "readings_count": 1551454,
+ "devices_count": 120,
+ "plants_count": 30,
+ "transformers_count": 71,
+ "user_device_assignments_count": 98,
+ "open_assignments": 64,
+ "assign_fingerprint": "c64c1bebda20b1578546226cc47310ca",
+ "alembic": "016_rtl_technician_assignments"
+}

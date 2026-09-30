@@ -1,7 +1,8 @@
 """User Administration page — layout only, no queries.
 
-Frontend prototype for user management. Does not persist to any identity
-system. Role assignment is explicitly disabled pending client role model.
+ADR-033: application-managed accounts (local authentication). Administrators
+create accounts, link them to client persons, issue one-time setup/reset
+links, and disable/re-enable them. Persisted in the application database.
 """
 from __future__ import annotations
 
@@ -19,6 +20,18 @@ ROLE_FILTER_OPTIONS = [
     {"label": "Administrator", "value": "administrator"},
     {"label": "Technician", "value": "technician"},
     {"label": "General User", "value": "general"},
+]
+
+
+#: The one definition of the table columns, shared with the populate callback.
+USER_TABLE_COLUMNS = [
+    {"name": "User", "id": "username"},
+    {"name": "Name", "id": "full_name"},
+    {"name": "Identifier", "id": "identifier"},
+    {"name": "Role", "id": "role"},
+    {"name": "Status", "id": "status"},
+    {"name": "Client person", "id": "client_person"},
+    {"name": "Actions", "id": "actions", "presentation": "markdown"},
 ]
 
 
@@ -54,11 +67,12 @@ def layout() -> html.Div:
             html.Div(
                 className="admin-boundary-note",
                 children=[
-                    html.Strong("Demo environment. "),
+                    html.Strong("Application-managed sign-in. "),
                     html.Span(
-                        "User accounts, roles, and status changes are stored in "
-                        "the local application database. Production "
-                        "identity-provider integration is not yet connected."
+                        "Accounts, roles and status are stored in the application "
+                        "database and users sign in with their own password. There "
+                        "is no external identity provider. Setup and reset links "
+                        "are handed over by an Administrator; no email or SMS is sent."
                     ),
                 ],
             ),
@@ -129,7 +143,8 @@ def layout() -> html.Div:
                                 options=[
                                     {"label": "All", "value": "all"},
                                     {"label": "Active", "value": "active"},
-                                    {"label": "Inactive", "value": "inactive"},
+                                    {"label": "Pending activation", "value": "pending_activation"},
+                                    {"label": "Disabled", "value": "disabled"},
                                 ],
                                 value="all",
                                 clearable=False,
@@ -146,13 +161,7 @@ def layout() -> html.Div:
             # User table
             entity_table(
                 table_id="user-admin-table",
-                columns=[
-                    {"name": "User", "id": "username"},
-                    {"name": "Identifier", "id": "identifier"},
-                    {"name": "Role", "id": "role"},
-                    {"name": "Status", "id": "status"},
-                    {"name": "Actions", "id": "actions", "presentation": "markdown"},
-                ],
+                columns=USER_TABLE_COLUMNS,
                 rows=[],
                 link_column_id="username",
                 administrative_state_column_id="status",

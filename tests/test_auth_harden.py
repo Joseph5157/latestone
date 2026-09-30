@@ -151,14 +151,17 @@ class TestForgedAdministratorRole:
 
         monkeypatch.setattr(user_admin, "get_user", lambda name: None)
         calls = []
-        monkeypatch.setattr(user_admin, "upsert_user", lambda *a, **k: calls.append((a, k)))
+        monkeypatch.setattr(
+            user_admin.account_service, "create_account", lambda *a, **k: calls.append((a, k))
+        )
 
         with trusted_session(monkeypatch, user_id=50, role=role):
             handler = _handlers(user_admin)["confirm_user_form"]
-            _err, result, _style, _hidden = handler(
-                1, None, "self-promoted", "x@example.invalid",
-                "administrator", "active",
-                _forged("administrator"),  # the browser's claim — must be ignored
+            # ADR-033: the handler takes no `auth-store` argument any more, so
+            # there is no browser claim to forge; the session decides.
+            _err, result, _style, _hidden, _refresh, _cell = handler(
+                1, None, "self-promoted", "", "x@example.invalid",
+                "administrator", None, 0,
             )
 
         assert getattr(result, "className", "") == ACTION_REFUSED_CLASS
@@ -427,7 +430,9 @@ class TestRevocationWithoutRelogin:
         monkeypatch.setattr(repo, "get_user_by_id", get_by_id)
         monkeypatch.setattr(user_admin, "get_user", lambda name: None)
         calls = []
-        monkeypatch.setattr(user_admin, "upsert_user", lambda *a, **k: calls.append((a, k)))
+        monkeypatch.setattr(
+            user_admin.account_service, "create_account", lambda *a, **k: calls.append((a, k))
+        )
         handler = _handlers(user_admin)["confirm_user_form"]
 
         with no_trusted_session():
@@ -435,9 +440,9 @@ class TestRevocationWithoutRelogin:
 
             state["role"] = "general"  # demoted mid-session, no re-login
 
-            _err, result, _style, _hidden = handler(
-                1, None, "newbie", "x@example.invalid",
-                "technician", "active", None,
+            _err, result, _style, _hidden, _refresh, _cell = handler(
+                1, None, "newbie", "", "x@example.invalid",
+                "technician", None, 0,
             )
 
         assert getattr(result, "className", "") == ACTION_REFUSED_CLASS

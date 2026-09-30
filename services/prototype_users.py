@@ -51,6 +51,10 @@ def _to_dict(user: repo.UserRecord) -> dict:
         "identifier": user.email_address or "",
         "role": user.role,
         "status": user.status,
+        # ADR-033 (additive): what User Administration needs to show accounts.
+        "full_name": user.full_name,
+        "client_person_id": user.client_person_id,
+        "has_password": user.has_password,
     }
 
 
@@ -70,13 +74,18 @@ def seed_demo_user() -> None:
     that is an explicit development-data change, never something this function
     does behind the caller's back.
     """
+    from config import settings
     from config.settings import demo_auth
+    # ADR-033: the demo Administrator is a development fixture. It is never
+    # provisioned in production, whatever the configuration says.
+    if settings.IS_PRODUCTION:
+        return
     if not demo_auth.is_configured:
         return
     if repo.get_user_by_username(demo_auth.username) is not None:
         return
     repo.create_or_update_user(
-        username=demo_auth.username,
+        username=demo_auth.username.strip().lower(),
         full_name=demo_auth.username,
         role="administrator",
         status="active",

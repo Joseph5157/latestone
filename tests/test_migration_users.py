@@ -85,6 +85,8 @@ class TestUsersSchema:
         assert columns == {
             "user_id", "username", "full_name", "email_address", "mobile_number",
             "role", "status", "created_at", "updated_at", "client_person_id",
+            # ADR-033 (migration 017)
+            "password_hash", "password_changed_at", "session_version", "last_login_at",
         }
 
     def test_default_status_is_active(self):

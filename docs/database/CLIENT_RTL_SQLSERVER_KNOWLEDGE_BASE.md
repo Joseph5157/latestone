@@ -585,6 +585,17 @@ without login credentials to anchor assignment scope; they cannot authenticate
 through the current configured demo-login map. These are verified application
 state facts, not evidence of a client authentication policy.
 
+**Decision (CDB-04, ANSWERED 2026-09-30, ADR-033):** the application uses its own
+application-managed username/password authentication; external Microsoft/Active
+Directory/SSO is not required. Credentials live in the application PostgreSQL `users`
+table as per-user `scrypt` hashes (never plaintext); `persons` remains an identity
+reference only and `persons.user_id` / `persons.password_hash` are never read for login
+or written. Account lifecycle is `pending_activation` -> `active` -> `disabled`. The five
+linked Technician users (IDs 117-121, persons 2-6) become `pending_activation` until an
+Administrator issues a one-time setup link and the Technician chooses a password; their
+assignments are not rewritten. Demo credential login is a development fixture and is
+refused in production. The client SQL Server stays READ_ONLY.
+
 Therefore:
 - reuse/adapt `persons` and `roles` as identity/business structures,
 - do not assume legacy authentication is usable,

@@ -91,6 +91,11 @@ RESET_PRESERVES = (
     # FRESHNESS-CONFIG-1 (migration 015): an Administrator's configured
     # Stale-after threshold is configuration, not measurement data.
     "freshness_threshold_config",
+    # ADR-033 (migration 017): credentials-adjacent state. Setup/reset tokens
+    # and login throttle counters belong to accounts, not to measurements; a
+    # reseed of synthetic telemetry must never revoke or reissue them.
+    "auth_tokens",
+    "auth_login_throttle",
 )
 
 #: FK-safe deletion order for the DESTRUCTIVE teardown only (ADR-010 D3).

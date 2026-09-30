@@ -135,7 +135,16 @@ class TestSystemOriginatedAudit:
     def test_allowlist_contains_exactly_the_implemented_system_features(self):
         # RTL_ACTIVATED (INGEST-1) is the only system-originated app feature.
         # BR016 is RTL Master-owned and deliberately not in this allowlist.
-        assert audit_cfg.SYSTEM_OPERATIONS == frozenset({audit_cfg.RTL_ACTIVATED})
+        assert audit_cfg.SYSTEM_OPERATIONS == frozenset(
+            {
+                audit_cfg.RTL_ACTIVATED,
+                # ADR-033: sign-in failures and the explicit Administrator
+                # bootstrap have no signed-in human actor.
+                audit_cfg.LOGIN_FAILED,
+                audit_cfg.LOGIN_THROTTLED,
+                audit_cfg.ADMIN_BOOTSTRAPPED,
+            }
+        )
 
     def test_rtl_activated_operation_fits_column_limit(self):
         assert len(audit_cfg.RTL_ACTIVATED) <= 50

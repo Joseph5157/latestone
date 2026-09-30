@@ -1,40 +1,66 @@
-"""User Administration callbacks — populate table, search/filter, prototype add/edit.
+"""User Administration callbacks — accounts, client-person links, lifecycle (ADR-033).
 
-All operations are frontend-only. The user list is a prototype in-memory view
-model; it does not persist to any identity system. User state is shared via
-services/prototype_users.py so device workflows can access technician data.
+Every operation is Administrator-only and is enforced three times: the route
+policy, `require_capability` here, and the actor check inside
+`services.account_service`. The callbacks stay thin: gather inputs -> call the
+service -> format outputs. All persistence and audit live in the service.
+
+The one-time setup/reset link is rendered into the drawer's result slot only,
+never stored client-side, and cleared whenever the drawer opens or closes.
 """
 from __future__ import annotations
 
 import logging
 
-from dash import Input, Output, State, no_update, html
+import dash
+from dash import Input, Output, State, dcc, html, no_update
 
 from components.status_panels import action_refused_notice, error_panel
 from components.user_form_drawer import (
+    USER_ACTIONS_ID,
+    USER_CANCEL_BTN,
+    USER_CONFIRM_BTN,
+    USER_DISABLE_BTN,
+    USER_DISMISS_BTN,
     USER_DRAWER_ID,
+    USER_ENABLE_BTN,
+    USER_FULLNAME_ID,
     USER_HIDDEN_ID,
-    USER_RESULT_ID,
-    USER_USERNAME_ID,
     USER_IDENTIFIER_ID,
+    USER_ISSUE_BTN,
+    USER_PERSON_ID,
+    USER_REFRESH_ID,
+    USER_RESULT_ID,
     USER_ROLE_ID,
     USER_STATUS_ID,
-    USER_CONFIRM_BTN,
-    USER_CANCEL_BTN,
-    USER_DISMISS_BTN,
+    USER_USERNAME_ID,
 )
+from pages.user_admin import USER_TABLE_COLUMNS
+from services import account_service
+from services.account_service import AccountError
 from services.action_guard import require_capability
 from services.auth_service import current_identity
 from services.authorization import AuthorizationError, MANAGE_USERS
-from services.prototype_users import (
-    get_all_users,
-    get_user,
-    upsert_user,
-    clear_all_users,
-    CONFIRMED_ROLES,
-)
+from services.prototype_users import CONFIRMED_ROLES, get_all_users, get_user
 
 logger = logging.getLogger(__name__)
+
+STATUS_LABELS = {
+    "active": "Active",
+    "pending_activation": "Pending activation",
+    "disabled": "Disabled",
+}
+
+#: Table severity ordering only (carries no visual meaning): Active first.
+_SEVERITY = {"active": 0, "pending_activation": 1, "disabled": 2}
+
+LINK_HANDOVER_NOTE = (
+    "Administrative provisioning link — no email or SMS was sent. Copy it now and "
+    "hand it to the user through a channel you trust. It is shown once, works once, "
+    "and expires; closing this panel discards it."
+)
+
+LINK_ID = "user-issued-link"
 
 
 def _validate_user_form(
@@ -42,27 +68,28 @@ def _validate_user_form(
 ) -> dict[str, str]:
     """Validate required fields. Returns {field: error_message} dict.
 
-    `existing_username` is the record being edited, and without it this
-    function cannot tell "someone else already has this name" from "this user
-    still has their own name". It previously had no way to know, so re-saving
-    a user under their unchanged username was refused as a duplicate.
-
-    Absent (an add), every existing name is a rival. Present (an edit), the
-    editor's own name is theirs to keep — and only that one name; taking a
-    DIFFERENT user's username is still refused.
+    `existing_username` is the record being edited: absent (an add), every
+    existing name is a rival; present (an edit), the editor's own name is theirs
+    to keep, and only that one — taking a DIFFERENT user's username is refused.
     """
+    from services.credentials import normalize_username, username_error
+
     errors = {}
-    name = (username or "").strip()
+    name = normalize_username(username)
     if not name:
         errors["username"] = "Username is required."
-    elif name != (existing_username or "") and get_user(name) is not None:
+    elif name != normalize_username(existing_username) and get_user(name) is not None:
         errors["username"] = "Username already exists."
+    elif name != normalize_username(existing_username):
+        problem = username_error(name)
+        if problem:
+            errors["username"] = problem
     return errors
 
 
 def _format_status(status: str) -> str:
     """Human-readable status label."""
-    return status.capitalize() if status else "—"
+    return STATUS_LABELS.get(status, status.replace("_", " ").capitalize() if status else "—")
 
 
 def _format_role(role: str) -> str:
@@ -92,48 +119,118 @@ def _build_user_rows(
     search_lower = search_term.lower().strip()
 
     for u in users:
-        # Apply search filter
         if search_lower:
-            searchable = f"{u['username']} {u.get('identifier', '')}".lower()
+            searchable = (
+                f"{u['username']} {u.get('full_name', '')} {u.get('identifier', '')}"
+            ).lower()
             if search_lower not in searchable:
                 continue
 
-        # Apply status filter
         if status_filter != "all" and u.get("status") != status_filter:
             continue
 
-        # Apply role filter
         if role_filter != "all" and u.get("role") != role_filter:
             continue
 
-        role_label = _format_role(u.get("role", "tbd"))
-        actions = "[Edit](#)"
-
+        status = u.get("status", "active")
+        person = u.get("client_person_id")
         rows.append({
             "id": u["username"],
             "username": u["username"],
-            "identifier": u.get("identifier", "—"),
-            "role": role_label,
-            "status": _format_status(u.get("status", "active")),
-            "actions": actions,
-            "_state": u.get("status", "active"),
-            "_severity": 0 if u.get("status") == "active" else 2,
+            "full_name": u.get("full_name") or "—",
+            "identifier": u.get("identifier") or "—",
+            "role": _format_role(u.get("role", "tbd")),
+            "status": _format_status(status),
+            "client_person": f"Person {person}" if person is not None else "—",
+            "actions": "[Edit](#)",
+            "_state": status,
+            "_severity": _SEVERITY.get(status, 2),
         })
     return rows
 
 
-def register(app) -> None:
-    """Register user administration callbacks on the Dash app.
+def _summary(users: list[dict]) -> str:
+    """Same grammar as Device Management's summary line (ENT-6C)."""
+    counts = {key: sum(1 for u in users if u.get("status") == key) for key in STATUS_LABELS}
+    noun = "user" if len(users) == 1 else "users"
+    return (
+        f"{len(users)} {noun} total — {counts['active']} active, "
+        f"{counts['pending_activation']} pending activation, {counts['disabled']} disabled"
+    )
 
-    Registration wires callbacks and nothing else. It used to call
-    `seed_demo_user()` here — a leftover from the in-memory prototype store,
-    where seeding was free. Against PostgreSQL it made importing `app` open a
-    connection, so the app could not be imported (or its pure-logic tests
-    collected) without a running database, and a module import performed a
-    write. Nothing is lost by dropping it: every path that reads users seeds
-    first — `auth_service.authenticate()` before its lookup, and
-    `prototype_users.get_all_users()` / `.get_user()` on entry.
-    """
+
+def _parse_person_id(raw) -> tuple[int | None, str | None]:
+    """(client_person_id, error). Blank means "no link"."""
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return None, None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None, "Client person ID must be a whole number."
+    if value < 1:
+        return None, "Client person ID must be a positive number."
+    return value, None
+
+
+def _error_note(message: str) -> html.Div:
+    return html.Div(message, className="user-form-drawer__error", role="alert")
+
+
+def _status_note(message: str) -> html.Div:
+    return html.Div(message, className="user-form-drawer__hint", role="status")
+
+
+def _link_panel(link: account_service.IssuedLink) -> html.Div:
+    kind = "Setup link" if link.purpose == account_service.PURPOSE_SETUP else "Password reset link"
+    return html.Div(
+        className="user-form-drawer__link",
+        role="status",
+        children=[
+            html.Strong(f"{kind} for {link.username}"),
+            html.P(LINK_HANDOVER_NOTE),
+            html.Code(link.url, id=LINK_ID, className="user-form-drawer__link-url"),
+            dcc.Clipboard(target_id=LINK_ID, title="Copy link", className="user-form-drawer__copy"),
+            html.P(f"Expires {link.expires_at:%Y-%m-%d %H:%M} UTC. Single use."),
+        ],
+    )
+
+
+def _admin_or_none():
+    """The current Administrator identity, or None (after a logged refusal)."""
+    user = current_identity()
+    try:
+        require_capability(user, MANAGE_USERS)
+    except AuthorizationError:
+        logger.warning(
+            "User administration action refused: %r is not an administrator.",
+            user.username if user else None,
+        )
+        return None
+    return user
+
+
+def _target_user_id(admin, username: str | None) -> int | None:
+    """The stable user_id behind a table row's username, via the audited
+    Administrator-only listing."""
+    for stored in account_service.list_accounts(actor_user_id=admin.user_id):
+        if stored.username == (username or "").strip().lower():
+            return stored.user_id
+    return None
+
+
+def _lifecycle_view(status: str | None, has_password: bool = False):
+    """(actions style, issue label, disable style, enable style) for a status."""
+    shown, hidden = {"display": "block"}, {"display": "none"}
+    if status is None:
+        return hidden, no_update, hidden, hidden
+    if status == "disabled":
+        return shown, "Issue setup link", hidden, {"display": "inline-block"}
+    label = "Issue setup link" if status == "pending_activation" else "Issue password reset link"
+    return shown, label, {"display": "inline-block"}, hidden
+
+
+def register(app) -> None:
+    """Register user administration callbacks on the Dash app."""
 
     @app.callback(
         Output("user-admin-table", "data"),
@@ -144,17 +241,16 @@ def register(app) -> None:
         Input("user-admin-search", "value"),
         Input("user-admin-status-filter", "value"),
         Input("user-admin-role-filter", "value"),
+        Input(USER_REFRESH_ID, "data"),
         prevent_initial_call=True,
     )
-    def populate_user_admin(context, search_term, status_filter, role_filter="all"):
+    def populate_user_admin(context, search_term, status_filter, role_filter="all", _refresh=None):
         if not context or context.get("route") != "admin_users":
             return (no_update,) * 4
 
         # P0-4 (AUTH-HARDEN-1). `admin_users` is administrator-only by
         # ROUTE_POLICY, but this callback is independently invokable with a
-        # forged page-context and previously trusted nothing of its own —
-        # any authenticated role could pull the full user roster. See
-        # confirm_user_form below for the matching P0-2 write-side fix.
+        # forged page-context and must not trust it.
         try:
             require_capability(current_identity(), MANAGE_USERS)
         except AuthorizationError:
@@ -166,25 +262,7 @@ def register(app) -> None:
             rows = _build_user_rows(
                 users, search_term or "", status_filter or "all", role_filter or "all"
             )
-
-            active_count = sum(1 for u in users if u.get("status") == "active")
-            inactive_count = sum(1 for u in users if u.get("status") != "active")
-            # Same grammar as Device Management's summary line (ENT-6C):
-            # "N <noun> total — N active, N inactive", pluralised without
-            # the awkward "(s)" form.
-            noun = "user" if len(users) == 1 else "users"
-            summary = f"{len(users)} {noun} total — {active_count} active, {inactive_count} inactive"
-
-            columns = [
-                {"name": "User", "id": "username"},
-                {"name": "Identifier", "id": "identifier"},
-                {"name": "Role", "id": "role"},
-                {"name": "Status", "id": "status"},
-                {"name": "Actions", "id": "actions", "presentation": "markdown"},
-            ]
-
-            return rows, columns, None, summary
-
+            return rows, USER_TABLE_COLUMNS, None, _summary(users)
         except Exception:
             logger.exception("Failed to load user administration data")
             return [], [], error_panel(), ""
@@ -194,10 +272,18 @@ def register(app) -> None:
         Output(USER_HIDDEN_ID, "data"),
         Output("user-form-drawer-title", "children"),
         Output(USER_USERNAME_ID, "value"),
+        Output(USER_FULLNAME_ID, "value"),
         Output(USER_IDENTIFIER_ID, "value"),
         Output(USER_ROLE_ID, "value"),
-        Output(USER_STATUS_ID, "value"),
+        Output(USER_PERSON_ID, "value"),
+        Output(USER_STATUS_ID, "children"),
         Output(USER_CONFIRM_BTN, "children"),
+        Output(USER_ACTIONS_ID, "style"),
+        Output(USER_ISSUE_BTN, "children"),
+        Output(USER_DISABLE_BTN, "style"),
+        Output(USER_ENABLE_BTN, "style"),
+        Output(USER_RESULT_ID, "children"),
+        Output("user-form-username-error", "children", allow_duplicate=True),
         Input("user-admin-add-btn", "n_clicks"),
         Input("user-admin-table", "active_cell"),
         State("user-admin-table", "data"),
@@ -206,111 +292,94 @@ def register(app) -> None:
     def open_user_drawer(add_clicks, active_cell, table_data):
         """Open drawer for Add User or Edit action.
 
-        AUTH-HARDEN-1 (Phase 1D): loads an existing user's editable data
-        (`get_user(row_id)`) for the Edit path, so this needs the same
-        Administrator guard as `populate_user_admin` — a table row alone does
-        not prove the caller is entitled to open it.
+        Loads an existing user's editable data for the Edit path, so it needs
+        the same Administrator guard as `populate_user_admin` — a table row
+        alone does not prove the caller is entitled to open it.
         """
-        try:
-            require_capability(current_identity(), MANAGE_USERS)
-        except AuthorizationError:
-            return (no_update,) * 8
+        nothing = (no_update,) * 16
+        if _admin_or_none() is None:
+            return nothing
 
-        ctx = __import__("dash").callback_context
+        ctx = dash.callback_context
         if not ctx.triggered:
-            return (no_update,) * 8
-
+            return nothing
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
         if trigger_id == "user-admin-add-btn":
-            # Add User
+            actions, issue, disable, enable = _lifecycle_view(None)
             return (
-                {"display": "block"},
-                None,  # no existing username
-                "Add User",
-                "",  # empty username
-                "",  # empty identifier
-                "general",  # default role
-                "active",  # default status
-                "Add User",
+                {"display": "block"}, None, "Add User", "", "", "", "general", None,
+                "Pending activation (set when the account is created)", "Create account",
+                actions, issue, disable, enable, "", "",
             )
 
         if trigger_id == "user-admin-table" and active_cell and active_cell.get("column_id") == "actions":
-            # Edit action
             row_id = active_cell.get("row_id")
             if not row_id:
-                return (no_update,) * 8
-
+                return nothing
             row = next((r for r in (table_data or []) if r.get("id") == row_id), None)
             if not row:
-                return (no_update,) * 8
-
-            # Find the full user data from shared store
+                return nothing
             user = get_user(row_id)
             if not user:
-                return (no_update,) * 8
-
+                return nothing
+            actions, issue, disable, enable = _lifecycle_view(
+                user.get("status"), user.get("has_password", False)
+            )
             return (
-                {"display": "block"},
-                row_id,  # existing username to edit
-                "Edit User",
-                user["username"],
-                user.get("identifier", ""),
-                user.get("role", "general"),  # existing role or default
-                user.get("status", "active"),
-                "Save Changes",
+                {"display": "block"}, row_id, "Edit User", user["username"],
+                user.get("full_name", ""), user.get("identifier", ""),
+                user.get("role", "general"), user.get("client_person_id"),
+                _format_status(user.get("status", "")), "Save Changes",
+                actions, issue, disable, enable, "", "",
             )
 
-        return (no_update,) * 8
+        return nothing
 
     @app.callback(
         Output(USER_DRAWER_ID, "style", allow_duplicate=True),
+        Output(USER_RESULT_ID, "children", allow_duplicate=True),
+        # A DataTable does not report a click on the cell that is already
+        # active, so the drawer could not be reopened for the same row.
+        Output("user-admin-table", "active_cell", allow_duplicate=True),
         Input(USER_CANCEL_BTN, "n_clicks"),
         Input(USER_DISMISS_BTN, "n_clicks"),
         Input("user-form-drawer-overlay", "n_clicks"),
         prevent_initial_call=True,
     )
     def close_user_drawer(cancel_clicks, dismiss_clicks, overlay_clicks):
-        """Close the user form drawer without making changes."""
-        return {"display": "none"}
+        """Close the drawer, discarding any one-time link it was showing."""
+        return {"display": "none"}, "", None
 
     @app.callback(
         Output("user-form-username-error", "children"),
-        Output(USER_RESULT_ID, "children"),
+        Output(USER_RESULT_ID, "children", allow_duplicate=True),
         Output(USER_DRAWER_ID, "style", allow_duplicate=True),
         Output(USER_HIDDEN_ID, "data", allow_duplicate=True),
+        Output(USER_REFRESH_ID, "data"),
+        Output("user-admin-table", "active_cell", allow_duplicate=True),
         Input(USER_CONFIRM_BTN, "n_clicks"),
         State(USER_HIDDEN_ID, "data"),
         State(USER_USERNAME_ID, "value"),
+        State(USER_FULLNAME_ID, "value"),
         State(USER_IDENTIFIER_ID, "value"),
         State(USER_ROLE_ID, "value"),
-        State(USER_STATUS_ID, "value"),
-        State("auth-store", "data"),
+        State(USER_PERSON_ID, "value"),
+        State(USER_REFRESH_ID, "data"),
         prevent_initial_call=True,
     )
-    def confirm_user_form(n_clicks, existing_username, username, identifier, role, status, auth_data):
-        """Persist the user form (DB-2) with an audited, actor-attributed write.
+    def confirm_user_form(
+        n_clicks, existing_username, username, full_name, identifier, role, person_id, refresh
+    ):
+        """Create or update an account with an audited, actor-attributed write.
 
-        AUD-1 strict-actor rule: without a valid authenticated session there
-        is no one to attribute the change to, so the operation fails closed
-        and nothing is written (the drawer stays open). ENT-5: that refusal
-        is rendered in the drawer's result slot rather than being silent.
-
-        P0-2 (AUTH-HARDEN-1). This used to check only `user is not None` —
-        ANY authenticated identity, not specifically an Administrator — so a
-        Technician or General User invoking this callback directly, with
-        `role="administrator"` among the form fields, could grant themselves
-        or anyone else the administrator role. `require_capability` is the
-        actual fix; the identity bind below still matters for the audit actor.
+        The strict-actor rule (AUD-1): without an Administrator identity there
+        is no one to attribute the change to, so nothing is written. The result
+        slot carries every refusal so a failed save is never silent.
         """
         if not n_clicks:
-            return no_update, no_update, no_update, no_update
+            return (no_update,) * 6
 
-        # BIND the identity, don't just test it. The result was previously
-        # discarded and `user.user_id` read further down from a name that was
-        # never bound, so every save raised NameError. The actor is the whole
-        # point of the AUD-1 rule below: an audited write needs the identity,
-        # not merely the knowledge that one exists.
         user = current_identity()
         try:
             require_capability(user, MANAGE_USERS)
@@ -319,28 +388,96 @@ def register(app) -> None:
                 "User save refused: %r is not an administrator.",
                 user.username if user else None,
             )
-            return no_update, action_refused_notice(), no_update, no_update
+            return no_update, action_refused_notice(), no_update, no_update, no_update, no_update
 
         errors = _validate_user_form(username, existing_username)
         if errors:
-            # Show error, keep drawer open
-            return errors.get("username", ""), "", no_update, no_update
+            return errors.get("username", ""), "", no_update, no_update, no_update, no_update
 
-        username = username.strip()
-        identifier = identifier.strip() if identifier else ""
+        link_id, link_error = _parse_person_id(person_id)
+        if link_error:
+            return "", _error_note(link_error), no_update, no_update, no_update, no_update
+
         role = role if role in CONFIRMED_ROLES else "general"
+        try:
+            if existing_username:
+                target_id = _target_user_id(user, existing_username)
+                if target_id is None:
+                    return "", _error_note("No such account."), no_update, no_update, no_update, no_update
+                account_service.update_account(
+                    actor_user_id=user.user_id, user_id=target_id, username=username,
+                    full_name=full_name, email_address=identifier, role=role,
+                    client_person_id=link_id,
+                )
+            else:
+                account_service.create_account(
+                    actor_user_id=user.user_id, username=username, full_name=full_name,
+                    email_address=identifier, role=role, client_person_id=link_id,
+                )
+        except AccountError as exc:
+            return "", _error_note(str(exc)), no_update, no_update, no_update, no_update
+        except Exception:
+            logger.exception("Account save failed")
+            return "", _error_note("The account could not be saved."), no_update, no_update, no_update, no_update
 
-        if existing_username and existing_username != username:
-            # Renaming: remove old, add new
-            from services.prototype_users import remove_user
-            remove_user(existing_username)
+        logger.info("Account %s by user_id=%s", "updated" if existing_username else "created", user.user_id)
+        return "", "", {"display": "none"}, None, (refresh or 0) + 1, None
 
-        upsert_user(
-            username, identifier, role, status or "active",
-            actor_user_id=user.user_id,
+    @app.callback(
+        Output(USER_RESULT_ID, "children", allow_duplicate=True),
+        Output(USER_STATUS_ID, "children", allow_duplicate=True),
+        Output(USER_ISSUE_BTN, "children", allow_duplicate=True),
+        Output(USER_DISABLE_BTN, "style", allow_duplicate=True),
+        Output(USER_ENABLE_BTN, "style", allow_duplicate=True),
+        Output(USER_REFRESH_ID, "data", allow_duplicate=True),
+        Input(USER_ISSUE_BTN, "n_clicks"),
+        Input(USER_DISABLE_BTN, "n_clicks"),
+        Input(USER_ENABLE_BTN, "n_clicks"),
+        State(USER_HIDDEN_ID, "data"),
+        State(USER_REFRESH_ID, "data"),
+        prevent_initial_call=True,
+    )
+    def account_lifecycle(issue_clicks, disable_clicks, enable_clicks, username, refresh):
+        """Issue a setup/reset link, disable, or re-enable the open account."""
+        nothing = (no_update,) * 6
+        ctx = dash.callback_context
+        if not ctx.triggered or not username:
+            return nothing
+        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        # A button re-mounted by a drawer refresh reports n_clicks=0: not a click.
+        if not any((issue_clicks, disable_clicks, enable_clicks)):
+            return nothing
+
+        admin = _admin_or_none()
+        if admin is None:
+            return action_refused_notice(), no_update, no_update, no_update, no_update, no_update
+
+        try:
+            target_id = _target_user_id(admin, username)
+            if target_id is None:
+                return _error_note("No such account."), *nothing[1:]
+            link_panel = ""
+            if trigger_id == USER_ISSUE_BTN:
+                link_panel = _link_panel(
+                    account_service.issue_link(actor_user_id=admin.user_id, user_id=target_id)
+                )
+            elif trigger_id == USER_DISABLE_BTN:
+                account_service.disable_account(actor_user_id=admin.user_id, user_id=target_id)
+                link_panel = _status_note("Account disabled. Existing sessions are ended; assignments are untouched.")
+            elif trigger_id == USER_ENABLE_BTN:
+                account_service.enable_account(actor_user_id=admin.user_id, user_id=target_id)
+                link_panel = _status_note("Account re-enabled.")
+            else:
+                return nothing
+            fresh = get_user(username) or {}
+        except AccountError as exc:
+            return _error_note(str(exc)), *nothing[1:]
+        except Exception:
+            logger.exception("Account action failed")
+            return _error_note("The action could not be completed."), *nothing[1:]
+
+        _, issue, disable, enable = _lifecycle_view(fresh.get("status"))
+        return (
+            link_panel, _format_status(fresh.get("status", "")), issue, disable, enable,
+            (refresh or 0) + 1,
         )
-
-        logger.info("Audited user %s: %s (role=%s)", "updated" if existing_username else "added", username, role)
-
-        # Close drawer
-        return "", "", {"display": "none"}, username

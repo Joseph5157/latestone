@@ -1,0 +1,14 @@
+{
+ "persons": 8,
+ "roles": 3,
+ "device_list": 339,
+ "techmician_device_list": 68,
+ "technician_assignments": 0,
+ "persons_with_credential_values": 0,
+ "write_perms(db_datawriter,update,insert,delete)": [
+  0,
+  0,
+  0,
+  0
+ ]
+}

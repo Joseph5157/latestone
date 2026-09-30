@@ -175,20 +175,19 @@ class TestAuthenticate:
             user_row["row"] = record(role=role)
             assert authenticate("operator", "s3cret").role == role
 
-    def test_credentials_are_checked_before_the_user_is_looked_up(
+    def test_a_wrong_credential_never_seeds_or_returns_an_identity(
         self, configured, monkeypatch
     ):
-        """No lookup on a failed credential: it would let a wrong password
-        probe which usernames exist, by timing if nothing else."""
-        looked_up = []
-        monkeypatch.setattr(auth_service.prototype_users, "seed_demo_user", lambda: None)
+        """ADR-033 replaced credential-before-lookup: the per-user hash lives on
+        the row, so the row is read first. What must still hold is that a wrong
+        credential provisions nothing and yields no identity."""
+        seeded = []
         monkeypatch.setattr(
-            auth_service.repo,
-            "get_user_by_username",
-            lambda username: looked_up.append(username) or record(),
+            auth_service.prototype_users, "seed_demo_user", lambda: seeded.append(1)
         )
-        authenticate("operator", "wrong")
-        assert looked_up == []
+        monkeypatch.setattr(auth_service.repo, "get_user_by_username", lambda username: None)
+        assert authenticate("operator", "wrong") is None
+        assert seeded == []
 
     def test_refusal_reason_is_not_returned_to_the_caller(self, configured, user_row):
         """Every refusal is the same None. The caller cannot tell 'no such

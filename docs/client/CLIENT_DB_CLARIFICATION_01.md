@@ -48,16 +48,16 @@ The TUG report holds about 70,700 transformer records with their place in the hi
 
 ### 4. How should people sign in?
 
-The database holds people and the roles Administrator, Technician and General
-User, but no usable sign-in details. We can safely provide local username and
-password accounts if company sign-in is not available.
+**Answered - decision recorded 2026-09-30.** The RTL application uses its own
+application-managed username/password authentication. External
+Microsoft/Active Directory/SSO authentication is not required. Each user has an
+account with a personal password (stored only as a salted hash), an
+Administrator sets accounts up and hands over a one-time link, and the
+database's `persons` table is used only to identify who a person is. The
+question below is kept for the record.
 
 - Do users already sign in to other Eskom systems using a company
   Microsoft/Active Directory account that this application should use?
-
-This answer does not block the project: if the answer is no or not yet known,
-we can proceed with secure local accounts and keep the sign-in component
-replaceable.
 
 ### 5. How are technicians assigned to RTLs?
 

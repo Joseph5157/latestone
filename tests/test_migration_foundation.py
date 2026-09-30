@@ -114,6 +114,8 @@ EXPECTED_UPGRADE_TABLES = {
     "rtl_commands", "forwarding_auto_disable_override",
     "temperature_threshold_config", "vibration_contract_answers",
     "freshness_threshold_config", "rtl_technician_assignments",
+    # ADR-033 (migration 017)
+    "auth_tokens", "auth_login_throttle",
     "alembic_version",
 }
 

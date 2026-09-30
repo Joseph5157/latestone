@@ -2,11 +2,63 @@
 
 Status: **CLOSED / PASS**
 Date: 2026-09-30
-Gate: AUTHENTICATION-REALIGNMENT-01 — Define the production account/authentication model
-Baseline: `79027e4f49d092d5f399a2c94035707b51a447a8`
+Gate: AUTHENTICATION-LOCAL-HARDENING-01 — Harden local application login
+Baseline: `b166557255a5210e8c0500371fa2904ae71557fe`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
 
-## Next implementation gate: AUTHENTICATION-REALIGNMENT-01 — CLOSED / PASS
+## Next implementation gate: AUTHENTICATION-LOCAL-HARDENING-01 — CLOSED / PASS
+
+CDB-04 is ANSWERED (2026-09-30; ADR-033): the RTL application uses its own
+application-managed username/password authentication; external
+Microsoft/Active Directory/SSO is not required. Client SQL Server stays
+READ_ONLY; `persons.user_id` / `persons.password_hash` are never read or written.
+
+**What is now real:** per-user `scrypt` password hashes in the application
+PostgreSQL `users` table (migration 017); account lifecycle
+`pending_activation` -> `active` -> `disabled`; Administrator create/link/issue
+one-time setup or reset link/disable/re-enable in User Administration; the public
+`/set-password` page; single-use, time-limited, hashed-at-rest tokens; per-login-name
+throttling with bounded back-off; session security version + fixed 8 h lifetime; login/logout/lifecycle audit; explicit
+`python -m scripts.bootstrap_admin` and `python -m scripts.auth_preflight`;
+demo credential login only under `AUTH_DEMO_LOGIN_ENABLED` outside production.
+
+**Five Technician users (117-121, persons 2-6):** migrated to `pending_activation`,
+links and assignments untouched; they become usable only after an Administrator
+issues a setup link and the Technician chooses a password. ADR-032 scope is
+unchanged and inherited on activation.
+
+### Relevant files
+
+- `docs/decisions/ADR-033-local-application-authentication-is-authoritative.md`
+- `services/auth_service.py`, `services/account_service.py`, `services/credentials.py`,
+  `services/login_service.py`, `services/login_security.py`, `services/auth_preflight.py`
+- `callbacks/auth.py`, `callbacks/set_password.py`, `callbacks/user_admin.py`, `callbacks/routing.py`
+- `pages/set_password.py`, `pages/user_admin.py`, `components/user_form_drawer.py`
+- `alembic/versions/017_local_auth_hardening.py`, `config/settings.py`, `config/audit.py`
+- `scripts/bootstrap_admin.py`, `scripts/auth_preflight.py`, `railway.json`
+- `docs/audit/authentication-local-hardening-01/`
+- `docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md` section 18; CDB-04 in the response tracker
+
+### Non-goals (held)
+
+SSO, SMTP/SMS delivery, MFA, self-service password change, password expiry,
+per-source-address throttling, SQL Server writes, assignment changes, client
+`persons` modification, invented passwords.
+
+### Remaining debt
+
+See ADR-033 Consequences: signed cookies cannot be revoked individually; no idle timeout;
+throttling is per login name only; Pending
+Technicians cannot be assigned NEW RTLs until activated; legacy demo fixture code
+(`verify_credentials`, `seed_demo_user`) remains, isolated behind
+`AUTH_DEMO_LOGIN_ENABLED` and not production.
+
+### Next gate
+
+Owner to nominate one: CDB-06 Program RTL policy, legacy synthetic Technician/Command
+Center cleanup, or a notification-delivery gate (would automate setup/reset links).
+
+## AUTHENTICATION-REALIGNMENT-01 — CLOSED / PASS (previous gate, kept for record)
 
 Planning/audit only. Current authentication is a development mechanism:
 environment-configured username/plaintext-password pairs name PostgreSQL

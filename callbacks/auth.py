@@ -7,7 +7,7 @@ from dash import Input, Output, State, no_update
 
 from pages.login import TOGGLE_ICON_HIDE_CLASS, TOGGLE_ICON_SHOW_CLASS
 from routes import legacy_redirect_path
-from services import auth_service
+from services import auth_service, login_security, login_service
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,11 @@ def login_was_submitted(n_clicks, username_submits, password_submits) -> bool:
 #: leaking the difference through its wording.
 LOGIN_FAILED_MESSAGE = "Invalid username or password."
 
+#: ADR-033. Shown when this login name is inside a back-off window. It is keyed
+#: on the typed name whether or not the account exists, so it reveals nothing
+#: about which names exist, and it names neither a count nor a duration.
+LOGIN_THROTTLED_MESSAGE = "Too many sign-in attempts. Please wait a few minutes and try again."
+
 
 def login_outputs(username, password) -> tuple[str, object]:
     """(error message, auth-store payload) for one submitted login.
@@ -42,10 +47,12 @@ def login_outputs(username, password) -> tuple[str, object]:
     On failure the store is left alone rather than reset: a failed attempt
     should not sign out a session that is already open in another tab.
     """
-    user = auth_service.authenticate(username, password)
-    if user is None:
-        return LOGIN_FAILED_MESSAGE, no_update
-    return "", auth_service.to_session(user)
+    outcome = login_service.attempt_login(username, password)
+    if outcome.user is None:
+        return (
+            LOGIN_THROTTLED_MESSAGE if outcome.throttled else LOGIN_FAILED_MESSAGE
+        ), no_update
+    return "", auth_service.to_session(outcome.user)
 
 
 #: Where the header's Logout link points. A path rather than a route name:
@@ -218,6 +225,14 @@ def register(app) -> None:
         is an instruction, not a page."
         """
         if pathname == LOGOUT_PATH:
+            # ADR-033: audit who signed out BEFORE the session is cleared.
+            # Best effort — signing out always completes.
+            try:
+                signing_out = auth_service.current_identity()
+                if signing_out is not None:
+                    login_security.register_logout(signing_out.user_id)
+            except Exception:
+                logger.exception("Could not audit the sign-out")
             # AUTH-HARDEN-1: clears the trusted server session, not just the
             # browser's auth-store.
             auth_service.end_trusted_session()

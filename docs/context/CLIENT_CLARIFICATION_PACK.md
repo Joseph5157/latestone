@@ -98,6 +98,8 @@ These are external integration dependencies — not internal engineering choices
 
 ### C-06 — Production Identity / Role-Source Ownership
 
+**ANSWERED 2026-09-30 (CDB-04, ADR-033):** the application database owns identity, roles and passwords through its own application-managed username/password authentication. External Microsoft/Active Directory/SSO authentication is not required. The text below is kept as the original question.
+
 **Decision needed:** Which system owns identity, roles, and passwords in production — Microsoft Entra ID, the application database, or another enterprise service?
 
 **Why it matters:** Prototype authentication (`services/auth_service.py`) uses environment-variable credentials with no credential column. Production deployment requires a real identity provider. The three-role model (Administrator / Technician / General) is enforced end-to-end in the app but the *source* of role assignment is undefined.

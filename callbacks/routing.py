@@ -16,6 +16,7 @@ from pages.placeholder import placeholder_layout
 from routes import (
     LEGACY_RTL_LIST_PATH,
     RTL_LIST_ALIAS_ROUTE,
+    SET_PASSWORD_ROUTE,
     Route,
     device_href,
     parse_custom_range,
@@ -26,6 +27,9 @@ from routes import (
 from services import hierarchy_service
 from services.hierarchy_service import entity_in_scope
 from callbacks.auth import LOGIN_PATH
+from callbacks import set_password as set_password_callbacks
+from pages import set_password as set_password_page
+from services import account_service
 from services.auth_service import AuthenticatedUser, current_identity
 from services.authorization import (
     ADMINISTRATOR,
@@ -224,6 +228,15 @@ def register(app) -> None:
             # Rendering the list here too would load the fleet twice.
             if route.name == RTL_LIST_ALIAS_ROUTE:
                 return no_update, no_update
+
+            # ADR-033: the one-time password setup/reset page is public — the
+            # visitor has no session, and the token in the query string is the
+            # whole proof. It is answered before any identity lookup and
+            # renders one page only; it never reveals whose link it is.
+            if route.name == SET_PASSWORD_ROUTE:
+                token = set_password_callbacks.token_from_search(search)
+                usable = account_service.token_is_usable(token)
+                return set_password_page.layout(usable), {"route": SET_PASSWORD_ROUTE}
 
             # AUTH-HARDEN-1: resolved ONCE, from the trusted server session —
             # never from `auth_data`, which stays an Input only so this

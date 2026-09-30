@@ -198,3 +198,25 @@ def isolated_schema():
     mp.undo()
     with session_scope() as session:
         session.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+
+
+@pytest.fixture(autouse=True)
+def _login_bookkeeping_inert_outside_db_tests(request, monkeypatch):
+    """Pure-logic tests sign in without a database.
+
+    ADR-033 put throttling and audit around every sign-in
+    (`services.login_security`), and both are database writes that the guard
+    above forbids in an unmarked test. Outside `db` tests the bookkeeping seam
+    is inert — nobody is throttled, nothing is recorded — which is exactly the
+    state the credential-verdict tests need. The behaviour itself is tested in
+    `db`-marked files against a real isolated schema, and a pure test of the
+    orchestration opts back in by patching these same names explicitly.
+    """
+    if request.node.get_closest_marker("db"):
+        return
+    from services import login_security
+
+    monkeypatch.setattr(login_security, "locked_seconds", lambda username: 0)
+    monkeypatch.setattr(login_security, "register_failure", lambda *a, **k: None)
+    monkeypatch.setattr(login_security, "register_success", lambda *a, **k: None)
+    monkeypatch.setattr(login_security, "register_logout", lambda *a, **k: None)
