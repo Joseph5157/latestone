@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T06:53:13Z
+Date: 2026-09-30T07:00:04Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `eec92e4` "feat(fleet): integrate real RTL fleet overview"
-- Working tree: 7 entries — see below
+- `main` = `ce5deac` "docs(fleet): close real RTL fleet acceptance"
+- Working tree: 4 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3221 passed, 3 skipped, 731 deselected in 35.03s
+- `python -m pytest -m "not db"` → 3221 passed, 3 skipped, 731 deselected in 44.05s
 
 ## Branches
 
@@ -71,9 +71,9 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 482 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 332 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 482 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 483 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 333 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 483 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
@@ -119,9 +119,6 @@ SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview — full detail in `docs/cont
 
 ```
 D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M docs/audit/saturday-real-fleet-01/FLEET_ACCEPTANCE.md
- M docs/audit/saturday-real-fleet-01/fleet-1366-general.png
- M docs/context/ACTIVE_GATE.md
 ?? .test-tmp/
 ?? "Remote Temperature Logger  Functional Specification RTL v0.md"
 ?? docs/audit/project-audit-1/results/

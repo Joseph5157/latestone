@@ -1,10 +1,16 @@
 # Active Gate
 
-Status: **CLOSED / PASS (awaiting next gate definition)**
+Status: **PLANNING / AUDIT — CLIENT-APP-REALIGNMENT-PLAN-01**
 Date: 2026-09-30
-Gate: SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview
-Baseline: `d0ff59e`
+Gate: CLIENT-APP-REALIGNMENT-PLAN-01 — Client application realignment
+Baseline: `ce5deac`
 Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
+
+Planning only: create and review `docs/plans/CLIENT_APP_REALIGNMENT_PLAN_01.md`.
+No application code, tests, migrations, SQL Server, PostgreSQL, route rename,
+or legacy-code deletion is authorised. Do not activate an implementation gate
+until this plan is reviewed. The nominated future gate is
+`CLIENT-TERMINOLOGY-NAV-01`; it is not active.
 
 ## SQLSERVER-TARGET-ARCH-01 — CLOSED / PASS
 
@@ -30,7 +36,7 @@ temperature values remain ambiguous.
 
 Audit deliverables: `docs/audit/sqlserver-target-arch-01/`.
 
-## Next implementation gate: SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview
+## SATURDAY-REAL-FLEET-01 — Real RTL Fleet Overview
 
 Status: **CLOSED / PASS**
 
