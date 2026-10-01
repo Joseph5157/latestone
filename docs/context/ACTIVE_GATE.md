@@ -1,12 +1,104 @@
 # Active Gate
 
-Status: **CLOSED / PASS**
-Date: 2026-09-30
-Gate: LEGACY-SYNTHETIC-UX-CLEANUP-01 — Retire legacy synthetic client paths
-Baseline: `3c7f936c3582e935f44d0d1a7e110dd134d7901b`
-Commit/push permission: **GRANTED** (`latestone` `main` only; no `origin`, no `client`). Stage gate-owned files only.
+Status: **OPEN**
+Date: 2026-10-01
+Gate: REPORTS-REALIGNMENT-02 — Realign report asset-scope to the real RTL/network model
+Baseline: the REPORTS-REALIGNMENT-01 closing commit (`refactor(reports): remove demo report history` on `latestone/main`); the exact SHA is recorded at this gate's start.
+Commit/push permission: **NOT GRANTED** — not yet started; scope is determined during this gate, then implement, test, and stop for owner review before commit/push.
 
-## Next implementation gate: LEGACY-SYNTHETIC-UX-CLEANUP-01 — CLOSED / PASS
+## Next implementation gate: REPORTS-REALIGNMENT-02 — OPEN
+
+**Status: recorded, not yet started.** The owner authorised this as the next
+gate on 2026-10-01 when REPORTS-REALIGNMENT-01 closed. No implementation has
+begun; this section exists so the file declares exactly one open gate.
+
+**Goal.** Realign the report *asset-scope filter* from the synthetic
+`DeviceScope` + Plant → Transformer → Device cascade to the real client
+RTL/network model (ADR-032). The three factual report *definitions* (Installed
+RTLs, RTL Alarms (30 Days), Maximum Temperature) are already on the real client
+column contract and are not in question here — only how a report is *scoped* to
+assets is.
+
+**Scope is determined during this gate, not pre-locked.** The durable scope
+contract (e.g. Fleet / Transformer / RTL vs Fleet / RTL, and how Network maps
+in) is an open decision to be settled with its own ADR while this gate runs.
+`Relevant files`, `Required tests` and `Non-goals` are fixed at gate start once
+that shape is chosen; citing them now would pre-lock the design the owner asked
+to keep open.
+
+## REPORTS-REALIGNMENT-01 — CLOSED / PASS (previous gate, kept for record)
+
+Implemented-by: see the `refactor(reports): remove demo report history` commit
+on `latestone/main`.
+
+**Validation at close (2026-10-01):** focused
+`pytest -m "not db" tests/test_report_center.py` = 63 passed / 4 deselected;
+full `pytest -m "not db"` = 3681 passed / 3 skipped; context pack CLEAN
+(`--check`); `git diff --check` clean; audit record
+`docs/audit/reports-realignment-01/REPORTS_REALIGNMENT_01.md`. The three
+factual report definitions (Installed RTLs, RTL Alarms (30 Days), Maximum
+Temperature) were confirmed unchanged — the only removals were the mock
+"Recent Reports" demo block and its now-dead supporting code.
+
+**Goal.** Remove the Report Center's "Recent Reports" section, which renders
+`_mock_recent_reports` — hard-coded demo entries explicitly labelled "Demo
+data … mock entries for UI demonstration only". It is the last synthetic/mock
+UX residue on the reports surface, left standing after
+LEGACY-SYNTHETIC-UX-CLEANUP-01 retired the rest. No report *history* feature
+exists; the section is deleted outright rather than stubbed (owner decision
+2026-10-01). Report generation, preview and export are untouched.
+
+**This gate is cleanup only — no ADR.** It changes no architecture, no data
+model, no scope model. (The separate, larger REPORTS-REALIGNMENT-02 will
+realign the report *asset-scope filter* from the synthetic `DeviceScope` +
+Plant→Transformer→Device cascade to the real `RtlScope`/RTL model under
+ADR-032, with its own ADR; it is **not** part of this gate.)
+
+### Relevant files
+
+- `pages/report_center.py` — delete the "Section B — Recent Reports"
+  `html.Section` (heading, the "Demo data" status panel, and the
+  `recent-reports-table` `entity_table`); drop the now-unused `entity_table`
+  import.
+- `callbacks/report_center.py` — delete `_mock_recent_reports`,
+  `_seed_mock_reports()`, its call in `register()`, and the
+  `populate_recent_reports` callback; correct the module docstring. Keep the
+  `entity_table` import (still used by the data-backed report tables).
+- `tests/test_report_center.py` — remove the recent-reports/mock tests
+  (`test_layout_has_recent_section`, `test_layout_has_recent_reports_table`,
+  the `TestMockRecentReports` class, `test_recent_reports_table_responsive`,
+  `test_demo_status_rendered_muted_not_freshness_green`) and the dead
+  `_mock_recent_reports`/`entity_table` imports; add a guard test asserting
+  the demo block is absent from the layout.
+- `assets/app.css` — remove the `#recent-reports-table` responsive card
+  rules (the `::before` labels and the two grid-column selectors); leave the
+  shared `.entity-table-wrapper--responsive` rules intact.
+
+### Non-goals (explicit)
+
+- **No scope-model change.** The synthetic `DeviceScope` + Plant/Transformer/
+  Device asset-scope selector stays exactly as-is — that is REPORTS-
+  REALIGNMENT-02's job.
+- No change to the three data-backed reports (Installed RTLs, RTL Alarms
+  (30 Days), Maximum Temperature), their definitions, preview, generation or
+  export.
+- No edits to historical/planning docs that mention recent reports
+  (`docs/planning/07_PHASE_6_REPORTS.md`, `docs/audit/project-audit-1/…`,
+  the REQ matrices) — they are records, not current behaviour.
+- No DB changes; SQL Server stays READ_ONLY; PostgreSQL unchanged.
+
+### Required tests
+
+`python -m pytest -m "not db" tests/test_report_center.py -v`, then the full
+non-DB suite `python -m pytest -m "not db"`. The known 7 PostgreSQL
+seed/data-drift failures in the DB suite are out of scope and unaffected.
+
+### Known ambiguity
+
+None. "Recent Reports" has always been mock-only; no real report-history
+feature is being removed, only its demo placeholder.
+
+## LEGACY-SYNTHETIC-UX-CLEANUP-01 — CLOSED / PASS (previous gate, kept for record)
 
 **What is now true:** the superseded synthetic Plant → Transformer → Device
 experience is no longer reachable through production navigation or by direct

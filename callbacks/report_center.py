@@ -2,13 +2,12 @@
 
 All operations are frontend-only. Report types are confirmed by the RTL
 Functional Specification (§11). Report generation creates a clearly labeled
-prototype result; no files are produced or delivered. Recent reports table
-uses mock data explicitly marked as demo.
+prototype result; no files are produced or delivered.
 """
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from dash import Input, Output, State, dcc, no_update, html
 
@@ -48,44 +47,6 @@ from services.report_service import (
 from callbacks.device import _parse_picker_date
 
 logger = logging.getLogger(__name__)
-
-# In-memory mock recent reports (prototype only)
-_mock_recent_reports: list[dict] = []
-
-
-def _seed_mock_reports() -> None:
-    """Seed demo reports using confirmed report names only."""
-    if not _mock_recent_reports:
-        now = datetime.now(timezone.utc)
-        _mock_recent_reports.extend([
-            {
-                "id": "demo-1",
-                "report": "RTL Alarms (30 Days)",
-                "scope": "Fleet",
-                "requested": (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M UTC"),
-                "status": "Demo",
-                "_state": "fresh",
-                "_severity": 0,
-            },
-            {
-                "id": "demo-2",
-                "report": "Installed RTLs",
-                "scope": "Plant: Itaipu",
-                "requested": (now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M UTC"),
-                "status": "Demo",
-                "_state": "fresh",
-                "_severity": 0,
-            },
-            {
-                "id": "demo-3",
-                "report": "Maximum Temperature",
-                "scope": "Fleet",
-                "requested": (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M UTC"),
-                "status": "Demo",
-                "_state": "fresh",
-                "_severity": 0,
-            },
-        ])
 
 
 def _plant_options(scope: DeviceScope) -> list[dict]:
@@ -579,9 +540,6 @@ def _build_max_temperature_report(
 def register(app) -> None:
     """Register report center callbacks on the Dash app."""
 
-    # Seed mock reports
-    _seed_mock_reports()
-
     # ---- Report type → preview + status + date-range behavior ----
 
     @app.callback(
@@ -755,33 +713,6 @@ def register(app) -> None:
         if period == "custom":
             return {"display": "block", "marginTop": "8px"}
         return {"display": "none"}
-
-    # ---- Recent reports table ----
-
-    @app.callback(
-        Output("recent-reports-table", "data"),
-        Output("recent-reports-table", "columns"),
-        Output("recent-reports-error", "children"),
-        Input("page-context", "data"),
-        prevent_initial_call=True,
-    )
-    def populate_recent_reports(context):
-        if not context or context.get("route") != "reports":
-            return no_update, no_update, no_update
-
-        try:
-            _seed_mock_reports()
-            rows = _mock_recent_reports.copy()
-            columns = [
-                {"name": "Report", "id": "report"},
-                {"name": "Scope", "id": "scope"},
-                {"name": "Requested", "id": "requested"},
-                {"name": "Status", "id": "status"},
-            ]
-            return rows, columns, None
-        except Exception:
-            logger.exception("Failed to load recent reports")
-            return [], [], "Error loading recent reports."
 
     # ---- Prototype generation ----
 

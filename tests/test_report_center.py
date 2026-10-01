@@ -1,4 +1,4 @@
-"""Tests for Report Center page — layout, form, preview, mock reports, prototype generation.
+"""Tests for Report Center page — layout, form, preview, prototype generation.
 
 All tests exercise pure logic (no Dash runtime, no database, no reporting service).
 """
@@ -13,14 +13,12 @@ from callbacks.report_center import (
     _transformer_options,
     _device_options,
     _scope_label,
-    _mock_recent_reports,
     _build_preview,
     _build_definition_status,
     _build_installed_rtls_table,
     _build_rtl_alarms_table,
     _format_alarm_at,
 )
-from components.entity_table import entity_table
 from config.reports import (
     REPORTS,
     get_report,
@@ -142,10 +140,15 @@ class TestReportCenterLayout:
         text = str(lay)
         assert "Generate Report" in text
 
-    def test_layout_has_recent_section(self):
+    def test_layout_has_no_recent_reports_demo_block(self):
+        """REPORTS-REALIGNMENT-01: the mock "Recent Reports" section is
+        retired — neither its heading, its demo-data notice, nor its table
+        may appear in the layout."""
         lay = layout()
         text = str(lay)
-        assert "Recent Reports" in text
+        assert "Recent Reports" not in text
+        assert "Demo data" not in text
+        assert "recent-reports-table" not in _collect_ids(lay)
 
     def test_layout_has_report_type_dropdown(self):
         lay = layout()
@@ -186,11 +189,6 @@ class TestReportCenterLayout:
         lay = layout()
         ids = _collect_ids(lay)
         assert "report-generate-btn" in ids
-
-    def test_layout_has_recent_reports_table(self):
-        lay = layout()
-        ids = _collect_ids(lay)
-        assert "recent-reports-table" in ids
 
     def test_layout_has_preview_section(self):
         lay = layout()
@@ -354,46 +352,6 @@ class TestCascadeOptions:
 
 
 # ---------------------------------------------------------------------------
-# Mock recent reports
-# ---------------------------------------------------------------------------
-
-class TestMockRecentReports:
-    def test_mock_reports_is_list(self):
-        assert isinstance(_mock_recent_reports, list)
-
-    def test_mock_reports_use_confirmed_names(self):
-        _mock_recent_reports.clear()
-        from callbacks.report_center import _seed_mock_reports
-        _seed_mock_reports()
-        confirmed_names = {"RTL Alarms (30 Days)", "Installed RTLs", "Maximum Temperature"}
-        for entry in _mock_recent_reports:
-            assert entry["report"] in confirmed_names
-
-    def test_mock_reports_status_not_completed(self):
-        _mock_recent_reports.clear()
-        from callbacks.report_center import _seed_mock_reports
-        _seed_mock_reports()
-        for entry in _mock_recent_reports:
-            assert entry["status"] != "Completed"
-            assert entry["status"] == "Demo"
-
-    def test_mock_reports_no_action_column(self):
-        _mock_recent_reports.clear()
-        from callbacks.report_center import _seed_mock_reports
-        _seed_mock_reports()
-        for entry in _mock_recent_reports:
-            assert "action" not in entry
-
-    def test_mock_reports_no_invented_names(self):
-        _mock_recent_reports.clear()
-        from callbacks.report_center import _seed_mock_reports
-        _seed_mock_reports()
-        invented = {"Daily Temperature Summary", "Transformer Load Report", "Energy Consumption Export"}
-        for entry in _mock_recent_reports:
-            assert entry["report"] not in invented
-
-
-# ---------------------------------------------------------------------------
 # Alarm timestamp UTC normalization (ENT-6A)
 # ---------------------------------------------------------------------------
 
@@ -531,10 +489,6 @@ class TestReportLoadingAndActionsLayout:
     def test_generation_result_id_still_present_inside_loading(self):
         assert "report-generation-result" in _collect_ids(layout())
 
-    def test_recent_reports_table_responsive(self):
-        text = str(layout())
-        assert "entity-table-wrapper--responsive" in text
-
     def test_generate_and_download_remain_separate_buttons(self):
         ids = _collect_ids(layout())
         assert "report-generate-btn" in ids
@@ -547,17 +501,6 @@ class TestReportLoadingAndActionsLayout:
         assert "report-export-format" in _collect_ids(layout())
         text = str(layout()).upper()
         assert "CSV" in text and "PDF" in text and "XLSX" in text
-
-    def test_demo_status_rendered_muted_not_freshness_green(self):
-        tables = [
-            t for t in _data_tables(layout()) if t.id == "recent-reports-table"
-        ]
-        (table,) = tables
-        status_rule = [
-            rule for rule in table.style_data_conditional
-            if rule.get("if", {}).get("column_id") == "status"
-        ]
-        assert any(rule.get("fontStyle") == "italic" for rule in status_rule)
 
 
 # ---------------------------------------------------------------------------

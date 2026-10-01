@@ -15,7 +15,6 @@ from dash import dcc, html
 
 from components.app_header import app_header
 from components.breadcrumb import breadcrumb
-from components.entity_table import entity_table
 from config.reports import report_options
 from services.report_export import EXPORT_FORMAT_LABEL
 
@@ -284,48 +283,6 @@ def layout() -> html.Div:
                                 ),
                                 className="report-loading",
                             ),
-                        ],
-                    ),
-                ],
-            ),
-            # Section B — Recent Reports
-            html.Section(
-                className="report-section",
-                children=[
-                    html.H2("Recent Reports"),
-                    html.Div(
-                        className="status-panel status-panel--inactive",
-                        children=[
-                            html.Strong("Demo data. "),
-                            html.Span(
-                                "Recent reports below are mock entries for UI demonstration only."
-                            ),
-                        ],
-                    ),
-                    # Error slot
-                    html.Div(id="recent-reports-error", className="listing-error"),
-                    # Recent reports table
-                    # Recent reports table — responsive card presentation
-                    # below 768px; "Demo" status renders muted/italic (not
-                    # freshness green) since these are mock entries.
-                    entity_table(
-                        table_id="recent-reports-table",
-                        columns=[
-                            {"name": "Report", "id": "report"},
-                            {"name": "Scope", "id": "scope"},
-                            {"name": "Requested", "id": "requested"},
-                            {"name": "Status", "id": "status"},
-                        ],
-                        rows=[],
-                        link_column_id="report",
-                        state_column_id="status",
-                        responsive=True,
-                        extra_style_data_conditional=[
-                            {
-                                "if": {"column_id": "status"},
-                                "color": "var(--color-muted)",
-                                "fontStyle": "italic",
-                            },
                         ],
                     ),
                 ],

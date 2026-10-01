@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-09-30T17:51:50Z
+Date: 2026-10-01T12:23:55Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `3c7f936` "docs(decisions): record ADR-033 implementing commit"
-- Working tree: 46 entries — see below
+- `main` = `c0a434b` "refactor(ui): retire legacy synthetic client paths"
+- Working tree: 25 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3689 passed, 3 skipped, 807 deselected in 59.70s
+- `python -m pytest -m "not db"` → 3681 passed, 3 skipped, 807 deselected in 58.07s
 
 ## Branches
 
@@ -71,9 +71,10 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 500 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 350 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 500 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `cc-1-command-center-progress` | 15 | 501 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 351 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 501 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `wip/reports-realignment-01-snapshot` | 1 | 0 | REVIEW — unexpected divergence |
 
 ## Decisions
 
@@ -117,56 +118,35 @@ Diverged from `main` (has commits `main` doesn't):
 
 ## Active gate
 
-LEGACY-SYNTHETIC-UX-CLEANUP-01 — Retire legacy synthetic client paths — full detail in `docs/context/ACTIVE_GATE.md`.
+REPORTS-REALIGNMENT-02 — Realign report asset-scope to the real RTL/network model — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
- M app.py
- D assets/command_center.js
- D callbacks/command_center.py
- M callbacks/navigation.py
- M callbacks/routing.py
- M components/app_sidebar.py
- D components/attention.py
- D components/command_center/__init__.py
- D components/command_center/primitives.py
- D components/command_center/refresh.py
- D components/fleet_overview.py
- M components/status_panels.py
+D  "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+A  "Remote Temperature Logger  Functional Specification RTL v0.md"
+ M assets/app.css
+ M callbacks/report_center.py
+A  docs/audit/project-audit-1/results/01_BASELINE_AND_SOURCE_AUTHORITY.md
+A  docs/audit/project-audit-1/results/02_REQUIREMENTS_TRACEABILITY.md
+A  docs/audit/project-audit-1/results/03_ARCHITECTURE_DATA_LIFECYCLE.md
+A  docs/audit/project-audit-1/results/04_ROLES_AUTH_SECURITY.md
+A  docs/audit/project-audit-1/results/05_FLEET_COMMAND_CENTER_UX.md
+A  docs/audit/project-audit-1/results/06_NOTIFICATIONS_ALARMS_FORWARDING.md
+A  docs/audit/project-audit-1/results/07_REPORTS_EXPORTS.md
+A  docs/audit/project-audit-1/results/08_RTL_INTERFACES_AND_INTEGRATIONS.md
+A  docs/audit/project-audit-1/results/09_ENTERPRISE_DEPLOYMENT_READINESS.md
+A  docs/audit/project-audit-1/results/10_TESTS_DEFECTS_TECH_DEBT.md
+A  docs/audit/project-audit-1/results/11_CLIENT_FEEDBACK_CLOSURE.md
+A  docs/audit/project-audit-1/results/12_REQUIREMENT_IMPLEMENTATION_MATRIX.md
+A  docs/audit/project-audit-1/results/13_CONTRADICTION_VERIFICATION.md
+A  docs/audit/project-audit-1/results/AUDIT_PACK_MANIFEST.md
+A  docs/audit/project-audit-1/results/FINAL_AUDIT_SUMMARY.md
  M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- D pages/command_center.py
- M routes.py
- M services/authorization.py
- D services/fleet_overview_service.py
- M tests/test_app_sidebar.py
- M tests/test_assign_deeplink.py
- D tests/test_attention_components.py
- M tests/test_authorization.py
- M tests/test_check_client_release.py
- D tests/test_command_center_components.py
- D tests/test_command_center_page.py
- D tests/test_command_center_refresh.py
- M tests/test_device_context.py
- M tests/test_equipment_selector.py
- M tests/test_factual_dashboard.py
- D tests/test_fleet_overview_components.py
- D tests/test_fleet_overview_service.py
- M tests/test_route_enforcement.py
- M tests/test_route_scope.py
- D tests/test_route_scope_db.py
- M tests/test_routing.py
- M tests/test_rtl_assignments_ui.py
- M tests/test_rtl_detail_route.py
- M tests/test_rtl_list_route.py
- M tests/test_status_colors.py
- M tests/test_technician_operations.py
- M tests/test_utility_route_visibility.py
+ M pages/report_center.py
+ M tests/test_report_center.py
 ?? .test-tmp/
-?? "Remote Temperature Logger  Functional Specification RTL v0.md"
-?? docs/audit/legacy-synthetic-ux-cleanup-01/
-?? docs/audit/project-audit-1/results/
+?? docs/audit/reports-realignment-01/
 ```
 

@@ -2754,17 +2754,12 @@ body {
   .entity-table-wrapper--responsive td[data-dash-column="last_recorded_at"]::before { content: "Last Recorded Data"; }
   .entity-table-wrapper--responsive td[data-dash-column="last_temperature"]::before { content: "Last Temperature (\00b0C)"; }
   .entity-table-wrapper--responsive td[data-dash-column="rtl_status"]::before { content: "RTL Status"; }
-  #recent-reports-table td[data-dash-column="report"]::before { content: "Report"; }
-  #recent-reports-table td[data-dash-column="scope"]::before { content: "Scope"; }
-  #recent-reports-table td[data-dash-column="requested"]::before { content: "Requested"; }
 
   /* Long report values stay readable in the two-column card grid by taking
      the full row width instead of squeezing into a half column. */
   .entity-table-wrapper--responsive tbody td[data-dash-column="alarm_at"],
   .entity-table-wrapper--responsive tbody td[data-dash-column="alarm_label"],
-  .entity-table-wrapper--responsive tbody td[data-dash-column="last_recorded_at"],
-  #recent-reports-table tbody td[data-dash-column="report"],
-  #recent-reports-table tbody td[data-dash-column="scope"] {
+  .entity-table-wrapper--responsive tbody td[data-dash-column="last_recorded_at"] {
     grid-column: 1 / -1;
   }
 
