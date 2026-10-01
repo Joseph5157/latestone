@@ -10,6 +10,14 @@ pymssql==2.3.5
 python-dotenv==1.0.1
 pandas==2.2.3
 gunicorn==23.0.0
+# waitress (ADR-034, CLIENT-LAPTOP-DEPLOYMENT-PREP-01) — the production WSGI
+# server for the Windows client laptop. Gunicorn (above) is Linux/Railway only:
+# it imports the Unix-only `fcntl` and cannot run on Windows. waitress is the
+# standard pure-Python, Windows-capable WSGI server (no system libraries), so
+# the existing stack cannot serve `app:server` on Windows without it. The Dash
+# development server is not an acceptable production start path. Client start
+# command: `waitress-serve --listen=0.0.0.0:8050 app:server`.
+waitress==3.0.2
 dash-ag-grid==35.2.0
 # stdlib zoneinfo (config/forwarding_schedule.py, C08-AUTO-DISABLE-1) needs an
 # IANA tz database. Linux/Railway containers ship one at the OS level;

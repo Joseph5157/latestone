@@ -2,11 +2,17 @@
 
 ## What this is
 
-A web dashboard for monitoring 30 power plants, their transformers and
-devices, across 8 electrical metrics (temperature, voltage, current, active
-power, reactive power, power factor, frequency, energy). It runs on your own
-PC: a local PostgreSQL database plus a Python web application you open in
-your browser.
+A web dashboard for monitoring the client's Remote Temperature Loggers (RTLs)
+and the transformer/network context around them. It runs on your own PC: a
+local PostgreSQL database (application state — users, assignments, temperature
+limits) plus a read-only connection to the client RTL SQL Server (the RTL
+temperature source), behind a Python web application you open in your browser.
+
+> **This is the local / development quickstart**, using synthetic sample data
+> for the application database. For a **production client-laptop installation**
+> (real read-only client SQL Server, `APP_ENV=production`, Administrator and
+> Technician bootstrap, no synthetic seed), follow **`docs/CLIENT_INSTALLATION.md`**
+> instead.
 
 ## Prerequisites
 
@@ -25,8 +31,8 @@ Run these steps once, in order, from the project folder.
 **1. Get the project**
 
 ```bash
-git clone https://github.com/Joseph5157/powerplant-dashboard-client.git
-cd powerplant-dashboard-client
+git clone https://github.com/Joseph5157/rtl-monitoring-platform.git
+cd rtl-monitoring-platform
 ```
 
 **2. Create your local settings file**
@@ -143,27 +149,26 @@ can keep running in the background, or stop it with `docker compose stop`.
 
 ## Using the dashboard
 
-Navigation drills down through the plant hierarchy:
+After login, Administrators and Technicians land on the Command Center and
+General Users on their overview. The real RTL product is reached from the
+left navigation:
 
-**Plants overview** → click a plant → **Plant detail** (its transformers) →
-click a transformer → **Transformer detail** (its devices) → click a device
-→ **Device dashboard**.
+- **Registered RTLs** (`/rtls`) — the registered RTL devices; click a row to
+  open its detail.
+- **RTL detail** (`/rtls/<uid>`) — temperature history, context and status for
+  one real RTL, with a metric chart, a readings table and a freshness badge.
+- **Network** — the transformer/network context around the RTLs.
+- **Historical Events** (`/events`) — recorded operational events.
+- **Technician Assignments** (`/technicians/assignments`) — which Technician is
+  assigned which RTLs; Technicians see only their assigned RTLs.
+- **Reports** (`/reports`) — Installed RTLs, RTL Alarms (30 Days), Maximum
+  Temperature.
+- **Users / Settings** (Administrators) — accounts, audit log, temperature
+  limits.
 
-The device dashboard is the main operator view:
-
-- **Equipment context bar** — which plant, transformer and device you're
-  looking at, and its status.
-- **8-metric snapshot strip** — one tile per metric with its current value;
-  click a tile to focus that metric below.
-- **Metric selector + period filter** — switch metrics, and choose 24h / 7d
-  / 30d / a custom date range.
-- **KPI row** — current / minimum / maximum / average for most metrics;
-  current / period change for energy (it's cumulative).
-- **Chart** — a zoomable, pannable line chart of the selected metric over
-  the chosen period.
-- **Recent readings table** — the underlying raw readings, newest first.
-- **Freshness badge** — shows whether the latest data is fresh, stale, or
-  missing.
+> The earlier synthetic "Plants → Transformer → Device" drill-down has been
+> retired; those routes now show a "view has been retired" panel and are not
+> part of normal navigation.
 
 ## Troubleshooting
 

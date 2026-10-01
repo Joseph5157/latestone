@@ -1,12 +1,18 @@
-"""Guard: fail if internal engineering material is present in `client-release`.
+"""Guard: fail if internal engineering material is present in a release tree.
 
-`client-release` is an orphan branch curated by hand (docs/CLIENT_DELIVERY.md),
-so exclusion relies on a human not copying a file. This turns the manual
-`git ls-tree` sanity check that doc already recommends into something runnable.
+This is the single source of truth for the client-release exclusion contract
+(ADR-034). `scripts/build_client_release.py` imports `violations()` from here
+so the deterministic export and this validation can never drift.
 
-Run before every push to the client remote:
+It validates the tracked Git tree of any ref — a commit SHA, tag, or branch —
+by `git ls-tree`, so it works against the exact approved release SHA, not a
+working directory. (The historical `client-release` orphan branch is the
+default arg only for backward compatibility; ADR-034 supersedes that
+mechanism.)
 
-    python scripts/check_client_release.py [branch]
+Run before every release push:
+
+    python scripts/check_client_release.py <ref>
 
 Exit status 0 = clean, 1 = internal material found, 2 = could not check.
 """
@@ -36,6 +42,7 @@ FORBIDDEN_FILES = {
     "docs/DEMO_RUNSHEET.md",
     "scripts/check_client_release.py",
     "scripts/build_context_pack.py",
+    "scripts/build_client_release.py",
     # --- added after CLIENT-SYNC-2A, which found these tracked on `main`
     # --- and reachable by a careless copy while this guard stayed silent.
     #
@@ -72,6 +79,22 @@ FORBIDDEN_FILES = {
     # docs/CLIENT_DELIVERY.md.
     "tests/test_build_context_pack_check.py",
     "tests/test_context_pack_gate_guard.py",
+    # --- CLIENT-LAPTOP-DEPLOYMENT-PREP-01 (ADR-034): internal client SQL Server
+    # --- material. The consolidated verified-evidence knowledge base and the
+    # --- local restore spec are internal references, not client operational
+    # --- docs. `docs/database/RTL_READ_ONLY_ACCESS.md` is deliberately NOT
+    # --- listed here — it is operational (the client must create a read-only
+    # --- login) and the owner confirmed it ships (CLIENT-LAPTOP-DEPLOYMENT-PREP-01).
+    "docs/database/CLIENT_RTL_SQLSERVER_KNOWLEDGE_BASE.md",
+    "docs/database/CLIENT_RTL_LOCAL_SETUP.md",
+    # Top-level engineering/reference specs — internal design material, not
+    # required for client runtime or installation (owner decision, gate
+    # CLIENT-LAPTOP-DEPLOYMENT-PREP-01). `docs/database/RTL_READ_ONLY_ACCESS.md`
+    # is deliberately kept IN the release — it is operationally required.
+    "ARCHITECTURE.md",
+    "DATABASE.md",
+    "REQUIREMENTS.md",
+    "UI_SPEC.md",
 }
 
 #: Any path under one of these directories is internal.
@@ -81,6 +104,16 @@ FORBIDDEN_PREFIXES = (
     "docs/archive/",
     "docs/superpowers/",
     "docs/planning/",
+    # `docs/plans/` is a DISTINCT directory from `docs/planning/` and carries
+    # the same class of internal planning material; it was silently shipping.
+    "docs/plans/",
+    # Our clarification packs and DB-clarification trackers addressed TO the
+    # client. Internal correspondence, not operational documentation.
+    "docs/client/",
+    # Internal audit/acceptance records and their run/console logs. The `.log`
+    # suffix rule below already caught the logs; this prefix also stops the
+    # audit `.md` write-ups shipping (ADR-034, CLIENT-LAPTOP-DEPLOYMENT-PREP-01).
+    "docs/audit/",
     "command center/",
     "scratch/",
     ".superpowers/",

@@ -2,29 +2,55 @@
 
 Status: **OPEN**
 Date: 2026-10-01
-Gate: REPORTS-REALIGNMENT-02 — Realign report asset-scope to the real RTL/network model
-Baseline: the REPORTS-REALIGNMENT-01 closing commit (`refactor(reports): remove demo report history` on `latestone/main`); the exact SHA is recorded at this gate's start.
-Commit/push permission: **NOT GRANTED** — not yet started; scope is determined during this gate, then implement, test, and stop for owner review before commit/push.
+Gate: CLIENT-LAPTOP-DEPLOYMENT-PREP-01 — Prepare the verified development checkpoint for a safe, reproducible client deployment
+Baseline: `881e522e6bd1a9ce7239fd2f6d23b5099092540a` on `main` (active-development remote `latestone` → `rtl-monitoring-platform-dev`); context pack CLEAN via `--check` at gate open.
+Commit/push permission: **NOT GRANTED** — make the scoped preparation changes and run validation, then stop for owner review before any commit, and before any push to the `deployment` remote.
 
-## Next implementation gate: REPORTS-REALIGNMENT-02 — OPEN
+## Next implementation gate: CLIENT-LAPTOP-DEPLOYMENT-PREP-01 — OPEN
 
-**Status: recorded, not yet started.** The owner authorised this as the next
-gate on 2026-10-01 when REPORTS-REALIGNMENT-01 closed. No implementation has
-begun; this section exists so the file declares exactly one open gate.
+**Goal.** Produce a verified, documented, reproducible release path from the
+active-development repository (`rtl-monitoring-platform-dev`) into the new
+client deployment repository (`rtl-monitoring-platform`) and onward to a
+clean client-laptop installation. This is a **deployment-preparation gate**,
+not feature development. The durable release architecture is recorded in
+ADR-034 (filtered Git-tree export from an exact approved SHA).
 
-**Goal.** Realign the report *asset-scope filter* from the synthetic
-`DeviceScope` + Plant → Transformer → Device cascade to the real client
-RTL/network model (ADR-032). The three factual report *definitions* (Installed
-RTLs, RTL Alarms (30 Days), Maximum Temperature) are already on the real client
-column contract and are not in question here — only how a report is *scoped* to
-assets is.
+### Relevant files
 
-**Scope is determined during this gate, not pre-locked.** The durable scope
-contract (e.g. Fleet / Transformer / RTL vs Fleet / RTL, and how Network maps
-in) is an open decision to be settled with its own ADR while this gate runs.
-`Relevant files`, `Required tests` and `Non-goals` are fixed at gate start once
-that shape is chosen; citing them now would pre-lock the design the owner asked
-to keep open.
+- `docs/decisions/ADR-034-client-deployment-release-architecture.md` (new) —
+  the release/repository architecture decision.
+- `docs/context/REPOSITORY_AND_DEPLOYMENT_MAP.md` — repo-roles authority,
+  realigned to the four-repo model.
+- `scripts/check_client_release.py` — release exclusion validator; `docs/audit/`
+  added to forbidden prefixes.
+- `scripts/build_client_release.py` (new) — deterministic filtered export.
+- `docs/GETTING_STARTED.md`, `docs/CLIENT_INSTALLATION.md` (new),
+  `docs/CLIENT_RELEASE_NOTES.md` (new) — client-facing operational docs.
+
+### Non-goals (explicit)
+
+- No push to `deployment`; no modification of legacy repos; no
+  `REPORTS-REALIGNMENT-02`; no Program RTL; no Control Center features; no
+  SQL Server schema/data change. SQL Server stays READ-ONLY.
+- No wholesale copy of the development working tree; releases are built from
+  tracked Git content at an exact SHA only (ADR-034).
+
+### Required validation
+
+`python scripts/build_context_pack.py --check` (green at open and close);
+`python scripts/check_client_release.py <ref>`; `python -m pytest -m "not db"`.
+
+## Queued (NOT STARTED): REPORTS-REALIGNMENT-02
+
+**Status: recorded, not started.** Authorised 2026-10-01 as a later gate;
+deliberately not opened while CLIENT-LAPTOP-DEPLOYMENT-PREP-01 is the single
+open gate. Goal (unchanged, for the record): realign the report *asset-scope
+filter* from the synthetic `DeviceScope` + Plant → Transformer → Device
+cascade to the real client RTL/network model (ADR-032), with its own ADR; the
+three factual report definitions (Installed RTLs, RTL Alarms (30 Days),
+Maximum Temperature) are already on the real client column contract and are
+not in question. `Relevant files`/`Required tests`/`Non-goals` are fixed when
+that gate is opened, not now.
 
 ## REPORTS-REALIGNMENT-01 — CLOSED / PASS (previous gate, kept for record)
 

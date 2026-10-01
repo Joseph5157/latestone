@@ -2,9 +2,27 @@
 
 Status: **AGREED WORKING BASELINE**
 Date recorded: 2026-09-14
-Last updated: 2026-09-18 — added the Railway demo deployment (§4a)
+Last updated: 2026-10-01 — realigned to the four-repo canonical model (ADR-034, CLIENT-LAPTOP-DEPLOYMENT-PREP-01)
 
 This document records the agreed repository, machine, and delivery boundaries for the RTL project so future work does not confuse development, client delivery, and the client's Azure integration area.
+
+## 0. Canonical repository roles (2026-10-01, ADR-034)
+
+Four repositories, four roles. Local remote name → GitHub repository → role:
+
+| Local remote | Repository | Role |
+|---|---|---|
+| `latestone` | `Joseph5157/rtl-monitoring-platform-dev` | **Active development** — authoritative engineering source (was `latestone`, earlier `powerplant-monitoring`). |
+| `deployment` | `Joseph5157/rtl-monitoring-platform` | **Client deployment/release** — approved release snapshots only; never a feature-development target. |
+| `client` | `Joseph5157/RTL-Legacy` | **Legacy client** — old client installation, rollback/reference only (was `powerplant-dashboard-client`). |
+| `origin` | `Joseph5157/rtl-monitoring-platform-dev-legacy` | **Legacy development** — historical reference only (was `powerplant-monitoring`). |
+
+Releases flow dev → deployment → client laptop, as a deterministic filtered
+Git-tree export from an exact approved SHA (ADR-034). The client laptop
+clones/pulls only from the deployment repository. The two legacy repositories
+are not modified until the new installation is verified. Sections 1–5 below are
+retained for history; where they name older repository URLs, this section is
+authoritative.
 
 ## 1. Main development environment
 
