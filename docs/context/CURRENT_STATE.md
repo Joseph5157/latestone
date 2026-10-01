@@ -1,7 +1,7 @@
 # Current State
 
 Status: generated
-Date: 2026-10-01T12:23:55Z
+Date: 2026-10-01T16:21:12Z
 
 Regenerate with `python scripts/build_context_pack.py`. Never hand-edit —
 every fact here is derived from git, the test suite, and docs/decisions/.
@@ -12,12 +12,12 @@ Before any work involving the client RTL SQL Server, read `docs/database/CLIENT_
 
 ## Baseline
 
-- `main` = `c0a434b` "refactor(ui): retire legacy synthetic client paths"
-- Working tree: 25 entries — see below
+- `main` = `37c8e7d` "chore(deploy): prepare client release workflow"
+- Working tree: 7 entries — see below
 
 ## Test baseline
 
-- `python -m pytest -m "not db"` → 3681 passed, 3 skipped, 807 deselected in 58.07s
+- `python -m pytest -m "not db"` → 3681 passed, 3 skipped, 807 deselected in 56.15s
 
 ## Branches
 
@@ -71,14 +71,13 @@ Diverged from `main` (has commits `main` doesn't):
 
 | Branch | Unique commits | Behind main | Note |
 |---|---|---|---|
-| `cc-1-command-center-progress` | 15 | 501 | REVIEW — unexpected divergence |
-| `client-demo-1` | 7 | 351 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `client-release` | 12 | 501 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
-| `wip/reports-realignment-01-snapshot` | 1 | 0 | REVIEW — unexpected divergence |
+| `cc-1-command-center-progress` | 15 | 503 | REVIEW — unexpected divergence |
+| `client-demo-1` | 7 | 353 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
+| `client-release` | 12 | 503 | expected — delivery branch, see docs/CLIENT_DELIVERY.md |
 
 ## Decisions
 
-33 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
+34 ADR(s) in `docs/decisions/`. See `docs/context/DECISION_INDEX.md` for the full index.
 
 | ADR | Status | Implemented-by |
 |---|---|---|
@@ -115,38 +114,21 @@ Diverged from `main` (has commits `main` doesn't):
 | ADR-031-current-network-context-derives-from-registered-rtls-and-current-mapping.md | Approved | `428e092` (`feat(rtl): add current network context`; full sha 428e092ac65b9b2ae239c819826c55a428293491 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-030 did) |
 | ADR-032-technician-access-is-scoped-to-assigned-client-rtls.md | Approved | `ec3be92` (`feat(technicians): scope access to assigned RTLs`; full sha ec3be9243acc54975816f79f3fcadb73018455ef — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-031 did) |
 | ADR-033-local-application-authentication-is-authoritative.md | Approved | `78688f4` (`feat(auth): harden local application login`; full sha 78688f457189887f06d220e8b81acb7f7936adb9 — the commit carries this ADR too, so the sha is recorded here afterwards, as ADR-031/032 did) |
+| ADR-034-client-deployment-release-architecture.md | Approved | not yet (CLIENT-LAPTOP-DEPLOYMENT-PREP-01; commit/push NOT GRANTED at gate open) |
 
 ## Active gate
 
-REPORTS-REALIGNMENT-02 — Realign report asset-scope to the real RTL/network model — full detail in `docs/context/ACTIVE_GATE.md`.
+CLIENT-DEPLOYMENT-RELEASE-01 — First client deployment release into `rtl-monitoring-platform` — full detail in `docs/context/ACTIVE_GATE.md`.
 
 ## Working tree
 
 ```
-D  "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
-A  "Remote Temperature Logger  Functional Specification RTL v0.md"
- M assets/app.css
- M callbacks/report_center.py
-A  docs/audit/project-audit-1/results/01_BASELINE_AND_SOURCE_AUTHORITY.md
-A  docs/audit/project-audit-1/results/02_REQUIREMENTS_TRACEABILITY.md
-A  docs/audit/project-audit-1/results/03_ARCHITECTURE_DATA_LIFECYCLE.md
-A  docs/audit/project-audit-1/results/04_ROLES_AUTH_SECURITY.md
-A  docs/audit/project-audit-1/results/05_FLEET_COMMAND_CENTER_UX.md
-A  docs/audit/project-audit-1/results/06_NOTIFICATIONS_ALARMS_FORWARDING.md
-A  docs/audit/project-audit-1/results/07_REPORTS_EXPORTS.md
-A  docs/audit/project-audit-1/results/08_RTL_INTERFACES_AND_INTEGRATIONS.md
-A  docs/audit/project-audit-1/results/09_ENTERPRISE_DEPLOYMENT_READINESS.md
-A  docs/audit/project-audit-1/results/10_TESTS_DEFECTS_TECH_DEBT.md
-A  docs/audit/project-audit-1/results/11_CLIENT_FEEDBACK_CLOSURE.md
-A  docs/audit/project-audit-1/results/12_REQUIREMENT_IMPLEMENTATION_MATRIX.md
-A  docs/audit/project-audit-1/results/13_CONTRADICTION_VERIFICATION.md
-A  docs/audit/project-audit-1/results/AUDIT_PACK_MANIFEST.md
-A  docs/audit/project-audit-1/results/FINAL_AUDIT_SUMMARY.md
+D "DEM-2788838 Digital Incubator - RTL PAD  v0.7.pdf"
+ M docs/CLIENT_RELEASE_NOTES.md
  M docs/context/ACTIVE_GATE.md
  M docs/context/CURRENT_STATE.md
- M pages/report_center.py
- M tests/test_report_center.py
 ?? .test-tmp/
-?? docs/audit/reports-realignment-01/
+?? "Remote Temperature Logger  Functional Specification RTL v0.md"
+?? docs/audit/project-audit-1/results/
 ```
 

@@ -6,12 +6,13 @@ deterministic filtered Git-tree export from an exact development SHA (ADR-034).
 
 ## Unreleased — first client deployment (prepared, not yet pushed)
 
-- **Source development SHA:** `881e522e6bd1a9ce7239fd2f6d23b5099092540a`
-  (`rtl-monitoring-platform-dev`, branch `main`).
+- **Source development SHA:** `37c8e7df7c44e3ae4caa29188aac24633996ae0f`
+  (`rtl-monitoring-platform-dev`, branch `main`) — the CLIENT-LAPTOP-DEPLOYMENT-PREP-01
+  closing checkpoint.
 - **Proposed release tag:** `client-v0.1.0` (see tag strategy below).
-- **Status:** prepared under CLIENT-LAPTOP-DEPLOYMENT-PREP-01; **not yet
-  pushed** to the deployment repository (push authorization pending owner
-  review).
+- **Status:** preparation closed under CLIENT-LAPTOP-DEPLOYMENT-PREP-01; the
+  release itself (export, deployment-repo push, tag) is handled under
+  CLIENT-DEPLOYMENT-RELEASE-01 and is **not yet done** — authorization pending.
 
 ### What this release contains
 - The RTL monitoring application: Registered RTLs, RTL detail and temperature

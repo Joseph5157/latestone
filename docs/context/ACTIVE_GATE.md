@@ -2,55 +2,62 @@
 
 Status: **OPEN**
 Date: 2026-10-01
-Gate: CLIENT-LAPTOP-DEPLOYMENT-PREP-01 — Prepare the verified development checkpoint for a safe, reproducible client deployment
-Baseline: `881e522e6bd1a9ce7239fd2f6d23b5099092540a` on `main` (active-development remote `latestone` → `rtl-monitoring-platform-dev`); context pack CLEAN via `--check` at gate open.
-Commit/push permission: **NOT GRANTED** — make the scoped preparation changes and run validation, then stop for owner review before any commit, and before any push to the `deployment` remote.
+Gate: CLIENT-DEPLOYMENT-RELEASE-01 — First client deployment release into `rtl-monitoring-platform`
+Baseline: the CLIENT-LAPTOP-DEPLOYMENT-PREP-01 closing commit `37c8e7df7c44e3ae4caa29188aac24633996ae0f` on `latestone/main` (`rtl-monitoring-platform-dev`).
+Commit/push permission: **NOT GRANTED** — not started; scope is separately authorized before any work, and the first `deployment` push is explicitly gated.
 
-## Next implementation gate: CLIENT-LAPTOP-DEPLOYMENT-PREP-01 — OPEN
+## Next implementation gate: CLIENT-DEPLOYMENT-RELEASE-01 — NOT STARTED
 
-**Goal.** Produce a verified, documented, reproducible release path from the
-active-development repository (`rtl-monitoring-platform-dev`) into the new
-client deployment repository (`rtl-monitoring-platform`) and onward to a
-clean client-laptop installation. This is a **deployment-preparation gate**,
-not feature development. The durable release architecture is recorded in
-ADR-034 (filtered Git-tree export from an exact approved SHA).
+**Status: planned, not started.** The deployment-preparation gate
+(CLIENT-LAPTOP-DEPLOYMENT-PREP-01) is closed; this gate performs the first
+actual client deployment release. **Do not begin until separately authorized.**
 
-### Relevant files
+**Planned scope (fixed at gate open, not now):** create the deterministic
+release from the approved development SHA (`37c8e7d…`) with
+`scripts/build_client_release.py`; initialize/populate
+`Joseph5157/rtl-monitoring-platform` (`deployment`); validate the deployment
+tree with `scripts/check_client_release.py`; create the `client-v0.1.0` tag;
+push and independently verify the deployment repository; prepare the exact
+client-laptop install checkpoint (per `docs/CLIENT_INSTALLATION.md`). ADR-034
+governs the release architecture. Legacy repos are not touched.
 
-- `docs/decisions/ADR-034-client-deployment-release-architecture.md` (new) —
-  the release/repository architecture decision.
-- `docs/context/REPOSITORY_AND_DEPLOYMENT_MAP.md` — repo-roles authority,
-  realigned to the four-repo model.
-- `scripts/check_client_release.py` — release exclusion validator; `docs/audit/`
-  added to forbidden prefixes.
-- `scripts/build_client_release.py` (new) — deterministic filtered export.
-- `docs/GETTING_STARTED.md`, `docs/CLIENT_INSTALLATION.md` (new),
-  `docs/CLIENT_RELEASE_NOTES.md` (new) — client-facing operational docs.
+## CLIENT-LAPTOP-DEPLOYMENT-PREP-01 — CLOSED / PASS (previous gate, kept for record)
 
-### Non-goals (explicit)
+Implemented-by: `37c8e7df7c44e3ae4caa29188aac24633996ae0f`
+(`chore(deploy): prepare client release workflow` on `latestone/main`).
 
-- No push to `deployment`; no modification of legacy repos; no
-  `REPORTS-REALIGNMENT-02`; no Program RTL; no Control Center features; no
-  SQL Server schema/data change. SQL Server stays READ-ONLY.
-- No wholesale copy of the development working tree; releases are built from
-  tracked Git content at an exact SHA only (ADR-034).
+**Remote verification at close (2026-10-01):** local HEAD =
+`git rev-parse latestone/main` = `git ls-remote latestone refs/heads/main` =
+`37c8e7df7c44e3ae4caa29188aac24633996ae0f`. Fast-forward `881e522..37c8e7d`.
+Nothing pushed to `deployment`; no legacy repo touched; `client-v0.1.0` not
+created.
 
-### Required validation
+**Validation at close:** context pack CLEAN (`--check`); full non-DB suite
+`pytest -m "not db"` passed; `git diff --check` clean; a deterministic release
+export from `37c8e7d` validated CLEAN (717 tracked → 444 include / 273 exclude,
+0 forbidden paths).
 
-`python scripts/build_context_pack.py --check` (green at open and close);
-`python scripts/check_client_release.py <ref>`; `python -m pytest -m "not db"`.
+**What this gate established.** The four-repo canonical model
+(`docs/context/REPOSITORY_AND_DEPLOYMENT_MAP.md` §0) and ADR-034 (client
+deployment is a filtered Git-tree export from an exact SHA, never a
+working-tree copy); the single-source-of-truth release exclusion contract in
+`scripts/check_client_release.py` + the deterministic exporter
+`scripts/build_client_release.py`; `waitress==3.0.2` as the Windows
+client-laptop WSGI server (Gunicorn is Linux/Railway only); corrected and new
+client-facing docs (`GETTING_STARTED.md`, `CLIENT_INSTALLATION.md`,
+`CLIENT_RELEASE_NOTES.md`). This was a deployment-*preparation* gate; the first
+actual deployment release is CLIENT-DEPLOYMENT-RELEASE-01 above.
 
 ## Queued (NOT STARTED): REPORTS-REALIGNMENT-02
 
-**Status: recorded, not started.** Authorised 2026-10-01 as a later gate;
-deliberately not opened while CLIENT-LAPTOP-DEPLOYMENT-PREP-01 is the single
-open gate. Goal (unchanged, for the record): realign the report *asset-scope
-filter* from the synthetic `DeviceScope` + Plant → Transformer → Device
-cascade to the real client RTL/network model (ADR-032), with its own ADR; the
-three factual report definitions (Installed RTLs, RTL Alarms (30 Days),
-Maximum Temperature) are already on the real client column contract and are
-not in question. `Relevant files`/`Required tests`/`Non-goals` are fixed when
-that gate is opened, not now.
+**Status: recorded, not started**, and queued **behind**
+CLIENT-DEPLOYMENT-RELEASE-01. Goal (unchanged, for the record): realign the
+report *asset-scope filter* from the synthetic `DeviceScope` + Plant →
+Transformer → Device cascade to the real client RTL/network model (ADR-032),
+with its own ADR; the three factual report definitions (Installed RTLs, RTL
+Alarms (30 Days), Maximum Temperature) are already on the real client column
+contract and are not in question. `Relevant files`/`Required tests`/`Non-goals`
+are fixed when that gate is opened, not now.
 
 ## REPORTS-REALIGNMENT-01 — CLOSED / PASS (previous gate, kept for record)
 
