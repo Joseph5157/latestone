@@ -61,6 +61,40 @@ class TestInternalMaterialIsRefused:
         assert violations(["debug.log"])
 
 
+class TestDevelopmentTestArtifactsAreRefused:
+    """ADR-034 §TESTS: the dev test tree and its runner files never ship."""
+
+    def test_whole_tests_tree_is_refused(self):
+        paths = [
+            "tests/conftest.py",
+            "tests/test_attention_service.py",
+            "tests/test_br016_ownership.py",
+            "tests/fixtures/data.json",
+        ]
+        assert violations(paths) == sorted(paths)
+
+    def test_test_runner_config_and_scripts_are_refused(self):
+        paths = [
+            "pytest.ini",
+            "requirements-dev.txt",
+            "scripts/test_fast.ps1",
+            "scripts/test_full.ps1",
+        ]
+        assert violations(paths) == sorted(paths)
+
+    def test_runtime_requirements_and_operational_scripts_still_pass(self):
+        assert violations(
+            [
+                "requirements.txt",
+                "scripts/auth_preflight.py",
+                "scripts/bootstrap_admin.py",
+                "scripts/bootstrap_rtl_assignments.py",
+                ".gitignore",
+                ".gitattributes",
+            ]
+        ) == []
+
+
 class TestDeliverableMaterialIsAllowed:
     def test_application_source_passes(self):
         assert violations(
@@ -87,9 +121,4 @@ class TestDeliverableMaterialIsAllowed:
                 "docs/DEMO_WALKTHROUGH.md",
                 ".env.example",
             ]
-        ) == []
-
-    def test_ordinary_tests_pass(self):
-        assert violations(
-            ["tests/test_attention_service.py", "tests/test_br016_ownership.py"]
         ) == []

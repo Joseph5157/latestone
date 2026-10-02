@@ -95,6 +95,14 @@ FORBIDDEN_FILES = {
     "DATABASE.md",
     "REQUIREMENTS.md",
     "UI_SPEC.md",
+    # --- CLIENT-DEPLOYMENT-RELEASE-01 (ADR-034 §TESTS): development test
+    # --- runner/config files. The general `tests/` tree (FORBIDDEN_PREFIXES)
+    # --- is not delivered, so its runner config and helper scripts are not
+    # --- either.
+    "pytest.ini",
+    "requirements-dev.txt",
+    "scripts/test_fast.ps1",
+    "scripts/test_full.ps1",
 }
 
 #: Any path under one of these directories is internal.
@@ -115,6 +123,10 @@ FORBIDDEN_PREFIXES = (
     # audit `.md` write-ups shipping (ADR-034, CLIENT-LAPTOP-DEPLOYMENT-PREP-01).
     "docs/audit/",
     "command center/",
+    # The development test tree is never delivered (ADR-034 §TESTS); client
+    # installation verification is `scripts/auth_preflight.py` plus a browser
+    # acceptance pass, documented in docs/CLIENT_INSTALLATION.md.
+    "tests/",
     "scratch/",
     ".superpowers/",
     ".claude/",
